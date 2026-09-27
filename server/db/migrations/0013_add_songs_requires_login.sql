@@ -1,0 +1,2 @@
+-- Migration number: 0013 2026-08-23T00:00:00.000Z
+ALTER TABLE Songs ADD COLUMN requires_login INTEGER NOT NULL DEFAULT 0;

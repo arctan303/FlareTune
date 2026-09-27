@@ -1,0 +1,3 @@
+# Required for first-time instance setup and known blocked database upgrades.
+# Replace this placeholder with a high-entropy value during deployment.
+SETUP_SECRET=

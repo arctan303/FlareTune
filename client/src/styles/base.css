@@ -1,0 +1,329 @@
+/* ==========================================================================
+   Base Design Tokens, Reset & Ambient Environment
+   ========================================================================== */
+
+/* 全局极简精致滚动条 */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line, rgba(128, 128, 128, 0.25));
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted, rgba(128, 128, 128, 0.45));
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line, rgba(128, 128, 128, 0.25)) transparent;
+}
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-serif: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --page: #ffffff;
+  --surface: #f4f4f5;
+  --surface-raised: #ffffff;
+  --ink: #18181b;
+  --muted: #52525b;
+  --faint: #595962;
+  --line: rgba(0, 0, 0, 0.08);
+  --soft-line: rgba(0, 0, 0, 0.04);
+  --accent: #0284c7;
+  --accent-strong: #0369a1;
+  --danger: #dc2626;
+  --player-bg: rgba(255, 255, 255, 0.10);
+  --player-line: rgba(0, 0, 0, 0.08);
+  --player-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --glass-blur: blur(4px) saturate(100%);
+  --player-glass-blur: blur(4px) saturate(100%);
+  --drawer-glass-blur: blur(4px) saturate(100%);
+  --drawer-bg: #fafafa;
+  /* 液态玻璃受光填充：跟随主题 --player-bg + 封面微弱折射 */
+  --player-glass-fill: color-mix(in srgb, var(--cover-accent, var(--accent)) 2%, var(--player-bg));
+  /* 液态玻璃表面骨架：微弱天光 + 均匀轻描边 */
+  --glass-top-light: rgba(255, 255, 255, 0.15);
+  --glass-edge-gradient: rgba(0, 0, 0, 0.05);
+  --drawer-line: rgba(255, 255, 255, 0.35);
+  /* 交互反馈底色：由 --ink 派生，浅色/深色下都可见；用于透明背景上的图标按钮与行内动作 */
+  --hover-tint: color-mix(in srgb, var(--ink) 8%, transparent);
+  /* 圆角层级：控件 10px、卡片 12px（Design-Brief：卡片约 10–12px） */
+  --radius-control: 10px;
+  --radius-card: 12px;
+}
+
+@property --page {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffffff;
+}
+
+@property --surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f4f4f5;
+}
+
+@property --surface-raised {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffffff;
+}
+
+@property --ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #18181b;
+}
+
+@property --muted {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #52525b;
+}
+
+@property --faint {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #595962;
+}
+
+@property --line {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(0, 0, 0, 0.08);
+}
+
+@property --soft-line {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(0, 0, 0, 0.04);
+}
+
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0284c7;
+}
+
+@property --accent-strong {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0369a1;
+}
+
+@property --swatch {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0284c7;
+}
+
+@property --danger {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #dc2626;
+}
+
+@property --player-bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(255, 255, 255, 0.04);
+}
+
+@property --player-line {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(0, 0, 0, 0.08);
+}
+
+@property --drawer-bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #fafafa;
+}
+
+@property --drawer-line {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(255, 255, 255, 0.60);
+}
+
+:root,
+.music-shell {
+  transition:
+    --page 360ms ease,
+    --surface 360ms ease,
+    --surface-raised 360ms ease,
+    --ink 360ms ease,
+    --muted 360ms ease,
+    --faint 360ms ease,
+    --line 360ms ease,
+    --soft-line 360ms ease,
+    --accent 360ms ease,
+    --accent-strong 360ms ease,
+    --swatch 360ms ease,
+    --danger 360ms ease,
+    --player-bg 360ms ease,
+    --player-line 360ms ease,
+    --drawer-bg 360ms ease,
+    --drawer-line 360ms ease;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background: var(--page);
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+}
+
+html[data-fullscreen-open],
+html[data-fullscreen-open] body,
+html[data-fullscreen-open] #root,
+html[data-fullscreen-open] .music-shell {
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+}
+
+html[data-fullscreen-open]::-webkit-scrollbar,
+html[data-fullscreen-open] body::-webkit-scrollbar,
+html[data-fullscreen-open] #root::-webkit-scrollbar,
+html[data-fullscreen-open] .music-shell::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.music-shell {
+  /* 超透光学玻璃（Ultra-Clear Glass）：超低模糊 4px、自然饱和度 100%、高通透无磨砂感 */
+  --glass-blur: blur(4px) saturate(100%);
+  --player-glass-blur: var(--glass-blur);
+  --player-glass-fill: color-mix(in srgb, var(--cover-accent, var(--accent)) 2%, var(--player-bg));
+  /* 边缘高光：微弱天光高光 */
+  --player-glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  position: relative;
+  isolation: isolate;
+  color: var(--ink);
+  background: var(--page);
+  transition:
+    --page 360ms ease,
+    --surface 360ms ease,
+    --surface-raised 360ms ease,
+    --ink 360ms ease,
+    --muted 360ms ease,
+    --faint 360ms ease,
+    --line 360ms ease,
+    --soft-line 360ms ease,
+    --accent 360ms ease,
+    --accent-strong 360ms ease,
+    --swatch 360ms ease,
+    --danger 360ms ease,
+    --player-bg 360ms ease,
+    --player-line 360ms ease,
+    --drawer-bg 360ms ease,
+    --drawer-line 360ms ease;
+}
+
+/* 暗色：液态玻璃转为深色受光渐变与原生深色主题全局变量兜底 */
+html.dark {
+  --ink: #fafafa;
+  --muted: #d4d4d8;
+}
+
+html.dark .music-shell {
+  --glass-blur: blur(4px) saturate(100%);
+  --player-glass-blur: var(--glass-blur);
+  --player-glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  /* 暗色玻璃表面骨架：天光减弱、边缘描边为均匀微白线 */
+  --glass-top-light: rgba(255, 255, 255, 0.08);
+  --glass-edge-gradient: rgba(255, 255, 255, 0.08);
+}
+
+.shell-environment {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.shell-environment--fluid {
+  background: var(--page);
+}
+
+.shell-wallpaper {
+  --wallpaper-mask-color: rgba(255, 255, 255, var(--wallpaper-opacity, 0.45));
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+  animation: shellWallpaperFadeIn 450ms ease-out forwards;
+}
+
+html.dark .shell-wallpaper {
+  --wallpaper-mask-color: rgba(9, 9, 11, var(--wallpaper-opacity, 0.45));
+}
+
+@keyframes shellWallpaperFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.shell-wallpaper__image {
+  position: absolute;
+  inset: -32px;
+  width: calc(100% + 64px);
+  height: calc(100% + 64px);
+  object-fit: cover;
+  filter: blur(var(--wallpaper-blur, 16px)) brightness(var(--wallpaper-brightness, 0.9));
+  transform: scale(1.06);
+  transition: filter 240ms ease-out, opacity 360ms ease;
+  will-change: filter;
+  pointer-events: none;
+}
+
+.shell-wallpaper__overlay {
+  position: absolute;
+  inset: 0;
+  background-color: var(--wallpaper-mask-color);
+  transition: background-color 300ms ease;
+  pointer-events: none;
+}
+
+.music-shell[data-motion-phase='theme-transition'] .player-console,
+.music-shell[data-motion-phase='fullscreen-enter'] .player-console,
+.music-shell[data-motion-phase='fullscreen-exit'] .player-console,
+.music-shell[data-motion-phase='drawer-transition'] .player-console {
+  animation-play-state: paused !important;
+}
+
+.music-shell[data-motion-phase='drawer-transition'] .theme-drawer .lazy-image__asset.is-revealing {
+  animation-play-state: paused !important;
+}

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "0000000000000001",
+    "title": "晨光信号",
+    "artist": "示例乐团",
+    "album": "虚构曲库",
+    "duration": 184,
+    "audioKey": "audio/0000000000000001.mp3",
+    "coverKey": "cover/0000000000000001.jpg",
+    "lyricsKey": "lyrics/0000000000000001.json",
+    "format": {
+      "container": "MPEG",
+      "codec": "MPEG 1 Layer 3",
+      "sampleRate": 44100,
+      "bitrate": 192000
+    }
+  },
+  {
+    "id": "0000000000000002",
+    "title": "纸上星河",
+    "artist": "示例乐团",
+    "album": "虚构曲库",
+    "duration": 216,
+    "audioKey": "audio/0000000000000002.mp3",
+    "coverKey": "cover/0000000000000002.jpg",
+    "format": {
+      "container": "MPEG",
+      "codec": "MPEG 1 Layer 3",
+      "sampleRate": 44100,
+      "bitrate": 192000
+    }
+  },
+  {
+    "id": "0000000000000003",
+    "title": "远岸回声",
+    "artist": "样本创作者",
+    "album": "演示专辑",
+    "duration": 203,
+    "audioKey": "audio/0000000000000003.mp3",
+    "format": {
+      "container": "MPEG",
+      "codec": "MPEG 1 Layer 3",
+      "sampleRate": 44100,
+      "bitrate": 192000
+    }
+  }
+]

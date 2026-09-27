@@ -1,0 +1,353 @@
+/* ==========================================================================
+   Player Bar & Console (底部常驻播放条与液态玻璃控制台)
+   ========================================================================== */
+
+.player-console {
+  position: relative;
+  border: 1px solid var(--player-line);
+  border-radius: 22px;
+  color: var(--ink);
+  background: var(--player-glass-fill);
+  box-shadow: var(--player-glass-edge), var(--player-shadow);
+  backdrop-filter: var(--player-glass-blur);
+  -webkit-backdrop-filter: var(--player-glass-blur);
+  transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1), box-shadow 300ms ease, border-color 300ms ease, background-color 300ms ease;
+}
+
+.player-console:hover {
+  box-shadow: var(--player-glass-edge), var(--player-shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* 沉浸展开/折叠变形：恢复 height/padding/border-radius 的过渡（.player-console 的 transition 覆盖了 Tailwind 类，此处用更高特异性恢复完整变形动画） */
+.player-dock .player-console {
+  transition-property: transform, box-shadow, border-color, background-color, height, padding, border-radius;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* 沉浸透明材质：悬停/选中时不浮现背景或轮廓描边，任何场景保持全透明 */
+.player-dock .player-console--invisible,
+.player-dock .player-console--invisible:hover {
+  box-shadow: none;
+}
+
+/* 液态玻璃表面骨架：顶部天光清亮受光（厚度） */
+.player-console::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* 顶部天光 + 底部封面氛围光：纯白背景下玻璃也保有折射层次 */
+  background:
+    linear-gradient(180deg, var(--glass-top-light) 0%, rgba(255, 255, 255, 0) 58%);
+}
+
+.player-console::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: var(--glass-edge-gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.player-console__progress {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+}
+
+.player-progress {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  transition: height 200ms ease, background-color 200ms ease;
+}
+
+.player-console:hover .player-progress {
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+.player-console__cover {
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.player-console__title {
+  color: var(--ink);
+}
+
+.player-console__artist,
+.player-console__lyric {
+  color: var(--muted);
+  transition: color 250ms ease;
+}
+
+html.dark .player-console__artist,
+html.dark .player-console__lyric {
+  color: var(--muted, rgba(255, 255, 255, 0.65));
+}
+
+@keyframes lyrics-translation-breathe {
+  0%, 100% { opacity: 0.28; box-shadow: 0 0 0 rgba(96, 165, 250, 0); }
+  50% { opacity: 0.95; box-shadow: 0 0 10px rgba(96, 165, 250, 0.46); }
+}
+
+.player-dock .lyrics-translation-action {
+  isolation: isolate;
+  overflow: visible;
+}
+
+.player-dock .lyrics-translation-action::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  border: 1px solid rgba(96, 165, 250, 0.65);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.player-dock .lyrics-translation-action[data-translation-state='pending'] {
+  cursor: wait;
+}
+
+.player-dock .lyrics-translation-action[data-translation-state='pending']::after {
+  animation: lyrics-translation-breathe 1.6s ease-in-out infinite;
+}
+
+.player-dock .lyrics-translation-action__warning {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  width: 11px;
+  height: 11px;
+  place-items: center;
+  border-radius: 999px;
+  color: #451a03;
+  background: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.88);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.player-console__lyric--current {
+  color: var(--player-lyric-current, var(--accent-strong));
+  text-shadow: var(--player-text-shadow, none);
+  transition: color 300ms ease, text-shadow 300ms ease;
+}
+
+.player-console__lyric-row .synced-lyric-text {
+  text-shadow: none;
+}
+
+/* 激活态歌词行平滑展示：消除硬省略号截断，配合视口蒙版与走字位移平滑移动 */
+.player-console__lyric-row.player-console__lyric--current,
+.player-console__lyric-row:has(.player-console__lyric--current) {
+  text-overflow: clip;
+}
+
+.player-console__lyric-row:has(.synced-lyric-text[data-surface='playerbar'][data-synced='word'][style*='--synced-scroll-x']) {
+  text-overflow: clip;
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    black 14px,
+    black calc(100% - 14px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    black 14px,
+    black calc(100% - 14px),
+    transparent 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the roller's final translateY position, but make line changes
+     immediate and remove the inactive-to-active scale transition. */
+  .player-console__lyric-roller,
+  .player-console__lyric-row {
+    transition: none !important;
+  }
+
+  .player-console__lyric-row {
+    transform: none !important;
+  }
+
+  .player-console__lyric-content {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .player-dock .lyrics-translation-action[data-translation-state='pending']::after {
+    animation: none !important;
+    opacity: 0.65;
+    box-shadow: 0 0 6px rgba(96, 165, 250, 0.2);
+  }
+
+  .player-console__lyric-row:has(.synced-lyric-text[data-surface='playerbar'][data-synced='word']) {
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+  }
+}
+
+.player-console__icon {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--player-icon-color, var(--muted));
+  background: transparent;
+  filter: var(--player-icon-filter, none);
+  transition: color 200ms ease, filter 200ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.player-console__icon:hover {
+  color: var(--player-icon-hover, var(--accent));
+  background: transparent;
+  transform: scale(1.15);
+}
+
+.player-console__icon:active {
+  transform: scale(0.92);
+}
+
+.skip-btn.player-console__icon:hover,
+.skip-btn:hover {
+  transform: scale(1.15);
+}
+
+.skip-btn.player-console__icon:active,
+.skip-btn:active,
+.skip-btn.is-animating {
+  transform: scale(1.15) !important;
+}
+
+.player-console__play {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0;
+  color: var(--player-play-color, var(--ink));
+  background: transparent;
+  box-shadow: none;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), color 200ms ease;
+}
+
+.player-console__play:hover {
+  border: none;
+  color: var(--player-icon-hover, var(--accent));
+  background: transparent;
+  box-shadow: none;
+  transform: scale(1.15);
+}
+
+.music-shell[data-has-wallpaper="true"] .player-console {
+  --player-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.5);
+  --player-icon-filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+html.dark .music-shell[data-has-wallpaper="true"] .player-console {
+  --player-text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65), 0 0 2px rgba(0, 0, 0, 0.85);
+  --player-icon-filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.player-console__play:active {
+  transform: scale(0.92);
+}
+
+.player-console__icon:focus:not(:focus-visible),
+.player-console__play:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.player-console__icon:focus-visible,
+.player-console__play:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 639px) {
+  .app-player-surface {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .player-dock:not(.player-dock--immersive) {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    max-width: none;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--page) 94%, transparent);
+    box-shadow: none;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transform: none;
+  }
+
+  .player-dock:not(.player-dock--immersive)[aria-hidden='true'] {
+    display: none;
+  }
+
+  /* The mobile drawer must use the full workspace height, including the dock slot. */
+  .music-shell:has(.app-sidebar.is-mobile-open) .player-dock:not(.player-dock--immersive) {
+    display: none;
+  }
+
+  .player-dock:not(.player-dock--immersive) .player-console,
+  .player-dock:not(.player-dock--immersive) .player-console:hover {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .player-dock:not(.player-dock--immersive) .player-console::before,
+  .player-dock:not(.player-dock--immersive) .player-console::after {
+    display: none;
+  }
+
+  .player-dock:not(.player-dock--immersive) .player-console__progress {
+    border-radius: 0;
+  }
+
+  .player-console__icon--nav,
+  .player-dock:not(.player-dock--immersive) button[aria-label='上一首'],
+  .player-dock:not(.player-dock--immersive) button[aria-label='下一首'] {
+    display: none !important;
+  }
+}
+
+/* 触屏设备：胶囊进度条仅做视觉指示，不拦截触摸，避免与全屏入口冲突 */
+@media (hover: none), (pointer: coarse) {
+  .player-console__progress { pointer-events: none; }
+}

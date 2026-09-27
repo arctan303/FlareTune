@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-shell-theme="fluid">
+<head>
+    <meta charset="UTF-8">
+    <style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff" id="theme-color-meta">
+    <meta name="referrer" content="no-referrer">
+
+    <!-- 阻塞渲染：统一主题初始化，防 FOUC -->
+    <script>
+      (function(){
+        var shellColors={light:'#ffffff',dark:'#09090b'};
+        function applyTheme(t){
+          var root=document.documentElement;
+          var meta=document.getElementById('theme-color-meta');
+          if(t==='dark'){
+            root.classList.add('dark');
+            root.style.colorScheme='dark';
+            if(meta)meta.setAttribute('content',shellColors.dark);
+          }else{
+            root.classList.remove('dark');
+            root.style.colorScheme='light';
+            if(meta)meta.setAttribute('content',shellColors.light);
+          }
+        }
+        function getTheme(){
+          try{
+            var s=localStorage.getItem('theme_pref');
+            if(!s)return null;
+            var d=JSON.parse(s);
+            if((d.value==='dark'||d.value==='light')&&(!d.expires||d.expires>Date.now()))return d.value;
+            localStorage.removeItem('theme_pref');
+          }catch(e){try{localStorage.removeItem('theme_pref');}catch(_){} }
+          return null;
+        }
+        var t=getTheme()||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+        applyTheme(t);
+      })();
+    </script>
+
+    <title>FlareTune | 自建音频流媒体</title>
+    <meta name="description" content="FlareTune 是面向个人与小型团队的自建音频流媒体应用。">
+    <meta name="robots" content="noindex, nofollow">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="FlareTune">
+    <meta property="og:title" content="FlareTune | 自建音频流媒体">
+    <meta property="og:description" content="FlareTune 是面向个人与小型团队的自建音频流媒体应用。">
+    <meta property="og:locale" content="zh_CN">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="FlareTune | 自建音频流媒体">
+    <meta name="twitter:description" content="FlareTune 是面向个人与小型团队的自建音频流媒体应用。">
+
+    <!-- Favicon（SVG 供现代浏览器标签页，PNG/ICO 供搜索引擎收录；保持同一站点图标） -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon.png" sizes="128x128">
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="apple-touch-icon" href="/favicon.png" sizes="180x180">
+
+    <!-- Google Fonts: existing Inter request; editorial headings use the local system serif stack -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700;900&family=Playfair+Display:ital,wght@1,600;1,700;1,800;1,900&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS handled by Vite -->
+    <!-- React handled by Vite -->
+    <!-- Lucide React handled by Vite -->
+    <!-- Custom CSS handled by Vite -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="antialiased">
+    <!-- 静态 SEO 语义化主标题 -->
+    <h1 class="sr-only">FlareTune | 自建音频流媒体</h1>
+    <!-- 播放器挂载点 -->
+    <div id="root"></div>
+
+    <!-- React Application Logic -->
+    <script type="module" src="/src/entry.jsx"></script>
+</body>
+</html>

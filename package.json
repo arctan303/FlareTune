@@ -1,0 +1,66 @@
+{
+  "name": "flaretune",
+  "version": "1.0.0",
+  "description": "A self-hosted personal audio streaming application for Cloudflare Workers.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config client/vite.config.js",
+    "dev:worker": "wrangler dev --config server/wrangler.local.toml --port 8789 --ip 127.0.0.1 --persist-to worker/.wrangler/state",
+    "ingest:build": "vite build --config tooling/batch-ingest/vite.config.js",
+    "ingest": "npm run ingest:build && node tooling/batch-ingest/server.mjs",
+    "build": "vite build --config client/vite.config.js && node tooling/verify/verify-worker-assets.mjs",
+    "test": "node --test",
+    "preview": "npm run preview:worker",
+    "preview:worker": "npm run build && node tooling/dev/preview-worker.mjs",
+    "verify:worker": "npm run build && wrangler deploy --config wrangler.toml --dry-run",
+    "deploy": "wrangler deploy --config wrangler.toml",
+    "deploy:worker": "wrangler deploy --config wrangler.toml",
+    "verify:dist-css": "node tooling/verify/verify-dist-css.mjs",
+    "verify:worker-http": "node tooling/verify/verify-worker-http.mjs",
+    "verify:worker:preview": "npm run build && node tooling/dev/preview-worker.mjs --smoke",
+    "db:migrations:list:local": "wrangler d1 migrations list DB --local --config server/wrangler.local.toml --persist-to worker/.wrangler/state",
+    "db:migrations:apply:local": "wrangler d1 migrations apply DB --local --config server/wrangler.local.toml --persist-to worker/.wrangler/state"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "cloudflare": {
+    "bindings": {
+      "DB": {
+        "description": "FlareTune stores accounts, settings, playlists, listening data, and application state in this D1 database."
+      },
+      "MEDIA_BUCKET": {
+        "description": "FlareTune stores audio, artwork, and generated lyric artifacts in this private R2 bucket."
+      },
+      "SETUP_SECRET": {
+        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI model API keys. Rotating it requires re-entering those keys; it cannot reset an administrator."
+      }
+    }
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
+    "@aws-sdk/lib-storage": "^3.1141.0",
+    "dompurify": "^3.4.14",
+    "just-secrets": "^0.0.2",
+    "lucide-react": "^0.378.0",
+    "marked": "^18.0.10",
+    "music-metadata": "^11.16.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "yaml": "2.9.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.4.19",
+    "esbuild": "^0.28.1",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "vite": "^8.1.4",
+    "wrangler": "^4.136.3"
+  }
+}

@@ -1,0 +1,179 @@
+import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
+import { MarkdownContent } from './AssistantMarkdown.jsx';
+import { getAssistantProcessStatus, getAssistantProcessTimeline } from '../../../shared/assistantProcessTrace.js';
+
+// 消息时间：线程消息的 createdAt（毫秒）。纯函数，保持本组件无状态、无副作用。
+// Display in the browser's time zone; the Worker provides the same zone to the model.
+const resolveMessageTime = (createdAt) => {
+    const timestamp = Number(createdAt);
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return null;
+    const date = new Date(timestamp);
+    if (!Number.isFinite(date.getTime())) return null;
+    return {
+        label: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date),
+        dateTime: date.toISOString(),
+    };
+};
+
+export default function AiReviewConversation({
+    containerRef,
+    expandedDetails,
+    messages,
+    playlistConfirmations = {},
+    onPlaylistConfirmationDecision,
+    onScroll,
+    onToggleDetails,
+    phase,
+    processClock,
+    welcomeReady,
+    welcomeText,
+}) {
+    const showGreeting = phase === 'ready' && welcomeReady && messages.length === 0;
+
+    return (
+        <div
+            ref={containerRef}
+            onScroll={onScroll}
+            className={`assistant-conversation flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 sm:px-6 md:px-8 py-6 flex flex-col bg-transparent relative custom-scrollbar ${showGreeting ? 'assistant-conversation--welcome' : ''}`}
+        >
+            {showGreeting ? (
+                <div className="assistant-greeting" aria-label={welcomeText}>
+                    <span>{welcomeText}</span>
+                </div>
+            ) : messages.length > 0 ? (
+            <div className="w-full min-w-0 max-w-3xl mx-auto space-y-7 flex flex-col">
+            {messages.map((message) => {
+                const displayContent = message.content || '';
+                const hasContent = Boolean(displayContent && displayContent.trim());
+                const isGenerating = Boolean(message.isGenerating);
+                const confirmationChoices = Object.values(playlistConfirmations)
+                    .filter((item) => item.messageId === message.id);
+                if (!hasContent && !isGenerating && confirmationChoices.length === 0
+                    && message.role === 'assistant') return null;
+                const processTimeline = getAssistantProcessTimeline(message);
+                const processStatus = getAssistantProcessStatus(message, processClock);
+                const isDetailsExpanded = Boolean(expandedDetails[message.id]);
+                const messageTime = resolveMessageTime(message.createdAt);
+
+                return (
+                    <div
+                        key={message.id}
+                        className={`flex min-w-0 items-start w-full ${message.role === 'user' ? 'justify-end' : ''}`}
+                    >
+                        {message.role === 'user' ? (
+                            <div className="max-w-[85%] sm:max-w-[70%] min-w-0 flex flex-col items-end gap-1">
+                                <div className="px-4 py-2.5 rounded-2xl text-sm sm:text-[14.5px] leading-relaxed bg-[var(--ink)] text-[var(--surface-raised)] rounded-tr-xs whitespace-pre-wrap break-words shadow-sm">
+                                    {message.content}
+                                </div>
+                                {messageTime && (
+                                    <time
+                                        dateTime={messageTime.dateTime}
+                                        className="px-1 text-[10px] leading-none text-[var(--muted)] tabular-nums select-none"
+                                    >
+                                        {messageTime.label}
+                                    </time>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="assistant-reply w-full min-w-0 text-[var(--ink)] flex flex-col gap-3">
+                                <div className={`assistant-process min-w-0 text-xs text-[var(--muted)] ${isGenerating ? '' : 'assistant-process--settled'}`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => onToggleDetails(message.id)}
+                                            aria-expanded={isDetailsExpanded}
+                                            className="assistant-process__toggle"
+                                        >
+                                            <span role="status" aria-live="polite" className={isGenerating
+                                                ? processStatus.stage === 'thinking' ? 'assistant-process__thinking' : 'assistant-process__active'
+                                                : ''}>
+                                                {processStatus.label}
+                                                {isGenerating && processStatus.stage === 'processing'
+                                                    && <span aria-hidden="true">（{processStatus.seconds} 秒）</span>}
+                                            </span>
+                                            {isDetailsExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                                        </button>
+                                        {isDetailsExpanded && (
+                                            <div>
+                                                {processTimeline.length > 1 && processTimeline.some((entry) => entry.orderUnknown) && (
+                                                    <p className="assistant-process__legacy-note">旧记录未保存过程顺序</p>
+                                                )}
+                                                <div className="assistant-process__timeline custom-scrollbar" role="list">
+                                                    {processTimeline.length > 0 ? processTimeline.map((entry, index) => (
+                                                        <div key={`${entry.type}-${entry.id || index}-${index}`} role="listitem"
+                                                            className={entry.type === 'tool' ? 'assistant-process__tool' : 'assistant-process__thought'}>
+                                                            {entry.type === 'tool' ? (
+                                                                <>
+                                                                    <Wrench size={15} aria-hidden="true" />
+                                                                    <span className="min-w-0 break-words">
+                                                                        {`${entry.ok === false ? '未完成：' : ''}${entry.summary || entry.progress || '已调用'}`}
+                                                                    </span>
+                                                                </>
+                                                            ) : entry.text}
+                                                        </div>
+                                                    )) : <div role="listitem">{isGenerating ? '等待模型响应…' : '本轮没有可展示的过程记录'}</div>}
+                                                </div>
+                                            </div>
+                                        )}
+                                </div>
+
+                                {hasContent && !message.isError && (
+                                    <div className="min-w-0">
+                                        <MarkdownContent content={displayContent} showCursor={isGenerating} />
+                                    </div>
+                                )}
+
+                                {message.isError && (
+                                    <div className="text-xs text-[var(--danger)] font-medium">
+                                        {displayContent}
+                                        {isGenerating && <span className="ai-typing-cursor" aria-hidden="true" />}
+                                    </div>
+                                )}
+
+                                {confirmationChoices.map((choice) => (
+                                    <div key={choice.id} className="assistant-playlist-confirmation"
+                                        role="group" aria-label={`删除歌单《${choice.confirmation?.name || ''}》`}>
+                                        <p className="assistant-playlist-confirmation__question">
+                                            是否删除歌单《{choice.confirmation?.name}》？
+                                        </p>
+                                        <p className="assistant-playlist-confirmation__hint">删除后无法恢复。</p>
+                                        {choice.status === 'pending' ? (
+                                            <div className="assistant-playlist-confirmation__actions">
+                                                <button type="button" className="assistant-playlist-confirmation__delete"
+                                                    onClick={() => onPlaylistConfirmationDecision(choice.id, 'delete')}>
+                                                    删除歌单
+                                                </button>
+                                                <button type="button" className="assistant-playlist-confirmation__keep"
+                                                    onClick={() => onPlaylistConfirmationDecision(choice.id, 'keep')}>
+                                                    保留歌单
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <p className="assistant-playlist-confirmation__result" role="status">
+                                                {choice.status === 'deleting' ? '正在删除…'
+                                                    : choice.status === 'deleted' ? '歌单已删除'
+                                                    : choice.status === 'kept' ? '已保留歌单'
+                                                    : choice.status === 'account_changed' ? '账号已切换，未删除歌单'
+                                                    : choice.error || '删除失败，歌单仍在。'}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+
+                                {messageTime && (
+                                    <time
+                                        dateTime={messageTime.dateTime}
+                                        className="self-start text-[10px] leading-none text-[var(--muted)] tabular-nums select-none"
+                                    >
+                                        {messageTime.label}
+                                    </time>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+            </div>
+            ) : null}
+        </div>
+    );
+}

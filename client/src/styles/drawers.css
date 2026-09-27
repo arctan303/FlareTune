@@ -1,0 +1,589 @@
+/* Account playlist management keeps the shared flowing-light drawer tokens. */
+.account-playlist-drawer {
+  width: 440px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.account-playlist-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 18px 12px;
+}
+
+.account-playlist-header .theme-drawer__close {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--muted);
+}
+
+.account-playlist-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 18px calc(26px + env(safe-area-inset-bottom));
+}
+
+.account-order-handle {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--muted);
+  touch-action: none;
+}
+
+.account-order-handle:active {
+  cursor: grabbing;
+  color: var(--accent-strong);
+}
+
+.account-order-buttons {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.account-order-buttons button {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.account-order-buttons button:disabled {
+  opacity: 0.25;
+}
+
+.account-playlist-footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--soft-line);
+  background: var(--drawer-solid-bg);
+}
+
+.account-playlist-footer > span {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.account-playlist-footer button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-playlist-footer button span {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.account-playlist-footer button:disabled {
+  opacity: 0.5;
+}
+
+.account-playlist-drawer button:focus-visible,
+.account-playlist-drawer input:focus-visible,
+.account-playlist-drawer textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.search-playlist-picker-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.search-playlist-picker-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade-in 220ms ease-out forwards;
+}
+
+.search-playlist-picker-sheet.is-closing .search-playlist-picker-sheet__backdrop {
+  animation: backdrop-fade-out 220ms ease-in forwards;
+}
+
+.search-playlist-picker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  margin-bottom: 0;
+  padding: 20px 18px calc(24px + env(safe-area-inset-bottom));
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  background: var(--surface-raised);
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.2);
+  animation: slide-up 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.search-playlist-picker-sheet.is-closing .search-playlist-picker {
+  animation: sheet-slide-down 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .search-playlist-picker-sheet {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .search-playlist-picker {
+    border-bottom: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 24px 48px -12px color-mix(in srgb, var(--ink) 45%, transparent);
+    animation: fade-in-up 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .search-playlist-picker-sheet.is-closing .search-playlist-picker {
+    animation: sheet-fade-out-scale 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+}
+
+.search-playlist-picker__heading,
+.search-playlist-picker__heading > div,
+.search-playlist-picker__targets label,
+.search-playlist-picker__targets label > span {
+  display: flex;
+}
+
+.search-playlist-picker__heading {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.search-playlist-picker__heading > div,
+.search-playlist-picker__targets label > span {
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.search-playlist-picker__heading strong,
+.search-playlist-picker__targets strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.search-playlist-picker__heading small,
+.search-playlist-picker__targets small,
+.search-playlist-picker__loading,
+.search-playlist-picker__targets em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.search-playlist-picker__heading > button {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.search-playlist-picker__targets {
+  display: grid;
+  max-height: 240px;
+  gap: 5px;
+  overflow-y: auto;
+}
+
+.search-playlist-picker__targets label {
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid var(--soft-line);
+  border-radius: 10px;
+}
+
+.search-playlist-picker__targets label > span {
+  flex: 1;
+}
+
+.search-playlist-picker__targets label.is-disabled {
+  opacity: 0.55;
+}
+
+.search-playlist-picker__loading,
+.search-playlist-picker__submit {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.search-playlist-picker__submit:disabled {
+  opacity: 0.5;
+}
+
+@media (max-width: 639px) {
+  .account-playlist-drawer {
+    width: 100%;
+  }
+
+  .account-playlist-header,
+  .account-playlist-body,
+  .account-playlist-footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+.theme-drawer {
+  --drawer-solid-bg: var(--drawer-bg);
+  position: relative;
+  color: var(--ink);
+  /* 侧边抽屉改为主题纯色填充：去掉整面板 backdrop-blur，平板/移动端开抽屉不再触发
+     大范围实时背景模糊。顶部保留一缕主题色微光与柔和投影，视觉不再单薄。 */
+  background:
+    radial-gradient(140% 70% at 100% 0%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 55%),
+    var(--drawer-bg);
+  box-shadow: var(--drawer-shadow, -16px 0 48px -6px rgba(0, 0, 0, 0.12));
+}
+
+.theme-drawer[data-drawer-side='left'] {
+  background:
+    radial-gradient(140% 70% at 0% 0%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 55%),
+    var(--drawer-bg);
+  box-shadow: var(--drawer-shadow-left, 16px 0 48px -6px rgba(0, 0, 0, 0.12));
+}
+
+.dark .theme-drawer,
+.theme-drawer.dark,
+[data-drawer-theme='dark'] .theme-drawer {
+  --drawer-solid-bg: color-mix(in srgb, var(--fullscreen-stage, var(--drawer-bg-dark, #121216)) 60%, var(--drawer-bg-dark, #121216));
+  --ink: #f5f5f7;
+  --muted: #a1a1a6;
+  --faint: #98989d;
+  --line: rgba(255, 255, 255, 0.10);
+  --soft-line: rgba(255, 255, 255, 0.05);
+  --surface: #242424;
+  --surface-raised: #2c2c2e;
+  --accent-strong: #ff8597;
+  color: #f5f5f7;
+  /* 播放器全屏打开时按舞台主色调和（--fullscreen-stage / --fullscreen-accent），
+     抽屉底色与当前封面整体色调同源，关闭后回落到主题暗色底。 */
+  background:
+    radial-gradient(140% 70% at 100% 0%, color-mix(in srgb, var(--fullscreen-accent, var(--accent)) 14%, transparent) 0%, transparent 55%),
+    color-mix(in srgb, var(--fullscreen-stage, var(--drawer-bg-dark, #121216)) 60%, var(--drawer-bg-dark, #121216));
+  box-shadow: var(--drawer-shadow, -24px 0 56px -8px rgba(0, 0, 0, 0.55));
+}
+
+.dark .theme-drawer[data-drawer-side='left'],
+.theme-drawer.dark[data-drawer-side='left'],
+[data-drawer-theme='dark'] .theme-drawer[data-drawer-side='left'] {
+  background:
+    radial-gradient(140% 70% at 0% 0%, color-mix(in srgb, var(--fullscreen-accent, var(--accent)) 14%, transparent) 0%, transparent 55%),
+    color-mix(in srgb, var(--fullscreen-stage, var(--drawer-bg-dark, #121216)) 60%, var(--drawer-bg-dark, #121216));
+  box-shadow: var(--drawer-shadow-left, 24px 0 56px -8px rgba(0, 0, 0, 0.55));
+}
+
+/* 手机端（全屏抽屉）：与全局一致使用主题纯色填充，彻底告别移动端实时模糊 */
+@media (max-width: 639px) {
+  .theme-drawer {
+    background:
+      radial-gradient(140% 70% at 100% 0%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 55%),
+      var(--drawer-bg) !important;
+  }
+  .dark .theme-drawer,
+  .theme-drawer.dark,
+  [data-drawer-theme='dark'] .theme-drawer {
+    background:
+      radial-gradient(140% 70% at 100% 0%, color-mix(in srgb, var(--fullscreen-accent, var(--accent)) 14%, transparent) 0%, transparent 55%),
+      color-mix(in srgb, var(--fullscreen-stage, var(--drawer-bg-dark, #121216)) 60%, var(--drawer-bg-dark, #121216)) !important;
+  }
+}
+
+.theme-drawer__header {
+  border-bottom: 1px solid var(--soft-line);
+  background: var(--drawer-solid-bg);
+}
+
+.theme-drawer__title {
+  color: var(--ink);
+  font-family: var(--font-serif);
+}
+
+.theme-drawer__title svg {
+  color: var(--accent);
+}
+
+.theme-drawer__meta,
+.theme-empty {
+  color: var(--faint);
+}
+
+.theme-drawer__close {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--soft-line);
+  border-radius: 50%;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 40%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.theme-drawer__close:hover {
+  border-color: var(--line);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  transform: scale(1.06);
+}
+
+.theme-drawer__close:focus-visible,
+.theme-drawer__danger:focus-visible,
+.queue-row__remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.theme-drawer__body {
+  color: var(--muted);
+}
+
+.drawer-backdrop {
+  background: rgba(0, 0, 0, 0.20);
+}
+
+.dark .drawer-backdrop {
+  background: rgba(0, 0, 0, 0.40);
+}
+
+.theme-drawer__footer {
+  border-top: 1px solid var(--soft-line);
+  background: transparent;
+}
+
+.theme-drawer__danger {
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 40%, transparent);
+  transition: all 180ms ease;
+}
+
+.theme-drawer__danger:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.queue-row {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--ink);
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.queue-row:hover,
+.queue-row:focus-within {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.queue-row.is-active {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised, white));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 18%, transparent), inset 0 1px 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.dark .queue-row:hover,
+.dark .queue-row:focus-within {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.dark .queue-row.is-active {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 4px 16px -2px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.queue-row__cover {
+  border: 1px solid var(--soft-line);
+  border-radius: 6px;
+}
+
+.queue-row__title {
+  color: var(--ink);
+}
+
+.queue-row.is-active .queue-row__title {
+  color: var(--accent);
+}
+
+.queue-row__remove {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  border: 0;
+  border-radius: 4px;
+  color: var(--faint);
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: color 180ms ease, background-color 180ms ease, opacity 180ms ease;
+}
+
+.queue-row__remove:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.queue-row:hover .queue-row__remove,
+.queue-row:focus-within .queue-row__remove,
+.queue-row__remove:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.queue-row__drag {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  cursor: grab;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.queue-row__drag:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.queue-row__drag:active {
+  cursor: grabbing;
+}
+
+.queue-row.is-drag-active {
+  background: var(--surface-raised, white);
+  box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-color: var(--accent);
+}
+
+.dark .queue-row.is-drag-active {
+  background: var(--surface);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  border-color: var(--accent);
+}
+
+.quality-badge {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.state-panel,
+.theme-toast {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  box-shadow: var(--player-shadow);
+}
+
+.state-panel--error {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+}
+
+.state-panel__eyebrow {
+  margin: 0 0 10px;
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+.state-panel h2 {
+  color: var(--ink);
+  font-family: var(--font-serif);
+}
+
+.state-panel__copy {
+  color: var(--muted);
+}
+
+.theme-fatal-error {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--page) 94%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.state-skeleton {
+  display: grid;
+  gap: 9px;
+}
+
+.state-skeleton i {
+  display: block;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--soft-line);
+}
+
+.state-skeleton i:nth-child(2) { width: 82%; }
+.state-skeleton i:nth-child(3) { width: 58%; }
+
+.theme-toast {
+  font-size: 14px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .queue-row__remove { opacity: 1; pointer-events: auto; }
+}

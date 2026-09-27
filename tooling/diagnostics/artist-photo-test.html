@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>歌手写真多图源实测与对比工作台 (TheAudioDB + QQ音乐 + AppleMusic兜底)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#3b82f6',
+                        dark: '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes kenburns {
+            0% { transform: scale(1) translate(0, 0); }
+            50% { transform: scale(1.08) translate(-1%, -1%); }
+            100% { transform: scale(1) translate(0, 0); }
+        }
+        .kenburns-effect {
+            animation: kenburns 20s infinite ease-in-out;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="bg-[#0b0f17] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-blue-500 selection:text-white">
+
+    <!-- 顶部导航与架构策略说明 -->
+    <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        歌手写真三级图源对比工作台
+                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">精简实测版</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">👑 首选 TheAudioDB (1080P) + 🌟 核心 QQ音乐 (1500px) 依据分辨率最佳排序 ｜ 🛡 Apple Music (1500px) 垫底兜底</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700/50">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>TheAudioDB + QQ 优先 / 专辑封面垫底</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 核心操作区 -->
+    <main class="max-w-7xl mx-auto w-full px-6 py-6 flex-1 flex flex-col gap-6">
+
+        <!-- 搜索与快捷歌手选择 -->
+        <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm">
+            <form id="searchForm" class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <input 
+                        type="text" 
+                        id="artistInput" 
+                        placeholder="输入歌手姓名（如：周杰伦、Taylor Swift、米津玄師、サカナクション、RADWIMPS、陈奕迅...）" 
+                        class="w-full pl-11 pr-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
+                        value="周杰伦"
+                        required
+                    />
+                </div>
+                <button 
+                    type="submit" 
+                    id="submitBtn"
+                    class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+                >
+                    <svg id="btnSpinner" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>并行查询 3 大接口</span>
+                </button>
+            </form>
+
+            <!-- 热门歌手快速测试标签 -->
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+                <span class="text-xs text-slate-500 font-medium">快速测试：</span>
+                <div class="flex flex-wrap gap-1.5" id="presetChips">
+                    <!-- JS 自动填充 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 3 大源概览卡片 -->
+        <section class="grid grid-cols-2 sm:grid-cols-4 gap-3.5" id="statsGrid">
+            <!-- 动态统计 -->
+        </section>
+
+        <!-- 视图切换 Tab -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div class="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1" id="tabContainer">
+                <button data-tab="all" class="tab-btn active px-4 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white transition-all">
+                    🔥 综合最佳排行 (真写真优先 + 分辨率最优)
+                </button>
+                <button data-tab="tadb" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800/80 text-slate-400 hover:text-slate-200 transition-all">
+                    👑 TheAudioDB (1080P 舞台写真)
+                </button>
+                <button data-tab="qq" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800/80 text-slate-400 hover:text-slate-200 transition-all">
+                    🌟 QQ 音乐 (1500px 歌手原图)
+                </button>
+                <button data-tab="applemusic" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800/80 text-slate-400 hover:text-slate-200 transition-all">
+                    🛡 Apple Music (1500px 垫底兜底)
+                </button>
+            </div>
+            <div class="text-xs text-slate-400 shrink-0 hidden md:block">
+                点击任意图片可进入 <strong class="text-blue-400">全屏沉浸播放器实景模拟</strong>
+            </div>
+        </div>
+
+        <!-- 结果展示网格区 -->
+        <section id="resultsContainer" class="flex-1 min-h-[360px]">
+            <div class="text-center py-16 text-slate-500 text-sm flex flex-col items-center justify-center gap-3">
+                <svg class="w-12 h-12 text-slate-600 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+                <span>正在加载数据...</span>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 全屏播放器实景模拟模态弹窗 -->
+    <div id="previewModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none">
+        <!-- 模拟全屏播放器背景 -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <img id="modalBgImage" src="" alt="" class="w-full h-full object-cover kenburns-effect brightness-[0.65]" />
+            <!-- 影院暗角与氛围发光 -->
+            <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80"></div>
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.15),transparent_70%)]"></div>
+        </div>
+
+        <!-- 顶部关闭按钮与信息 -->
+        <div class="relative z-10 w-full max-w-6xl flex items-center justify-between px-4 py-3 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-white/10 mb-6 shadow-2xl">
+            <div class="flex items-center gap-3">
+                <span id="modalSourceBadge" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-500/30 text-blue-300 border border-blue-400/30">TheAudioDB</span>
+                <span id="modalResolution" class="text-xs text-slate-300 font-mono">1920 × 1080 (16:9 宽屏)</span>
+                <a id="modalDirectLink" href="#" target="_blank" class="text-xs text-blue-400 hover:underline flex items-center gap-1">
+                    打开原图
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                </a>
+            </div>
+            <button id="closeModalBtn" class="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <!-- 模拟全屏沉浸大字歌词界面 -->
+        <div class="relative z-10 w-full max-w-2xl flex flex-col items-center text-center my-auto px-4 select-none pointer-events-none">
+            <div class="text-slate-400/60 text-sm mb-2">前奏渐起，微风拂过...</div>
+            <div class="text-white/40 text-lg md:text-xl font-medium mb-3">このまま君を連れて行くと</div>
+            <div class="text-white text-3xl md:text-5xl font-bold tracking-tight mb-4 drop-shadow-[0_0_25px_rgba(255,255,255,0.8)]">
+                丁寧に描くと 揺れたり震えたり
+            </div>
+            <div class="text-white/60 text-lg md:text-xl font-medium mb-2">したって 丁寧に歌うと</div>
+            <div class="text-slate-400/50 text-sm">決めていたけど...</div>
+        </div>
+
+        <!-- 模拟底部浮动播放控制条 -->
+        <div class="relative z-10 w-full max-w-md bg-white/10 border border-white/20 backdrop-blur-xl rounded-full px-6 py-3 flex items-center justify-between shadow-2xl mt-auto">
+            <div class="text-xs text-white/80 font-medium truncate" id="modalArtistLabel">周杰伦 — 歌手写真实景效果</div>
+            <div class="flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></div>
+                <span class="text-[11px] text-blue-300 font-semibold uppercase tracking-wider">Ken Burns 慢镜渲染中</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 客户端核心测试探测逻辑 -->
+    <script>
+        const PRESET_ARTISTS = [
+            '周杰伦', 'Taylor Swift', 'サカナクション', '米津玄師', 
+            'RADWIMPS', '陈奕迅', '告五人', '宇多田光', 
+            'YOASOBI', '林俊杰', 'Billie Eilish', '王菲'
+        ];
+
+        // 状态存储
+        let currentResults = {
+            tadb: [],
+            qq: [],
+            applemusic: [],
+            all: []
+        };
+        let currentTab = 'all';
+
+        // 初始化预设标签
+        const chipsContainer = document.getElementById('presetChips');
+        PRESET_ARTISTS.forEach(name => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-all';
+            btn.textContent = name;
+            btn.onclick = () => {
+                document.getElementById('artistInput').value = name;
+                runSearch(name);
+            };
+            chipsContainer.appendChild(btn);
+        });
+
+        // 标签页切换
+        document.getElementById('tabContainer').addEventListener('click', (e) => {
+            const btn = e.target.closest('.tab-btn');
+            if (!btn) return;
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active', 'bg-blue-600', 'text-white');
+                b.classList.add('bg-slate-800/80', 'text-slate-400');
+            });
+            btn.classList.add('active', 'bg-blue-600', 'text-white');
+            btn.classList.remove('bg-slate-800/80', 'text-slate-400');
+            currentTab = btn.dataset.tab;
+            renderView();
+        });
+
+        // 表单提交
+        document.getElementById('searchForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const artist = document.getElementById('artistInput').value.trim();
+            if (artist) runSearch(artist);
+        });
+
+        // 尺寸与图片有效性异步探测
+        function probeImage(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.referrerPolicy = 'no-referrer';
+                const startTime = performance.now();
+                img.onload = () => {
+                    resolve({
+                        ok: true,
+                        width: img.naturalWidth,
+                        height: img.naturalHeight,
+                        aspectRatio: (img.naturalWidth / img.naturalHeight).toFixed(2),
+                        latencyMs: Math.round(performance.now() - startTime)
+                    });
+                };
+                img.onerror = () => {
+                    resolve({ ok: false, width: 0, height: 0, aspectRatio: '0', latencyMs: 0 });
+                };
+                img.src = url;
+            });
+        }
+
+        // 1. 查询 TheAudioDB (首选真写真源，1080P 16:9 舞台壁纸)
+        async function fetchTheAudioDB(artist) {
+            const start = performance.now();
+            try {
+                const url = `https://www.theaudiodb.com/api/v1/json/2/search.php?s=${encodeURIComponent(artist)}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                const art = data?.artists?.[0];
+                if (!art) return { ok: true, latency: Math.round(performance.now() - start), photos: [] };
+
+                const photos = [];
+                const add = (imgUrl, type, label) => {
+                    if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
+                        photos.push({ url: imgUrl, type, label, source: 'tadb', sourceName: 'TheAudioDB', isRealArtist: true });
+                    }
+                };
+
+                add(art.strArtistFanart, 'fanart', '1080P 舞台写真 1');
+                add(art.strArtistFanart2, 'fanart', '1080P 舞台写真 2');
+                add(art.strArtistFanart3, 'fanart', '1080P 舞台写真 3');
+                add(art.strArtistFanart4, 'fanart', '1080P 舞台写真 4');
+                add(art.strArtistWideThumb, 'banner', '高清宽屏写真');
+                // 排除 strArtistThumb (700x700 头像) 与 strArtistBanner (窄条)，全屏播放器只取真正高清横屏舞台壁纸
+
+                return { ok: true, latency: Math.round(performance.now() - start), photos };
+            } catch (err) {
+                return { ok: false, latency: Math.round(performance.now() - start), photos: [], error: err.message };
+            }
+        }
+
+        // 2. 查询 QQ 音乐 (核心真写真源，1500px 歌手大图 / 800px 写真)
+        function fetchQqMusic(artist) {
+            return new Promise((resolve) => {
+                const start = performance.now();
+                const callbackName = 'qq_callback_' + Math.random().toString(36).slice(2);
+                const script = document.createElement('script');
+                
+                window[callbackName] = (data) => {
+                    cleanup();
+                    try {
+                        const singers = data?.data?.singer?.itemlist || [];
+                        const photos = [];
+                        singers.slice(0, 3).forEach((s) => {
+                            if (s.mid) {
+                                photos.push({
+                                    url: `https://y.gtimg.cn/music/photo_new/T001R1500x1500M000${s.mid}.jpg`,
+                                    type: 'portrait',
+                                    label: `QQ音乐 1500px 原图写真 (${s.name})`,
+                                    source: 'qq',
+                                    sourceName: 'QQ 音乐',
+                                    isRealArtist: true
+                                });
+                                photos.push({
+                                    url: `https://y.gtimg.cn/music/photo_new/T001R800x800M000${s.mid}.jpg`,
+                                    type: 'portrait',
+                                    label: `QQ音乐 800px 高清写真 (${s.name})`,
+                                    source: 'qq',
+                                    sourceName: 'QQ 音乐',
+                                    isRealArtist: true
+                                });
+                            }
+                        });
+                        resolve({ ok: true, latency: Math.round(performance.now() - start), photos });
+                    } catch (e) {
+                        resolve({ ok: false, latency: Math.round(performance.now() - start), photos: [], error: e.message });
+                    }
+                };
+
+                const cleanup = () => {
+                    if (window[callbackName]) delete window[callbackName];
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                };
+
+                script.onerror = () => {
+                    cleanup();
+                    resolve({ ok: false, latency: Math.round(performance.now() - start), photos: [], error: 'JSONP Network Error' });
+                };
+
+                script.src = `https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?key=${encodeURIComponent(artist)}&format=jsonp&jsonpCallback=${callbackName}`;
+                document.body.appendChild(script);
+            });
+        }
+
+        // 3. 查询 Apple Music / iTunes (垫底备选源，1500px 专辑大图封面兜底)
+        async function fetchAppleMusic(artist) {
+            const start = performance.now();
+            try {
+                const url = `https://itunes.apple.com/search?term=${encodeURIComponent(artist)}&entity=album&limit=6`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                const results = data?.results || [];
+                const photos = [];
+                results.forEach((item) => {
+                    if (item.artworkUrl100) {
+                        const hd1500 = item.artworkUrl100.replace('100x100bb', '1500x1500bb');
+                        photos.push({
+                            url: hd1500,
+                            type: 'cover',
+                            label: `Apple Music 1500px《${item.collectionName || item.trackName || ''}》`,
+                            source: 'applemusic',
+                            sourceName: 'Apple Music (兜底)',
+                            isRealArtist: false
+                        });
+                    }
+                });
+                return { ok: true, latency: Math.round(performance.now() - start), photos };
+            } catch (err) {
+                return { ok: false, latency: Math.round(performance.now() - start), photos: [], error: err.message };
+            }
+        }
+
+        // 提取图片的语义唯一指纹（用于跨分辨率折叠同图，仅保留最高清版本）
+        function getImageFingerprint(p) {
+            if (!p || !p.url) return Math.random().toString();
+            try {
+                const urlObj = new URL(p.url);
+                // 1. QQ 音乐指纹：提取 mid (如 M0000025NhlN2y5Zfx)
+                if (p.url.includes('y.gtimg.cn')) {
+                    const match = p.url.match(/M000[0-9a-zA-Z]+/);
+                    if (match) return `qq_${match[0]}`;
+                }
+                // 2. Apple Music 指纹：剥除末尾尺寸后缀如 1500x1500bb.jpg
+                if (p.url.includes('mzstatic.com')) {
+                    const cleanPath = urlObj.pathname.replace(/\/\d+x\d+bb\.[a-z]+$/i, '');
+                    return `applemusic_${cleanPath}`;
+                }
+                // 3. TheAudioDB 指纹：以文件名去重
+                if (p.url.includes('theaudiodb.com')) {
+                    const filename = urlObj.pathname.split('/').pop();
+                    return `tadb_${filename}`;
+                }
+                return `${p.source}_${urlObj.pathname}`;
+            } catch (e) {
+                return p.url;
+            }
+        }
+
+        // 语义去重引擎：同图多分辨率只保留分辨率最高的那张
+        function deduplicateHighestResolution(photos) {
+            const map = new Map();
+            for (const p of photos) {
+                const key = getImageFingerprint(p);
+                if (!map.has(key)) {
+                    map.set(key, p);
+                } else {
+                    const existing = map.get(key);
+                    // 比较像素总面积 (width * height) 或宽度，保留更高清的一张
+                    const existingArea = (existing.width || 0) * (existing.height || 0);
+                    const currentArea = (p.width || 0) * (p.height || 0);
+                    if (currentArea > existingArea) {
+                        map.set(key, p);
+                    }
+                }
+            }
+            return Array.from(map.values());
+        }
+
+        // 主搜索逻辑
+        async function runSearch(artistName) {
+            const spinner = document.getElementById('btnSpinner');
+            const submitBtn = document.getElementById('submitBtn');
+            spinner.classList.remove('hidden');
+            submitBtn.disabled = true;
+
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+                    <div class="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                    <span class="text-sm">正在并行请求 TheAudioDB (首选) + QQ音乐 (核心) + Apple Music (兜底)...</span>
+                </div>
+            `;
+
+            try {
+                // 并行发起 3 个选定源请求
+                const [tadbRes, qqRes, appleRes] = await Promise.all([
+                    fetchTheAudioDB(artistName),
+                    fetchQqMusic(artistName),
+                    fetchAppleMusic(artistName)
+                ]);
+
+                // 汇总所有候选图
+                const rawPhotos = [
+                    ...tadbRes.photos,
+                    ...qqRes.photos,
+                    ...appleRes.photos
+                ];
+
+                // 异步探测真实宽高
+                const probedList = await Promise.all(rawPhotos.map(async (p) => {
+                    const probe = await probeImage(p.url);
+                    return { ...p, ...probe };
+                }));
+
+                // 严格过滤低分辨率与小头像：
+                // 1. 宽屏横图 (16:9)：长边 >= 1280px，短边 >= 720px (严格 720P/1080P)
+                // 2. 正方形图 (1:1)：长宽必须 >= 800px（彻底排除 700x700、500x500 等模糊小头像）
+                const validPhotos = probedList.filter(p => {
+                    if (!p.ok || !p.width || !p.height) return false;
+                    const ratio = p.width / p.height;
+                    if (ratio >= 1.4) {
+                        return p.width >= 1280 && p.height >= 720;
+                    } else {
+                        return p.width >= 800 && p.height >= 800;
+                    }
+                });
+
+                // 🌟 核心：执行「同图跨分辨率去重」，同一张图片只保留最高分辨率的那张！
+                const dedupedPhotos = deduplicateHighestResolution(validPhotos);
+
+                // 分类存储去重后的图片
+                currentResults.tadb = dedupedPhotos.filter(p => p.source === 'tadb');
+                currentResults.qq = dedupedPhotos.filter(p => p.source === 'qq');
+                currentResults.applemusic = dedupedPhotos.filter(p => p.source === 'applemusic');
+
+                // 🌟 核心：4 张是「最低保底量（不是最高上限）」，真写真充足时全量输出！
+                const TARGET_MIN_COUNT = 4;
+                const MAX_GALLERY_CAP = 12; // 充沛时最高支持 12 张高清写真轮播
+
+                // 1. 提取所有真写真 (TheAudioDB + QQ 音乐)
+                const realPhotos = dedupedPhotos
+                    .filter(p => p.isRealArtist === true)
+                    .sort((a, b) => {
+                        const ratioA = a.width / (a.height || 1);
+                        const bonusA = ratioA >= 1.4 ? 1.4 : 1.0;
+                        const ratioB = b.width / (b.height || 1);
+                        const bonusB = ratioB >= 1.4 ? 1.4 : 1.0;
+                        return (b.width * bonusB) - (a.width * bonusA);
+                    });
+
+                // 2. 提取 Apple Music 备选封面
+                const fallbackCovers = dedupedPhotos
+                    .filter(p => p.source === 'applemusic')
+                    .sort((a, b) => b.width - a.width);
+
+                // 3. 动态按需补位判定：
+                let finalSelected = [];
+                let fallbackUsedCount = 0;
+
+                if (realPhotos.length >= TARGET_MIN_COUNT) {
+                    // 情况 A：真写真数量充沛 (>= 4 张，如 5、6、7、8 张) -> 全量输出所有真写真！0 封面混入！
+                    finalSelected = realPhotos.slice(0, MAX_GALLERY_CAP);
+                    fallbackUsedCount = 0;
+                } else {
+                    // 情况 B：真写真数量不足 (< 4 张，如 0、1、2、3 张) -> 全量保留真写真，缺几张就从 Apple Music 封面精准补足至 4 张保底！
+                    const shortage = TARGET_MIN_COUNT - realPhotos.length;
+                    const supplementedCovers = fallbackCovers.slice(0, shortage);
+                    finalSelected = [...realPhotos, ...supplementedCovers];
+                    fallbackUsedCount = supplementedCovers.length;
+                }
+
+                currentResults.all = finalSelected;
+                currentResults.quotaMeta = {
+                    target: TARGET_MIN_COUNT,
+                    realCount: realPhotos.length,
+                    totalSelected: finalSelected.length,
+                    fallbackUsed: fallbackUsedCount,
+                    isPureReal: fallbackUsedCount === 0
+                };
+
+                // 渲染概览卡片
+                renderStats(tadbRes, qqRes, appleRes);
+                // 渲染照片网格
+                renderView();
+
+            } catch (err) {
+                container.innerHTML = `
+                    <div class="text-center py-16 text-rose-400 bg-rose-950/20 border border-rose-800/40 rounded-2xl p-6">
+                        <p class="font-semibold">查询出错：${err.message}</p>
+                    </div>
+                `;
+            } finally {
+                spinner.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        }
+
+        // 渲染统计卡片
+        function renderStats(tadb, qq, apple) {
+            const stats = [
+                { name: '👑 TheAudioDB (首选真写真)', count: currentResults.tadb.length, latency: tadb.latency, ok: tadb.ok, color: 'text-amber-400', badge: '1080P 舞台写真' },
+                { name: '🌟 QQ 音乐 (核心真写真)', count: currentResults.qq.length, latency: qq.latency, ok: qq.ok, color: 'text-emerald-400', badge: '1500px 原图写真' },
+                { name: '🛡 Apple Music (垫底备选)', count: currentResults.applemusic.length, latency: apple.latency, ok: apple.ok, color: 'text-slate-400', badge: '1500px 封面兜底' },
+                { name: '🔥 综合优选总计', count: currentResults.all.length, latency: '-', ok: true, color: 'text-blue-400', badge: '分辨率最佳排行' }
+            ];
+
+            const grid = document.getElementById('statsGrid');
+            grid.innerHTML = stats.map(s => `
+                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                        <span class="font-semibold truncate">${s.name}</span>
+                        <span class="inline-block w-2 h-2 rounded-full ${s.ok ? 'bg-emerald-400' : 'bg-rose-500'} shrink-0"></span>
+                    </div>
+                    <div class="flex items-baseline justify-between mt-2">
+                        <span class="text-2xl font-bold ${s.color}">${s.count} <span class="text-xs text-slate-500 font-normal">张</span></span>
+                        <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60">${s.badge}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 渲染当前 Tab 的视图
+        function renderView() {
+            const container = document.getElementById('resultsContainer');
+            const list = currentResults[currentTab] || [];
+            
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16 text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800/60">
+                        <p>该图源未查询到符合要求的图片（或该歌手暂未收录高清图）</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let quotaBannerHtml = '';
+            if (currentTab === 'all' && currentResults.quotaMeta) {
+                const q = currentResults.quotaMeta;
+                if (q.isPureReal) {
+                    quotaBannerHtml = `
+                        <div class="col-span-full mb-2 px-4 py-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-md">
+                            <div class="flex items-center gap-2.5">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                <span><strong>真写真充沛 (${q.realCount} 张)</strong>：TheAudioDB + QQ音乐 已满足全屏图集，<strong>100% 输出纯正歌手写真</strong>，无需混入任何专辑封面！</span>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-mono shrink-0">Apple Music 补位: 0 张 (零混入)</span>
+                        </div>
+                    `;
+                } else {
+                    quotaBannerHtml = `
+                        <div class="col-span-full mb-2 px-4 py-3 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-md">
+                            <div class="flex items-center gap-2.5">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+                                <span><strong>真写真不足 (${q.realCount} 张)</strong>：已启动动态按需补位，自动精选 <strong>${q.fallbackUsed} 张 Apple Music 1500px 封面</strong> 填补空缺，确保全屏轮播饱满！</span>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-mono shrink-0">Apple Music 补位: ${q.fallbackUsed} 张</span>
+                        </div>
+                    `;
+                }
+            }
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    ${quotaBannerHtml}
+                    ${list.map((p, idx) => {
+                        const is169 = p.aspectRatio >= 1.4;
+                        const isSquare = p.aspectRatio >= 0.9 && p.aspectRatio < 1.2;
+                        const badgeColor = is169 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : (isSquare ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-slate-500/20 text-slate-300 border-slate-500/30');
+                        const aspectText = is169 ? '16:9 全屏横图 (最优)' : (isSquare ? '1:1 正方形' : `${p.aspectRatio}:1`);
+
+                        return `
+                            <div class="group bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-2xl overflow-hidden shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col">
+                                <!-- 图片容器与比例展示 -->
+                                <div class="relative aspect-video bg-black/40 overflow-hidden cursor-pointer" onclick="openPreview('${p.url}', '${p.sourceName}', '${p.width} × ${p.height}', '${aspectText}')">
+                                    <img 
+                                        src="${p.url}" 
+                                        alt="" 
+                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                        loading="lazy" 
+                                        referrerpolicy="no-referrer"
+                                    />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <span class="px-3 py-1.5 rounded-full bg-blue-600/90 text-white text-xs font-semibold shadow-lg backdrop-blur-sm flex items-center gap-1.5">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                            全屏播放器实景模拟
+                                        </span>
+                                    </div>
+                                    <span class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-black/75 text-white border border-white/10 flex items-center gap-1">
+                                        ${idx === 0 && currentTab === 'all' ? '<span class="text-amber-300 font-extrabold">👑 首选 No.1</span>' : ''}
+                                        <span>#${idx + 1}</span>
+                                        <span class="${p.isRealArtist ? 'text-amber-300' : 'text-slate-400'}">
+                                            ${p.isRealArtist ? '【歌手真写真】' : '【封面兜底】'}${p.sourceName}
+                                        </span>
+                                    </span>
+                                </div>
+
+                                <!-- 属性与参数详情 -->
+                                <div class="p-3.5 flex flex-col justify-between flex-1 gap-2.5 text-xs">
+                                    <div>
+                                        <div class="font-semibold text-slate-200 truncate mb-1" title="${p.label}">${p.label}</div>
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                                                ${p.width} × ${p.height}
+                                            </span>
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-medium border ${badgeColor}">
+                                                ${aspectText}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-slate-400">
+                                        <span class="text-[10px]">${p.latencyMs}ms 探测</span>
+                                        <a href="${p.url}" target="_blank" class="text-blue-400 hover:text-blue-300 text-[11px] flex items-center gap-0.5">
+                                            查看原图 &rarr;
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        // 打开全屏模拟预览
+        function openPreview(url, sourceName, resText, aspectText) {
+            const modal = document.getElementById('previewModal');
+            document.getElementById('modalBgImage').src = url;
+            document.getElementById('modalSourceBadge').textContent = sourceName;
+            document.getElementById('modalResolution').textContent = `${resText} (${aspectText})`;
+            document.getElementById('modalDirectLink').href = url;
+            document.getElementById('modalArtistLabel').textContent = `${document.getElementById('artistInput').value} — 沉浸全屏写真实景`;
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+        }
+
+        // 关闭全屏模拟预览
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            const modal = document.getElementById('previewModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.classList.remove('opacity-100');
+        });
+
+        // 默认触发一次周杰伦搜索
+        window.addEventListener('DOMContentLoaded', () => {
+            runSearch('周杰伦');
+        });
+    </script>
+</body>
+</html>

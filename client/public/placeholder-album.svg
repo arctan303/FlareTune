@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="50%" stop-color="#edf2f7"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="note-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fa2d48"/>
+      <stop offset="100%" stop-color="#fa586a"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fa2d48" stop-opacity="0.18"/>
+      <stop offset="60%" stop-color="#fa2d48" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#fa2d48" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  
+  <rect width="512" height="512" fill="url(#bg)"/>
+  
+  <!-- Subtle circular aura and glass disk for depth -->
+  <circle cx="256" cy="256" r="160" fill="url(#aura)"/>
+  <circle cx="256" cy="256" r="120" fill="#ffffff" fill-opacity="0.88"/>
+  <circle cx="256" cy="256" r="119" fill="none" stroke="#fa2d48" stroke-opacity="0.2" stroke-width="2"/>
+  
+  <!-- Music Note Icon centered -->
+  <!-- 24x24 icon scaled by 4 = 96x96. Center of 512 is 256. 256 - 48 = 208 -->
+  <g transform="translate(208, 208) scale(4)" fill="none" stroke="url(#note-grad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5l12-2v13"></path>
+    <circle cx="6" cy="18" r="3" fill="url(#note-grad)"></circle>
+    <circle cx="18" cy="16" r="3" fill="url(#note-grad)"></circle>
+  </g>
+</svg>

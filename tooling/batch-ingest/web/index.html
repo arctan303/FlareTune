@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FlareTune 曲库工具</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="top"><div><span class="eyebrow">FlareTune · 本地工具</span><h1>曲库工具</h1>
+      <p>管理多个播放器实例的曲库与音频入库。</p></div><button id="logout" class="ghost" hidden>退出登录</button></header>
+    <p id="notice" class="notice" role="status" hidden></p>
+    <section id="login-panel" class="panel">
+      <h2>连接播放器实例</h2><p class="hint">选一个已保存的实例，或添加新实例。密码可选择保存在系统凭据库。</p>
+      <div id="profiles" class="profiles"></div>
+      <form id="login-form" class="form-grid">
+        <label class="wide">实例名称<input name="name" placeholder="例如：实例 01" required /></label>
+        <label class="wide">实例地址<input name="baseUrl" type="url" placeholder="https://music.example.com" required /></label>
+        <label>管理员用户名<input name="username" autocomplete="username" required /></label>
+        <label>密码<input name="password" type="password" autocomplete="current-password" required /></label>
+        <label class="wide check"><input name="rememberPassword" type="checkbox" checked /> 将密码保存在此电脑的系统凭据库</label>
+        <button class="primary" type="submit">连接并保存实例</button>
+      </form>
+    </section>
+    <div id="workspace" hidden>
+      <section class="panel instance-bar"><strong id="current-instance"></strong><button id="switch-instance" class="secondary">切换实例</button></section>
+      <nav class="tool-nav" aria-label="工具页面"><button data-view="catalog" class="active">曲库管理</button><button data-view="ingest">上传歌曲</button></nav>
+      <div id="catalog-view">
+        <section class="panel"><div class="section-head"><div><h2>曲库管理</h2><p id="catalog-summary" class="hint"></p></div>
+          <div class="actions"><input id="catalog-search" type="search" placeholder="搜索歌名、歌手或专辑" /><button id="catalog-refresh" class="secondary">刷新</button></div></div>
+          <div id="catalog-songs" class="songs"></div><div class="catalog-pages"><button id="catalog-prev">上一页</button><span id="catalog-page"></span><button id="catalog-next">下一页</button></div>
+        </section>
+      </div>
+      <div id="ingest-view" hidden>
+      <section class="panel">
+        <div class="section-head"><div><h2>选择音乐文件夹</h2><p class="hint">读取当前文件夹及其子文件夹中的音频。需要续传时重新选择同一个文件夹。</p></div>
+          <label class="button-like">选择文件夹<input id="folder" type="file" webkitdirectory multiple /></label></div>
+        <div id="mappings" class="mappings"></div>
+      </section>
+      <section class="panel">
+        <div class="section-head"><div><h2>上传方式</h2><p class="hint">默认逐首经 Worker 上传；单文件超过 100 MB 请使用 R2 直传。</p></div></div>
+        <div class="mode-row"><label><input type="radio" name="mode" value="worker" checked /> Worker</label>
+          <label><input type="radio" name="mode" value="direct" /> R2 直传</label></div>
+        <form id="r2-form" class="form-grid r2-form" hidden>
+          <label>Account ID<input name="accountId" autocomplete="off" required /></label>
+          <label>Bucket<input name="bucket" autocomplete="off" required /></label>
+          <label>媒体前缀<input name="prefix" value="media" autocomplete="off" required /></label>
+          <label>区域<select name="jurisdiction"><option value="default">默认</option><option value="eu">EU</option><option value="us">US</option><option value="fedramp">FedRAMP</option></select></label>
+          <label>Access Key ID<input name="accessKeyId" autocomplete="off" required /></label>
+          <label>Secret Access Key<input name="secretAccessKey" type="password" autocomplete="off" required /></label>
+          <button class="secondary" type="submit">验证 bucket 与播放器实例</button><span id="r2-state" class="hint"></span>
+        </form>
+      </section>
+      <section class="panel">
+        <div class="section-head"><div><h2>入库预览</h2><p id="summary" class="hint">尚未选择文件夹。</p></div>
+          <div class="actions"><input id="search" type="search" placeholder="筛选歌名或歌手" aria-label="筛选歌曲" />
+            <button id="start" class="primary" disabled>开始入库</button><button id="pause" class="secondary" hidden>暂停</button></div></div>
+        <div class="bulk-language"><label><input id="select-visible" type="checkbox" /> 选中筛选结果</label><span id="selected-count">已选 0 首</span><select id="bulk-language"><option value="">选择语言…</option></select><button id="apply-language" class="secondary" disabled>应用到选中歌曲</button><button id="restore-language" class="secondary" disabled>选中歌曲自动判断</button></div>
+        <div id="progress" class="progress" hidden><div class="progress-label"><span id="progress-text"></span><span id="progress-number"></span></div><div class="track"><div id="progress-fill"></div></div></div>
+        <div id="songs" class="songs"><p class="empty">请选择音乐文件夹。</p></div>
+      </section>
+      </div>
+    </div>
+  </main>
+  <dialog id="catalog-dialog"><form id="catalog-form" class="form-grid"><h2 class="wide">编辑歌曲</h2><p id="catalog-id" class="hint wide"></p>
+    <label class="wide">歌名<input name="title" required /></label><label>歌手<input name="artist" /></label><label>专辑<input name="album" /></label>
+    <label>时长（秒）<input name="duration" type="number" min="0" max="86400" /></label><label>语言<select name="language"></select></label>
+    <label class="wide">音频地址<input name="audio_url" /></label><label class="wide">封面地址<input name="cover_url" /></label>
+    <div class="dialog-actions wide"><button type="button" id="catalog-cancel">取消</button><button class="primary">保存修改</button></div></form></dialog>
+  <dialog id="delete-dialog"><h2>删除歌曲记录？</h2><p id="delete-summary"></p><p class="hint">媒体文件会保留；被歌单或播放记录引用的歌曲无法删除。</p>
+    <div class="dialog-actions"><button id="delete-cancel">取消</button><button id="delete-confirm" class="danger">确认删除</button></div></dialog>
+  <dialog id="profile-dialog"><form id="profile-connect-form" class="form-grid"><h2 class="wide">连接实例</h2><p id="profile-connect-summary" class="hint wide"></p>
+    <label class="wide">管理员密码<input name="password" type="password" autocomplete="current-password" /></label>
+    <p id="profile-password-hint" class="hint wide"></p>
+    <label class="wide check"><input name="rememberPassword" type="checkbox" /> 在系统凭据库保存密码</label>
+    <p id="profile-connect-error" class="dialog-error wide" role="alert" hidden></p>
+    <div class="dialog-actions wide"><button id="profile-connect-cancel" type="button">取消</button><button class="primary" type="submit">连接实例</button></div>
+  </form></dialog>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+import {
+  askGemini,
+  chatGemini,
+} from './aiGemini.js';
+import {
+  askDeepSeek,
+  askOpenAI,
+  chatOpenAICompatible,
+} from './aiOpenAICompatible.js';
+
+export {
+  AI_STREAM_IDLE_TIMEOUT_MS,
+  buildGeminiContents,
+  createAiStreamIdleTimeoutError,
+  isTerminalGeminiFinishReason,
+  parseGeminiCandidateParts,
+  readStreamChunkWithIdleTimeout,
+} from './aiGemini.js';
+
+const DEFAULT_TIMEOUT_MS = 90_000;
+const MAX_TIMEOUT_MS = 120_000;
+
+export function getPublicAiErrorCode(error) {
+  const message = String(error?.message || error || '');
+  if (message.includes('AI_STREAM_IDLE_TIMEOUT')) return 'upstream_idle_timeout';
+  if (message.includes('AI_TIMEOUT') || error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+    return 'upstream_timeout';
+  }
+  if (message.includes('AI_UPSTREAM_503') || message.includes('503')) return 'upstream_unavailable';
+  if (message.includes('AI_UPSTREAM_429') || message.includes('429')) return 'upstream_rate_limited';
+  return 'upstream_failure';
+}
+
+const getTimeoutMs = (env, requestedTimeoutMs) => {
+  const configured = Number(requestedTimeoutMs ?? env?.AI_TRANSLATION_TIMEOUT_MS);
+  if (!Number.isFinite(configured) || configured < 5000) return DEFAULT_TIMEOUT_MS;
+  return Math.min(Math.floor(configured), MAX_TIMEOUT_MS);
+};
+
+export function resolveAIConfig(configInput = {}) {
+  const provider = String(configInput.provider || '').trim().toLowerCase();
+  const model = String(configInput.model || '').trim();
+  if (!provider || !model) throw new Error('AI_CONFIG_INVALID');
+  if (!['gemini', 'deepseek', 'openai'].includes(provider)) throw new Error('UNSUPPORTED_PROVIDER');
+  const temperature = typeof configInput.temperature === 'number' ? configInput.temperature : 0.2;
+  const enableThinking = configInput.enableThinking !== undefined ? Boolean(configInput.enableThinking) : undefined;
+  return { provider, model, temperature, ...(enableThinking !== undefined ? { enableThinking } : {}),
+    ...(configInput.exactModel === true ? { exactModel: true } : {}) };
+}
+
+export async function getAIAssistantConfig(db, assistantId) {
+  if (!db?.prepare) throw new Error('AI_ASSISTANT_CONFIG_UNAVAILABLE');
+  const row = await db.prepare(
+    'SELECT id, name, provider, model, system_prompt, temperature FROM AI_Assistants WHERE id = ?',
+  ).bind(assistantId).first();
+  if (!row?.provider || !row?.model) throw new Error('AI_ASSISTANT_CONFIG_UNAVAILABLE');
+  return {
+    provider: row.provider,
+    model: row.model,
+    systemPrompt: row.system_prompt || '',
+    temperature: typeof row.temperature === 'number' ? row.temperature : 0.2,
+  };
+}
+
+const withAiTimeout = async (env, options, execute) => {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    getTimeoutMs(env, options?.timeoutMs),
+  );
+  try {
+    return await execute(controller.signal);
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('AI_TIMEOUT');
+    if (String(error?.message || '').startsWith('AI_')) throw error;
+    throw new Error('AI_UPSTREAM_FAILURE');
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+/**
+ * 统一非流式 AI 请求服务。
+ * @param {Array<{role: string, content: string}>} messages
+ * @param {Object} configInput 当前数据库解析出的 provider/model 配置
+ * @param {Object} env 环境变量包含 API Key
+ * @param {Object} options 包含 timeoutMs 等选项
+ */
+export async function askAI(messages, configInput = {}, env = {}, options = {}) {
+  const config = resolveAIConfig(configInput);
+  return withAiTimeout(env, options, (signal) => {
+    if (config.provider === 'gemini') {
+      return askGemini(messages, config.model, env.GEMINI_API_KEY, config.temperature, signal);
+    }
+    if (config.provider === 'deepseek') {
+      return askDeepSeek(messages, config.model, env.DEEPSEEK_API_KEY, config.temperature, signal, env,
+        config.enableThinking);
+    }
+    return askOpenAI(messages, config.model, env.OPENAI_API_KEY, config.temperature, signal, env);
+  });
+}
+
+/**
+ * 多轮对话与 Tool Calling 服务。
+ */
+export async function chatAI(messages, tools = [], configInput = {}, env = {}, options = {}) {
+  const config = resolveAIConfig(configInput);
+  const onContentDelta = typeof options?.onContentDelta === 'function' ? options.onContentDelta : null;
+  const onThoughtDelta = typeof options?.onThoughtDelta === 'function' ? options.onThoughtDelta : null;
+
+  return withAiTimeout(env, options, (signal) => {
+    if (config.provider === 'deepseek' || config.provider === 'openai') {
+      return chatOpenAICompatible(
+        messages,
+        tools,
+        config,
+        env,
+        signal,
+        onContentDelta,
+        onThoughtDelta,
+      );
+    }
+    return chatGemini(
+      messages,
+      tools,
+      config,
+      env,
+      signal,
+      onContentDelta,
+      options?.onStreamEvent,
+      options?.streamIdleTimeoutMs,
+      onThoughtDelta,
+    );
+  });
+}

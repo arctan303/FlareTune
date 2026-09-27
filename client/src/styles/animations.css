@@ -1,0 +1,528 @@
+@layer utilities {
+  /* 优雅的自定义滚动条 */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.3);
+    border-radius: 10px;
+  }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(82, 82, 91, 0.5);
+  }
+  .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(82, 82, 91, 0.8);
+  }
+}
+@keyframes music-bar {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(4); }
+}
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes text-scroll {
+  0%, 15% { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--scroll-dist, 0)); }
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+@keyframes playlist-bounce {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.28) rotate(-7deg); }
+  50% { transform: scale(0.92) rotate(4deg); }
+  75% { transform: scale(1.08) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.animate-playlist-bounce {
+  animation: playlist-bounce 500ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  html,
+  body,
+  #root,
+  .music-shell {
+    transition: none !important;
+  }
+
+  [class*="lyric-single-"],
+  .lyric-soft-sway,
+  .animate-pulse,
+  .animate-spin,
+  [class*="animate-"] {
+    animation: none !important;
+  }
+
+  .player-console,
+  .playing-bars > div,
+  [style*="text-scroll"] {
+    animation: none !important;
+  }
+
+  .music-shell *,
+  .music-shell *::before,
+  .music-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .image-loading-placeholder::after,
+  .lazy-image:not([data-image-state='ready'])::after,
+  .loading-line::after,
+  .loading-block::after {
+    animation: none !important;
+  }
+
+  .lazy-image__asset.is-revealing,
+  .playlist-masthead__cover,
+  .playlist-detail-enter,
+  .playlist-detail-leave {
+    animation: reduced-image-reveal 90ms linear both !important;
+  }
+}
+@keyframes image-loading-sweep {
+  0% { transform: translateX(-120%); }
+  70%, 100% { transform: translateX(120%); }
+}
+/* 播放器形态切换：原地淡入（跳过全屏滑入重播）；CSS 动画驱动，不依赖 JS 状态 */
+@keyframes player-mode-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.player-mode-fade-in {
+  animation: player-mode-fade-in 620ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-mode-fade-in {
+    animation-duration: 150ms;
+  }
+}
+@keyframes image-reveal {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes reduced-image-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes playlist-detail-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cover-hero-expand {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.playlist-masthead__cover {
+  animation: cover-hero-expand 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes playlist-detail-leave {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-out-right {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(24px); }
+}
+
+@keyframes player-content-drift-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+.animate-player-content-drift-in {
+  animation: player-content-drift-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.36); }
+  65% { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+.animate-heart-pop {
+  animation: heart-pop 320ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  transform-origin: center;
+}
+
+@keyframes heart-pending-pulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.7;
+    filter: drop-shadow(0 0 1px color-mix(in srgb, var(--danger, #ef4444) 30%, transparent));
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 1;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--danger, #ef4444) 65%, transparent));
+  }
+  100% {
+    transform: scale(0.92);
+    opacity: 0.7;
+    filter: drop-shadow(0 0 1px color-mix(in srgb, var(--danger, #ef4444) 30%, transparent));
+  }
+}
+
+@keyframes heart-stroke-dash {
+  0% {
+    stroke-dashoffset: 72;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-heart-pending {
+  animation: heart-pending-pulse 900ms ease-in-out infinite;
+  transform-origin: center;
+  color: var(--danger, #ef4444) !important;
+}
+
+.animate-heart-pending svg path,
+.animate-heart-pending svg {
+  stroke-dasharray: 20 8;
+  animation: heart-stroke-dash 1000ms linear infinite;
+}
+
+@keyframes icon-pop {
+  0% { transform: scale(0.78); opacity: 0.6; }
+  45% { transform: scale(1.25); opacity: 1; }
+  75% { transform: scale(0.94); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-icon-pop {
+  animation: icon-pop 1200ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+/* ── 3D 双面硬币原地翻转 (先快后慢，旧封面转走 + 新封面转来) ── */
+.player-cover-coin-wrap {
+  perspective: 600px;
+  perspective-origin: 50% 50%;
+}
+
+.player-cover-coin {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateY(0deg);
+}
+
+.player-cover-coin__face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.player-cover-coin__face--front {
+  transform: rotateY(0deg);
+  z-index: 2;
+  will-change: transform;
+}
+
+.player-cover-coin__face--back {
+  transform: rotateY(180deg);
+  z-index: 2;
+  will-change: transform;
+}
+
+/* ── 切歌按钮物理冲撞与挤压 (纯净触发，绝无外层抖动) ── */
+.skip-btn .skip-arrow,
+.skip-btn .skip-bar,
+.skip-icon .skip-arrow,
+.skip-icon .skip-bar {
+  transform-origin: center;
+}
+
+.skip-icon--next.is-animating .skip-arrow,
+.skip-btn--next.is-animating .skip-arrow {
+  animation: skip-next-arrow 1000ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.skip-icon--next.is-animating .skip-bar,
+.skip-btn--next.is-animating .skip-bar {
+  animation: skip-next-bar 1000ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.skip-icon--prev.is-animating .skip-arrow,
+.skip-btn--prev.is-animating .skip-arrow {
+  animation: skip-prev-arrow 1000ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.skip-icon--prev.is-animating .skip-bar,
+.skip-btn--prev.is-animating .skip-bar {
+  animation: skip-prev-bar 1000ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes skip-next-arrow {
+  0%   { transform: translateX(0) scaleX(1); }
+  35%  { transform: translateX(4px) scaleX(0.62); }
+  65%  { transform: translateX(-1px) scaleX(1.08); }
+  85%  { transform: translateX(0.4px) scaleX(0.98); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+
+@keyframes skip-next-bar {
+  0%   { transform: translateX(0); }
+  35%  { transform: translateX(2px); }
+  65%  { transform: translateX(-0.5px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes skip-prev-arrow {
+  0%   { transform: translateX(0) scaleX(1); }
+  35%  { transform: translateX(-4px) scaleX(0.62); }
+  65%  { transform: translateX(1px) scaleX(1.08); }
+  85%  { transform: translateX(-0.4px) scaleX(0.98); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+
+@keyframes skip-prev-bar {
+  0%   { transform: translateX(0); }
+  35%  { transform: translateX(-2px); }
+  65%  { transform: translateX(0.5px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes menu-scale-in {
+  from { opacity: 0; transform: scale(0.92) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes sheet-slide-down {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100%); opacity: 0; }
+}
+@keyframes sheet-fade-out-scale {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.96) translateY(8px); }
+}
+@keyframes backdrop-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes all-playlists-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes all-playlists-leave {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(8px); }
+}
+
+.all-playlists-view {
+  animation: all-playlists-enter 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.all-playlists-view.is-leaving {
+  animation: all-playlists-leave 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-heart-pop,
+  .animate-heart-pending,
+  .animate-heart-pending svg,
+  .animate-heart-pending svg path,
+  .animate-icon-pop,
+  .skip-btn--next .skip-arrow,
+  .skip-btn--next .skip-bar,
+  .skip-btn--prev .skip-arrow,
+  .skip-btn--prev .skip-bar,
+  .track-row__menu,
+  .all-playlists-view,
+  .all-playlists-view.is-leaving,
+  .search-playlist-picker,
+  .search-playlist-picker-sheet.is-closing .search-playlist-picker,
+  .search-playlist-picker-sheet__backdrop,
+  .search-playlist-picker-sheet.is-closing .search-playlist-picker-sheet__backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes ai-loading-bubble {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.ai-typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  vertical-align: -0.15em;
+  animation: ai-typing-cursor-blink 850ms ease-in-out infinite;
+}
+
+@keyframes ai-typing-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-typing-cursor {
+    animation: none;
+    opacity: 1;
+  }
+}
+.ai-loading-bubble {
+  display: block;
+  height: 12px;
+  width: 220px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--soft-line) 25%, var(--line) 37%, var(--soft-line) 63%);
+  background-size: 200% 100%;
+  animation: ai-loading-bubble 1.4s ease-in-out infinite;
+}
+.ai-loading-bubble--short {
+  width: 150px;
+  animation-delay: 0.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-loading-bubble { animation: none; }
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .player-console {
+    backdrop-filter: var(--player-glass-blur);
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .player-console {
+    background: color-mix(in srgb, var(--page) 84%, var(--surface-raised));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, white 30%, transparent),
+      0 16px 40px -10px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* 沉浸写真 Ken Burns 电影感慢镜动画 */
+@keyframes kenburnsZoomIn {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.07) translate(-1%, -1%);
+  }
+  100% {
+    transform: scale(1.02) translate(1%, 0.5%);
+  }
+}
+
+@keyframes kenburnsZoomOut {
+  0% {
+    transform: scale(1.07) translate(1%, 1%);
+  }
+  50% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.05) translate(-1%, 0.5%);
+  }
+}
+
+/* ── 漫游补充流式动效与入场过渡 ── */
+@keyframes roam-loading-expand {
+  0% {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    max-height: 220px;
+    transform: translateY(0);
+  }
+}
+
+.animate-roam-loading-expand {
+  animation: roam-loading-expand 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+}
+
+@keyframes roam-shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-roam-shimmer {
+  animation: roam-shimmer-sweep 1.8s ease-in-out infinite;
+}
+
+@keyframes roam-song-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translateY(-2px) scale(1.005);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-roam-song-enter {
+  animation: roam-song-enter 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-roam-loading-expand {
+    animation: none;
+    max-height: none;
+  }
+  .animate-roam-shimmer {
+    animation: none;
+  }
+  .animate-roam-song-enter {
+    animation: none;
+  }
+}

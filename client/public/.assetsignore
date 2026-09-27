@@ -1,0 +1,9 @@
+_worker.js
+_worker.js.map
+**/*.map
+**/.dev.vars*
+**/.env*
+**/*.sql
+server/**
+worker/**
+node_modules/**

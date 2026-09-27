@@ -1,0 +1,77 @@
+node_modules/
+dist/
+*.cache
+*.log
+*.tmp
+*.bak
+*.patch
+start.bat
+patch.js
+OPTIMIZATION_PLAN.md
+config.php
+.user.ini
+
+
+# 构建产物和缓存
+media/
+lyrics_cache/
+.wrangler/
+backups/
+
+# 系统及编辑器文件
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.dev.vars
+server/dev/wrangler.toml
+server/dev/credentials.json
+server/dev/song-sample.json
+server/dev/artist-showcase.json
+server/dev/artist-copy-receipt.json
+server/dev-copy/wrangler.toml
+.playwright-cli/
+output/
+*.sql
+!server/db/schema.sql
+!server/db/seed.sql
+!server/db/migrations/*.sql
+!server/db/migrations-v5/*.sql
+!server/db/migrations-flaretune/*.sql
+!tests/fixtures/**/*.sql
+*.tsv
+
+# 本地生产数据库导出，仅用于上线前备份与对比
+.music-ingest.env
+music-ingest.json
+.agents/
+.codex/
+.claude/
+.creator/
+# 内部开发资料只留在本机。历史文件从 Git 索引移除后，不得强制添加或取消此排除。
+/docs/
+# 部署者个人的生产资源绑定只保留在本地，不进入公开仓库。
+server/wrangler.production.toml
+AGENTS.md
+CLAUDE.md
+EVOLUTION.md
+restart.bat
+status.bat
+stop.bat
+.creator-manifest.json
+.version
+.workbuddy-ai/
+.dsh-research/
+
+# Maintainer-specific production and cloud development tools remain private.
+tooling/production/
+tooling/dev/prepare-artist-showcase.mjs
+tooling/dev/seed-artist-showcase.mjs
+tooling/dev/smoke-artist-showcase.mjs
+tooling/dev/sample-dev-songs.mjs
+tooling/dev/copy-dev-media.mjs
+tooling/dev/copy-artist-media.mjs
+tooling/dev/seed-dev-songs.mjs
+tooling/dev/smoke-dev.mjs
+tooling/dev/bootstrap-dev.mjs
+tooling/dev/smoke-online-*.mjs

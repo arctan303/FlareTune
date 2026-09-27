@@ -1,0 +1,204 @@
+/* 单行滚动歌词预览：
+   大字号主歌词 + 细腻副翻译 + 上下露出半透明上下文，
+   整体向上平滑滚动，边界采用舒适渐变 mask 柔化避免视觉断层 */
+.paper-mobile-lyric-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin: 22px 0 2px;
+  z-index: 2;
+  width: 100%;
+  max-width: 94vw;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.paper-mobile-lyric-preview__viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: auto;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+}
+
+.paper-mobile-lyric-preview__roller {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.paper-mobile-lyric-preview__row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-size: 18px;
+  line-height: 28px;
+  opacity: 0.35;
+  filter: blur(0.2px);
+  transition: opacity 350ms ease, filter 350ms ease;
+}
+
+.paper-mobile-lyric-preview__row.is-active {
+  opacity: 1;
+  filter: none;
+}
+
+.paper-mobile-lyric-preview__primary {
+  width: 100%;
+  font-size: 23px;
+  line-height: 30px;
+  font-weight: 700;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.78);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
+  transition: color 300ms ease;
+}
+
+.paper-mobile-lyric-preview__row.is-active .paper-mobile-lyric-preview__primary {
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.3);
+}
+
+.paper-mobile-lyric-preview__translation {
+  width: 100%;
+  margin-top: 3px;
+  font-size: 13.5px;
+  line-height: 18px;
+  font-weight: 500;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  transition: color 300ms ease;
+}
+
+.paper-mobile-lyric-preview__row.is-active .paper-mobile-lyric-preview__translation {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+}
+
+@media (min-width: 1024px) {
+  .paper-mobile-lyric-preview {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-mobile-lyric-preview__roller,
+  .paper-classic-player .paper-mobile-lyric-preview__primary,
+  .paper-classic-player .paper-mobile-lyric-preview__translation {
+    transition: none !important;
+  }
+
+  .paper-classic-player .paper-mobile-lyric-preview__row {
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+
+  .paper-classic-player .classic-lyrics__pane-motion {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* =========================================================================
+   移动端单行大封面与多行小封面之间的 GPU 硬件加速共享缩放飞入与退出动画
+   ========================================================================= */
+@keyframes miniCoverPop {
+  0% {
+    transform: scale(2.4) translate3d(36px, 90px, 0);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes largeCoverExpand {
+  0% {
+    transform: scale(0.75) translate3d(0, 16px, 0);
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(var(--target-cover-scale, 1)) translate3d(0, 0, 0);
+    opacity: var(--target-cover-opacity, 1);
+  }
+}
+
+@keyframes lyricsFadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes lyricsFadeSlideOut {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+}
+
+.animate-mini-cover-pop {
+  animation: miniCoverPop 460ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+}
+
+.animate-large-cover-expand {
+  animation: largeCoverExpand 460ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+}
+
+.animate-lyrics-slide-in {
+  animation: lyricsFadeSlideIn 400ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+}
+
+.animate-lyrics-slide-out {
+  animation: lyricsFadeSlideOut 320ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* =========================================================================
+   移动端多行歌词下播放控件自动隐藏与沉浸展开 (丝滑苹果级阻尼缓动)
+   ========================================================================= */
+.mobile-lyrics-controls-container {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  max-height: 120px;
+  will-change: transform, opacity, max-height;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 300ms cubic-bezier(0.22, 1, 0.36, 1),
+              max-height 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobile-lyrics-controls-container.is-hidden {
+  transform: translate3d(0, 24px, 0);
+  opacity: 0;
+  max-height: 0;
+  pointer-events: none !important;
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 450ms cubic-bezier(0.25, 1, 0.5, 1),
+              max-height 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}

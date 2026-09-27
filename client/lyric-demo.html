@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大舞台歌词实验室 · 自适应真实时序与全局灰翻译</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: #040508;
+      color: #f3f4f6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* 440px 巨幕全屏大舞台 */
+    .grand-stage {
+      position: relative;
+      width: 100%;
+      height: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      perspective: 1400px;
+      perspective-origin: 50% 50%;
+      overflow: hidden;
+      border-radius: 28px;
+      background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.4) 0%, rgba(4, 5, 8, 0.96) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.9), 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 行容器：平滑入场与出场（时长由 JS 动态注入 --line-enter-ms / --line-exit-ms） */
+    .line-wrapper {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      width: 92%;
+      max-width: 1000px;
+      transition: opacity var(--line-enter-ms, 380ms) ease, 
+                  transform var(--line-enter-ms, 380ms) cubic-bezier(0.2, 0.8, 0.2, 1);
+      will-change: opacity, transform;
+      transform-style: preserve-3d;
+    }
+
+    .line-wrapper.line-entering {
+      opacity: 0;
+      transform: translateY(28px) scale(0.95);
+    }
+    .line-wrapper.line-active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    .line-wrapper.line-exiting {
+      opacity: 0;
+      transform: translateY(-30px) scale(0.94);
+      filter: blur(6px);
+      transition-duration: var(--line-exit-ms, 320ms) !important;
+    }
+
+    /* 原文行排版 */
+    .original-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      width: 100%;
+    }
+
+    /* 槽位预占：保证文字排版零抖动 */
+    .word-slot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      font-size: clamp(2.2rem, 5vw, 4.4rem);
+      font-weight: 800;
+      line-height: 1.3;
+      white-space: pre;
+      margin: 0 0.04em;
+    }
+
+    .word-slot.is-space {
+      width: 0.5em;
+    }
+
+    /* 文字运动层：纯净无光，动画时长由 JS 自适应注入 --word-anim-ms */
+    .word-char {
+      display: inline-block;
+      will-change: transform, opacity, filter;
+      transform-style: preserve-3d;
+      text-shadow: none !important;
+    }
+
+    /* ============================================================== */
+    /* 翻译行：全局统一纯粹灰色，无任何颜色区分与高亮，沉静优雅        */
+    /* ============================================================== */
+    .translation-line {
+      margin-top: clamp(0.75rem, 1.8vw, 1.35rem);
+      font-size: clamp(1rem, 1.9vw, 1.45rem);
+      font-weight: 400;
+      line-height: 1.4;
+      letter-spacing: 0.03em;
+      color: rgba(203, 213, 225, 0.55) !important; /* 全局统一高级灰 */
+      -webkit-text-fill-color: rgba(203, 213, 225, 0.55) !important;
+      background: none !important;
+      max-width: 88%;
+      text-align: center;
+      text-shadow: none !important;
+      will-change: opacity, transform, filter;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      transform-style: preserve-3d;
+    }
+
+    .trans-word {
+      display: inline-block;
+      white-space: pre;
+      color: rgba(203, 213, 225, 0.55) !important; /* 始终保持统一灰度 */
+      will-change: transform, opacity, filter;
+      transform-style: preserve-3d;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* 翻译同频微动（仅保留物理位移/透明度微动，绝无颜色变化）          */
+    /* -------------------------------------------------------------- */
+
+    /* 1. 破空微动 (Warp) */
+    .scheme-warp .trans-word {
+      opacity: 0;
+      transform: translate3d(10px, -6px, -160px) rotateZ(-4deg) scale(0.85);
+      filter: blur(4px);
+      transition: transform var(--word-anim-ms, 380ms) cubic-bezier(0.16, 1, 0.3, 1), 
+                  opacity 260ms ease, 
+                  filter 260ms ease;
+    }
+    .scheme-warp .trans-word.revealed {
+      opacity: 0.55;
+      transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1);
+      filter: blur(0);
+    }
+
+    /* 2. 惊雷微动 (Thunder) */
+    .scheme-thunder .trans-word {
+      opacity: 0;
+      transform: translate3d(-6px, -24px, 0) rotate(-3deg) scale(0.88);
+      filter: blur(4px);
+      transition: transform var(--word-anim-ms, 360ms) cubic-bezier(0.18, 0.95, 0.28, 1), 
+                  opacity 220ms ease, 
+                  filter 220ms ease;
+    }
+    .scheme-thunder .trans-word.revealed {
+      opacity: 0.55;
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+      filter: blur(0);
+    }
+
+    /* 3. 旋涡微动 (Tornado) */
+    .scheme-tornado .trans-word {
+      opacity: 0;
+      transform: translate3d(30px, -14px, -50px) rotate(20deg) scale(0.82);
+      filter: blur(4px);
+      transition: transform var(--word-anim-ms, 400ms) cubic-bezier(0.16, 1, 0.3, 1), 
+                  opacity 240ms ease, 
+                  filter 240ms ease;
+    }
+    .scheme-tornado .trans-word.revealed {
+      opacity: 0.55;
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+      filter: blur(0);
+    }
+
+    /* 4. 矩阵翻折微动 (Matrix) */
+    .scheme-matrix .trans-word {
+      opacity: 0;
+      transform: translate3d(-12px, 12px, -60px) rotateX(40deg) rotateY(-18deg) scale(0.84);
+      filter: blur(4px);
+      transition: transform var(--word-anim-ms, 420ms) cubic-bezier(0.2, 0.95, 0.28, 1), 
+                  opacity 240ms ease, 
+                  filter 240ms ease;
+    }
+    .scheme-matrix .trans-word.revealed {
+      opacity: 0.55;
+      transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1);
+      filter: blur(0);
+    }
+
+    /* 5. 音速微掠 (Sonic) */
+    .scheme-sonic .trans-word {
+      opacity: 0;
+      transform: translate3d(40px, -6px, 0) rotate(2deg) skewX(-10deg) scale(0.88);
+      filter: blur(4px);
+      transition: transform var(--word-anim-ms, 340ms) cubic-bezier(0.1, 0.95, 0.2, 1), 
+                  opacity 200ms ease, 
+                  filter 200ms ease;
+    }
+    .scheme-sonic .trans-word.revealed {
+      opacity: 0.55;
+      transform: translate3d(0, 0, 0) rotate(0deg) skewX(0deg) scale(1);
+      filter: blur(0);
+    }
+
+    /* ============================================================== */
+    /* 正文 5 套大舞台动效：动态时长变量 --word-anim-ms                */
+    /* ============================================================== */
+
+    /* 1. 破空穿梭 (Warp Speed) */
+    .scheme-warp .word-char.state-pending {
+      opacity: 0;
+      transform: translate3d(30px, -20px, -800px) rotateZ(-6deg) scale(0.18);
+      filter: blur(20px);
+    }
+    .scheme-warp .word-char.state-entering {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1);
+      filter: blur(0px);
+      transition: transform var(--word-anim-ms, 400ms) cubic-bezier(0.16, 1, 0.3, 1), 
+                  opacity 240ms ease, 
+                  filter 260ms ease;
+    }
+    .scheme-warp .word-char.state-active {
+      color: #ffffff;
+      transform: translate3d(0, -2px, 6px) scale(1.03);
+      transition: transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .scheme-warp .word-char.state-complete {
+      color: rgba(255, 255, 255, 0.95);
+      transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1);
+      transition: transform 220ms ease;
+    }
+
+    /* 2. 天降惊雷 (Thunder Slam) */
+    .scheme-thunder .word-char.state-pending {
+      opacity: 0;
+      transform: translate3d(-30px, -200px, 0) rotate(-8deg) scale(0.75);
+      filter: blur(12px);
+    }
+    .scheme-thunder .word-char.state-entering {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+      filter: blur(0);
+      transition: transform var(--word-anim-ms, 380ms) cubic-bezier(0.18, 0.95, 0.28, 1), 
+                  opacity 200ms ease, 
+                  filter 200ms ease;
+    }
+    .scheme-thunder .word-char.state-active {
+      color: #ffffff;
+      transform: translate3d(0, -2px, 0) scale(1.03);
+      transition: transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .scheme-thunder .word-char.state-complete {
+      color: rgba(255, 255, 255, 0.95);
+      transform: translate3d(0, 0, 0) scale(1, 1);
+      transition: transform 220ms ease;
+    }
+
+    /* 3. 龙卷旋涡 (Tornado Swirl) */
+    .scheme-tornado .word-char.state-pending {
+      opacity: 0;
+      transform: translate3d(280px, -140px, -350px) rotate(240deg) scale(0.12);
+      filter: blur(20px);
+    }
+    .scheme-tornado .word-char.state-entering {
+      opacity: 1;
+      transform: translate3d(-12px, 6px, 25px) rotate(-14deg) scale(1.12);
+      filter: blur(0);
+      transition: transform var(--word-anim-ms, 460ms) cubic-bezier(0.16, 1, 0.3, 1), 
+                  opacity 260ms ease, 
+                  filter 260ms ease;
+    }
+    .scheme-tornado .word-char.state-active {
+      color: #ffffff;
+      transform: translate3d(0, -5px, 10px) rotate(2deg) scale(1.06);
+      transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .scheme-tornado .word-char.state-complete {
+      color: rgba(255, 255, 255, 0.95);
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+      transition: transform 280ms ease;
+    }
+
+    /* 4. 3D 矩阵翻折 (3D Matrix Flip) */
+    .scheme-matrix .word-char.state-pending {
+      opacity: 0;
+      transform: translate3d(-50px, 70px, -260px) rotateX(130deg) rotateY(-85deg) rotateZ(18deg) scale(0.35);
+      filter: blur(10px);
+    }
+    .scheme-matrix .word-char.state-entering {
+      opacity: 1;
+      transform: translate3d(8px, -12px, 40px) rotateX(-10deg) rotateY(6deg) rotateZ(-2deg) scale(1.1);
+      filter: blur(0);
+      transition: transform var(--word-anim-ms, 440ms) cubic-bezier(0.2, 0.95, 0.28, 1), 
+                  opacity 260ms ease, 
+                  filter 260ms ease;
+    }
+    .scheme-matrix .word-char.state-active {
+      color: #ffffff;
+      transform: translate3d(0, -4px, 18px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1.05);
+      transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .scheme-matrix .word-char.state-complete {
+      color: rgba(255, 255, 255, 0.95);
+      transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);
+      transition: transform 260ms ease;
+    }
+
+    /* 5. 超音速音爆 (Sonic Dash) */
+    .scheme-sonic .word-char.state-pending {
+      opacity: 0;
+      transform: translate3d(480px, -90px, 0) rotate(20deg) skewX(-38deg) scale(0.7);
+      filter: blur(18px);
+    }
+    .scheme-sonic .word-char.state-entering {
+      opacity: 1;
+      transform: translate3d(-20px, 8px, 0) rotate(-4deg) skewX(8deg) scale(1.08);
+      filter: blur(0);
+      transition: transform var(--word-anim-ms, 360ms) cubic-bezier(0.1, 0.95, 0.2, 1), 
+                  opacity 180ms ease, 
+                  filter 220ms ease;
+    }
+    .scheme-sonic .word-char.state-active {
+      color: #ffffff;
+      transform: translate3d(0, -6px, 0) rotate(0deg) skewX(0deg) scale(1.06);
+      transition: transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .scheme-sonic .word-char.state-complete {
+      color: rgba(255, 255, 255, 0.95);
+      transform: translate3d(0, 0, 0) rotate(0deg) skewX(0deg) scale(1);
+      transition: transform 240ms ease;
+    }
+
+    /* 方案卡片与按钮激活状态 */
+    .scheme-card.active-scheme,
+    .scenario-btn.active-scenario {
+      border-color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 0 25px rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8 max-w-6xl mx-auto min-h-screen flex flex-col justify-between">
+
+  <!-- 头部介绍与大舞台控制 -->
+  <header class="mb-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-5">
+    <div>
+      <div class="flex items-center gap-3">
+        <span class="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">自适应时序驱动</span>
+        <h1 class="text-xl md:text-2xl font-black tracking-tight text-white">大舞台歌词实验室 · 真实时序自适应与全局灰翻译</h1>
+      </div>
+      <p class="text-sm text-white/60 mt-1.5">
+        结合<strong>行换行间隔、歌词单字速度、间奏长短</strong>动态计算过渡时长；翻译采用<strong>全局高级灰纯净排版</strong>，绝无颜色区分，随歌唱真实进度同频微动入场。
+      </p>
+    </div>
+
+    <!-- 播放与控制控件 -->
+    <div class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 backdrop-blur-xl">
+      <button id="btnPlayPause" class="px-4 py-1.5 bg-white text-black font-bold rounded-xl text-xs hover:bg-white/90 active:scale-95 transition shadow">
+        暂停
+      </button>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-white/50">倍速:</span>
+        <select id="speedSelect" class="bg-black/40 border border-white/20 rounded-lg text-xs px-2 py-1 text-white outline-none">
+          <option value="0.5">0.5x 慢放查验时序</option>
+          <option value="1" selected>1.0x 正常节奏</option>
+          <option value="1.5">1.5x 快速</option>
+        </select>
+      </div>
+      <div class="h-4 w-px bg-white/10 mx-1"></div>
+      <span id="timeDisplay" class="text-xs font-mono text-white/70 min-w-[4rem]">0.00s</span>
+    </div>
+  </header>
+
+  <!-- 真实场景切换器 (涵盖常速流行、极速说唱、慢歌长间奏) -->
+  <div class="mb-4 bg-white/[0.04] border border-white/10 rounded-2xl p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        当前实际场景模拟：
+      </span>
+      <span id="currentScenarioTitle" class="text-xs font-semibold text-emerald-300">场景 1: 标准流行抒情 (词速 ~350ms，间隙 0.8s)</span>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2" id="scenarioGroup">
+      <button class="scenario-btn active-scenario px-3 py-1.5 rounded-xl border border-white/15 text-xs font-medium text-white hover:bg-white/10 transition" 
+              data-scenario="pop" 
+              data-title="场景 1: 标准流行抒情 (词速 ~350ms，间隙 0.8s)">
+        🎵 场景 1: 标准流行抒情
+      </button>
+      <button class="scenario-btn px-3 py-1.5 rounded-xl border border-white/15 text-xs font-medium text-white hover:bg-white/10 transition" 
+              data-scenario="rap" 
+              data-title="场景 2: 极速快歌/说唱 (词速 ~120ms，极窄间隙 0.15s 紧接)">
+        ⚡ 场景 2: 极速快歌/说唱
+      </button>
+      <button class="scenario-btn px-3 py-1.5 rounded-xl border border-white/15 text-xs font-medium text-white hover:bg-white/10 transition" 
+              data-scenario="ballad" 
+              data-title="场景 3: 慢歌长拖音与长间奏 (尾音长拖，间隙 3.2s 间奏)">
+        🌙 场景 3: 慢歌长拖音与长间奏
+      </button>
+    </div>
+  </div>
+
+  <!-- 实时动态时序监视器 -->
+  <div class="mb-4 grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px] font-mono">
+    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+      <div class="text-white/40 text-[10px]">换行间隔 (Gap)</div>
+      <div id="statLineGap" class="text-emerald-400 font-bold text-xs mt-0.5">0.80s</div>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+      <div class="text-white/40 text-[10px]">自适应入场预判 (Lead-in)</div>
+      <div id="statLeadIn" class="text-indigo-300 font-bold text-xs mt-0.5">0.24s</div>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+      <div class="text-white/40 text-[10px]">单字动画动态耗时 (Anim)</div>
+      <div id="statAnimMs" class="text-amber-300 font-bold text-xs mt-0.5">380ms</div>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5">
+      <div class="text-white/40 text-[10px]">唱毕驻留时长 (Dwell)</div>
+      <div id="statDwell" class="text-purple-300 font-bold text-xs mt-0.5">0.45s</div>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 col-span-2 sm:col-span-1">
+      <div class="text-white/40 text-[10px]">翻译状态 (Color: Pure Gray)</div>
+      <div id="statTrans" class="text-slate-300 font-bold text-xs mt-0.5">全局灰 · 随进度同频微动</div>
+    </div>
+  </div>
+
+  <!-- 进度条 -->
+  <div class="mb-5">
+    <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden relative cursor-pointer" id="progressBarContainer">
+      <div id="progressBar" class="bg-emerald-400/80 h-full w-0 transition-[width] duration-75"></div>
+    </div>
+    <div class="flex justify-between text-[11px] text-white/40 mt-1.5 font-mono">
+      <span id="curLineLabel">第 1 句</span>
+      <span class="text-white/60">🔄 动态时序计算：根据词速与间隔自适应压缩与舒展</span>
+    </div>
+  </div>
+
+  <!-- 核心主舞台：440px 巨幕全屏大舞台 -->
+  <section class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-xs font-bold uppercase tracking-wider text-white/70 flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+        当前巨幕大舞台正文大招：
+        <span id="currentSchemeTitle" class="text-white font-extrabold text-base tracking-wide">破空穿梭 (Warp Speed)</span>
+      </span>
+      <span class="text-xs text-white/40">翻译全程保持统一灰色，零颜色突兀感</span>
+    </div>
+
+    <!-- 巨幕容器 -->
+    <div class="grand-stage scheme-warp" id="mainStage">
+      <!-- 动态注入原文行与翻译行 -->
+    </div>
+  </section>
+
+  <!-- 5 大正文大动作选择卡片 -->
+  <section class="mb-5">
+    <h2 class="text-sm font-bold text-white/80 mb-3 uppercase tracking-wider flex items-center gap-2">
+      <span>5 大正文大动作方案（点击切换）：</span>
+      <span class="text-xs font-normal text-white/40 normal-case">纯白排版、绝无发光、时序自适应</span>
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3.5" id="schemeGrid">
+
+      <div class="scheme-card active-scheme border border-white/10 rounded-2xl p-4 cursor-pointer hover:border-white/30 transition flex flex-col justify-between" 
+           data-scheme="scheme-warp" 
+           data-title="破空穿梭 (Warp Speed)">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-white/90">Z 轴跃迁</span>
+            <span class="text-xs text-white/40 font-mono">01</span>
+          </div>
+          <h3 class="font-black text-white text-base mb-1">破空穿梭</h3>
+          <p class="text-[11px] text-white/60 leading-relaxed">
+            -1200px 侧弧破空冲至眼前，唱响微抬 6px，无光纯白。
+          </p>
+        </div>
+        <div class="mt-3 text-[10px] text-slate-400 font-mono">翻译：统一灰 · -160px 微跃迁</div>
+      </div>
+
+      <div class="scheme-card border border-white/10 rounded-2xl p-4 cursor-pointer hover:border-white/30 transition flex flex-col justify-between" 
+           data-scheme="scheme-thunder" 
+           data-title="天降惊雷 (Thunder Slam)">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-white/90">Y 轴垂直</span>
+            <span class="text-xs text-white/40 font-mono">02</span>
+          </div>
+          <h3 class="font-black text-white text-base mb-1">天降惊雷</h3>
+          <p class="text-[11px] text-white/60 leading-relaxed">
+            -16° 抛物线俯冲下坠，落地果冻回弹，唱响微抬 9px。
+          </p>
+        </div>
+        <div class="mt-3 text-[10px] text-slate-400 font-mono">翻译：统一灰 · -24px 柔和微降</div>
+      </div>
+
+      <div class="scheme-card border border-white/10 rounded-2xl p-4 cursor-pointer hover:border-white/30 transition flex flex-col justify-between" 
+           data-scheme="scheme-tornado" 
+           data-title="龙卷旋涡 (Tornado Swirl)">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-white/90">向心螺旋</span>
+            <span class="text-xs text-white/40 font-mono">03</span>
+          </div>
+          <h3 class="font-black text-white text-base mb-1">龙卷旋涡</h3>
+          <p class="text-[11px] text-white/60 leading-relaxed">
+            240° 对数螺旋圆弧盘旋收拢，唱响瞬间微摆轻反馈。
+          </p>
+        </div>
+        <div class="mt-3 text-[10px] text-slate-400 font-mono">翻译：统一灰 · 20° 柔和微旋</div>
+      </div>
+
+      <div class="scheme-card border border-white/10 rounded-2xl p-4 cursor-pointer hover:border-white/30 transition flex flex-col justify-between" 
+           data-scheme="scheme-matrix" 
+           data-title="3D 矩阵翻折 (3D Matrix Flip)">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-white/90">3D 双轴</span>
+            <span class="text-xs text-white/40 font-mono">04</span>
+          </div>
+          <h3 class="font-black text-white text-base mb-1">3D 矩阵翻折</h3>
+          <p class="text-[11px] text-white/60 leading-relaxed">
+            立体翻折展开，唱响时向前微突 18px 破屏。
+          </p>
+        </div>
+        <div class="mt-3 text-[10px] text-slate-400 font-mono">翻译：统一灰 · 40° 空间微翻折</div>
+      </div>
+
+      <div class="scheme-card border border-white/10 rounded-2xl p-4 cursor-pointer hover:border-white/30 transition flex flex-col justify-between" 
+           data-scheme="scheme-sonic" 
+           data-title="超音速音爆 (Sonic Dash)">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-white/90">X 轴极速</span>
+            <span class="text-xs text-white/40 font-mono">05</span>
+          </div>
+          <h3 class="font-black text-white text-base mb-1">超音速音爆</h3>
+          <p class="text-[11px] text-white/60 leading-relaxed">
+            带弧形下俯切入，贴地漂移回正，唱响音波微动。
+          </p>
+        </div>
+        <div class="mt-3 text-[10px] text-slate-400 font-mono">翻译：统一灰 · +40px 音速微掠</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 底部设计哲学阐述 -->
+  <footer class="border-t border-white/10 pt-4 text-xs text-white/50 flex flex-col md:flex-row justify-between gap-4">
+    <div class="space-y-1.5 max-w-3xl">
+      <div class="text-white/80 font-semibold">✨ 真实时序自适应与翻译纯净灰规则：</div>
+      <p>
+        1. <strong>自适应换行过渡 (Line Transition Adaptation)</strong>：不再使用死板固定的 0.3s/0.42s。当遇到<strong>极速快歌（间隙只有 0.15s）</strong>时，出入场动画自适应压缩至 150ms 闪切，杜绝文字堆叠延迟；遇到<strong>长间奏（间隙 3.2s）</strong>时，唱毕从容驻留 0.8s 后渐隐，间奏放空，下句开唱前 0.5s 柔和预入。<br>
+        2. <strong>单字速度自适应 (Word Tempo Adaptation)</strong>：根据单字实际发音时长，动态调整动画耗时（160ms~460ms）与提前量（80ms~320ms），快歌干脆利落、慢歌舒缓飘逸。<br>
+        3. <strong>翻译纯粹全局灰 (Pure Uniform Gray)</strong>：完全剥离任何颜色渐变与高亮，通体保持低对比高级灰，以 15% 同款物理微动随歌唱进度自然浮现，沉静不抢镜。
+      </p>
+    </div>
+    <div class="flex items-end">
+      <span class="text-white/30 font-mono">Antigravity · Adaptive Dynamics</span>
+    </div>
+  </footer>
+
+  <script>
+    // ==============================================================
+    // 3 套不同速度与间隙特性的真实场景数据集
+    // ==============================================================
+    const SCENARIOS = {
+      // 场景 1: 标准流行抒情歌（常速，词速 ~350ms，句间隙 0.8s）
+      pop: {
+        title: "场景 1: 标准流行抒情 (词速 ~350ms，间隙 0.8s)",
+        lines: [
+          {
+            lineIndex: 0,
+            text: "海阔天空 狂风暴雨以后",
+            translation: "A vast sky after the stormy weather",
+            words: [
+              { text: "海", start: 0.3, end: 0.7 },
+              { text: "阔", start: 0.7, end: 1.1 },
+              { text: "天", start: 1.1, end: 1.5 },
+              { text: "空", start: 1.5, end: 2.0 },
+              { text: " ", start: 2.0, end: 2.2, isSpace: true },
+              { text: "狂", start: 2.2, end: 2.5 },
+              { text: "风", start: 2.5, end: 2.8 },
+              { text: "暴", start: 2.8, end: 3.1 },
+              { text: "雨", start: 3.1, end: 3.5 },
+              { text: "以", start: 3.5, end: 3.8 },
+              { text: "后", start: 3.8, end: 4.4 }
+            ],
+            duration: 5.2, // 唱完 4.4s，留有 0.8s 间隙
+            gapToNext: 0.8
+          },
+          {
+            lineIndex: 1,
+            text: "转过头 对旧心酸一笑而过",
+            translation: "Turning back, smiling away the past heartaches",
+            words: [
+              { text: "转", start: 0.3, end: 0.6 },
+              { text: "过", start: 0.6, end: 1.0 },
+              { text: "头", start: 1.0, end: 1.6 },
+              { text: " ", start: 1.6, end: 1.8, isSpace: true },
+              { text: "对", start: 1.8, end: 2.1 },
+              { text: "旧", start: 2.1, end: 2.4 },
+              { text: "心", start: 2.4, end: 2.8 },
+              { text: "酸", start: 2.8, end: 3.2 },
+              { text: "一", start: 3.2, end: 3.4 },
+              { text: "笑", start: 3.4, end: 3.8 },
+              { text: "而", start: 3.8, end: 4.0 },
+              { text: "过", start: 4.0, end: 4.6 }
+            ],
+            duration: 5.4,
+            gapToNext: 0.8
+          },
+          {
+            lineIndex: 2,
+            text: "最懂我的人 谢谢你陪我",
+            translation: "To the one who knows me best, thank you for staying",
+            words: [
+              { text: "最", start: 0.3, end: 0.6 },
+              { text: "懂", start: 0.6, end: 1.0 },
+              { text: "我", start: 1.0, end: 1.4 },
+              { text: "的", start: 1.4, end: 1.7 },
+              { text: "人", start: 1.7, end: 2.3 },
+              { text: " ", start: 2.3, end: 2.5, isSpace: true },
+              { text: "谢", start: 2.5, end: 2.9 },
+              { text: "谢", start: 2.9, end: 3.3 },
+              { text: "你", start: 3.3, end: 3.7 },
+              { text: "陪", start: 3.7, end: 4.1 },
+              { text: "我", start: 4.1, end: 4.7 }
+            ],
+            duration: 5.5,
+            gapToNext: 0.8
+          }
+        ]
+      },
+
+      // 场景 2: 极速快歌 / 说唱（高密快词 ~120ms/字，换行间距仅 0.15s 紧密衔接）
+      rap: {
+        title: "场景 2: 极速快歌/说唱 (词速 ~120ms，极窄间隙 0.15s 紧接)",
+        lines: [
+          {
+            lineIndex: 0,
+            text: "加速冲破这片夜色哪怕风雨交加",
+            translation: "Speeding through the night despite the storm",
+            words: [
+              { text: "加", start: 0.1, end: 0.22 },
+              { text: "速", start: 0.22, end: 0.35 },
+              { text: "冲", start: 0.35, end: 0.48 },
+              { text: "破", start: 0.48, end: 0.6 },
+              { text: "这", start: 0.6, end: 0.72 },
+              { text: "片", start: 0.72, end: 0.85 },
+              { text: "夜", start: 0.85, end: 0.98 },
+              { text: "色", start: 0.98, end: 1.1 },
+              { text: "哪", start: 1.1, end: 1.22 },
+              { text: "怕", start: 1.22, end: 1.35 },
+              { text: "风", start: 1.35, end: 1.48 },
+              { text: "雨", start: 1.48, end: 1.6 },
+              { text: "交", start: 1.6, end: 1.72 },
+              { text: "加", start: 1.72, end: 1.9 }
+            ],
+            duration: 2.05, // 唱完 1.9s，间隙仅 0.15s
+            gapToNext: 0.15
+          },
+          {
+            lineIndex: 1,
+            text: "不退缩不妥协心火点燃我的步伐",
+            translation: "Never back down, inner fire ignites my pace",
+            words: [
+              { text: "不", start: 0.1, end: 0.22 },
+              { text: "退", start: 0.22, end: 0.34 },
+              { text: "缩", start: 0.34, end: 0.46 },
+              { text: "不", start: 0.46, end: 0.58 },
+              { text: "妥", start: 0.58, end: 0.7 },
+              { text: "协", start: 0.7, end: 0.82 },
+              { text: "心", start: 0.82, end: 0.95 },
+              { text: "火", start: 0.95, end: 1.08 },
+              { text: "点", start: 1.08, end: 1.2 },
+              { text: "燃", start: 1.2, end: 1.33 },
+              { text: "我", start: 1.33, end: 1.45 },
+              { text: "的", start: 1.45, end: 1.58 },
+              { text: "步", start: 1.58, end: 1.72 },
+              { text: "伐", start: 1.72, end: 1.92 }
+            ],
+            duration: 2.08,
+            gapToNext: 0.16
+          },
+          {
+            lineIndex: 2,
+            text: "跨越重重阻碍直到世界都在欢呼",
+            translation: "Crossing hurdles until the whole world cheers",
+            words: [
+              { text: "跨", start: 0.1, end: 0.22 },
+              { text: "越", start: 0.22, end: 0.35 },
+              { text: "重", start: 0.35, end: 0.48 },
+              { text: "重", start: 0.48, end: 0.6 },
+              { text: "阻", start: 0.6, end: 0.73 },
+              { text: "碍", start: 0.73, end: 0.86 },
+              { text: "直", start: 0.86, end: 0.98 },
+              { text: "到", start: 0.98, end: 1.1 },
+              { text: "世", start: 1.1, end: 1.24 },
+              { text: "界", start: 1.24, end: 1.38 },
+              { text: "都", start: 1.38, end: 1.5 },
+              { text: "在", start: 1.5, end: 1.63 },
+              { text: "欢", start: 1.63, end: 1.78 },
+              { text: "呼", start: 1.78, end: 2.0 }
+            ],
+            duration: 2.18,
+            gapToNext: 0.18
+          }
+        ]
+      },
+
+      // 场景 3: 慢歌长拖音与长间奏（尾音长拖 1.5s，换行有 3.2s 漫长间奏）
+      ballad: {
+        title: "场景 3: 慢歌长拖音与长间奏 (尾音长拖，间隙 3.2s 间奏)",
+        lines: [
+          {
+            lineIndex: 0,
+            text: "月光洒在安静的湖面",
+            translation: "Moonlight gently resting upon the silent lake",
+            words: [
+              { text: "月", start: 0.4, end: 1.0 },
+              { text: "光", start: 1.0, end: 1.7 },
+              { text: "洒", start: 1.7, end: 2.3 },
+              { text: "在", start: 2.3, end: 2.9 },
+              { text: "安", start: 2.9, end: 3.5 },
+              { text: "静", start: 3.5, end: 4.1 },
+              { text: "的", start: 4.1, end: 4.6 },
+              { text: "湖", start: 4.6, end: 5.4 },
+              { text: "面", start: 5.4, end: 7.0 } // 尾音长拖 1.6s
+            ],
+            duration: 10.2, // 7.0s 唱完，间隙长达 3.2s
+            gapToNext: 3.2
+          },
+          {
+            lineIndex: 1,
+            text: "风吹散了昨日的思念",
+            translation: "The gentle breeze scatters yesterday's longing",
+            words: [
+              { text: "风", start: 0.4, end: 1.1 },
+              { text: "吹", start: 1.1, end: 1.8 },
+              { text: "散", start: 1.8, end: 2.5 },
+              { text: "了", start: 2.5, end: 3.0 },
+              { text: "昨", start: 3.0, end: 3.6 },
+              { text: "日", start: 3.6, end: 4.2 },
+              { text: "的", start: 4.2, end: 4.7 },
+              { text: "思", start: 4.7, end: 5.5 },
+              { text: "念", start: 5.5, end: 7.2 }
+            ],
+            duration: 10.4,
+            gapToNext: 3.2
+          }
+        ]
+      }
+    };
+
+    // ==============================================================
+    // 自适应动态时序核心算法函数
+    // ==============================================================
+    function computeDynamicTiming(lineData, prevGap = 0.8, nextGap = 0.8) {
+      // 1. 换行间隙自适应入场与出场时长
+      // 入场提前量：当间隙紧（如 0.15s）时，仅提前 0.08s 闪切；当有充裕间隙时，提前 0.35s 柔和飞入
+      const lineEnterMs = Math.round(Math.min(440, Math.max(150, prevGap * 350)));
+      
+      // 唱毕驻留时长：紧凑歌唱只驻留 0.1s；长间奏最多驻留 0.8s 随后优雅退场
+      const lineDwellMs = Math.round(Math.min(850, Math.max(100, nextGap * 300)));
+      
+      // 出场时长：紧凑歌 150ms 闪出，长间隙 400ms 慢淡出
+      const lineExitMs = Math.round(Math.min(420, Math.max(150, nextGap * 280)));
+
+      // 2. 歌词平均单字速度（秒/字）
+      const meaningfulWords = lineData.words.filter(w => !w.isSpace);
+      const totalSingSpan = meaningfulWords[meaningfulWords.length - 1].end - meaningfulWords[0].start;
+      const avgWordDuration = totalSingSpan / (meaningfulWords.length || 1);
+
+      return {
+        lineEnterMs,
+        lineDwellMs,
+        lineExitMs,
+        avgWordDuration,
+        gapToNext: nextGap
+      };
+    }
+
+    const mainStage = document.getElementById('mainStage');
+    let currentScenarioKey = 'pop';
+    let currentScheme = 'scheme-warp';
+    let currentLineIdx = 0;
+    let lineTime = 0;
+    let isPlaying = true;
+    let playSpeed = 1.0;
+    let lastTimestamp = null;
+
+    function getCurrentScenario() {
+      return SCENARIOS[currentScenarioKey];
+    }
+
+    function createLineElement(lineData, initialClass = 'line-active') {
+      const scenario = getCurrentScenario();
+      const lines = scenario.lines;
+      const prevLine = lines[(lineData.lineIndex - 1 + lines.length) % lines.length];
+      const prevGap = prevLine ? prevLine.gapToNext : 0.8;
+      const nextGap = lineData.gapToNext || 0.8;
+
+      const timing = computeDynamicTiming(lineData, prevGap, nextGap);
+
+      const lineWrapper = document.createElement('div');
+      lineWrapper.className = `line-wrapper ${initialClass}`;
+      lineWrapper.dataset.lineIndex = lineData.lineIndex;
+      lineWrapper.style.setProperty('--line-enter-ms', `${timing.lineEnterMs}ms`);
+      lineWrapper.style.setProperty('--line-exit-ms', `${timing.lineExitMs}ms`);
+
+      // 1. 原文行
+      const origLine = document.createElement('div');
+      origLine.className = 'original-line';
+
+      lineData.words.forEach((w, idx) => {
+        const slot = document.createElement('span');
+        slot.className = `word-slot ${w.isSpace ? 'is-space' : ''}`;
+
+        if (!w.isSpace) {
+          const char = document.createElement('span');
+          char.className = 'word-char state-pending';
+          char.textContent = w.text;
+          char.dataset.start = w.start;
+          char.dataset.end = w.end;
+          char.dataset.idx = idx;
+
+          // 动态单字动画耗时与提前量（根据字的时长动态计算）
+          const wordDur = w.end - w.start;
+          const animDurationMs = Math.round(Math.min(460, Math.max(160, wordDur * 1.1 * 1000)));
+          const leadIn = Math.min(0.35, Math.max(0.08, wordDur * 0.65));
+
+          char.dataset.leadIn = leadIn.toFixed(3);
+          char.dataset.animMs = animDurationMs;
+          char.style.setProperty('--word-anim-ms', `${animDurationMs}ms`);
+
+          slot.appendChild(char);
+        } else {
+          slot.innerHTML = '&nbsp;';
+        }
+
+        origLine.appendChild(slot);
+      });
+
+      lineWrapper.appendChild(origLine);
+
+      // 2. 翻译行：纯净全局灰，无任何彩色，随歌唱进度逐词同频微动
+      if (lineData.translation) {
+        const transLine = document.createElement('div');
+        transLine.className = 'translation-line';
+        
+        const transWords = lineData.translation.split(' ');
+        const firstWordStart = lineData.words[0].start;
+        const lastWordEnd = lineData.words[lineData.words.length - 1].end;
+        const singSpan = Math.max(0.8, lastWordEnd - firstWordStart);
+
+        transWords.forEach((wordStr, wIdx) => {
+          const wSpan = document.createElement('span');
+          wSpan.className = 'trans-word';
+          wSpan.textContent = wordStr + (wIdx === transWords.length - 1 ? '' : ' ');
+          wSpan.dataset.wordIndex = wIdx;
+
+          // 翻译单词根据歌唱真实进度节奏动态展开 (首字唱响后微滞后，在整句歌唱 80% 处全部入位)
+          const wordProgressRatio = wIdx / transWords.length;
+          const triggerDelay = Math.min(0.18, timing.avgWordDuration * 0.5) + wordProgressRatio * (singSpan * 0.75);
+          wSpan.dataset.triggerTime = (firstWordStart + triggerDelay).toFixed(3);
+
+          // 翻译动画时长与正文单字速度自适应对齐
+          const transAnimMs = Math.round(Math.min(440, Math.max(180, timing.avgWordDuration * 1000)));
+          wSpan.style.setProperty('--word-anim-ms', `${transAnimMs}ms`);
+
+          transLine.appendChild(wSpan);
+        });
+
+        lineWrapper.appendChild(transLine);
+      }
+
+      // 更新监视器面板数据
+      updateMonitor(timing, lineData);
+
+      return lineWrapper;
+    }
+
+    function updateMonitor(timing, lineData) {
+      document.getElementById('statLineGap').textContent = `${timing.gapToNext.toFixed(2)}s`;
+      document.getElementById('statDwell').textContent = `${(timing.lineDwellMs / 1000).toFixed(2)}s`;
+      
+      const sampleWord = lineData.words.find(w => !w.isSpace);
+      if (sampleWord) {
+        const wordDur = sampleWord.end - sampleWord.start;
+        const animMs = Math.round(Math.min(460, Math.max(160, wordDur * 1.1 * 1000)));
+        const leadIn = Math.min(0.35, Math.max(0.08, wordDur * 0.65));
+        document.getElementById('statAnimMs').textContent = `${animMs}ms`;
+        document.getElementById('statLeadIn').textContent = `${leadIn.toFixed(2)}s`;
+      }
+    }
+
+    function initStage() {
+      mainStage.innerHTML = '';
+      const scenario = getCurrentScenario();
+      const lineEl = createLineElement(scenario.lines[currentLineIdx], 'line-active');
+      mainStage.appendChild(lineEl);
+    }
+
+    function transitionToNextLine(nextIdx) {
+      const scenario = getCurrentScenario();
+      const nextLineData = scenario.lines[nextIdx];
+
+      const oldLine = mainStage.querySelector('.line-wrapper.line-active');
+      if (oldLine) {
+        oldLine.classList.remove('line-active');
+        oldLine.classList.add('line-exiting');
+        setTimeout(() => oldLine.remove(), 420);
+      }
+
+      const newLine = createLineElement(nextLineData, 'line-entering');
+      mainStage.appendChild(newLine);
+
+      requestAnimationFrame(() => {
+        newLine.classList.remove('line-entering');
+        newLine.classList.add('line-active');
+      });
+
+      currentLineIdx = nextIdx;
+      lineTime = 0;
+      document.getElementById('curLineLabel').textContent = `第 ${currentLineIdx + 1}/${scenario.lines.length} 句`;
+    }
+
+    function updateWordStates(curTime) {
+      const activeLine = mainStage.querySelector('.line-wrapper.line-active');
+      if (!activeLine) return;
+
+      // 1. 原文逐字状态（自适应 leadIn 时长）
+      const chars = activeLine.querySelectorAll('.word-char');
+      chars.forEach(char => {
+        const start = parseFloat(char.dataset.start);
+        const end = parseFloat(char.dataset.end);
+        const leadIn = parseFloat(char.dataset.leadIn || 0.25);
+
+        if (curTime < (start - leadIn)) {
+          if (!char.classList.contains('state-pending')) {
+            char.className = 'word-char state-pending';
+          }
+        } else if (curTime >= (start - leadIn) && curTime < start) {
+          if (!char.classList.contains('state-entering') && !char.classList.contains('state-active') && !char.classList.contains('state-complete')) {
+            char.className = 'word-char state-entering';
+          }
+        } else if (curTime >= start && curTime <= end) {
+          if (!char.classList.contains('state-active')) {
+            char.className = 'word-char state-active';
+          }
+        } else {
+          if (!char.classList.contains('state-complete')) {
+            char.className = 'word-char state-complete';
+          }
+        }
+      });
+
+      // 2. 翻译行：随实际歌唱进度同频微动入场（保持纯粹灰色）
+      const transWords = activeLine.querySelectorAll('.trans-word');
+      transWords.forEach(tw => {
+        const trigger = parseFloat(tw.dataset.triggerTime);
+        if (curTime >= trigger) {
+          if (!tw.classList.contains('revealed')) tw.classList.add('revealed');
+        } else {
+          if (tw.classList.contains('revealed')) tw.classList.remove('revealed');
+        }
+      });
+    }
+
+    function loop(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      if (isPlaying) {
+        lineTime += delta * playSpeed;
+        const scenario = getCurrentScenario();
+        const curLineData = scenario.lines[currentLineIdx];
+
+        if (lineTime >= curLineData.duration) {
+          const nextIdx = (currentLineIdx + 1) % scenario.lines.length;
+          transitionToNextLine(nextIdx);
+        } else {
+          updateWordStates(lineTime);
+        }
+
+        document.getElementById('timeDisplay').textContent = `${lineTime.toFixed(2)}s / ${curLineData.duration.toFixed(2)}s`;
+        const pct = Math.min(100, (lineTime / curLineData.duration) * 100);
+        document.getElementById('progressBar').style.width = `${pct}%`;
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    // 控件交互
+    const btnPlayPause = document.getElementById('btnPlayPause');
+    btnPlayPause.addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      btnPlayPause.textContent = isPlaying ? '暂停' : '继续';
+    });
+
+    const speedSelect = document.getElementById('speedSelect');
+    speedSelect.addEventListener('change', (e) => {
+      playSpeed = parseFloat(e.target.value);
+    });
+
+    const progressBarContainer = document.getElementById('progressBarContainer');
+    progressBarContainer.addEventListener('click', (e) => {
+      const rect = progressBarContainer.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+      lineTime = ratio * getCurrentScenario().lines[currentLineIdx].duration;
+      updateWordStates(lineTime);
+    });
+
+    // 场景切换
+    const scenarioBtns = document.querySelectorAll('.scenario-btn');
+    scenarioBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        scenarioBtns.forEach(b => b.classList.remove('active-scenario'));
+        btn.classList.add('active-scenario');
+
+        currentScenarioKey = btn.dataset.scenario;
+        document.getElementById('currentScenarioTitle').textContent = btn.dataset.title;
+
+        currentLineIdx = 0;
+        lineTime = 0;
+        initStage();
+      });
+    });
+
+    // 正文方案切换
+    const schemeCards = document.querySelectorAll('.scheme-card');
+    schemeCards.forEach(card => {
+      card.addEventListener('click', () => {
+        schemeCards.forEach(c => c.classList.remove('active-scheme'));
+        card.classList.add('active-scheme');
+
+        currentScheme = card.dataset.scheme;
+        mainStage.className = `grand-stage ${currentScheme}`;
+        document.getElementById('currentSchemeTitle').textContent = card.dataset.title;
+
+        lineTime = 0;
+        initStage();
+      });
+    });
+
+    initStage();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

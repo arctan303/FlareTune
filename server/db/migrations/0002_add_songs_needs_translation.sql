@@ -1,0 +1,2 @@
+-- Migration number: 0002 2026-07-30T10:28:00.000Z
+ALTER TABLE Songs ADD COLUMN needs_translation INTEGER NOT NULL DEFAULT 0;

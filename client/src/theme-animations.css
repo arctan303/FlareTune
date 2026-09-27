@@ -1,0 +1,526 @@
+/* Immersive lyrics driven by adaptive dynamics and pure uniform gray translation.
+   Slot reservation architecture guarantees zero layout shift.
+   Word-level 3D transitions with physical momentum decay; zero blur glow. */
+
+.immersive-lyrics {
+  --immersive-enter-ms: 380ms;
+  --immersive-exit-ms: 320ms;
+  --line-enter-ms: 380ms;
+  --line-exit-ms: 320ms;
+  --immersive-lyric-glow-alpha: 0;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  place-items: center;
+}
+
+.immersive-lyrics__stage {
+  position: relative;
+  display: grid;
+  width: min(100%, 76rem);
+  height: clamp(17rem, 40vh, 23rem);
+  min-width: 0;
+  place-items: center;
+  contain: layout style;
+  isolation: isolate;
+  perspective: 1400px;
+  perspective-origin: 50% 50%;
+  transform-style: preserve-3d;
+}
+
+.immersive-lyrics__layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+
+.immersive-lyrics__line {
+  display: grid;
+  width: min(100%, 72rem);
+  min-width: 0;
+  padding-inline: clamp(0.5rem, 3vw, 2.5rem);
+  place-items: center;
+  transform-origin: 50% 60%;
+  transform-style: preserve-3d;
+  will-change: opacity, transform, filter;
+  transition: opacity var(--line-enter-ms, 380ms) ease,
+              transform var(--line-enter-ms, 380ms) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.immersive-lyrics__content {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  place-items: center;
+  transform-style: preserve-3d;
+}
+
+.immersive-lyrics__original,
+.immersive-lyrics__translation {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  text-wrap: balance;
+  white-space: pre-wrap;
+  word-break: normal;
+}
+
+/* Original lyric typography: pure high-contrast white, zero glow */
+.immersive-lyrics__original {
+  min-height: 1.22em;
+  font-size: clamp(1.25rem, 3.2vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.24;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+  text-shadow: none !important;
+  transform-style: preserve-3d;
+}
+
+/* ============================================================== */
+/* Translation: Uniform Pure Gray, zero highlight/karaoke wipe,   */
+/* companion micro-motion synchronized with singing progression   */
+/* ============================================================== */
+.immersive-lyrics__translation {
+  margin-top: clamp(0.5rem, 1vw, 0.85rem);
+  min-height: 1.4em;
+  font-size: clamp(0.9rem, 1.6vw, 1.35rem);
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.025em;
+  color: rgba(203, 213, 225, 0.55) !important;
+  -webkit-text-fill-color: rgba(203, 213, 225, 0.55) !important;
+  background: none !important;
+  text-shadow: none !important;
+  will-change: opacity, transform, filter;
+  transform-style: preserve-3d;
+  transition: opacity var(--line-enter-ms, 380ms) ease,
+              transform var(--line-enter-ms, 380ms) cubic-bezier(0.16, 1, 0.3, 1),
+              filter var(--line-enter-ms, 380ms) ease;
+}
+
+.immersive-lyrics__translation[data-translation-progress='line'] {
+  color: rgba(203, 213, 225, 0.55) !important;
+  -webkit-text-fill-color: rgba(203, 213, 225, 0.55) !important;
+  background: none !important;
+  text-shadow: none !important;
+}
+
+/* -------------------------------------------------------------- */
+/* Translation companion micro-motion per scheme                  */
+/* -------------------------------------------------------------- */
+.scheme-warp .immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation,
+.scheme-warp.immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation {
+  animation: trans-micro-warp var(--line-enter-ms, 380ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.scheme-thunder .immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation,
+.scheme-thunder.immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation {
+  animation: trans-micro-thunder var(--line-enter-ms, 360ms) cubic-bezier(0.18, 0.95, 0.28, 1) both;
+}
+
+.scheme-tornado .immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation,
+.scheme-tornado.immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation {
+  animation: trans-micro-tornado var(--line-enter-ms, 400ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.scheme-matrix .immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation,
+.scheme-matrix.immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation {
+  animation: trans-micro-matrix var(--line-enter-ms, 420ms) cubic-bezier(0.2, 0.95, 0.28, 1) both;
+}
+
+.scheme-sonic .immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation,
+.scheme-sonic.immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] .immersive-lyrics__translation {
+  animation: trans-micro-sonic var(--line-enter-ms, 340ms) cubic-bezier(0.1, 0.95, 0.2, 1) both;
+}
+
+@keyframes trans-micro-warp {
+  0% { opacity: 0; transform: translate3d(10px, -6px, -160px) rotateZ(-4deg) scale(0.85); filter: blur(4px); }
+  100% { opacity: 0.55; transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1); filter: blur(0); }
+}
+
+@keyframes trans-micro-thunder {
+  0% { opacity: 0; transform: translate3d(-6px, -24px, 0) rotate(-3deg) scale(0.88); filter: blur(4px); }
+  100% { opacity: 0.55; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); filter: blur(0); }
+}
+
+@keyframes trans-micro-tornado {
+  0% { opacity: 0; transform: translate3d(30px, -14px, -50px) rotate(20deg) scale(0.82); filter: blur(4px); }
+  100% { opacity: 0.55; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); filter: blur(0); }
+}
+
+@keyframes trans-micro-matrix {
+  0% { opacity: 0; transform: translate3d(-12px, 12px, -60px) rotateX(40deg) rotateY(-18deg) scale(0.84); filter: blur(4px); }
+  100% { opacity: 0.55; transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1); filter: blur(0); }
+}
+
+@keyframes trans-micro-sonic {
+  0% { opacity: 0; transform: translate3d(40px, -6px, 0) rotate(2deg) skewX(-10deg) scale(0.88); filter: blur(4px); }
+  100% { opacity: 0.55; transform: translate3d(0, 0, 0) rotate(0deg) skewX(0deg) scale(1); filter: blur(0); }
+}
+
+/* ============================================================== */
+/* Slot Reservation Architecture: Zero layout shift, zero jitter   */
+/* Outer .word-slot locks inline box, inner .word-char animates   */
+/* ============================================================== */
+.synced-lyric-text[data-surface='immersive'] {
+  --synced-lyric-sung: #ffffff;
+  --synced-lyric-unheard: rgba(255, 255, 255, 0.38);
+  background: none !important;
+}
+
+/* Outer slot is an immovable rock in the flow: NEVER transforms or animates */
+.synced-lyric-text[data-surface='immersive'] .word-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  white-space: pre;
+  margin: 0 0.04em;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.synced-lyric-text[data-surface='immersive'] .word-slot.is-space {
+  width: 0.45em;
+}
+
+/* ONLY inner .word-char performs 3D physical animation */
+.synced-lyric-text[data-surface='immersive'] .word-char {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+  transform-style: preserve-3d;
+  text-shadow: none !important;
+}
+
+/* Non-slot fallback */
+.synced-lyric-text[data-surface='immersive'] .synced-lyric-text__word:not(.word-slot) {
+  display: inline-block;
+  transform-origin: 50% 70%;
+}
+
+/* ============================================================== */
+/* Line Entry & Exit Transitions (Duration set by CSS variables)  */
+/* ============================================================== */
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='active'][data-animate-entry='true'] {
+  animation: immersive-line-enter var(--line-enter-ms, var(--immersive-enter-ms, 380ms)) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes immersive-line-enter {
+  0% { opacity: 0; transform: translateY(28px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='exit'] {
+  animation-duration: var(--line-exit-ms, var(--immersive-exit-ms, 320ms));
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  animation-fill-mode: both;
+  will-change: opacity, transform, filter;
+  animation-name: immersive-exit-space;
+}
+
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='exit'][data-effect-group='space'] {
+  animation-name: immersive-exit-space;
+}
+
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='exit'][data-effect-group='focus'] {
+  animation-name: immersive-exit-focus;
+}
+
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='exit'][data-effect-group='direction'] {
+  animation-name: immersive-exit-direction;
+}
+
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='exit'][data-effect-group='light'] {
+  animation-name: immersive-exit-light;
+}
+
+@keyframes immersive-exit-space {
+  from { opacity: 0.55; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+  to { opacity: 0; transform: translate3d(0, -24px, 0) scale(0.95); filter: blur(6px); }
+}
+
+@keyframes immersive-exit-focus {
+  from { opacity: 0.5; transform: scale(1); filter: blur(0); }
+  to { opacity: 0; transform: scale(0.94); filter: blur(10px); }
+}
+
+@keyframes immersive-exit-direction {
+  from { opacity: 0.5; transform: translate3d(0, 0, 0); filter: blur(0); }
+  to { opacity: 0; transform: translate3d(-20px, 10px, 0) rotate(-1.5deg); filter: blur(4px); }
+}
+
+@keyframes immersive-exit-light {
+  from { opacity: 0.55; filter: brightness(1.2) blur(0); transform: scale(1); }
+  to { opacity: 0; filter: brightness(0.6) blur(8px); transform: scale(1.03); }
+}
+
+/* ============================================================== */
+/* 5 大大舞台无光动力学方案 (5 Grand Stage Schemes)               */
+/* ============================================================== */
+
+/* -------------------------------------------------------------- */
+/* 1. 破空穿梭 (Warp Speed / scheme-warp)                         */
+/* -------------------------------------------------------------- */
+.scheme-warp .word-slot[data-word-state='pending'] > .word-char {
+  opacity: 0;
+  transform: translate3d(30px, -20px, -800px) rotateZ(-6deg) scale(0.18);
+  filter: blur(20px);
+}
+
+.scheme-warp .word-slot[data-word-state='entering'] > .word-char {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1);
+  filter: blur(0px);
+  transition: transform var(--word-anim-ms, 400ms) cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 240ms ease,
+              filter 260ms ease;
+}
+
+.scheme-warp .word-slot[data-word-state='active'] > .word-char {
+  color: #ffffff;
+  transform: translate3d(0, -2px, 6px) scale(1.03);
+  transition: transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.scheme-warp .word-slot[data-word-state='complete'] > .word-char {
+  color: rgba(255, 255, 255, 0.95);
+  transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1);
+  transition: transform 220ms ease;
+}
+
+/* -------------------------------------------------------------- */
+/* 2. 天降惊雷 (Thunder Slam / scheme-thunder)                    */
+/* -------------------------------------------------------------- */
+.scheme-thunder .word-slot[data-word-state='pending'] > .word-char {
+  opacity: 0;
+  transform: translate3d(-30px, -200px, 0) rotate(-8deg) scale(0.75);
+  filter: blur(12px);
+}
+
+.scheme-thunder .word-slot[data-word-state='entering'] > .word-char {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  filter: blur(0);
+  transition: transform var(--word-anim-ms, 380ms) cubic-bezier(0.18, 0.95, 0.28, 1),
+              opacity 200ms ease,
+              filter 200ms ease;
+}
+
+.scheme-thunder .word-slot[data-word-state='active'] > .word-char {
+  color: #ffffff;
+  transform: translate3d(0, -2px, 0) scale(1.03);
+  transition: transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.scheme-thunder .word-slot[data-word-state='complete'] > .word-char {
+  color: rgba(255, 255, 255, 0.95);
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: transform 220ms ease;
+}
+
+/* -------------------------------------------------------------- */
+/* 3. 龙卷旋涡 (Tornado Swirl / scheme-tornado)                   */
+/* -------------------------------------------------------------- */
+.scheme-tornado .word-slot[data-word-state='pending'] > .word-char {
+  opacity: 0;
+  transform: translate3d(160px, -80px, -240px) rotate(140deg) scale(0.2);
+  filter: blur(16px);
+}
+
+.scheme-tornado .word-slot[data-word-state='entering'] > .word-char {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  filter: blur(0);
+  transition: transform var(--word-anim-ms, 420ms) cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 240ms ease,
+              filter 240ms ease;
+}
+
+.scheme-tornado .word-slot[data-word-state='active'] > .word-char {
+  color: #ffffff;
+  transform: translate3d(0, -2px, 4px) scale(1.03);
+  transition: transform 160ms ease;
+}
+
+.scheme-tornado .word-slot[data-word-state='complete'] > .word-char {
+  color: rgba(255, 255, 255, 0.95);
+  transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  transition: transform 220ms ease;
+}
+
+/* -------------------------------------------------------------- */
+/* 4. 3D 矩阵翻折 (3D Matrix Flip / scheme-matrix)                */
+/* -------------------------------------------------------------- */
+.scheme-matrix .word-slot[data-word-state='pending'] > .word-char {
+  opacity: 0;
+  transform: translate3d(0, 40px, -180px) rotateX(85deg) scale(0.5);
+  filter: blur(10px);
+}
+
+.scheme-matrix .word-slot[data-word-state='entering'] > .word-char {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+  filter: blur(0);
+  transition: transform var(--word-anim-ms, 400ms) cubic-bezier(0.2, 0.95, 0.28, 1),
+              opacity 240ms ease,
+              filter 240ms ease;
+}
+
+.scheme-matrix .word-slot[data-word-state='active'] > .word-char {
+  color: #ffffff;
+  transform: translate3d(0, -2px, 8px) scale(1.03);
+  transition: transform 160ms ease;
+}
+
+.scheme-matrix .word-slot[data-word-state='complete'] > .word-char {
+  color: rgba(255, 255, 255, 0.95);
+  transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+  transition: transform 220ms ease;
+}
+
+/* -------------------------------------------------------------- */
+/* 5. 超音速音爆 (Sonic Dash / scheme-sonic)                      */
+/* -------------------------------------------------------------- */
+.scheme-sonic .word-slot[data-word-state='pending'] > .word-char {
+  opacity: 0;
+  transform: translate3d(300px, -40px, 0) rotate(10deg) skewX(-24deg) scale(0.75);
+  filter: blur(14px);
+}
+
+.scheme-sonic .word-slot[data-word-state='entering'] > .word-char {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotate(0deg) skewX(0deg) scale(1);
+  filter: blur(0);
+  transition: transform var(--word-anim-ms, 340ms) cubic-bezier(0.1, 0.95, 0.2, 1),
+              opacity 180ms ease,
+              filter 200ms ease;
+}
+
+.scheme-sonic .word-slot[data-word-state='active'] > .word-char {
+  color: #ffffff;
+  transform: translate3d(0, -2px, 0) scale(1.03);
+  transition: transform 150ms ease;
+}
+
+.scheme-sonic .word-slot[data-word-state='complete'] > .word-char {
+  color: rgba(255, 255, 255, 0.95);
+  transform: translate3d(0, 0, 0) rotate(0deg) skewX(0deg) scale(1);
+  transition: transform 220ms ease;
+}
+
+/* Default fallback word states when no scheme matched */
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='active']
+  .synced-lyric-text__word[data-word-state='pending']:not(.word-slot) {
+  opacity: 0.38 !important;
+  color: rgba(255, 255, 255, 0.95);
+  transform: none;
+  filter: none;
+  transition: opacity 280ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='active']
+  .synced-lyric-text__word[data-word-state='complete']:not(.word-slot) {
+  opacity: 0.95 !important;
+  color: #ffffff;
+  transform: none;
+  filter: none;
+  transition: opacity 220ms ease-out, transform 220ms ease-out, filter 220ms ease-out;
+}
+
+.immersive-lyrics[data-motion-running='true']
+  .immersive-lyrics__line[data-layer='active']
+  .synced-lyric-text__word[data-word-state='active']:not(.word-slot) {
+  opacity: 1 !important;
+  color: #ffffff;
+  transition: opacity 120ms ease-out;
+}
+
+/* Stop motion when not running */
+.immersive-lyrics[data-motion-running='false'] .immersive-lyrics__line,
+.immersive-lyrics[data-motion-running='false'] .immersive-lyrics__content,
+.immersive-lyrics[data-motion-running='false'] .synced-lyric-text__word,
+.immersive-lyrics[data-motion-running='false'] .word-char,
+html[data-page-hidden='true'] .immersive-lyrics__line,
+html[data-page-hidden='true'] .immersive-lyrics__content,
+html[data-page-hidden='true'] .immersive-lyrics .synced-lyric-text__word,
+html[data-page-hidden='true'] .immersive-lyrics .word-char {
+  animation: none !important;
+  filter: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+.immersive-lyrics[data-motion-running='false']
+  .immersive-lyrics__line[data-layer='exit'],
+html[data-page-hidden='true']
+  .immersive-lyrics__line[data-layer='exit'] {
+  opacity: 0 !important;
+}
+
+.immersive-lyrics__loading-spinner,
+.immersive-lyrics__loading-shimmer {
+  animation-play-state: running;
+}
+
+html[data-page-hidden='true'] .immersive-lyrics__loading-spinner,
+html[data-page-hidden='true'] .immersive-lyrics__loading-shimmer {
+  animation-play-state: paused !important;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .immersive-lyrics__line,
+  .immersive-lyrics__content,
+  .immersive-lyrics .synced-lyric-text__word,
+  .immersive-lyrics .word-char,
+  .immersive-lyrics__loading-spinner,
+  .immersive-lyrics__loading-shimmer {
+    animation: none !important;
+    filter: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .immersive-lyrics .synced-lyric-text__word,
+  .immersive-lyrics .word-char {
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  .immersive-lyrics__translation,
+  .immersive-lyrics__translation[data-translation-progress='line'] {
+    color: rgba(203, 213, 225, 0.55) !important;
+    -webkit-text-fill-color: currentColor !important;
+    background: none !important;
+  }
+}
+
+@media (max-height: 720px) {
+  .immersive-lyrics__stage {
+    height: clamp(14rem, 36vh, 18rem);
+  }
+
+  .immersive-lyrics__original {
+    font-size: clamp(1.25rem, 2.55vw, 2.35rem);
+  }
+}

@@ -1,0 +1,630 @@
+/* ==========================================================================
+   Shared UI Components & Notice Panels
+   ========================================================================== */
+
+.glass-panel {
+  contain: content;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 8%, transparent);
+  transition: border-color 300ms ease, background-color 300ms ease, box-shadow 300ms ease;
+}
+
+/* ==========================================================================
+   Search View Enhancement Styles
+   ========================================================================== */
+
+.collection-scroll {
+  scrollbar-gutter: stable;
+  overflow-x: hidden;
+  padding-top: 0;
+}
+
+.search-bar-wrap {
+  position: relative;
+  background: var(--surface-raised);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 3%, transparent);
+  transition: border-color 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms cubic-bezier(0.2, 0, 0, 1), background-color 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.search-bar-wrap:hover:not(:focus-within) {
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--surface-raised) 96%, var(--ink));
+}
+
+.search-bar-wrap:focus-within {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),
+              0 4px 16px -4px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.search-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  color: var(--muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.search-highlight {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent-strong);
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.track-row.is-active-nav {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: 0 0 0 1px var(--accent), 0 4px 16px -4px color-mix(in srgb, var(--ink) 12%, transparent);
+  transform: translateX(2px);
+}
+
+/* 一级大类 Tab (固定网格布局，零位移) */
+.search-scope-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent);
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.search-scope-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.search-scope-tab:hover:not(.is-active) {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.search-scope-tab.is-active {
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ink) 10%, transparent),
+              0 0 0 1px var(--line);
+}
+
+.search-scope-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 单曲语种筛选条（胶囊滑块轨道样式，更宽裕舒适的触控尺寸） */
+.search-subfilter-bar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.search-subfilter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.search-subfilter-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  border: none;
+  background: transparent;
+  transition: color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-subfilter-pill:hover:not(.is-active) {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.search-subfilter-pill.is-active {
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1.5px 6px color-mix(in srgb, var(--ink) 10%, transparent),
+              0 0 0 1px var(--line);
+}
+
+.search-subfilter-pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.search-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 4%, transparent);
+  transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.search-tag-chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-raised));
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 12%, transparent);
+  transform: translateY(-1px);
+}
+
+.search-tag-chip:active {
+  transform: translateY(0);
+}
+
+.search-tag-chip__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 9999px;
+  color: var(--muted);
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.search-tag-chip__delete:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.search-recent-card {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-height: 68px !important;
+  padding: 10px 14px !important;
+  border-radius: 10px !important;
+  line-height: normal !important;
+  background: var(--surface) !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: all 180ms cubic-bezier(0.2, 0, 0, 1);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.search-recent-card:hover {
+  border: none !important;
+  background: color-mix(in srgb, var(--ink) 6%, var(--surface)) !important;
+  box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--ink) 5%, transparent) !important;
+  transform: translateY(-1px);
+}
+
+.search-recent-card:active {
+  transform: translateY(0);
+}
+
+.search-recent-card__delete {
+  transition: all 150ms ease;
+}
+
+.search-recent-card__delete:hover {
+  color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 14%, transparent) !important;
+}
+
+/* 搜索页：最佳结果卡片 */
+.search-top-result-card {
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1),
+              border-color 180ms cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 180ms cubic-bezier(0.2, 0, 0, 1),
+              background-color 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.search-top-result-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--surface-raised) 95%, var(--ink));
+  box-shadow: 0 6px 18px -4px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.search-top-result-card:active {
+  transform: translateY(0);
+}
+
+/* 艺人圆形头像卡片（流媒体大圆卡） */
+.artist-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.artist-card:focus-visible .artist-card__avatar {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* 兼容历史：艺人圆形头像卡片 */
+.search-artist-circle-card {
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1),
+              border-color 180ms cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 180ms cubic-bezier(0.2, 0, 0, 1),
+              background-color 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.search-artist-circle-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--surface-raised) 92%, var(--ink));
+  box-shadow: 0 6px 18px -4px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.search-artist-circle-card:active {
+  transform: translateY(0);
+}
+
+.search-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.search-type-badge--pure {
+  background: color-mix(in srgb, var(--surface) 90%, var(--muted) 10%);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.search-type-badge--foreign {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  color: var(--accent-strong);
+}
+
+.search-type-badge--native {
+  background: color-mix(in srgb, var(--line) 40%, transparent);
+  border: 1px solid var(--soft-line);
+  color: var(--faint);
+}
+
+.search-type-badge--en {
+  background: color-mix(in srgb, #0284c7 12%, transparent);
+  border: 1px solid color-mix(in srgb, #0284c7 26%, transparent);
+  color: #0284c7;
+}
+
+.search-type-badge--ja {
+  background: color-mix(in srgb, #e11d48 12%, transparent);
+  border: 1px solid color-mix(in srgb, #e11d48 26%, transparent);
+  color: #e11d48;
+}
+
+.search-type-badge--ko {
+  background: color-mix(in srgb, #7c3aed 12%, transparent);
+  border: 1px solid color-mix(in srgb, #7c3aed 26%, transparent);
+  color: #7c3aed;
+}
+
+.search-type-badge--other {
+  background: color-mix(in srgb, #059669 12%, transparent);
+  border: 1px solid color-mix(in srgb, #059669 26%, transparent);
+  color: #059669;
+}
+
+.search-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  border: 1px solid var(--line);
+  transition: all 160ms ease;
+}
+
+.search-action-btn:hover:not(:disabled) {
+  background: var(--surface-raised);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.search-action-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.search-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Sound Escape Clean Single-Layer Surfaces
+   ========================================================================== */
+
+.sound-escape-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--ink) 4%, transparent);
+  transition: border-color 200ms ease;
+  height: 100%;
+}
+
+.sound-escape-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 3%, transparent);
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.sound-escape-header-bar:hover {
+  background: var(--surface-raised, var(--surface));
+  border-color: var(--line-strong, var(--line));
+}
+
+@media (max-width: 639px) {
+  .sound-escape-card {
+    padding: 14px;
+  }
+
+  .sound-escape-header-bar {
+    padding: 10px 12px;
+  }
+}
+
+.sound-escape-tracks-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+.sound-escape-tracks-panel .track-row {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-height: 64px;
+  padding: 8px 14px;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 3%, transparent);
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.sound-escape-tracks-panel .track-row:hover {
+  background: var(--surface-raised);
+  border-color: var(--soft-line);
+  box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+/* ==========================================================================
+   Wallpaper Acrylic Glass Cards (Enabled when data-has-wallpaper="true")
+   ========================================================================== */
+
+.music-shell[data-has-wallpaper='true'] {
+  --card-glass-blur: 36px;
+  --card-glass-saturate: 180%;
+  --card-glass-opacity: 12%;
+}
+
+.music-shell[data-has-wallpaper='true'] .sound-escape-card,
+.music-shell[data-has-wallpaper='true'] .sound-escape-header-bar,
+.music-shell[data-has-wallpaper='true'] .sound-escape-tracks-panel .track-row,
+.music-shell[data-has-wallpaper='true'] .track-row {
+  background: color-mix(in srgb, var(--surface-raised, #ffffff) var(--card-glass-opacity, 12%), transparent);
+  -webkit-backdrop-filter: blur(var(--card-glass-blur, 36px)) saturate(var(--card-glass-saturate, 180%));
+  backdrop-filter: blur(var(--card-glass-blur, 36px)) saturate(var(--card-glass-saturate, 180%));
+  border-color: color-mix(in srgb, var(--line) 70%, rgba(255, 255, 255, 0.5));
+  box-shadow: 0 4px 16px -2px color-mix(in srgb, var(--ink) 6%, transparent),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}
+
+.music-shell[data-has-wallpaper='true'] .wallpaper-content-surface {
+  background: color-mix(in srgb, var(--surface-raised) var(--card-glass-opacity, 12%), transparent);
+  -webkit-backdrop-filter: blur(var(--card-glass-blur, 36px)) saturate(var(--card-glass-saturate, 180%));
+  backdrop-filter: blur(var(--card-glass-blur, 36px)) saturate(var(--card-glass-saturate, 180%));
+  box-shadow: 0 4px 16px -2px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.music-shell[data-has-wallpaper='true'] .wallpaper-content-surface--selected {
+  background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--surface-raised) var(--card-glass-opacity, 12%), transparent));
+}
+
+.music-shell[data-has-wallpaper='true'] .sound-escape-subcard {
+  background: color-mix(in srgb, var(--surface-raised, #ffffff) calc(var(--card-glass-opacity, 12%) * 0.85), transparent);
+  -webkit-backdrop-filter: blur(calc(var(--card-glass-blur, 36px) * 0.8)) saturate(calc(var(--card-glass-saturate, 180%) * 0.9));
+  backdrop-filter: blur(calc(var(--card-glass-blur, 36px) * 0.8)) saturate(calc(var(--card-glass-saturate, 180%) * 0.9));
+  border-color: color-mix(in srgb, var(--line) 65%, rgba(255, 255, 255, 0.45));
+  box-shadow: 0 2px 8px -1px color-mix(in srgb, var(--ink) 4%, transparent),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+}
+
+.music-shell[data-has-wallpaper='true'] .sound-escape-subcard.border-dashed {
+  background: color-mix(in srgb, var(--surface-sunken, #f4f4f5) calc(var(--card-glass-opacity, 12%) * 0.85), transparent);
+  border-style: dashed;
+}
+
+.music-shell[data-has-wallpaper='true'] .sound-escape-subcard__badge {
+  background: color-mix(in srgb, var(--surface) calc(var(--card-glass-opacity, 12%) * 0.8), transparent);
+  border-color: color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.music-shell[data-has-wallpaper='true'] .shelf-view-all-btn {
+  background: color-mix(in srgb, var(--surface-raised, #ffffff) calc(var(--card-glass-opacity, 12%) * 0.9), transparent);
+  -webkit-backdrop-filter: blur(calc(var(--card-glass-blur, 36px) * 0.8)) saturate(calc(var(--card-glass-saturate, 180%) * 0.9));
+  backdrop-filter: blur(calc(var(--card-glass-blur, 36px) * 0.8)) saturate(calc(var(--card-glass-saturate, 180%) * 0.9));
+  border-color: color-mix(in srgb, var(--line) 70%, rgba(255, 255, 255, 0.5));
+}
+
+/* Hover States for Acrylic Surfaces */
+.music-shell[data-has-wallpaper='true'] .sound-escape-header-bar:hover,
+.music-shell[data-has-wallpaper='true'] .sound-escape-tracks-panel .track-row:hover,
+.music-shell[data-has-wallpaper='true'] .sound-escape-subcard:hover,
+.music-shell[data-has-wallpaper='true'] .shelf-view-all-btn:hover {
+  background: color-mix(in srgb, var(--surface-raised, #ffffff) calc(var(--card-glass-opacity, 12%) + 14%), transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line-strong));
+  box-shadow: 0 6px 20px -2px color-mix(in srgb, var(--ink) 9%, transparent),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+.music-shell[data-has-wallpaper='true'] .track-row:hover,
+.music-shell[data-has-wallpaper='true'] .track-row:focus-within {
+  background: color-mix(in srgb, var(--surface-raised, #ffffff) calc(var(--card-glass-opacity, 12%) + 14%), transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line-strong));
+  box-shadow: 0 6px 20px -2px color-mix(in srgb, var(--ink) 9%, transparent),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+.music-shell[data-has-wallpaper='true'] .track-row.is-current {
+  background: color-mix(in srgb, var(--accent) 15%, color-mix(in srgb, var(--surface-raised) var(--card-glass-opacity, 12%), transparent));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 4px 16px -2px color-mix(in srgb, var(--accent) 22%, transparent),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}
+
+.music-shell[data-has-wallpaper='true'] .track-row.is-current:hover,
+.music-shell[data-has-wallpaper='true'] .track-row.is-current:focus-within {
+  background: color-mix(in srgb, var(--accent) 20%, color-mix(in srgb, var(--surface-raised) calc(var(--card-glass-opacity, 12%) + 14%), transparent));
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Dark Mode Acrylic Overrides */
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-card,
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-header-bar,
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-tracks-panel .track-row,
+html.dark .music-shell[data-has-wallpaper='true'] .track-row {
+  background: color-mix(in srgb, var(--surface-raised, #18181b) var(--card-glass-opacity, 12%), transparent);
+  border-color: color-mix(in srgb, var(--line) 65%, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.38),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-subcard {
+  background: color-mix(in srgb, var(--surface-raised, #18181b) calc(var(--card-glass-opacity, 12%) * 0.85), transparent);
+  border-color: color-mix(in srgb, var(--line) 65%, rgba(255, 255, 255, 0.1));
+  box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-subcard.border-dashed {
+  background: color-mix(in srgb, var(--surface-sunken, #09090b) calc(var(--card-glass-opacity, 12%) * 0.85), transparent);
+}
+
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-subcard__badge {
+  background: color-mix(in srgb, var(--surface) calc(var(--card-glass-opacity, 12%) * 0.8), transparent);
+  border-color: color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+html.dark .music-shell[data-has-wallpaper='true'] .shelf-view-all-btn {
+  background: color-mix(in srgb, var(--surface-raised, #18181b) calc(var(--card-glass-opacity, 12%) * 0.9), transparent);
+  border-color: color-mix(in srgb, var(--line) 65%, rgba(255, 255, 255, 0.12));
+}
+
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-header-bar:hover,
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-tracks-panel .track-row:hover,
+html.dark .music-shell[data-has-wallpaper='true'] .sound-escape-subcard:hover,
+html.dark .music-shell[data-has-wallpaper='true'] .shelf-view-all-btn:hover,
+html.dark .music-shell[data-has-wallpaper='true'] .track-row:hover,
+html.dark .music-shell[data-has-wallpaper='true'] .track-row:focus-within {
+  background: color-mix(in srgb, var(--surface-raised, #18181b) calc(var(--card-glass-opacity, 12%) + 18%), transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, rgba(255, 255, 255, 0.22));
+  box-shadow: 0 6px 22px -2px rgba(0, 0, 0, 0.48),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+}
+
+html.dark .music-shell[data-has-wallpaper='true'] .track-row.is-current {
+  background: color-mix(in srgb, var(--accent) 18%, color-mix(in srgb, var(--surface-raised) var(--card-glass-opacity, 12%), transparent));
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 4px 18px -2px color-mix(in srgb, var(--accent) 26%, transparent),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+}
+
+html.dark .music-shell[data-has-wallpaper='true'] .track-row.is-current:hover,
+html.dark .music-shell[data-has-wallpaper='true'] .track-row.is-current:focus-within {
+  background: color-mix(in srgb, var(--accent) 24%, color-mix(in srgb, var(--surface-raised) calc(var(--card-glass-opacity, 12%) + 18%), transparent));
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
