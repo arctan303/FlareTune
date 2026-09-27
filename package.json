@@ -16,6 +16,7 @@
     "verify:worker": "npm run build && wrangler deploy --config wrangler.toml --dry-run",
     "deploy": "wrangler deploy --config wrangler.toml",
     "deploy:worker": "wrangler deploy --config wrangler.toml",
+    "deploy:dev:ci": "node tooling/deploy/dev-ci.mjs",
     "verify:dist-css": "node tooling/verify/verify-dist-css.mjs",
     "verify:worker-http": "node tooling/verify/verify-worker-http.mjs",
     "verify:worker:preview": "npm run build && node tooling/dev/preview-worker.mjs --smoke",

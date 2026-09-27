@@ -44,6 +44,7 @@ FlareTune 从旧项目 5.0 演进为独立产品，首个发行版本从 **1.0.0
 | 如何部署、初始化与升级 | [部署指南与当前进度](guide/deployment.md) |
 | 管理员可以配置什么 | [管理与维护](guide/administration.md) |
 | 全部公开文档 | [文档索引](guide/README.md) |
+| 版本变化 | [更新日志](CHANGELOG.md) |
 
 ## 一起完善 FlareTune
 

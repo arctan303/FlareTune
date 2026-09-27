@@ -3,9 +3,12 @@ import { createPortal } from 'react-dom';
 import { Check, Disc, UploadCloud, X } from 'lucide-react';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 import { saveSingleSong } from '../utils/singleSongIngest.js';
-import { findCatalogDuplicates, findQueueDuplicates } from '../utils/songDuplicateCheck.js';
+import { catalogSaveApplied } from '../utils/catalogSaveVerification.js';
+import { compareSongIdentity, duplicateReviewSignature, findCatalogDuplicates, findQueueDuplicates } from '../utils/songDuplicateCheck.js';
 import { suggestSongLanguage } from '../utils/songLanguageSuggestion.js';
-import { createCatalogSong, listCatalogSongs, uploadCatalogMedia } from '../services/catalogAdminApi.js';
+import { createCatalogSong, getCatalogSong, listCatalogSongs, updateCatalogSong, uploadCatalogMedia } from '../services/catalogAdminApi.js';
+import { hydrateSong } from '../utils.js';
+import { rejectDuplicateDecisionAfterCheckFailure } from '../utils/duplicateIngestDecision.js';
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'wav', 'ogg', 'm4a', 'aac', 'wma']);
 const COVER_EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -35,9 +38,22 @@ function CoverThumbnail({ file }) {
   </div>;
 }
 
+function LocalAudioPreview({ file }) {
+  const [url, setUrl] = React.useState('');
+  React.useEffect(() => {
+    if (!file) return undefined;
+    const next = URL.createObjectURL(file);
+    setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [file]);
+  return url ? <audio controls preload="none" src={url} className="mt-2 w-full" aria-label="试听本次文件" /> : null;
+}
+
 export default function AdminSongCreatePage() {
   const [entries, setEntries] = React.useState([]);
   const [editingId, setEditingId] = React.useState(null);
+  const [reviewingId, setReviewingId] = React.useState(null);
+  const [reviewChoice, setReviewChoice] = React.useState('skip');
   const [saving, setSaving] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
   const [message, setMessage] = React.useState('');
@@ -51,14 +67,16 @@ export default function AdminSongCreatePage() {
   const titleInput = React.useRef(null);
   const returnFocus = React.useRef(null);
   const editing = entries.find((entry) => entry.key === editingId);
+  const reviewing = entries.find((entry) => entry.key === reviewingId);
   const activeUpload = entries.find((entry) => entry.key === activeUploadId);
   const remaining = entries.filter((entry) => entry.status !== 'saved').length;
   const savedCount = entries.length - remaining;
   const hasChecking = entries.some((entry) => ['reading', 'checking'].includes(entry.status));
-  const duplicateCount = entries.filter((entry) => entry.duplicateMatches?.length && !entry.allowDuplicate).length;
+  const duplicateCount = entries.filter((entry) => entry.reviewStale
+    || (entry.duplicateMatches?.length && !entry.allowDuplicate)).length;
   const eligibleCount = entries.filter((entry) => entry.status !== 'saved'
     && !['reading', 'checking'].includes(entry.status)
-    && (!entry.duplicateMatches?.length || entry.allowDuplicate)).length;
+    && !entry.reviewStale && (!entry.duplicateMatches?.length || entry.allowDuplicate)).length;
 
   const commitEntries = (update) => {
     const next = update(entriesRef.current);
@@ -90,6 +108,13 @@ export default function AdminSongCreatePage() {
     };
   }, [editingId]);
 
+  React.useEffect(() => {
+    if (!reviewingId) return undefined;
+    const onKeyDown = (event) => { if (event.key === 'Escape') setReviewingId(null); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [reviewingId]);
+
   const openEditor = (key) => {
     if (savingRef.current) return;
     setEditorError('');
@@ -113,18 +138,21 @@ export default function AdminSongCreatePage() {
       updateEntry(key, (entry) => {
         if (entry.checkToken !== token) return entry;
         applied = true;
+        const choiceStillMatches = duplicateReviewSignature(snapshot.duplicateMatches) === duplicateReviewSignature(matches);
+        const allowDuplicate = choiceStillMatches && entry.allowDuplicate;
+        const reviewStale = entry.reviewStale || (entry.allowDuplicate && !choiceStillMatches);
         return {
           ...entry, duplicateMatches: matches, duplicateState: 'checked',
-          status: matches.length && !entry.allowDuplicate ? 'duplicate' : 'ready',
-          message: matches.length ? '发现疑似重复，请核对后决定。' : '未发现疑似重复，可入库。',
+          allowDuplicate, replaceTarget: allowDuplicate ? entry.replaceTarget : null, reviewStale,
+          status: reviewStale || matches.length && !allowDuplicate ? 'duplicate' : 'ready',
+          message: reviewStale ? '匹配结果已变化，请重新核对。'
+            : matches.length ? '发现疑似重复，请核对后决定。' : '未发现疑似重复，可入库。',
         };
       });
       return applied ? { matches } : { stale: true };
     } catch (error) {
-      updateEntry(key, (entry) => entry.checkToken === token ? ({
-        ...entry, duplicateState: 'error', status: 'error',
-        message: '查重失败：' + error.message + '。此首尚未上传，可重试。',
-      }) : entry);
+      updateEntry(key, (entry) => entry.checkToken === token
+        ? rejectDuplicateDecisionAfterCheckFailure(entry, error) : entry);
       return { error };
     }
   };
@@ -134,11 +162,11 @@ export default function AdminSongCreatePage() {
     const queueMatches = findQueueDuplicates(entry.draft, current, entry.key);
     const matches = [...queueMatches, ...entry.duplicateMatches.filter((match) => match.source === 'catalog')];
     const previousQueue = entry.duplicateMatches.filter((match) => match.source === 'queue');
-    const changed = JSON.stringify(previousQueue.map(({ key, strength }) => [key, strength]))
-      !== JSON.stringify(queueMatches.map(({ key, strength }) => [key, strength]));
+    const changed = duplicateReviewSignature(previousQueue) !== duplicateReviewSignature(queueMatches);
     if (!changed) return entry;
     return {
-      ...entry, duplicateMatches: matches, allowDuplicate: false,
+      ...entry, duplicateMatches: matches, allowDuplicate: false, replaceTarget: null,
+      reviewStale: entry.reviewStale || entry.allowDuplicate,
       status: matches.length ? 'duplicate' : entry.status === 'error' ? 'error' : 'ready',
       message: matches.length ? '本次清单有变化，请重新核对疑似重复。'
         : entry.status === 'error' ? entry.message : '本次清单有变化，未发现疑似重复。',
@@ -213,7 +241,7 @@ export default function AdminSongCreatePage() {
         accepted.push({
           key: crypto.randomUUID(), fileKey: fileKey(file), audioFile: file,
           coverFile: null, draft, languageGuess: null, languageEdited: false,
-          duplicateMatches: [], duplicateState: 'unchecked', allowDuplicate: false, checkToken: 0,
+          duplicateMatches: [], duplicateState: 'unchecked', allowDuplicate: false, replaceTarget: null, reviewStale: false, checkToken: 0,
           uploaded: { audio: null, cover: null },
           status: 'reading', message: '正在读取音频标签…', progress: null,
         });
@@ -251,7 +279,7 @@ export default function AdminSongCreatePage() {
       languageEdited: field === 'language' ? true : entry.languageEdited,
       ...(affectsIdentity ? {
         checkToken: entry.checkToken + 1, duplicateState: 'unchecked', duplicateMatches: [],
-        allowDuplicate: false, status: 'checking', message: '信息已修改，完成编辑后重新查重。',
+        allowDuplicate: false, replaceTarget: null, reviewStale: false, status: 'checking', message: '信息已修改，完成编辑后重新查重。',
       } : {}),
     }));
   };
@@ -265,6 +293,37 @@ export default function AdminSongCreatePage() {
     updateEntry(editingId, (entry) => ({
       ...entry, coverFile: file, uploaded: { ...entry.uploaded, cover: null },
     }));
+  };
+
+  const openReview = async (key) => {
+    if (savingRef.current) return;
+    const checked = await checkEntry(key);
+    if (checked.error || checked.stale) return;
+    const current = entriesRef.current.find((entry) => entry.key === key);
+    if (!checked.matches?.length && !current?.reviewStale) return;
+    setReviewChoice(current?.replaceTarget ? `replace:${current.replaceTarget.id}`
+      : current?.allowDuplicate ? 'add' : 'skip');
+    setReviewingId(key);
+  };
+
+  const confirmReview = () => {
+    const entry = entriesRef.current.find((item) => item.key === reviewingId);
+    if (!entry) return;
+    const selected = reviewChoice.startsWith('replace:')
+      ? entry.duplicateMatches.find((match) => match.source === 'catalog' && match.id === reviewChoice.slice(8)) : null;
+    if (reviewChoice.startsWith('replace:') && (!selected || !selected.version)) {
+      setMessage('替换目标已变化，请重新核对。');
+      setReviewingId(null);
+      return;
+    }
+    updateEntry(entry.key, (current) => ({ ...current,
+      allowDuplicate: reviewChoice !== 'skip', replaceTarget: selected,
+      reviewStale: reviewChoice === 'skip' && !current.duplicateMatches.length,
+      status: reviewChoice === 'skip' ? 'duplicate' : 'ready',
+      message: reviewChoice === 'skip' ? current.duplicateMatches.length ? '疑似重复，默认跳过。' : '替换目标变化，尚未选择处理方式。'
+        : selected ? `将替换曲库歌曲《${selected.title}》。` : '将新增另一版本。',
+    }));
+    setReviewingId(null);
   };
 
   const saveItems = async (onlyId = null) => {
@@ -293,27 +352,34 @@ export default function AdminSongCreatePage() {
           failed += 1;
           continue;
         }
-        if (!current.allowDuplicate) {
-          const checked = await checkEntry(current.key);
-          if (checked.error || checked.stale) {
-            failed += 1;
-            continue;
-          }
-          if (checked.matches.length) {
-            skipped += 1;
-            continue;
-          }
-        }
-        updateEntry(current.key, (entry) => ({
-          ...entry, status: 'uploading', message: '正在准备上传…', progress: null,
-        }));
         try {
+          const checked = current.duplicateState === 'error' && current.allowDuplicate && !current.replaceTarget
+            ? { matches: [] } : await checkEntry(current.key);
+          if (checked.error || checked.stale) { failed += 1; continue; }
+          const confirmed = entriesRef.current.find((entry) => entry.key === current.key);
+          if (confirmed.reviewStale) { skipped += 1; continue; }
+          if (checked.matches.length && !confirmed.allowDuplicate) { skipped += 1; continue; }
+          let replaceTarget = null;
+          if (confirmed.replaceTarget) {
+            const match = checked.matches.find((item) => item.source === 'catalog'
+              && item.id === confirmed.replaceTarget.id && item.version === confirmed.replaceTarget.version);
+            if (!match) throw new Error('替换目标已变化，请重新核对');
+            replaceTarget = (await getCatalogSong(match.id)).song;
+            if (!replaceTarget || replaceTarget.version !== match.version
+              || !compareSongIdentity(confirmed.draft, replaceTarget)) {
+              throw new Error('替换目标已变化，请重新核对');
+            }
+          }
+          updateEntry(current.key, (entry) => ({
+            ...entry, status: 'uploading', message: '正在准备上传…', progress: null,
+          }));
           await saveSingleSong({
             audioFile: current.audioFile, coverFile: current.coverFile,
             draft: current.draft, uploaded: current.uploaded,
             uploadMedia: (kind, file, onProgress) =>
               uploadCatalogMedia(kind, file, undefined, onProgress),
             createSong: createCatalogSong,
+            replaceTarget, updateSong: updateCatalogSong,
             onUploaded: (uploaded) => updateEntry(current.key, (entry) => ({ ...entry, uploaded })),
             onStage: (stage) => updateEntry(current.key, (entry) => ({
               ...entry, message: stage,
@@ -327,12 +393,26 @@ export default function AdminSongCreatePage() {
             })),
           });
           updateEntry(current.key, (entry) => ({
-            ...entry, status: 'saved', message: '歌曲已加入曲库。', progress: null,
+            ...entry, status: 'saved', message: replaceTarget ? '已替换曲库歌曲。' : '歌曲已加入曲库。', progress: null,
           }));
           completed += 1;
         } catch (error) {
+          const latest = entriesRef.current.find((entry) => entry.key === current.key);
+          const savedAudioUrl = latest?.uploaded?.audio?.url;
+          const targetId = latest?.replaceTarget?.id || current.draft.id;
+          const recovery = savedAudioUrl ? await getCatalogSong(targetId).catch(() => null) : null;
+          if (catalogSaveApplied(current.draft, recovery?.song, { audioUrl: savedAudioUrl,
+            coverUrl: latest?.uploaded?.cover?.url, hasNewCover: Boolean(current.coverFile),
+            keepExistingCover: Boolean(latest?.replaceTarget) })) {
+            updateEntry(current.key, (entry) => ({ ...entry, status: 'saved',
+              message: latest?.replaceTarget ? '已替换曲库歌曲。' : '歌曲已加入曲库。', progress: null }));
+            completed += 1;
+            continue;
+          }
           updateEntry(current.key, (entry) => ({
             ...entry, status: 'error', message: '入库未完成：' + error.message + '。可修改后重试。',
+            ...(error.message.includes('替换目标已变化') || current.replaceTarget && error.status === 409
+              ? { allowDuplicate: false, replaceTarget: null, reviewStale: true } : {}),
             progress: null,
           }));
           failed += 1;
@@ -454,16 +534,18 @@ export default function AdminSongCreatePage() {
                 {entry.duplicateState === 'error' && !entry.allowDuplicate && !saving && <button type="button"
                   className="mt-2 rounded-lg border border-[var(--line)] px-2.5 py-1 text-xs font-semibold"
                   onClick={() => updateEntry(entry.key, (current) => ({
-                    ...current, allowDuplicate: true, status: 'ready',
-                    message: '已确认忽略查重结果并继续入库。',
+                    ...current, allowDuplicate: true, replaceTarget: null, reviewStale: false, status: 'ready',
+                    message: '查重未完成，已确认忽略并新增歌曲。',
                   }))}>
-                  忽略查重并入库
+                  忽略查重并新增
                 </button>}
                 {entry.duplicateState === 'error' && entry.allowDuplicate &&
                   <p className="mt-2 text-xs text-[var(--muted)]">查重未完成 · 已人工放行</p>}
-                {entry.duplicateMatches?.length > 0 && <div role="alert"
+                {(entry.duplicateMatches?.length > 0 || entry.reviewStale) && <div role="alert"
                   className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
-                  <p className="font-semibold">发现 {entry.duplicateMatches.length} 项疑似重复{entry.allowDuplicate ? ' · 已人工放行' : ' · 默认跳过'}</p>
+                  <p className="font-semibold">{entry.reviewStale ? '匹配结果已变化，请重新核对' : `发现 ${entry.duplicateMatches.length} 项疑似重复`}
+                    {entry.replaceTarget ? ' · 将替换《' + entry.replaceTarget.title + '》'
+                      : entry.allowDuplicate ? ' · 将新增另一版本' : ' · 默认跳过'}</p>
                   {entry.duplicateMatches.slice(0, 3).map((match) =>
                     <p key={match.source + (match.id || match.key)} className="mt-1 truncate" title={match.title}>
                       {match.source === 'catalog' ? '曲库已有' : '本次清单'}：{match.title}
@@ -474,12 +556,8 @@ export default function AdminSongCreatePage() {
                   {entry.duplicateMatches.length > 3 && <p className="mt-1">另有 {entry.duplicateMatches.length - 3} 项匹配</p>}
                   {entry.status !== 'saved' && !saving && <button type="button"
                     className="mt-2 rounded-lg border border-amber-500/50 px-2.5 py-1 font-semibold"
-                    onClick={() => updateEntry(entry.key, (current) => ({
-                      ...current, allowDuplicate: !current.allowDuplicate,
-                      status: current.allowDuplicate ? 'duplicate' : 'ready',
-                      message: current.allowDuplicate ? '疑似重复，默认跳过。' : '已确认仍要入库。',
-                    }))}>
-                    {entry.allowDuplicate ? '撤销放行' : '仍要入库'}
+                    onClick={() => void openReview(entry.key)}>
+                    核对并选择处理方式
                   </button>}
                 </div>}
               </div>
@@ -490,7 +568,7 @@ export default function AdminSongCreatePage() {
                   编辑
                 </button>
                 <button type="button" disabled={saving || ['reading', 'checking', 'saved'].includes(entry.status)
-                  || (entry.duplicateMatches?.length > 0 && !entry.allowDuplicate)}
+                  || entry.reviewStale || (entry.duplicateMatches?.length > 0 && !entry.allowDuplicate)}
                   onClick={() => void saveItems(entry.key)}
                   className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
                   {entry.status === 'error' ? '重试' : '入库'}
@@ -503,6 +581,46 @@ export default function AdminSongCreatePage() {
           })}
         </div>
       </section>}
+
+      {reviewing && createPortal(<>
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xs" onClick={() => setReviewingId(null)} />
+        <section role="dialog" aria-modal="true" aria-label={'核对重复歌曲：' + reviewing.draft.title}
+          className="fixed left-1/2 top-1/2 z-[101] flex max-h-[88dvh] w-[min(94vw,760px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xl">
+          <div className="border-b border-[var(--line)] px-5 py-4"><h2 className="font-bold">核对疑似重复</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">按当前歌曲逐首选择；替换保留原歌曲 ID 和歌单引用，旧媒体文件保留。</p></div>
+          <div className="space-y-3 overflow-y-auto p-5 text-sm">
+            <div className="rounded-xl border border-[var(--line)] p-3"><strong>本次文件：{reviewing.draft.title}</strong>
+              <p className="mt-1 text-xs">{reviewing.draft.artist || '歌手未设置'} · {reviewing.draft.album || '专辑未设置'} · {reviewing.draft.duration || '时长未知'} 秒 · {getLanguageLabel(reviewing.draft.language, '语言未设置')}</p>
+              <p className="mt-1 break-all text-xs text-[var(--muted)]">文件：{reviewing.audioFile.name} · 音频将使用本次文件</p>
+              <div className="mt-2 flex items-center gap-2"><CoverThumbnail file={reviewing.coverFile} /><span className="text-xs text-[var(--muted)]">本次封面；无封面时替换会保留旧封面</span></div>
+              <LocalAudioPreview file={reviewing.audioFile} /></div>
+            <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><input type="radio" name="duplicate-choice" value="skip"
+              checked={reviewChoice === 'skip'} onChange={() => setReviewChoice('skip')} /><span>跳过此首（默认）</span></label>
+            <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><input type="radio" name="duplicate-choice" value="add"
+              checked={reviewChoice === 'add'} onChange={() => setReviewChoice('add')} /><span>新增另一版本：创建新的歌曲 ID</span></label>
+            {!reviewing.duplicateMatches.length && <p className="text-xs text-[var(--muted)]">当前已找不到原匹配项。请明确选择新增，或保持跳过。</p>}
+            {reviewing.duplicateMatches.map((match) => <div key={match.source + (match.id || match.key)}
+              className="rounded-xl border border-[var(--line)] p-3">
+              {match.source === 'catalog' && <label className="flex gap-2 font-semibold"><input type="radio" name="duplicate-choice"
+                checked={reviewChoice === 'replace:' + match.id} onChange={() => setReviewChoice('replace:' + match.id)} />
+                <span>替换这首曲库歌曲</span></label>}
+              {match.source !== 'catalog' && <strong>本次清单匹配（尚不能替换）</strong>}
+              <p className="mt-2">{match.title} · {match.artist || '歌手未设置'} · {match.album || '专辑未设置'}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{match.duration || '时长未知'} 秒 · {getLanguageLabel(match.language, '语言未设置')}
+                {' · ' + (match.strength === 'strong' ? '高度相似' : '可能不同版本')}
+                {match.id ? ' · ID ' + match.id : ''}</p>
+              {match.source === 'catalog' && <div className="mt-2 flex items-center gap-2">
+                {match.cover_url && <img src={hydrateSong(match).cover_url} alt="现有歌曲封面" className="h-12 w-12 rounded-lg object-cover" />}
+                <span className="text-xs text-[var(--muted)]">{match.cover_url ? '现有封面' : '现有歌曲无封面'}</span></div>}
+              {match.source === 'catalog' && match.audio_url && <audio controls preload="none" src={hydrateSong(match).audio_url}
+                className="mt-2 w-full" aria-label={'试听曲库歌曲 ' + match.title} />}
+            </div>)}
+          </div>
+          <div className="flex justify-end gap-2 border-t border-[var(--line)] p-4"><button type="button" onClick={() => setReviewingId(null)}
+            className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm">取消</button>
+            <button type="button" onClick={confirmReview} className="primary-button rounded-lg px-4 py-2 text-sm font-semibold">确认处理方式</button></div>
+        </section>
+      </>, document.body)}
 
       {editing && createPortal(<>
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xs"

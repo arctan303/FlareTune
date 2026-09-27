@@ -1,4 +1,5 @@
 import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
+import { handleDelete, handleDeletePreview } from '../services/adminMusicDeletion.js';
 
 // The caller performs instance-state, session and mutation-origin/CSRF checks.
 // This route still enforces the role itself so it is not accidentally exposed
@@ -202,7 +203,7 @@ async function deleteSong(db, id, body) {
   if (changed(result) !== 1) fail('VERSION_CONFLICT', '歌曲或其引用已被其他操作修改。', 409);
   return { deletedSongId: id, mediaRetained: true };
 }
-export async function handleLocalCatalogAdminRoute(request, url, db, headers = {}, session) {
+export async function handleLocalCatalogAdminRoute(request, url, db, headers = {}, session, env = {}) {
   const path = url.pathname;
   if (!path.startsWith(PREFIX)) return null;
   if (session?.mode !== 'normal' || session?.account?.role !== 'admin') {
@@ -213,6 +214,12 @@ export async function handleLocalCatalogAdminRoute(request, url, db, headers = {
   }
   if (!db?.prepare || !db?.batch) return error('CATALOG_STORAGE_UNAVAILABLE', '曲库暂时不可用。', 503, headers);
   try {
+    if (path === `${PREFIX}delete-preview` && request.method === 'POST') {
+      return handleDeletePreview(request, db, env, headers);
+    }
+    if (path === `${PREFIX}delete` && request.method === 'POST') {
+      return handleDelete(request, db, env, headers);
+    }
     if (path === `${PREFIX}songs`) {
       if (request.method === 'GET') return ok(await listSongs(db, url), 200, headers);
       if (request.method === 'POST') return ok({ song: await createSong(db, await bodyOf(request)) }, 201, headers);

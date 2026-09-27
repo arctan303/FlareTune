@@ -1,6 +1,7 @@
 import { catalogSongBody } from './catalogSongDraft.js';
 
-export async function saveSingleSong({ audioFile, coverFile, draft, uploaded, uploadMedia, createSong, onUploaded, onStage, onProgress = () => {} }) {
+export async function saveSingleSong({ audioFile, coverFile, draft, uploaded, uploadMedia, createSong,
+  replaceTarget = null, updateSong, onUploaded, onStage, onProgress = () => {} }) {
   let next = { ...uploaded };
   if (next.audio?.file !== audioFile) {
     onStage('正在上传音频…');
@@ -15,10 +16,15 @@ export async function saveSingleSong({ audioFile, coverFile, draft, uploaded, up
     onUploaded(next);
   }
   onStage('正在保存歌曲信息…');
-  await createSong(catalogSongBody({
+  const body = catalogSongBody({
     ...draft,
     audio_url: next.audio.url,
-    cover_url: coverFile ? next.cover?.url || '' : '',
-  }, true));
+    cover_url: coverFile ? next.cover?.url || '' : replaceTarget?.cover_url || '',
+  }, !replaceTarget);
+  if (replaceTarget) {
+    if (!updateSong) throw new Error('缺少歌曲替换接口。');
+    await updateSong(replaceTarget.id, { ...body, audio_url: next.audio.url,
+      expectedVersion: replaceTarget.version });
+  } else await createSong(body);
   return next;
 }

@@ -24,3 +24,24 @@ migrations_dir = "server/db/migrations-flaretune"
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "flaretune-media"
+
+# Maintainer CI environment. The D1 ID is supplied only by Cloudflare Builds.
+# Cloudflare deploys flaretune-dev with: npm run deploy:dev:ci
+[env.dev]
+workers_dev = true
+preview_urls = false
+
+[env.dev.vars]
+MEDIA_PREFIX = "dist_music"
+MUSIC_WEB_ORIGIN = "http://127.0.0.1:3000"
+CORS_ORIGINS = "http://127.0.0.1:3000,http://localhost:3000"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "flaretune-db-dev"
+database_id = "__FLARETUNE_DEV_D1_ID__"
+migrations_dir = "server/db/migrations-flaretune"
+
+[[env.dev.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "flaretune-files-dev"

@@ -1,20 +1,25 @@
-const normalized = (value) => String(value || '').normalize('NFKC').toLocaleLowerCase()
+export const normalizeSongIdentityText = (value) => String(value || '').normalize('NFKC').toLocaleLowerCase()
   .replace(/[\p{P}\p{S}\s]/gu, '');
+export const duplicateReviewSignature = (matches) => JSON.stringify(matches.map((match) => {
+  const song = match.song || match;
+  return JSON.stringify([match.source, match.id || match.key || song.id, song.version || '', match.strength,
+    song.title || '', song.artist || '', song.album || '', song.duration ?? null, song.language || '']);
+}).sort());
 const seconds = (value) => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : null;
 
 export function compareSongIdentity(candidate, existing) {
-  const title = normalized(candidate.title);
-  if (!title || title !== normalized(existing.title)) return null;
-  const artist = normalized(candidate.artist);
-  const existingArtist = normalized(existing.artist);
+  const title = normalizeSongIdentityText(candidate.title);
+  if (!title || title !== normalizeSongIdentityText(existing.title)) return null;
+  const artist = normalizeSongIdentityText(candidate.artist);
+  const existingArtist = normalizeSongIdentityText(existing.artist);
   if (artist && existingArtist && artist !== existingArtist) return null;
   const candidateDuration = seconds(candidate.duration);
   const existingDuration = seconds(existing.duration);
   const closeDuration = candidateDuration !== null && existingDuration !== null
     && Math.abs(candidateDuration - existingDuration) <= 3;
   if (!artist || !existingArtist) {
-    const album = normalized(candidate.album);
-    if (!closeDuration && (!album || album !== normalized(existing.album))) return null;
+    const album = normalizeSongIdentityText(candidate.album);
+    if (!closeDuration && (!album || album !== normalizeSongIdentityText(existing.album))) return null;
     return 'possible';
   }
   return closeDuration ? 'strong' : 'possible';

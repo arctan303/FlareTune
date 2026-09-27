@@ -29,7 +29,8 @@ server/dev/credentials.json
 server/dev/song-sample.json
 server/dev/artist-showcase.json
 server/dev/artist-copy-receipt.json
-server/dev-copy/wrangler.toml
+/server/dev-copy/
+/tooling/dev/r2-copy-*.mjs
 .playwright-cli/
 output/
 *.sql

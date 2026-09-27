@@ -28,7 +28,8 @@
       <nav class="tool-nav" aria-label="工具页面"><button data-view="catalog" class="active">曲库管理</button><button data-view="ingest">上传歌曲</button></nav>
       <div id="catalog-view">
         <section class="panel"><div class="section-head"><div><h2>曲库管理</h2><p id="catalog-summary" class="hint"></p></div>
-          <div class="actions"><input id="catalog-search" type="search" placeholder="搜索歌名、歌手或专辑" /><button id="catalog-refresh" class="secondary">刷新</button></div></div>
+          <div class="actions"><input id="catalog-search" type="search" placeholder="搜索歌名、歌手或专辑" aria-label="搜索曲库" /><button id="catalog-refresh" class="secondary">刷新</button></div></div>
+          <div class="catalog-tools"><label class="check"><input id="catalog-only-duplicates" type="checkbox" /> 只看疑似重复</label><span class="hint">根据歌名、歌手和时长提示；请人工核对后再编辑或删除。</span></div>
           <div id="catalog-songs" class="songs"></div><div class="catalog-pages"><button id="catalog-prev">上一页</button><span id="catalog-page"></span><button id="catalog-next">下一页</button></div>
         </section>
       </div>
@@ -63,12 +64,19 @@
       </div>
     </div>
   </main>
+  <dialog id="duplicate-dialog"><h2>核对疑似重复</h2><p class="hint">逐首选择处理方式。替换保留原歌曲 ID 和歌单引用，旧媒体文件保留。</p>
+    <div id="duplicate-review" class="duplicate-review"></div>
+    <div class="dialog-actions"><button type="button" id="duplicate-cancel">取消</button><button type="button" id="duplicate-confirm" class="primary">确认处理方式</button></div>
+  </dialog>
   <dialog id="catalog-dialog"><form id="catalog-form" class="form-grid"><h2 class="wide">编辑歌曲</h2><p id="catalog-id" class="hint wide"></p>
     <label class="wide">歌名<input name="title" required /></label><label>歌手<input name="artist" /></label><label>专辑<input name="album" /></label>
     <label>时长（秒）<input name="duration" type="number" min="0" max="86400" /></label><label>语言<select name="language"></select></label>
     <label class="wide">音频地址<input name="audio_url" /></label><label class="wide">封面地址<input name="cover_url" /></label>
     <div class="dialog-actions wide"><button type="button" id="catalog-cancel">取消</button><button class="primary">保存修改</button></div></form></dialog>
-  <dialog id="delete-dialog"><h2>删除歌曲记录？</h2><p id="delete-summary"></p><p class="hint">媒体文件会保留；被歌单或播放记录引用的歌曲无法删除。</p>
+  <dialog id="delete-dialog"><h2>核对删除影响</h2><p id="delete-summary"></p>
+    <div id="delete-impact" class="delete-impact"></div>
+    <label class="check delete-media-choice"><input id="delete-media" type="checkbox" /> 同时删除未被其他歌曲使用的音频和封面文件</label>
+    <p class="hint">共用文件、外部地址和无法确认归属的文件会保留。确认后会从所有歌单、播放记录和歌词数据中移除这首歌。</p>
     <div class="dialog-actions"><button id="delete-cancel">取消</button><button id="delete-confirm" class="danger">确认删除</button></div></dialog>
   <dialog id="profile-dialog"><form id="profile-connect-form" class="form-grid"><h2 class="wide">连接实例</h2><p id="profile-connect-summary" class="hint wide"></p>
     <label class="wide">管理员密码<input name="password" type="password" autocomplete="current-password" /></label>

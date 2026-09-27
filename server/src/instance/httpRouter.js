@@ -314,7 +314,7 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       {}, session, env);
     if (catalogMedia) return catalogMedia;
     const catalogAdmin = await handleLocalCatalogAdminRoute(request, new URL(request.url), env.DB,
-      {}, session);
+      {}, session, env);
     if (catalogAdmin) return catalogAdmin;
     // Business and administrative APIs are opened only when their replacement
     // implementations have explicit route/role tests. Never fall through to OAuth.

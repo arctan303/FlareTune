@@ -3,10 +3,11 @@ import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { RemoteCatalog } from './remote.mjs';
-import { mediaType, validMediaSignature, WORKER_MAX_BYTES } from './core.mjs';
+import { AUDIO_TYPES, COVER_TYPES, mediaType, validMediaSignature, WORKER_MAX_BYTES } from './core.mjs';
 import { r2Settings, verifyR2Target, uploadR2 } from './r2.mjs';
 import { ProfileStore } from './profiles.mjs';
 
@@ -124,8 +125,55 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
       }
       if (url.pathname.startsWith('/api/')) {
         if (!session) return json(response, 401, { error: '请先登录管理员账户。' });
+        const cover = /^\/api\/cover\/([^/]+)\/([0-9a-f]{16})\.(jpg|jpeg|png|webp)$/.exec(url.pathname);
+        if (cover && request.method === 'GET') {
+          const [, profileId, id, extension] = cover;
+          if (profileId !== session.profileId) return json(response, 403, { error: '封面不属于当前实例。' });
+          const upstream = await session.remote.request(`/media/cover/${id}.${extension}`);
+          if (!upstream.ok || !upstream.body) return json(response, upstream.status === 404 ? 404 : 502,
+            { error: '无法读取封面。' });
+          response.writeHead(200, { 'Content-Type': COVER_TYPES[extension], 'Cache-Control': 'private, no-store',
+            'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Resource-Policy': 'same-origin' });
+          await pipeline(Readable.fromWeb(upstream.body), response);
+          return;
+        }
+        const audioPreview = /^\/api\/audio\/([^/]+)\/([0-9a-f]{16})\.(mp3|flac|wav|ogg|m4a|aac|wma)$/.exec(url.pathname);
+        if (audioPreview && request.method === 'GET') {
+          const [, profileId, id, extension] = audioPreview;
+          if (profileId !== session.profileId) return json(response, 403, { error: '音频不属于当前实例。' });
+          const range = request.headers.range;
+          if (range && !/^bytes=\d{0,20}-\d{0,20}$/.test(range)) {
+            return json(response, 416, { error: '音频试听范围无效。' });
+          }
+          const upstream = await session.remote.request(`/media/audio/${id}.${extension}`,
+            { headers: range ? { Range: range } : {} });
+          if (![200, 206].includes(upstream.status) || !upstream.body) return json(response,
+            upstream.status === 404 ? 404 : 502, { error: '无法试听现有音频。' });
+          const headers = { 'Content-Type': AUDIO_TYPES[extension], 'Cache-Control': 'private, no-store',
+            'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Resource-Policy': 'same-origin',
+            'Accept-Ranges': 'bytes' };
+          for (const key of ['Content-Length', 'Content-Range']) {
+            const value = upstream.headers.get(key);
+            if (value) headers[key] = value;
+          }
+          response.writeHead(upstream.status, headers);
+          await pipeline(Readable.fromWeb(upstream.body), response);
+          return;
+        }
         if (url.pathname === '/api/catalog' && request.method === 'GET') {
           return json(response, 200, { songs: await session.remote.listSongs() });
+        }
+        if (url.pathname.startsWith('/api/song/') && url.pathname.endsWith('/delete-preview') && request.method === 'POST') {
+          const id = decodeURIComponent(url.pathname.slice('/api/song/'.length, -'/delete-preview'.length));
+          return json(response, 200, await session.remote.previewSongDeletion(id));
+        }
+        if (url.pathname.startsWith('/api/song/') && url.pathname.endsWith('/delete-with-impact') && request.method === 'POST') {
+          const id = decodeURIComponent(url.pathname.slice('/api/song/'.length, -'/delete-with-impact'.length));
+          const { impactDigest, deleteMedia } = await readJson(request);
+          if (!/^[a-f0-9]{64}$/.test(impactDigest) || typeof deleteMedia !== 'boolean') {
+            throw new Error('删除确认信息无效。');
+          }
+          return json(response, 200, await session.remote.deleteSongWithImpact(id, impactDigest, deleteMedia));
         }
         if (url.pathname === '/api/song' && request.method === 'POST') {
           const song = await readJson(request);
@@ -209,9 +257,10 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
       response.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'no-referrer',
-        'Content-Security-Policy': "default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self'" });
+        'Content-Security-Policy': "default-src 'self'; img-src 'self' blob: https:; media-src 'self' blob: https:; style-src 'self'; script-src 'self'; connect-src 'self'" });
       return response.end(bytes);
     } catch (error) {
+      if (response.headersSent) { response.destroy(); return; }
       return json(response, 400, { error: error?.message || '操作失败。' });
     }
   });

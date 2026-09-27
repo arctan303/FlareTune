@@ -16,7 +16,7 @@ test('local login, admin catalog and streamed Worker upload obey both session bo
     seen.push({ path, method: options.method, headers: options.headers });
     if (path === '/api/auth/login') return new Response(JSON.stringify({ authenticated: true,
       user: { role: 'admin', username: 'owner', accountId: 'admin-id' }, csrfToken: 'remote-csrf' }),
-    { status: 200, headers: { 'Set-Cookie': 'ft_session=remote-session; HttpOnly' } });
+    { status: 200, headers: { 'Set-Cookie': '__Host-ft_session=remote-session; Path=/; Secure; HttpOnly' } });
     if (path === '/api/admin/catalog/songs' && options.method === 'GET') return Response.json({
       ok: true, data: { songs: [{ id: 'old', title: '已有歌曲', artist: '歌手' }], total: 1 },
     });
@@ -31,6 +31,15 @@ test('local login, admin catalog and streamed Worker upload obey both session bo
     }
     if (path === '/media/audio/1111111111111111.mp3' && options.method === 'HEAD') {
       return new Response(null, { status: 404 });
+    }
+    if (path === '/media/cover/0123456789abcdef.jpg' && options.method === 'GET') {
+      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), { status: 200,
+        headers: { 'Content-Type': 'image/jpeg' } });
+    }
+    if (path === '/media/audio/0123456789abcdef.mp3' && options.method === 'GET') {
+      assert.equal(options.headers.Range, 'bytes=0-2');
+      return new Response(Buffer.from('ID3'), { status: 206,
+        headers: { 'Content-Type': 'audio/mpeg', 'Content-Range': 'bytes 0-2/18', 'Content-Length': '3' } });
     }
     throw new Error(`Unexpected request: ${path}`);
   };
@@ -58,7 +67,7 @@ test('local login, admin catalog and streamed Worker upload obey both session bo
     assert.equal(upload.status, 200);
     assert.equal((await upload.json()).url, '/media/audio/0123456789abcdef.mp3');
     const mediaCall = seen.find((item) => item.method === 'PUT');
-    assert.equal(mediaCall.headers.Cookie, 'ft_session=remote-session');
+    assert.equal(mediaCall.headers.Cookie, '__Host-ft_session=remote-session');
     assert.equal(mediaCall.headers['X-CSRF-Token'], 'remote-csrf');
     assert.equal(mediaCall.headers.Origin, 'https://music.example');
     const existingMedia = await fetch(tool.url + '/api/media/audio/0123456789abcdef.mp3', {
@@ -70,6 +79,70 @@ test('local login, admin catalog and streamed Worker upload obey both session bo
       method: 'HEAD', headers: { Cookie },
     });
     assert.equal(absentMedia.status, 204);
+    const anonymousCover = await fetch(tool.url + '/api/cover/1/0123456789abcdef.jpg');
+    assert.equal(anonymousCover.status, 401);
+    const cover = await fetch(tool.url + '/api/cover/1/0123456789abcdef.jpg', { headers: { Cookie } });
+    assert.equal(cover.status, 200);
+    assert.equal(cover.headers.get('content-type'), 'image/jpeg');
+    assert.equal(cover.headers.get('cache-control'), 'private, no-store');
+    assert.deepEqual(Buffer.from(await cover.arrayBuffer()), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+    assert.equal(seen.find((item) => item.path === '/media/cover/0123456789abcdef.jpg').headers.Cookie,
+      '__Host-ft_session=remote-session');
+    assert.equal((await fetch(tool.url + '/api/cover/2/0123456789abcdef.jpg', { headers: { Cookie } })).status, 403);
+    assert.equal((await fetch(tool.url + '/api/cover/1/0123456789abcdef.svg', { headers: { Cookie } })).status, 404);
+    assert.equal((await fetch(tool.url + '/api/audio/1/0123456789abcdef.mp3',
+      { headers: { Range: 'bytes=0-2' } })).status, 401);
+    const preview = await fetch(tool.url + '/api/audio/1/0123456789abcdef.mp3',
+      { headers: { Cookie, Range: 'bytes=0-2' } });
+    assert.equal(preview.status, 206);
+    assert.equal(preview.headers.get('content-range'), 'bytes 0-2/18');
+    assert.equal(await preview.text(), 'ID3');
+    assert.equal((await fetch(tool.url + '/api/audio/2/0123456789abcdef.mp3',
+      { headers: { Cookie, Range: 'bytes=0-2' } })).status, 403);
+  } finally { await tool.close(); }
+});
+
+test('local deletion preview and confirmed cleanup use the current admin session', async () => {
+  const seen = [];
+  const digest = 'a'.repeat(64);
+  const remoteFetch = async (target, options) => {
+    const path = new URL(target).pathname;
+    if (path === '/api/auth/login') return new Response(JSON.stringify({ authenticated: true,
+      user: { role: 'admin', username: 'owner', accountId: 'admin-id' }, csrfToken: 'remote-csrf' }),
+    { headers: { 'Set-Cookie': '__Host-ft_session=remote-session; Path=/; Secure; HttpOnly' } });
+    seen.push({ path, options });
+    if (path === '/api/admin/catalog/delete-preview') return Response.json({ code: 200,
+      data: { songs: [{ id: 'song-1' }], impact_digest: digest } });
+    if (path === '/api/admin/catalog/delete') return Response.json({ code: 207,
+      data: { deleted_ids: ['song-1'], media: { failures: [{ path: 'audio/1.mp3' }] } } }, { status: 207 });
+    throw new Error(`Unexpected ${path}`);
+  };
+  const tool = await createBatchIngestServer({ fetchImpl: remoteFetch, profileStore: profileStore() });
+  try {
+    const mutation = { Origin: tool.url, 'X-Requested-With': 'FlareTuneIngest',
+      'Content-Type': 'application/json' };
+    mutation['X-Ingest-CSRF'] = (await (await fetch(tool.url + '/api/state')).json()).csrf;
+    const guest = await fetch(`${tool.url}/api/song/song-1/delete-preview`, { method: 'POST', headers: mutation, body: '{}' });
+    assert.equal(guest.status, 401);
+    const login = await fetch(tool.url + '/api/login', { method: 'POST', headers: mutation,
+      body: JSON.stringify({ name: 'Test', baseUrl: 'https://music.example', username: 'owner', password: 'pw' }) });
+    const cookie = login.headers.get('set-cookie').split(';', 1)[0];
+    mutation['X-Ingest-CSRF'] = (await login.json()).csrf;
+    mutation.Cookie = cookie;
+    const preview = await fetch(`${tool.url}/api/song/song-1/delete-preview`, { method: 'POST', headers: mutation, body: '{}' });
+    assert.equal((await preview.json()).impact_digest, digest);
+    const denied = await fetch(`${tool.url}/api/song/song-1/delete-with-impact`, { method: 'POST',
+      headers: { ...mutation, Origin: 'https://other.example' },
+      body: JSON.stringify({ impactDigest: digest, deleteMedia: true }) });
+    assert.equal(denied.status, 403);
+    const result = await fetch(`${tool.url}/api/song/song-1/delete-with-impact`, { method: 'POST',
+      headers: mutation, body: JSON.stringify({ impactDigest: digest, deleteMedia: true }) });
+    assert.deepEqual(await result.json(), { status: 207, code: 207,
+      data: { deleted_ids: ['song-1'], media: { failures: [{ path: 'audio/1.mp3' }] } } });
+    assert.deepEqual(seen.map((item) => item.path), ['/api/admin/catalog/delete-preview', '/api/admin/catalog/delete']);
+    assert.ok(seen.every((item) => item.options.headers.Cookie === '__Host-ft_session=remote-session'
+      && item.options.headers['X-CSRF-Token'] === 'remote-csrf'));
+    assert.deepEqual(JSON.parse(seen[1].options.body), { ids: ['song-1'], delete_media: true, impact_digest: digest });
   } finally { await tool.close(); }
 });
 
@@ -81,7 +154,7 @@ test('R2 target changes, failed validation, direct upload and logout revoke loca
     const path = new URL(url).pathname;
     if (path === '/api/auth/login') return new Response(JSON.stringify({ authenticated: true,
       user: { role: 'admin', username: 'owner', accountId: 'admin-id' }, csrfToken: 'remote-csrf' }),
-    { status: 200, headers: { 'Set-Cookie': 'ft_session=remote-session; HttpOnly' } });
+    { status: 200, headers: { 'Set-Cookie': '__Host-ft_session=remote-session; Path=/; Secure; HttpOnly' } });
     if (path === '/api/auth/logout') return Response.json({ ok: true });
     throw new Error(`Unexpected request: ${path}`);
   };
@@ -141,8 +214,10 @@ test('switching instances revokes the old session and sends catalog changes to t
     seen.push({ host: url.host, path: url.pathname, method: options.method, body: options.body });
     if (url.pathname === '/api/auth/login') return new Response(JSON.stringify({ authenticated: true,
       user: { role: 'admin', username: 'owner', accountId: url.host }, csrfToken: 'remote-csrf' }),
-    { status: 200, headers: { 'Set-Cookie': 'ft_session=remote-session; HttpOnly' } });
+    { status: 200, headers: { 'Set-Cookie': '__Host-ft_session=remote-session; Path=/; Secure; HttpOnly' } });
     if (url.pathname === '/api/auth/logout') return Response.json({ ok: true });
+    if (url.pathname === '/media/cover/0123456789abcdef.jpg') return new Response(Buffer.from([0xff, 0xd8]),
+      { headers: { 'Content-Type': 'image/jpeg' } });
     if (url.pathname === '/api/admin/catalog/songs' && options.method === 'GET') return Response.json({
       ok: true, data: { songs: [{ id: url.host, title: 'Song', version: 'a'.repeat(64) }], total: 1 },
     });
@@ -168,11 +243,17 @@ test('switching instances revokes the old session and sends catalog changes to t
     };
     const first = await login('one', 'https://one.example', null, appCsrf);
     const firstHeaders = { ...common, Cookie: first.cookie, 'X-Ingest-CSRF': first.data.csrf };
+    const oldCoverPath = '/api/cover/1/0123456789abcdef.jpg';
+    assert.equal((await fetch(tool.url + oldCoverPath, { headers: { Cookie: first.cookie } })).status, 200);
     assert.equal((await fetch(tool.url + '/api/r2/config', { method: 'POST', headers: firstHeaders,
       body: '{}' })).status, 200);
     const second = await login('two', 'https://two.example', first.cookie, first.data.csrf);
     assert.equal(destroyed, 1);
     assert.equal((await fetch(tool.url + '/api/catalog', { headers: { Cookie: first.cookie } })).status, 401);
+    assert.equal((await fetch(tool.url + oldCoverPath, { headers: { Cookie: first.cookie } })).status, 401);
+    assert.equal((await fetch(tool.url + oldCoverPath, { headers: { Cookie: second.cookie } })).status, 403);
+    assert.equal((await fetch(tool.url + '/api/cover/2/0123456789abcdef.jpg',
+      { headers: { Cookie: second.cookie } })).status, 200);
     const secondHeaders = { ...common, Cookie: second.cookie, 'X-Ingest-CSRF': second.data.csrf };
     const catalog = await (await fetch(tool.url + '/api/catalog', { headers: { Cookie: second.cookie } })).json();
     assert.equal(catalog.songs[0].id, 'two.example');

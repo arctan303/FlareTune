@@ -29,6 +29,14 @@ npm.cmd run dev
 
 首次访问先验证 `SETUP_SECRET`，再填写管理员用户名和密码。密钥验证不写 D1；最终提交会安装当前内置数据库结构。
 
+## 分支与开发 Worker
+
+日常改动提交到 `dev`，经过开发环境验证后再进入 `main`。本地 `npm.cmd run dev:worker` 使用模拟 D1/R2；切换 Git 分支不会改变这些绑定。
+
+维护者已有独立的 `flaretune-dev` Worker、开发 D1 和开发 R2。云端开发的手动部署配置保存在被 Git 忽略的 `server/dev/wrangler.toml`；Cloudflare Builds 则使用根目录 `wrangler.toml` 的 `dev` 环境和仅限 `dev` 分支的部署脚本。构建变量 `FLARETUNE_DEV_D1_ID` 只在 Cloudflare 设置，不提交资源 ID；其他贡献者应绑定自己的隔离资源。不要将开发资源 ID、密钥或个人配置写入仓库根 `wrangler.toml`，该文件供使用者一键部署。
+
+Cloudflare 的分支 Preview 也需要单独配置变量及 D1/R2 绑定，不会继承生产 Worker 的资源；见[官方 Preview 配置说明](https://developers.cloudflare.com/workers/previews/configuration/)。
+
 ## 验证
 
 ```powershell

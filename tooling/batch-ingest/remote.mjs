@@ -36,7 +36,7 @@ export class RemoteCatalog {
       throw new Error(data.mustChangePassword ? '请先在播放器网页修改管理员密码。' : '管理员登录失败。');
     }
     const cookie = response.headers.get('set-cookie')?.split(';', 1)[0] || '';
-    if (!/^ft_session=/.test(cookie) || !data.csrfToken) throw new Error('实例没有返回可用的管理员会话。');
+    if (!/^__Host-ft_session=/.test(cookie) || !data.csrfToken) throw new Error('实例没有返回可用的管理员会话。');
     this.cookie = cookie;
     this.csrf = data.csrfToken;
     this.account = data.user;
@@ -86,6 +86,22 @@ export class RemoteCatalog {
       method: 'DELETE', body: JSON.stringify({ expectedVersion, confirmDelete: true }),
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  async previewSongDeletion(id) {
+    return this.json('/api/admin/catalog/delete-preview', {
+      method: 'POST', body: JSON.stringify({ ids: [id] }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  async deleteSongWithImpact(id, impactDigest, deleteMedia) {
+    const response = await this.request('/api/admin/catalog/delete', {
+      method: 'POST', body: JSON.stringify({ ids: [id], delete_media: deleteMedia, impact_digest: impactDigest }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({}));
+    return { status: response.status, ...payload };
   }
 
   async uploadWorker(kind, id, extension, contentType, length, body) {
