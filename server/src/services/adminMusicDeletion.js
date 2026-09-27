@@ -10,7 +10,7 @@ import {
 import { querySongsByIds } from './adminMusicSongs.js';
 import {
     deleteManagedMedia,
-    managedMediaPath,
+    canonicalManagedMediaPath,
     mediaObjectKey,
     mediaPrefix,
     queryMediaReferences,
@@ -76,14 +76,15 @@ async function readDeleteImpact(db, ids, prefix) {
             affectedPlaylists: [],
             playlistRelations: [],
             lyricTranslations: [],
+            playRecords: [],
             media: [],
         };
     }
     const foundIds = songs.map((song) => song.id);
     const marker = placeholders(foundIds.length);
-    const [relationResult, translationResult] = await Promise.all([
+    const [relationResult, translationResult, playResult] = await Promise.all([
         db.prepare(`
-            SELECT ps.playlist_id, ps.song_id, ps.sort_order, p.name, p.kind AS type, p.account_id
+            SELECT ps.playlist_id, ps.song_id, ps.sort_order, p.name, p.kind AS type, p.account_id, p.revision
             FROM Member_Playlist_Songs ps
             JOIN Member_Playlists p ON p.id = ps.playlist_id
             WHERE ps.song_id IN (${marker})
@@ -93,17 +94,21 @@ async function readDeleteImpact(db, ids, prefix) {
             SELECT song_id, COUNT(*) AS count FROM Lyric_Translations
             WHERE song_id IN (${marker}) GROUP BY song_id ORDER BY song_id
         `).bind(...foundIds).all(),
+        db.prepare(`SELECT s.id AS song_id,
+            (SELECT COUNT(*) FROM Member_Song_Plays WHERE song_id = s.id) AS play_stats,
+            (SELECT COUNT(*) FROM Member_Play_Events WHERE song_id = s.id) AS play_events
+            FROM Songs s WHERE s.id IN (${marker}) ORDER BY s.id`).bind(...foundIds).all(),
     ]);
     const playlistRelations = relationResult.results || [];
     const playlistMap = new Map();
     for (const relation of playlistRelations) {
         if (!playlistMap.has(relation.playlist_id)) {
-            playlistMap.set(relation.playlist_id, { id: relation.playlist_id, name: relation.name ?? null, type: relation.type ?? null, account_id: relation.account_id });
+            playlistMap.set(relation.playlist_id, { id: relation.playlist_id, name: relation.name ?? null, type: relation.type ?? null, account_id: relation.account_id, revision: relation.revision });
         }
     }
     const safePaths = [...new Set(songs.flatMap((song) => [
-        managedMediaPath(song.audio_url, 'audio') ? song.audio_url : null,
-        managedMediaPath(song.cover_url, 'cover') ? song.cover_url : null,
+        canonicalManagedMediaPath(song.audio_url, 'audio'),
+        canonicalManagedMediaPath(song.cover_url, 'cover'),
     ]).filter(Boolean))];
     const references = await queryMediaReferences(db, safePaths);
     const deletingIds = new Set(foundIds);
@@ -111,17 +116,18 @@ async function readDeleteImpact(db, ids, prefix) {
     for (const song of songs) {
         for (const [field, kind] of [['audio_url', 'audio'], ['cover_url', 'cover']]) {
             const path = song[field];
-            if (!managedMediaPath(path, kind)) {
+            const canonicalPath = canonicalManagedMediaPath(path, kind);
+            if (!canonicalPath) {
                 media.push({ song_id: song.id, field, path: path || null, classification: unsafeMediaClassification(path), shared: false, can_delete: false });
                 continue;
             }
-            const remainingReferences = (references.get(path) || []).filter((reference) => !deletingIds.has(reference.id));
+            const remainingReferences = (references.get(canonicalPath) || []).filter((reference) => !deletingIds.has(reference.id));
             const shared = remainingReferences.length > 0;
             media.push({
                 song_id: song.id,
                 field,
-                path,
-                object_key: mediaObjectKey(prefix, path),
+                path: canonicalPath,
+                object_key: mediaObjectKey(prefix, canonicalPath),
                 classification: shared ? 'managed_shared' : 'managed_unique',
                 shared,
                 can_delete: !shared,
@@ -135,6 +141,7 @@ async function readDeleteImpact(db, ids, prefix) {
         affectedPlaylists: [...playlistMap.values()],
         playlistRelations,
         lyricTranslations: translationResult.results || [],
+        playRecords: playResult.results || [],
         media,
     };
 }
@@ -146,6 +153,7 @@ function deleteImpactPayload(impact) {
         affected_playlists: impact.affectedPlaylists,
         playlist_relations: impact.playlistRelations,
         lyric_translations: impact.lyricTranslations,
+        play_records: impact.playRecords,
         media: impact.media,
     };
 }
@@ -161,12 +169,14 @@ export async function handleDeletePreview(request, db, env, headers) {
 }
 
 const LYRIC_MARKER_CAS_ATTEMPTS = 5;
+const STALE_LYRIC_DELETE_MS = 5 * 60 * 1000;
 
 async function prepareLyricDeletion(store, songId, operationId) {
     for (let attempt = 0; attempt < LYRIC_MARKER_CAS_ATTEMPTS; attempt += 1) {
         const current = await store.get(songId);
         if (current.state === 'found' && current.artifact.status === 'deleting') {
-            return { state: 'busy' };
+            const age = Date.now() - Date.parse(current.artifact.updatedAt);
+            if (!Number.isFinite(age) || age < STALE_LYRIC_DELETE_MS) return { state: 'busy' };
         }
         const marker = buildLyricArtifactMarker(songId, 'deleting', {
             now: Date.now(),
@@ -325,7 +335,7 @@ export async function handleDelete(request, db, env, headers) {
                     const compensationFailedSongIds = await compensateLyricDeletions(lyricStore, preparedLyrics);
                     return json({
                         code: 503,
-                        message: 'Lyric artifact deletion is busy; retry the song deletion',
+                        message: '歌词文件清理仍在进行；若上次删除失败，请五分钟后重新预览并重试。',
                         data: {
                             ...deleteImpactPayload(impact),
                             lyric_cleanup: {
@@ -357,12 +367,54 @@ export async function handleDelete(request, db, env, headers) {
         }
         const marker = placeholders(foundIds.length);
         try {
+            const songFields = ['id', 'title', 'artist', 'album', 'duration', 'audio_url', 'cover_url', 'language', 'created_at'];
+            const guards = impact.songs.map((song) => {
+                const playlistCount = impact.playlistRelations.filter((relation) => relation.song_id === song.id).length;
+                const translationCount = Number(impact.lyricTranslations.find((item) => item.song_id === song.id)?.count || 0);
+                const plays = impact.playRecords.find((item) => item.song_id === song.id);
+                return db.prepare(`INSERT INTO Songs (id, title) SELECT ?, NULL WHERE NOT EXISTS (
+                    SELECT 1 FROM Songs WHERE ${songFields.map((field) => `${field} IS ?`).join(' AND ')}
+                ) OR (SELECT COUNT(*) FROM Member_Playlist_Songs WHERE song_id = ?) != ?
+                  OR (SELECT COUNT(*) FROM Member_Song_Plays WHERE song_id = ?) != ?
+                  OR (SELECT COUNT(*) FROM Member_Play_Events WHERE song_id = ?) != ?
+                  OR (SELECT COUNT(*) FROM Lyric_Translations WHERE song_id = ?) != ?`)
+                    .bind(song.id, ...songFields.map((field) => song[field]),
+                        song.id, playlistCount, song.id, Number(plays?.play_stats || 0),
+                        song.id, Number(plays?.play_events || 0), song.id, translationCount);
+            });
+            const playlistGuards = impact.affectedPlaylists.map((playlist) => db.prepare(
+                `INSERT INTO Songs (id, title) SELECT ?, NULL WHERE NOT EXISTS (
+                    SELECT 1 FROM Member_Playlists WHERE id = ? AND revision = ?
+                )`).bind(playlist.id, playlist.id, playlist.revision));
+            const affectedIds = impact.affectedPlaylists.map((playlist) => playlist.id);
             await db.batch([
+                ...guards,
+                ...playlistGuards,
                 db.prepare(`DELETE FROM Lyric_Translations WHERE song_id IN (${marker})`).bind(...foundIds),
                 db.prepare(`DELETE FROM Songs WHERE id IN (${marker})`).bind(...foundIds),
+                ...affectedIds.map((id) => db.prepare(`WITH ranked AS MATERIALIZED (
+                    SELECT song_id, ROW_NUMBER() OVER (ORDER BY sort_order, song_id) - 1 AS next_order
+                    FROM Member_Playlist_Songs WHERE playlist_id = ?
+                ) UPDATE Member_Playlist_Songs SET sort_order = (
+                    SELECT next_order FROM ranked WHERE ranked.song_id = Member_Playlist_Songs.song_id
+                ) WHERE playlist_id = ?`).bind(id, id)),
+                ...(affectedIds.length ? [db.prepare(`UPDATE Member_Playlists
+                    SET revision = revision + 1, updated_at = ? WHERE id IN (${placeholders(affectedIds.length)})`)
+                    .bind(Date.now(), ...affectedIds)] : []),
             ]);
         } catch {
             const compensationFailedSongIds = await compensateLyricDeletions(lyricStore, preparedLyrics);
+            if (compensationFailedSongIds.length === 0) {
+                const latest = await readDeleteImpact(db, parsed.ids, prefix).catch(() => null);
+                if (latest) {
+                    const latestPayload = deleteImpactPayload(latest);
+                    const latestDigest = await impactDigest(latestPayload);
+                    if (latestDigest !== parsed.impactDigest) {
+                        return json({ code: 409, message: 'Deletion impact changed after preview',
+                            data: { ...latestPayload, impact_digest: latestDigest } }, 409, headers);
+                    }
+                }
+            }
             return json({
                 code: 503,
                 message: 'Song database deletion failed; retry the song deletion',
@@ -432,6 +484,9 @@ export async function handleDelete(request, db, env, headers) {
             lyric_cleanup: {
                 recovered_song_ids: recoveredLyricMarkerIds,
                 pending_song_ids: pendingLyricMarkerIds,
+                pending_objects: pendingLyricMarkerIds.map((songId) => ({
+                    song_id: songId, object_key: lyricStore.key(songId),
+                })),
                 retryable: pendingLyricMarkerIds.length > 0,
             },
         },

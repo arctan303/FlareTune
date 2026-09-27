@@ -166,6 +166,14 @@ test('real local D1 Worker serves setup, login, settings and CSRF', async () => 
         { Cookie: memberCookie, 'X-CSRF-Token': memberCsrf }, method);
       assert.equal(denied.status, suffix === '/ai-completion' ? 422 : 403);
     }
+    const deletionPreviewPath = '/api/admin/catalog/delete-preview';
+    assert.equal((await post(deletionPreviewPath, { ids: ['local-instrumental'] })).status, 401);
+    assert.equal((await post(deletionPreviewPath, { ids: ['local-instrumental'] },
+      { Cookie: memberCookie, 'X-CSRF-Token': memberCsrf })).status, 403);
+    const deletionPreview = await post(deletionPreviewPath, { ids: ['local-instrumental'] },
+      { Cookie: cookie, 'X-CSRF-Token': csrfToken });
+    assert.equal(deletionPreview.status, 200);
+    assert.match((await deletionPreview.json()).data.impact_digest, /^[a-f0-9]{64}$/);
     const removedSong = await post('/api/admin/catalog/songs/local-instrumental', {
       expectedVersion: songVersion, confirmDelete: true,
     }, { Cookie: cookie, 'X-CSRF-Token': csrfToken }, 'DELETE');

@@ -5,10 +5,13 @@ import { createBatchIngestServer } from './server.mjs';
 import { ProfileStore } from './profiles.mjs';
 
 const songs = [{ id: 'existing', title: '已有歌曲', artist: null, album: null,
-  duration: 1, audio_url: '/media/audio/existing.wav', cover_url: null, language: 'zh', version: 'a'.repeat(64) }];
+  duration: 1, audio_url: '/media/audio/aaaaaaaaaaaaaaaa.wav',
+  cover_url: '/media/cover/bbbbbbbbbbbbbbbb.jpg', language: 'zh', version: 'a'.repeat(64) }];
 let versionCounter = 1;
 const withVersion = (song) => ({ ...song, version: String(++versionCounter).padStart(64, '0') });
 const media = new Map();
+media.set('audio/aaaaaaaaaaaaaaaa.wav', Buffer.from('RIFFmockWAVE'));
+media.set('cover/bbbbbbbbbbbbbbbb.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
 let failNextUpload = process.env.FLARETUNE_MOCK_FAIL_FIRST_UPLOAD === '1';
 let loseNextUploadReply = process.env.FLARETUNE_MOCK_LOSE_FIRST_UPLOAD_REPLY === '1';
 let uploadAttempts = 0;
@@ -24,13 +27,46 @@ const mock = createServer(async (request, response) => {
     const { username, password } = JSON.parse(Buffer.concat(parts).toString());
     if (username !== 'demo' || password !== 'demo') return send(401, { error: 'invalid_credentials' });
     return send(200, { authenticated: true, user: { role: 'admin', username: 'demo', accountId: 'demo' },
-      csrfToken: 'demo-csrf' }, { 'Set-Cookie': 'ft_session=demo-session; HttpOnly' });
+      csrfToken: 'demo-csrf' }, { 'Set-Cookie': '__Host-ft_session=demo-session; Path=/; Secure; HttpOnly' });
   }
-  if (request.headers.cookie !== 'ft_session=demo-session') return send(401, { error: 'authentication_required' });
+  if (request.headers.cookie !== '__Host-ft_session=demo-session') return send(401, { error: 'authentication_required' });
   if (url.pathname === '/__mock/stats' && request.method === 'GET') {
     return send(200, { uploadAttempts, mediaCount: media.size, songCount: songs.length });
   }
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') return send(200, { ok: true });
+  if (url.pathname === '/api/admin/catalog/delete-preview' && request.method === 'POST') {
+    const parts = [];
+    for await (const chunk of request) parts.push(chunk);
+    const { ids } = JSON.parse(Buffer.concat(parts).toString());
+    const song = songs.find((item) => item.id === ids?.[0]);
+    const data = { songs: song ? [song] : [], missing_ids: song ? [] : ids,
+      affected_playlists: song ? [{ id: 'mock-list', name: '模拟歌单' }] : [],
+      playlist_relations: song ? [{ playlist_id: 'mock-list', song_id: song.id }] : [],
+      play_records: song ? [{ song_id: song.id, play_stats: 1, play_events: 2 }] : [],
+      lyric_translations: song ? [{ song_id: song.id, count: 1 }] : [],
+      media: song ? [
+        { song_id: song.id, field: 'audio_url', path: 'audio/aaaaaaaaaaaaaaaa.wav', can_delete: true },
+        { song_id: song.id, field: 'cover_url', path: 'cover/bbbbbbbbbbbbbbbb.jpg', can_delete: true },
+      ] : [], impact_digest: 'a'.repeat(64) };
+    return send(200, { code: 200, data });
+  }
+  if (url.pathname === '/api/admin/catalog/delete' && request.method === 'POST') {
+    const parts = [];
+    for await (const chunk of request) parts.push(chunk);
+    const { ids, delete_media: deleteMedia, impact_digest: digest } = JSON.parse(Buffer.concat(parts).toString());
+    if (digest !== 'a'.repeat(64)) return send(409, { code: 409, message: 'Deletion impact changed' });
+    const index = songs.findIndex((item) => item.id === ids?.[0]);
+    if (index < 0) return send(200, { code: 200, data: { deleted_ids: [], media: { deleted: [], failures: [] } } });
+    const [song] = songs.splice(index, 1);
+    const deleted = [];
+    if (deleteMedia) for (const path of [song.audio_url, song.cover_url]) {
+      const key = path.slice('/media/'.length);
+      media.delete(key);
+      deleted.push({ path: key });
+    }
+    return send(200, { code: 200, data: { deleted_ids: [song.id], media: { deleted, failures: [] },
+      lyric_cleanup: { pending_song_ids: [] } } });
+  }
   if (url.pathname === '/api/admin/catalog/songs' && request.method === 'GET') {
     const page = Number(url.searchParams.get('page') || 1);
     const limit = Number(url.searchParams.get('limit') || 100);

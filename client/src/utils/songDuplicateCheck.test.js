@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compareSongIdentity, findCatalogDuplicates, findQueueDuplicates } from './songDuplicateCheck.js';
+import { compareSongIdentity, duplicateReviewSignature, findCatalogDuplicates, findQueueDuplicates } from './songDuplicateCheck.js';
 
 test('same normalized title and artist is flagged, while another performer is not', () => {
   const candidate = { title: ' Ｈｅｌｌｏ！ ', artist: 'A-Artist', duration: 180 };
@@ -39,4 +39,14 @@ test('catalog lookup reads paginated results and falls back to a title prefix', 
   assert.equal(matches.length, 1);
   assert.equal(matches[0].id, 'same');
   assert.deepEqual(calls, [[1, '昨日之歌啊'], [1, '昨日之歌'], [2, '昨日之歌']]);
+});
+
+test('review signature changes when the same strong queue match has edited details', () => {
+  const before = { source: 'queue', key: 'first', id: 'song_1', strength: 'strong',
+    title: 'Yesterday', artist: 'Singer', album: 'A', duration: 180, language: 'en' };
+  assert.notEqual(duplicateReviewSignature([before]), duplicateReviewSignature([{ ...before, duration: 181 }]));
+  assert.notEqual(duplicateReviewSignature([{ source: 'batch', song: before, strength: 'strong' }]),
+    duplicateReviewSignature([{ source: 'batch', song: { ...before, album: 'B' }, strength: 'strong' }]));
+  assert.equal(duplicateReviewSignature([before, { ...before, id: 'song_2' }]),
+    duplicateReviewSignature([{ ...before, id: 'song_2' }, before]));
 });

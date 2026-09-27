@@ -1,4 +1,6 @@
-import { compareSongIdentity } from '../../client/src/utils/songDuplicateCheck.js';
+import { compareSongIdentity, normalizeSongIdentityText } from '../../client/src/utils/songDuplicateCheck.js';
+import { catalogSongBody } from '../../client/src/utils/catalogSongDraft.js';
+export { catalogSaveApplied } from '../../client/src/utils/catalogSaveVerification.js';
 
 export const AUDIO_TYPES = Object.freeze({
   mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg',
@@ -66,6 +68,33 @@ export function duplicateMatches(candidate, catalog, prior) {
     }),
   ];
 }
+
+export function catalogDuplicateMatches(songs) {
+  const byTitle = new Map();
+  const matches = new Map();
+  for (const song of songs) {
+    const title = normalizeSongIdentityText(song.title);
+    if (!title) continue;
+    const earlier = byTitle.get(title) || [];
+    for (const other of earlier) {
+      const strength = compareSongIdentity(song, other);
+      if (!strength) continue;
+      if (!matches.has(song.id)) matches.set(song.id, []);
+      if (!matches.has(other.id)) matches.set(other.id, []);
+      matches.get(song.id).push({ song: other, strength });
+      matches.get(other.id).push({ song, strength });
+    }
+    earlier.push(song);
+    byTitle.set(title, earlier);
+  }
+  return matches;
+}
+
+export function replacementSongBody(draft, target, { audioUrl, coverUrl, hasNewCover }) {
+  return { ...catalogSongBody({ ...draft, cover_url: hasNewCover ? coverUrl : target.cover_url }, false),
+    audio_url: audioUrl, expectedVersion: target.version };
+}
+
 
 export function fileIdentity(baseUrl, file) {
   return [baseUrl, file.webkitRelativePath || file.name, file.size, file.lastModified].join('|');

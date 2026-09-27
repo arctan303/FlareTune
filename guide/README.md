@@ -7,6 +7,7 @@
 | [使用 FlareTune](using-flaretune.md) | 找歌、播放、个人歌单、助手和设置 |
 | [部署与初始化](deployment.md) | 安装流程、密钥验证、数据库升级及验收状态 |
 | [管理与维护](administration.md) | 管理入口、数据库升级与数据保护 |
+| [更新日志](../CHANGELOG.md) | 版本功能、部署变化与当前限制 |
 
 希望协助完善项目，可先看[参与贡献](../CONTRIBUTING.md)；开发环境见[本地开发指南](local-development.md)。
 

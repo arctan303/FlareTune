@@ -174,7 +174,11 @@ export async function handleMediaPut(route, request, env, headers) {
 export function managedMediaPath(value, kind) {
     if (typeof value !== 'string' || !value) return false;
     const extensions = Object.keys(MEDIA_TYPES[kind]).join('|');
-    return new RegExp(`^${kind}\/[0-9a-f]{16}\.(${extensions})$`).test(value);
+    return new RegExp(`^(?:/media/)?${kind}/[0-9a-f]{16}\\.(${extensions})$`).test(value);
+}
+
+export function canonicalManagedMediaPath(value, kind) {
+    return managedMediaPath(value, kind) ? value.replace(/^\/media\//, '') : null;
 }
 
 function managedMediaKind(value) {
@@ -192,14 +196,22 @@ export function unsafeMediaClassification(value) {
 export async function queryMediaReferences(db, paths) {
     const references = new Map(paths.map((path) => [path, []]));
     for (const pathChunk of chunk(paths, LOOKUP_CHUNK_SIZE)) {
-        const marker = placeholders(pathChunk.length);
+        const aliases = [...new Set(pathChunk.flatMap((path) => [path, `/media/${path}`]))];
+        const marker = placeholders(aliases.length);
+        const urlChecks = pathChunk.map(() => '(audio_url LIKE ? OR cover_url LIKE ?)').join(' OR ');
         const result = await db.prepare(`
             SELECT id, audio_url, cover_url FROM Songs
-            WHERE audio_url IN (${marker}) OR cover_url IN (${marker})
-        `).bind(...pathChunk, ...pathChunk).all();
+            WHERE audio_url IN (${marker}) OR cover_url IN (${marker}) OR ${urlChecks}
+        `).bind(...aliases, ...aliases,
+            ...pathChunk.flatMap((path) => [`%/media/${path}%`, `%/media/${path}%`])).all();
         for (const song of result.results || []) {
             for (const field of ['audio_url', 'cover_url']) {
-                const path = song[field];
+                const value = song[field];
+                let path = typeof value === 'string' ? value.replace(/^\/media\//, '') : null;
+                if (!references.has(path) && typeof value === 'string') {
+                    try { path = new URL(value).pathname.replace(/^\/media\//, ''); }
+                    catch { /* not an absolute URL */ }
+                }
                 if (references.has(path)) references.get(path).push({ id: song.id, field });
             }
         }
@@ -212,16 +224,18 @@ export async function deleteManagedMedia(paths, db, env, { prefix, sharedReason 
     const safePaths = [];
     const seen = new Set();
     for (const path of paths) {
-        if (!managedMediaKind(path)) {
+        const kind = managedMediaKind(path);
+        if (!kind) {
             result.skipped.push({ path: typeof path === 'string' ? path : null, reason: unsafeMediaClassification(path) });
             continue;
         }
-        if (seen.has(path)) {
-            result.skipped.push({ path, reason: 'duplicate_path' });
+        const canonical = canonicalManagedMediaPath(path, kind);
+        if (seen.has(canonical)) {
+            result.skipped.push({ path: canonical, reason: 'duplicate_path' });
             continue;
         }
-        seen.add(path);
-        safePaths.push(path);
+        seen.add(canonical);
+        safePaths.push(canonical);
     }
     if (safePaths.length === 0) return result;
 
