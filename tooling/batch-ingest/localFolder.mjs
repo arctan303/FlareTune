@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { opendir, open, realpath, stat } from 'node:fs/promises';
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { Readable } from 'node:stream';
 import { parseFile, parseStream } from 'music-metadata';
 import { AUDIO_TYPES, COVER_TYPES, validMediaSignature } from './core.mjs';
 
@@ -115,7 +114,7 @@ export class LocalFolder {
       if (!picture) throw new Error('此文件没有可用封面，请重新扫描。');
       const extension = picture.format.split('/')[1];
       if (!validMediaSignature(picture.data, extension)) throw new Error('封面格式无效。');
-      return { extension, size: picture.data.byteLength, body: Readable.from([picture.data]) };
+      return { extension, size: picture.data.byteLength, body: picture.data };
     } finally {
       opened.body.destroy();
     }

@@ -5,24 +5,100 @@ import {
   submitAccountPlayStats,
 } from '../services/accountPlayStats.js';
 
-const SYNC_THRESHOLD = 3;
+const SYNC_INTERVAL_MS = 600_000;
+const PENDING_EVENT_PREFIX = 'music-play-stats-pending-v1:';
 const MAX_SYNC_BATCH_SIZE = 25;
 const TOP_SONG_LIMIT = 50;
 const INITIAL_BACKOFF_MS = 30_000;
 const MAX_BACKOFF_MS = 300_000;
-let debouncedFlushTimer = null;
+let scheduledSyncTimer = null;
 let flushPromise = null;
+let flushSubject = null;
+let syncPromise = null;
+let syncSubject = null;
 let consecutiveFailures = 0;
 let nextAllowedSyncTime = 0;
+let nextCycleTime = 0;
+let nextRetryTime = 0;
+const volatilePending = new Map();
 
 export function resetSyncBackoff() {
   consecutiveFailures = 0;
   nextAllowedSyncTime = 0;
+  nextCycleTime = 0;
+  nextRetryTime = 0;
+  if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
+  scheduledSyncTimer = null;
 }
 
 function getLocalStorage() {
   if (!globalThis.localStorage) throw new Error('localStorage is unavailable');
   return globalThis.localStorage;
+}
+
+function pendingStorageKey(subject, eventId) {
+  return `${PENDING_EVENT_PREFIX}${encodeURIComponent(subject)}:${encodeURIComponent(eventId)}`;
+}
+
+function validPendingEvent(event) {
+  const playedAt = Number(event?.played_at);
+  return typeof event?.event_id === 'string'
+    && event.event_id.length <= 128
+    && /^[A-Za-z0-9_-]+$/.test(event.event_id)
+    && typeof event.song_id === 'string'
+    && event.song_id.length > 0
+    && event.song_id.length <= 256
+    && Number.isSafeInteger(playedAt)
+    && playedAt > 0;
+}
+
+function savePendingEvent(subject, event) {
+  try {
+    getLocalStorage().setItem(pendingStorageKey(subject, event.event_id), JSON.stringify(event));
+    return true;
+  } catch (error) {
+    const pending = volatilePending.get(subject) || new Map();
+    pending.set(event.event_id, event);
+    volatilePending.set(subject, pending);
+    console.warn('播放事件本地持久化失败；本次页面仍会尝试同步:', error);
+    return false;
+  }
+}
+
+function readPendingEvents(subject) {
+  if (!subject) return [];
+  const events = new Map();
+  const storage = getLocalStorage();
+  const prefix = `${PENDING_EVENT_PREFIX}${encodeURIComponent(subject)}:`;
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    try {
+      const event = JSON.parse(storage.getItem(key));
+      if (validPendingEvent(event) && key === pendingStorageKey(subject, event.event_id)) {
+        events.set(event.event_id, event);
+      }
+    } catch {
+      // An invalid key is ignored; it is never sent as another account's event.
+    }
+  }
+  for (const [id, event] of volatilePending.get(subject) || []) events.set(id, event);
+  return [...events.values()].sort((a, b) => (
+    Number(a.played_at) - Number(b.played_at) || a.event_id.localeCompare(b.event_id)
+  ));
+}
+
+function removePendingEvents(subject, ids) {
+  const volatile = volatilePending.get(subject);
+  for (const id of ids) {
+    getLocalStorage().removeItem(pendingStorageKey(subject, id));
+    volatile?.delete(id);
+  }
+  if (volatile?.size === 0) volatilePending.delete(subject);
+}
+
+function pageIsVisible() {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
 }
 
 function createEventId() {
@@ -83,6 +159,9 @@ function emptyIdentityState(ownerSubject = null, identityReady = false) {
     identityReady,
     playCounts: {},
     pendingQueue: [],
+    pendingBySubject: {},
+    legacyUnownedPending: [],
+    legacyMigrationComplete: true,
     songMetaMap: {},
     topSongs: [],
     topAlbums: [],
@@ -125,14 +204,30 @@ function applyPendingEvents(state, events, eventMetaMap) {
 }
 
 function rebuildFromRemote(data, state) {
-  const playCounts = {};
-  const songMetaMap = {};
+  const countEntries = new Map();
+  const metaEntries = new Map();
+  const hasCompleteCounts = data.playCounts && typeof data.playCounts === 'object'
+    && !Array.isArray(data.playCounts);
+  if (hasCompleteCounts) {
+    for (const [id, rawCount] of Object.entries(data.playCounts)) {
+      const count = Number(rawCount);
+      if (id && Number.isSafeInteger(count) && count > 0) {
+        countEntries.set(id, count);
+        if (Object.hasOwn(state.songMetaMap, id)) {
+          metaEntries.set(id, cleanSongMeta(id, state.songMetaMap[id]));
+        }
+      }
+    }
+  }
   for (const song of data.songs || []) {
     const id = String(song?.id || '').trim();
     if (!id) continue;
-    playCounts[id] = Number(song.play_count) || 0;
-    songMetaMap[id] = cleanSongMeta(id, song, song.last_played_at);
+    if (hasCompleteCounts && !countEntries.has(id)) continue;
+    if (!hasCompleteCounts) countEntries.set(id, Number(song.play_count) || 0);
+    metaEntries.set(id, cleanSongMeta(id, song, song.last_played_at));
   }
+  const playCounts = Object.fromEntries(countEntries);
+  const songMetaMap = Object.fromEntries(metaEntries);
 
   const remoteState = {
     ...state,
@@ -147,15 +242,24 @@ function rebuildFromRemote(data, state) {
   return applyPendingEvents(remoteState, state.pendingQueue, state.songMetaMap);
 }
 
-function scheduleDebouncedFlush() {
-  if (debouncedFlushTimer) clearTimeout(debouncedFlushTimer);
-  debouncedFlushTimer = setTimeout(() => {
-    debouncedFlushTimer = null;
+function scheduleNextSync() {
+  if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
+  scheduledSyncTimer = null;
+  const state = usePlayStatsStore.getState();
+  if (!state.identityReady || !state.ownerSubject || !pageIsVisible()) return;
+  if (!nextCycleTime) nextCycleTime = Date.now() + SYNC_INTERVAL_MS;
+  const due = Math.max(
+    Math.min(nextCycleTime, nextRetryTime || Infinity),
+    nextAllowedSyncTime,
+  );
+  scheduledSyncTimer = setTimeout(() => {
+    scheduledSyncTimer = null;
     const store = usePlayStatsStore.getState();
-    if (store.identityReady && store.ownerSubject && store.pendingQueue.length > 0) {
-      void store.flushQueue();
+    if (store.identityReady && store.ownerSubject && pageIsVisible()) {
+      void store.synchronizeAccountStats();
     }
-  }, 8000);
+  }, Math.max(0, due - Date.now()));
+  scheduledSyncTimer.unref?.();
 }
 
 export const usePlayStatsStore = create(
@@ -198,11 +302,71 @@ export const usePlayStatsStore = create(
       },
 
       markIdentityUnconfirmed: () => {
-        if (debouncedFlushTimer) {
-          clearTimeout(debouncedFlushTimer);
-          debouncedFlushTimer = null;
-        }
+        if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
+        scheduledSyncTimer = null;
         set({ identityReady: false, isSyncing: false });
+      },
+
+      migrateLegacyPending: (legacy) => {
+        const current = get();
+        let saved = true;
+        const currentEvents = Array.isArray(legacy.pendingQueue) ? legacy.pendingQueue : [];
+        const unownedEvents = Array.isArray(legacy.legacyUnownedPending)
+          ? legacy.legacyUnownedPending : [];
+        if (unownedEvents.length || (currentEvents.length && !current.ownerSubject)) saved = false;
+        if (current.ownerSubject) {
+          for (const event of currentEvents) {
+            if (validPendingEvent(event)) saved = savePendingEvent(current.ownerSubject, event) && saved;
+            else saved = false;
+          }
+        }
+        for (const [subject, events] of Object.entries(legacy.pendingBySubject || {})) {
+          if (!subject.trim() || subject.trim() !== subject || !Array.isArray(events)) {
+            saved = false;
+            continue;
+          }
+          for (const event of events) {
+            if (validPendingEvent(event)) saved = savePendingEvent(subject, event) && saved;
+            else saved = false;
+          }
+        }
+        if (!saved) {
+          const quarantined = [...unownedEvents];
+          if (!current.ownerSubject) {
+            for (const event of currentEvents) {
+              if (!quarantined.some((item) => JSON.stringify(item) === JSON.stringify(event))) {
+                quarantined.push(event);
+              }
+            }
+          }
+          set({
+            legacyMigrationComplete: false,
+            legacyUnownedPending: quarantined,
+          });
+          return false;
+        }
+        set({
+          pendingQueue: [], pendingBySubject: {}, legacyUnownedPending: [],
+          legacyMigrationComplete: true,
+        });
+        return true;
+      },
+
+      reconcilePending: () => {
+        const state = get();
+        if (!state.identityReady || !state.ownerSubject) return [];
+        const stored = readPendingEvents(state.ownerSubject);
+        const storedIds = new Set(stored.map((event) => event.event_id));
+        const existingIds = new Set(state.pendingQueue.map((event) => event.event_id));
+        const added = stored.filter((event) => !existingIds.has(event.event_id));
+        if (added.length || state.pendingQueue.some((event) => !storedIds.has(event.event_id))) {
+          set((current) => {
+            if (current.ownerSubject !== state.ownerSubject) return {};
+            const next = applyPendingEvents(current, added, current.songMetaMap);
+            return { ...next, pendingQueue: stored };
+          });
+        }
+        return stored;
       },
 
       setSubject: (subjectInput) => {
@@ -211,13 +375,39 @@ export const usePlayStatsStore = create(
         let nextState;
 
         if (nextSubject && state.ownerSubject === nextSubject) {
-          nextState = { ...state, identityReady: true };
+          nextState = {
+            ...state,
+            identityReady: true,
+            // The persisted count already includes this tab's unsent plays.
+            pendingQueue: state.identityReady ? state.pendingQueue : readPendingEvents(nextSubject),
+          };
         } else {
           resetSyncBackoff();
-          nextState = emptyIdentityState(nextSubject, true);
+          nextCycleTime = nextSubject ? Date.now() + SYNC_INTERVAL_MS : 0;
+          const restored = nextSubject ? readPendingEvents(nextSubject) : [];
+          const legacyPendingBySubject = state.legacyMigrationComplete
+            ? {}
+            : { ...state.pendingBySubject };
+          if (!state.legacyMigrationComplete && state.ownerSubject && state.pendingQueue.length) {
+            const existing = legacyPendingBySubject[state.ownerSubject] || [];
+            const byId = new Map([...existing, ...state.pendingQueue].map((event) => [event.event_id, event]));
+            legacyPendingBySubject[state.ownerSubject] = [...byId.values()];
+          }
+          nextState = applyPendingEvents(
+            {
+              ...emptyIdentityState(nextSubject, true),
+              pendingBySubject: legacyPendingBySubject,
+              legacyUnownedPending: state.legacyUnownedPending,
+              legacyMigrationComplete: state.legacyMigrationComplete,
+            },
+            restored,
+            {},
+          );
         }
 
         set(nextState);
+        if (nextSubject) get().reconcilePending();
+        scheduleNextSync();
         return {
           changed: state.ownerSubject !== nextSubject,
         };
@@ -235,8 +425,11 @@ export const usePlayStatsStore = create(
         }
         if (!cleanId) return;
 
+        const state = get();
+        if (!state.identityReady || !state.ownerSubject) return;
         const now = Date.now();
         const event = { event_id: createEventId(), song_id: cleanId, played_at: now };
+        const durable = savePendingEvent(state.ownerSubject, event);
         set((state) => {
           if (!state.identityReady || !state.ownerSubject) return {};
           const currentCount = state.playCounts[cleanId] || 0;
@@ -251,6 +444,7 @@ export const usePlayStatsStore = create(
               ...state.pendingQueue,
               event,
             ],
+            legacyMigrationComplete: state.legacyMigrationComplete && durable,
             songMetaMap: nextMetaMap,
             topSongs: buildTopSongs(nextCounts, nextMetaMap, state.topSongs),
             totalPlays: state.totalPlays + 1,
@@ -258,20 +452,15 @@ export const usePlayStatsStore = create(
           };
         });
 
-        if (!get().identityReady || !get().ownerSubject) return;
-        if (get().pendingQueue.length >= SYNC_THRESHOLD) {
-          if (debouncedFlushTimer) {
-            clearTimeout(debouncedFlushTimer);
-            debouncedFlushTimer = null;
-          }
-          void get().flushQueue();
-        } else {
-          scheduleDebouncedFlush();
-        }
+        if (!durable) void get().flushQueue({ force: true });
+
       },
 
       flushQueue: ({ keepalive = false, force = false } = {}) => {
-        if (flushPromise) return flushPromise;
+        if (flushPromise) {
+          if (flushSubject === get().ownerSubject) return flushPromise;
+          return flushPromise.then(() => get().flushQueue({ keepalive, force }));
+        }
 
         const now = Date.now();
         if (!force && now < nextAllowedSyncTime) {
@@ -284,7 +473,11 @@ export const usePlayStatsStore = create(
           });
         }
 
+        flushSubject = get().ownerSubject;
+        if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
+        scheduledSyncTimer = null;
         flushPromise = (async () => {
+          get().reconcilePending();
           const initial = get();
           if (!initial.identityReady) {
             return { ok: false, submitted: 0, remaining: initial.pendingQueue.length, reason: 'identity-unconfirmed' };
@@ -299,6 +492,7 @@ export const usePlayStatsStore = create(
 
           try {
             do {
+              get().reconcilePending();
               const current = get();
               if (!current.identityReady || current.ownerSubject !== syncSubject) {
                 return { ok: false, submitted, remaining: current.pendingQueue.length, reason: 'identity-changed' };
@@ -315,10 +509,23 @@ export const usePlayStatsStore = create(
                 throw new Error('播放统计服务未确认完整事件批次。');
               }
 
+              removePendingEvents(syncSubject, acceptedIds);
+
               set((state) => {
-                if (state.ownerSubject !== syncSubject) return {};
+                const legacyPendingBySubject = { ...state.pendingBySubject };
+                if (!state.legacyMigrationComplete && legacyPendingBySubject[syncSubject]) {
+                  const held = legacyPendingBySubject[syncSubject].filter(
+                    (event) => !acceptedIds.has(event.event_id),
+                  );
+                  if (held.length) legacyPendingBySubject[syncSubject] = held;
+                  else delete legacyPendingBySubject[syncSubject];
+                }
+                if (state.ownerSubject !== syncSubject) {
+                  return state.legacyMigrationComplete ? {} : { pendingBySubject: legacyPendingBySubject };
+                }
                 return {
                   pendingQueue: state.pendingQueue.filter((event) => !acceptedIds.has(event.event_id)),
+                  ...(!state.legacyMigrationComplete ? { pendingBySubject: legacyPendingBySubject } : {}),
                   lastSyncedAt: Date.now(),
                 };
               });
@@ -329,15 +536,18 @@ export const usePlayStatsStore = create(
             // 成功提交：重置失败计数与退避时间
             consecutiveFailures = 0;
             nextAllowedSyncTime = 0;
+            nextRetryTime = 0;
 
             return { ok: true, submitted, remaining: get().pendingQueue.length };
           } catch (error) {
-            consecutiveFailures += 1;
-            const delay = Math.min(
+            const stillCurrent = get().ownerSubject === syncSubject;
+            if (stillCurrent) consecutiveFailures += 1;
+            const delay = stillCurrent ? Math.min(
               INITIAL_BACKOFF_MS * Math.pow(2, consecutiveFailures - 1),
               MAX_BACKOFF_MS,
-            );
-            nextAllowedSyncTime = Date.now() + delay;
+            ) : 0;
+            if (stillCurrent) nextAllowedSyncTime = Date.now() + delay;
+            if (stillCurrent) nextRetryTime = nextAllowedSyncTime;
             console.warn(`播放统计后台同步失败，将在 ${Math.round(delay / 1000)} 秒后重试:`, error);
             return { ok: false, submitted, remaining: get().pendingQueue.length, error, retryAfterMs: delay };
           } finally {
@@ -345,12 +555,15 @@ export const usePlayStatsStore = create(
             if (current.ownerSubject === syncSubject) {
               set({ isSyncing: false });
             }
+            scheduleNextSync();
           }
         })();
 
-        flushPromise.finally(() => {
+        const clearFlight = () => {
           flushPromise = null;
-        });
+          flushSubject = null;
+        };
+        flushPromise.then(clearFlight, clearFlight);
         return flushPromise;
       },
 
@@ -359,6 +572,7 @@ export const usePlayStatsStore = create(
         const syncSubject = initial.ownerSubject;
         if (!initial.identityReady) return { ok: false, reason: 'identity-unconfirmed' };
         if (!syncSubject) return { ok: false, reason: 'unauthenticated' };
+        if (!pageIsVisible()) return { ok: false, reason: 'page-hidden' };
 
         try {
           const data = await fetchAccountPlayStats({ limit, expectedSubject: syncSubject });
@@ -369,7 +583,10 @@ export const usePlayStatsStore = create(
 
           set((state) => {
             if (state.ownerSubject !== syncSubject) return {};
-            return rebuildFromRemote(data, state);
+            return rebuildFromRemote(data, {
+              ...state,
+              pendingQueue: readPendingEvents(syncSubject),
+            });
           });
           return { ok: true, data };
         } catch (error) {
@@ -378,15 +595,55 @@ export const usePlayStatsStore = create(
         }
       },
 
-      synchronizeAccountStats: async (limit = 50, { force = false } = {}) => {
-        let flushResult = await get().flushQueue({ force });
-        if (!flushResult.ok && flushResult.reason === 'identity-changed' && get().ownerSubject) {
-          flushResult = await get().flushQueue({ force });
+      synchronizeAccountStats: (limit = 50, { force = false } = {}) => {
+        if (syncPromise) {
+          if (syncSubject === get().ownerSubject) return syncPromise;
+          return syncPromise.then(() => get().synchronizeAccountStats(limit, { force }));
         }
-        if (!flushResult.ok) return { ok: false, stage: 'submit', ...flushResult };
-        const refreshResult = await get().refreshRemoteStats(limit);
-        if (!refreshResult.ok) return { ok: false, stage: 'refresh', flushResult, ...refreshResult };
-        return { ok: true, flushResult, refreshResult };
+        const cycleSubject = get().ownerSubject;
+        syncSubject = cycleSubject;
+        syncPromise = (async () => {
+          let flushResult = await get().flushQueue({ force });
+          if (!flushResult.ok && flushResult.reason === 'identity-changed' && get().ownerSubject) {
+            flushResult = await get().flushQueue({ force });
+          }
+          if (!flushResult.ok) return { ok: false, stage: 'submit', ...flushResult };
+          const refreshResult = await get().refreshRemoteStats(limit);
+          if (!refreshResult.ok) return { ok: false, stage: 'refresh', flushResult, ...refreshResult };
+          return { ok: true, flushResult, refreshResult };
+        })();
+        const currentPromise = syncPromise;
+        currentPromise.then((result) => {
+          if (get().ownerSubject === cycleSubject) {
+            if (result.ok) {
+              consecutiveFailures = 0;
+              nextAllowedSyncTime = 0;
+              nextCycleTime = Date.now() + SYNC_INTERVAL_MS;
+              nextRetryTime = 0;
+            } else if (result.reason === 'page-hidden') {
+              nextRetryTime = Date.now();
+            } else if (result.stage === 'submit' && result.retryAfterMs) {
+              nextRetryTime = Math.max(Date.now(), nextAllowedSyncTime);
+            } else {
+              consecutiveFailures += 1;
+              nextRetryTime = Date.now() + Math.min(
+                INITIAL_BACKOFF_MS * 2 ** (consecutiveFailures - 1),
+                MAX_BACKOFF_MS,
+              );
+            }
+            scheduleNextSync();
+          }
+          syncPromise = null;
+          syncSubject = null;
+        }, () => {
+          if (get().ownerSubject === cycleSubject) {
+            nextRetryTime = Date.now() + INITIAL_BACKOFF_MS;
+            scheduleNextSync();
+          }
+          syncPromise = null;
+          syncSubject = null;
+        });
+        return currentPromise;
       },
     }),
     {
@@ -396,13 +653,32 @@ export const usePlayStatsStore = create(
       partialize: (state) => ({
         ownerSubject: state.ownerSubject,
         playCounts: state.playCounts,
-        pendingQueue: state.pendingQueue,
+        ...(!state.legacyMigrationComplete ? {
+          pendingQueue: state.pendingQueue,
+          pendingBySubject: state.pendingBySubject,
+          legacyUnownedPending: state.legacyUnownedPending,
+        } : {}),
         songMetaMap: state.songMetaMap,
         topSongs: state.topSongs,
         totalPlays: state.totalPlays,
         totalUniqueSongs: state.totalUniqueSongs,
         lastSyncedAt: state.lastSyncedAt,
       }),
+      onRehydrateStorage: () => (state, error) => {
+        if (error || !state) return;
+        try {
+          const persisted = JSON.parse(getLocalStorage().getItem('music-play-stats-v2') || '{}').state || {};
+          if (
+            persisted.pendingQueue?.length
+            || persisted.legacyUnownedPending?.length
+            || Object.keys(persisted.pendingBySubject || {}).length
+          ) {
+            state.migrateLegacyPending(persisted);
+          }
+        } catch (migrationError) {
+          console.warn('旧播放事件队列迁移失败:', migrationError);
+        }
+      },
     },
   ),
 );
@@ -411,18 +687,23 @@ if (
   typeof window !== 'undefined'
   && typeof window.addEventListener === 'function'
 ) {
-  const handlePageUnload = () => {
-    const store = usePlayStatsStore.getState();
-    if (store.identityReady && store.ownerSubject && store.pendingQueue.length > 0) {
-      void store.flushQueue({ keepalive: true });
-    }
+  const pauseSyncTimer = () => {
+    if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
+    scheduledSyncTimer = null;
   };
 
-  window.addEventListener('pagehide', handlePageUnload);
-  window.addEventListener('beforeunload', handlePageUnload);
+  window.addEventListener('pagehide', pauseSyncTimer);
+  window.addEventListener('pageshow', () => scheduleNextSync());
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') handlePageUnload();
+      if (document.visibilityState === 'hidden') pauseSyncTimer();
+      else scheduleNextSync();
     });
   }
+  window.addEventListener('storage', (event) => {
+    if (event.key?.startsWith(PENDING_EVENT_PREFIX)) {
+      usePlayStatsStore.getState().reconcilePending();
+    }
+  });
+  window.addEventListener('online', () => scheduleNextSync());
 }

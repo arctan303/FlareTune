@@ -29,7 +29,7 @@ import {
   claimInstance,
   clearSessionCookie,
   changePassword,
-  getSession,
+  getSessionAfterReadyCheck,
   login,
   logout,
   sessionCookie,
@@ -115,7 +115,7 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
   if (instance.state === 'ready') {
     token = tokenFromCookie(request.headers.get('Cookie'));
     try {
-      if (token) session = await getSession({ db: env.DB, token });
+      if (token) session = await getSessionAfterReadyCheck({ db: env.DB, token });
     } catch {
       return json({ error: 'service_unavailable' }, 503);
     }

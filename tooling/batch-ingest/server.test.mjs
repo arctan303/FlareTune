@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtemp, mkdir, writeFile, unlink, rmdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createBatchIngestServer } from './server.mjs';
 const profileStore = () => {
   const values = [];
@@ -8,6 +11,114 @@ const profileStore = () => {
       username: data.username, savedPassword: false }; values.push(profile); return { profile, warning: '' }; },
   };
 };
+
+test('local directory scanning and uploads require the current local admin session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'flaretune-local-http-'));
+  const zh = join(root, 'zh');
+  const path = join(zh, 'song.mp3');
+  await mkdir(zh);
+  await writeFile(path, Buffer.concat([Buffer.from('ID3'), Buffer.alloc(40)]));
+  let received = 0;
+  const remoteFetch = async (target, options) => {
+    const route = new URL(target).pathname;
+    if (route === '/api/auth/login') return Response.json({ authenticated: true,
+      user: { role: 'admin', username: 'owner', accountId: 'admin-id' }, csrfToken: 'remote-csrf' },
+    { headers: { 'Set-Cookie': '__Host-ft_session=remote-session; Secure; HttpOnly' } });
+    if (route === '/api/admin/catalog/media/audio/0123456789abcdef.mp3') {
+      for await (const chunk of options.body) received += chunk.length;
+      return Response.json({ ok: true, data: { url: '/media/audio/0123456789abcdef.mp3' } }, { status: 201 });
+    }
+    throw new Error(`Unexpected ${route}`);
+  };
+  const tool = await createBatchIngestServer({ fetchImpl: remoteFetch, profileStore: profileStore() });
+  try {
+    const headers = { Origin: tool.url, 'X-Requested-With': 'FlareTuneIngest', 'Content-Type': 'application/json' };
+    headers['X-Ingest-CSRF'] = (await (await fetch(tool.url + '/api/state')).json()).csrf;
+    const anonymous = await fetch(tool.url + '/api/local-folder/scan', { method: 'POST', headers,
+      body: JSON.stringify({ path: root }) });
+    assert.equal(anonymous.status, 401);
+    const login = await fetch(tool.url + '/api/login', { method: 'POST', headers,
+      body: JSON.stringify({ name: 'Test', baseUrl: 'https://music.example', username: 'owner', password: 'pw' }) });
+    headers.Cookie = login.headers.get('set-cookie').split(';', 1)[0];
+    headers['X-Ingest-CSRF'] = (await login.json()).csrf;
+    const scan = await fetch(tool.url + '/api/local-folder/scan', { method: 'POST', headers,
+      body: JSON.stringify({ path: root }) });
+    assert.equal(scan.status, 200);
+    const fileId = (await scan.json()).files[0].id;
+    assert.equal((await fetch(`${tool.url}/api/local-file/${fileId}/audio`)).status, 401);
+    const preview = await fetch(`${tool.url}/api/local-file/${fileId}/audio`, { headers: { Cookie: headers.Cookie, Range: 'bytes=0-2' } });
+    assert.equal(preview.status, 206);
+    assert.equal(await preview.text(), 'ID3');
+    const suffix = await fetch(`${tool.url}/api/local-file/${fileId}/audio`, {
+      headers: { Cookie: headers.Cookie, Range: 'bytes=-2' },
+    });
+    assert.equal(suffix.status, 206);
+    assert.equal(suffix.headers.get('content-range'), 'bytes 41-42/43');
+    assert.deepEqual(Buffer.from(await suffix.arrayBuffer()), Buffer.alloc(2));
+    assert.equal((await fetch(`${tool.url}/api/local-file/${fileId}/audio`, {
+      headers: { Cookie: headers.Cookie, Range: 'bytes=-0' },
+    })).status, 416);
+    const upload = await fetch(`${tool.url}/api/local-file/${fileId}/upload/audio/0123456789abcdef`, {
+      method: 'POST', headers, body: JSON.stringify({ mode: 'worker' }),
+    });
+    assert.equal(upload.status, 200);
+    assert.match(await upload.text(), /"result":\{"url":"\/media\/audio\/0123456789abcdef\.mp3"\}/);
+    assert.equal(received, 43);
+    const logout = await fetch(tool.url + '/api/logout', { method: 'POST', headers, body: '{}' });
+    assert.equal(logout.status, 200);
+    assert.equal((await fetch(`${tool.url}/api/local-file/${fileId}/audio`, { headers: { Cookie: headers.Cookie } })).status, 401);
+  } finally { await tool.close(); await unlink(path); await rmdir(zh); await rmdir(root); }
+});
+
+test('logout waits for an in-flight local upload and revokes its source', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'flaretune-retire-'));
+  const path = join(root, 'song.mp3');
+  await writeFile(path, Buffer.concat([Buffer.from('ID3'), Buffer.alloc(40)]));
+  let startedResolve, releaseUpload;
+  const started = new Promise((resolve) => { startedResolve = resolve; });
+  const gate = new Promise((resolve) => { releaseUpload = resolve; });
+  let written = 0;
+  const remoteFetch = async (target, options) => {
+    const route = new URL(target).pathname;
+    if (route === '/api/auth/login') return Response.json({ authenticated: true,
+      user: { role: 'admin', username: 'owner', accountId: 'admin-id' }, csrfToken: 'remote-csrf' },
+    { headers: { 'Set-Cookie': '__Host-ft_session=remote-session; Secure; HttpOnly' } });
+    if (route === '/api/admin/catalog/media/audio/0123456789abcdef.mp3') {
+      startedResolve();
+      await gate;
+      for await (const chunk of options.body) written += chunk.length;
+      return Response.json({ ok: true, data: { url: '/media/audio/0123456789abcdef.mp3' } }, { status: 201 });
+    }
+    if (route === '/api/auth/logout') return Response.json({ ok: true });
+    throw new Error(`Unexpected ${route}`);
+  };
+  const tool = await createBatchIngestServer({ fetchImpl: remoteFetch, profileStore: profileStore() });
+  try {
+    const headers = { Origin: tool.url, 'X-Requested-With': 'FlareTuneIngest', 'Content-Type': 'application/json' };
+    headers['X-Ingest-CSRF'] = (await (await fetch(tool.url + '/api/state')).json()).csrf;
+    const login = await fetch(tool.url + '/api/login', { method: 'POST', headers,
+      body: JSON.stringify({ name: 'Test', baseUrl: 'https://music.example', username: 'owner', password: 'pw' }) });
+    headers.Cookie = login.headers.get('set-cookie').split(';', 1)[0];
+    headers['X-Ingest-CSRF'] = (await login.json()).csrf;
+    const scan = await fetch(tool.url + '/api/local-folder/scan', { method: 'POST', headers,
+      body: JSON.stringify({ path: root }) });
+    const id = (await scan.json()).files[0].id;
+    const upload = fetch(`${tool.url}/api/local-file/${id}/upload/audio/0123456789abcdef`, {
+      method: 'POST', headers, body: JSON.stringify({ mode: 'worker' }),
+    });
+    await started;
+    let loggedOut = false;
+    const logout = fetch(tool.url + '/api/logout', { method: 'POST', headers, body: '{}' })
+      .then((response) => { loggedOut = true; return response; });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(loggedOut, false);
+    releaseUpload();
+    assert.match(await (await upload).text(), /上传已取消|This operation was aborted/);
+    assert.equal((await logout).status, 200);
+    assert.equal(written, 0);
+    assert.equal((await fetch(`${tool.url}/api/local-file/${id}/audio`, { headers: { Cookie: headers.Cookie } })).status, 401);
+  } finally { await tool.close(); await unlink(path); await rmdir(root); }
+});
 
 test('local login, admin catalog and streamed Worker upload obey both session boundaries', async () => {
   const seen = [];
@@ -99,6 +210,27 @@ test('local login, admin catalog and streamed Worker upload obey both session bo
     assert.equal(await preview.text(), 'ID3');
     assert.equal((await fetch(tool.url + '/api/audio/2/0123456789abcdef.mp3',
       { headers: { Cookie, Range: 'bytes=0-2' } })).status, 403);
+  } finally { await tool.close(); }
+});
+
+test('local tool exposes upstream 503 separately from its own request status', async () => {
+  const remoteFetch = async (url) => new URL(url).pathname === '/api/auth/login'
+    ? Response.json({ authenticated: true, user: { role: 'admin', username: 'owner', accountId: 'admin-id' },
+      csrfToken: 'remote-csrf' }, { headers: { 'Set-Cookie': '__Host-ft_session=remote-session; Secure' } })
+    : Response.json({ error: 'service_unavailable' }, { status: 503 });
+  const tool = await createBatchIngestServer({ fetchImpl: remoteFetch, profileStore: profileStore() });
+  try {
+    const csrf = (await (await fetch(tool.url + '/api/state')).json()).csrf;
+    const login = await fetch(tool.url + '/api/login', { method: 'POST',
+      headers: { Origin: tool.url, 'X-Requested-With': 'FlareTuneIngest',
+        'X-Ingest-CSRF': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Test', baseUrl: 'https://music.example', username: 'owner', password: 'pw' }) });
+    assert.equal(login.status, 200);
+    const response = await fetch(tool.url + '/api/song/song-1', {
+      headers: { Cookie: login.headers.get('set-cookie').split(';', 1)[0] },
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: '读取歌曲失败（503）。', upstreamStatus: 503 });
   } finally { await tool.close(); }
 });
 

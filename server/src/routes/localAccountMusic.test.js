@@ -351,10 +351,30 @@ test('frequent albums aggregate every song for the current account, beyond the t
     session: { accountId: 'account-b', mode: 'normal' },
   })).body.data;
   assert.equal(a.songs.length, 1);
+  assert.deepEqual(a.playCounts, { 'song-1': 3, 'song-2': 2 },
+    'all account counts remain available when the displayed song list is limited');
+  assert.deepEqual(b.playCounts, { 'song-2': 9 }, 'counts stay account-scoped');
+  assert.equal(a.totalPlays, 5);
+  assert.equal(a.totalUniqueSongs, 2);
   assert.deepEqual(a.topAlbums.map((album) => [album.title, album.playCount, album.listenedTrackCount]),
     [['Record', 5, 2]]);
   assert.equal(a.topAlbums[0].lastPlayedAt, 200);
   assert.equal(b.topAlbums[0].playCount, 9);
   assert.equal(b.topAlbums[0].listenedTrackCount, 1);
   assert.equal(a.topAlbums[0].id, b.topAlbums[0].id);
+});
+
+test('frequent album cover comes from the earliest playable catalog track, including unplayed tracks', async () => {
+  const db = createDb();
+  db.database.exec(`UPDATE Songs SET artist = ' Singer ', album = ' Record ', audio_url = '/media/played',
+    cover_url = '/cover-played', created_at = 20 WHERE id = 'song-1';
+    INSERT INTO Songs(id,title,artist,album,audio_url,cover_url,created_at) VALUES
+      ('song-3','Unplayed','Singer','Record','/media/unplayed','/cover-earliest',10),
+      ('song-4','Missing audio','Singer','Record',NULL,'/cover-not-playable',1);
+    INSERT INTO Member_Song_Plays(account_id,song_id,play_count,last_played_at)
+      VALUES ('account-a','song-1',2,100);`);
+  const albums = (await call(db, '/api/account/play-stats')).body.data.topAlbums;
+  assert.equal(albums.length, 1);
+  assert.equal(albums[0].coverUrl, '/cover-earliest');
+  assert.equal(albums[0].playCount, 2);
 });

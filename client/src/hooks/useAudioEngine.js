@@ -209,11 +209,6 @@ export function useAudioEngine({
             lastTime: 0,
             recorded: false,
         };
-        // 曲终时立即触发积攒的播放统计同步
-        const statsStore = usePlayStatsStore.getState();
-        if (useUIStore.getState().authSession?.authenticated && statsStore.pendingQueue.length > 0) {
-            void statsStore.flushQueue();
-        }
         playNext(e);
     }, [playNext]);
 

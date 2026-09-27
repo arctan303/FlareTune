@@ -1,6 +1,6 @@
 import { mediaPrefix } from '../services/adminMusicMedia.js';
 import { resolveInstanceState } from '../instance/state.js';
-import { getSession, tokenFromCookie } from '../auth/local/index.js';
+import { getSessionAfterReadyCheck, tokenFromCookie } from '../auth/local/index.js';
 
 const baseHeaders = () => new Headers({
   'Accept-Ranges': 'bytes',
@@ -65,7 +65,7 @@ export async function handleMediaRoute(request, pathname, env) {
     if (instance.state !== 'ready') return denied(503);
     const token = tokenFromCookie(request.headers.get('Cookie'));
     if (!token) return denied(401);
-    const session = await getSession({ db: env.DB, token });
+    const session = await getSessionAfterReadyCheck({ db: env.DB, token });
     if (!session) return denied(401);
     if (session.mode !== 'normal' || !['admin', 'member'].includes(session.account?.role)) return denied(403);
   } catch {
