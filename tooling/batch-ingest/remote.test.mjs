@@ -25,3 +25,14 @@ test('login rejects a response without the secure session cookie', async () => {
   { headers: { 'Set-Cookie': 'ft_session=legacy-token; Path=/; HttpOnly' } }));
   await assert.rejects(remote.login('owner', 'password'), /可用的管理员会话/);
 });
+
+test('media upload passes its timeout signal to fetch', async () => {
+  const signal = AbortSignal.timeout(1000);
+  const remote = new RemoteCatalog('https://music.example', async (_url, options) => {
+    assert.equal(options.signal, signal);
+    return Response.json({ ok: true, data: { url: '/media/audio/0123456789abcdef.mp3' } });
+  });
+  const result = await remote.uploadWorker('audio', '0123456789abcdef', 'mp3',
+    'audio/mpeg', 1, new Uint8Array([1]), signal);
+  assert.equal(result.url, '/media/audio/0123456789abcdef.mp3');
+});

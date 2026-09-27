@@ -9,9 +9,9 @@ export class RemoteCatalog {
     this.account = null;
   }
 
-  async request(path, { method = 'GET', body, headers = {} } = {}) {
+  async request(path, { method = 'GET', body, headers = {}, signal } = {}) {
     const response = await this.fetch(this.base + path, {
-      method, body, redirect: 'error', duplex: body && typeof body !== 'string' ? 'half' : undefined,
+      method, body, signal, redirect: 'error', duplex: body && typeof body !== 'string' ? 'half' : undefined,
       headers: {
         'X-Requested-With': 'FlareTune',
         ...(method !== 'GET' && method !== 'HEAD' ? { Origin: this.base } : {}),
@@ -104,9 +104,9 @@ export class RemoteCatalog {
     return { status: response.status, ...payload };
   }
 
-  async uploadWorker(kind, id, extension, contentType, length, body) {
+  async uploadWorker(kind, id, extension, contentType, length, body, signal) {
     const response = await this.request(`/api/admin/catalog/media/${kind}/${id}.${extension}`, {
-      method: 'PUT', body,
+      method: 'PUT', body, signal,
       headers: { 'Content-Type': contentType, 'Content-Length': String(length), 'X-FlareTune-Media-Size': String(length) },
     });
     const payload = await response.json().catch(() => ({}));

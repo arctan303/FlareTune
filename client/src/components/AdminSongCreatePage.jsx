@@ -9,11 +9,15 @@ import { suggestSongLanguage } from '../utils/songLanguageSuggestion.js';
 import { createCatalogSong, getCatalogSong, listCatalogSongs, updateCatalogSong, uploadCatalogMedia } from '../services/catalogAdminApi.js';
 import { hydrateSong } from '../utils.js';
 import { rejectDuplicateDecisionAfterCheckFailure } from '../utils/duplicateIngestDecision.js';
+import IngestDeviceSource from './IngestDeviceSource.jsx';
+import { runDeviceJob } from '../services/ingestDeviceApi.js';
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'wav', 'ogg', 'm4a', 'aac', 'wma']);
 const COVER_EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const MAX_WORKER_UPLOAD_BYTES = 100_000_000;
-const MAX_QUEUE = 20;
+const MAX_QUEUE = 500;
+const MAX_BROWSER_QUEUE = 20;
+const PREVIEW_PAGE_SIZE = 25;
 const emptyDraft = () => ({
   id: 'song_' + crypto.randomUUID(), title: '', artist: '', album: '', duration: '', language: '',
 });
@@ -24,16 +28,16 @@ const statusLabel = {
   ready: '待入库', uploading: '入库中', saved: '已入库', error: '需重试',
 };
 
-function CoverThumbnail({ file }) {
+function CoverThumbnail({ file, previewUrl = '' }) {
   const [url, setUrl] = React.useState('');
   React.useEffect(() => {
-    if (!file) { setUrl(''); return undefined; }
+    if (!(file instanceof Blob)) { setUrl(''); return undefined; }
     const next = URL.createObjectURL(file);
     setUrl(next);
     return () => URL.revokeObjectURL(next);
   }, [file]);
   return <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
-    {url ? <img src={url} alt="" className="h-full w-full object-cover" />
+    {url || previewUrl ? <img src={url || previewUrl} alt="" className="h-full w-full object-cover" />
       : <Disc size={21} className="text-[var(--muted)]" aria-hidden="true" />}
   </div>;
 }
@@ -41,7 +45,7 @@ function CoverThumbnail({ file }) {
 function LocalAudioPreview({ file }) {
   const [url, setUrl] = React.useState('');
   React.useEffect(() => {
-    if (!file) return undefined;
+    if (!(file instanceof Blob)) return undefined;
     const next = URL.createObjectURL(file);
     setUrl(next);
     return () => URL.revokeObjectURL(next);
@@ -60,6 +64,12 @@ export default function AdminSongCreatePage() {
   const [editorError, setEditorError] = React.useState('');
   const [activeUploadId, setActiveUploadId] = React.useState(null);
   const [previewScrollToken, setPreviewScrollToken] = React.useState(0);
+  const [source, setSource] = React.useState('browser');
+  const [loadingCoverId, setLoadingCoverId] = React.useState(null);
+  const [previewQuery, setPreviewQuery] = React.useState('');
+  const [previewStatus, setPreviewStatus] = React.useState('all');
+  const [previewLanguage, setPreviewLanguage] = React.useState('all');
+  const [previewPage, setPreviewPage] = React.useState(1);
   const entriesRef = React.useRef([]);
   const savingRef = React.useRef(false);
   const fileInput = React.useRef(null);
@@ -71,12 +81,28 @@ export default function AdminSongCreatePage() {
   const activeUpload = entries.find((entry) => entry.key === activeUploadId);
   const remaining = entries.filter((entry) => entry.status !== 'saved').length;
   const savedCount = entries.length - remaining;
-  const hasChecking = entries.some((entry) => ['reading', 'checking'].includes(entry.status));
+  const hasChecking = entries.some((entry) => entry.selected !== false && ['reading', 'checking'].includes(entry.status));
   const duplicateCount = entries.filter((entry) => entry.reviewStale
     || (entry.duplicateMatches?.length && !entry.allowDuplicate)).length;
-  const eligibleCount = entries.filter((entry) => entry.status !== 'saved'
+  const eligibleCount = entries.filter((entry) => entry.selected !== false && entry.status !== 'saved'
     && !['reading', 'checking'].includes(entry.status)
     && !entry.reviewStale && (!entry.duplicateMatches?.length || entry.allowDuplicate)).length;
+  const previewRows = entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => {
+    const query = previewQuery.trim().toLocaleLowerCase();
+    if (query && ![entry.draft.title, entry.draft.artist, entry.draft.album, entry.agent?.path]
+      .some((part) => String(part || '').toLocaleLowerCase().includes(query))) return false;
+    if (previewLanguage !== 'all' && entry.draft.language !== previewLanguage) return false;
+    if (previewStatus === 'duplicate') return Boolean(entry.reviewStale || entry.duplicateMatches?.length);
+    if (previewStatus === 'selected') return entry.selected !== false && entry.status !== 'saved';
+    if (previewStatus === 'pending') return entry.status !== 'saved' && entry.status !== 'error';
+    return previewStatus === 'all' || entry.status === previewStatus;
+  });
+  const previewPageCount = Math.max(1, Math.ceil(previewRows.length / PREVIEW_PAGE_SIZE));
+  const shownPreviewRows = previewRows.slice((previewPage - 1) * PREVIEW_PAGE_SIZE,
+    previewPage * PREVIEW_PAGE_SIZE);
+  React.useEffect(() => {
+    setPreviewPage((current) => Math.min(current, previewPageCount));
+  }, [previewPageCount]);
 
   const commitEntries = (update) => {
     const next = update(entriesRef.current);
@@ -132,7 +158,8 @@ export default function AdminSongCreatePage() {
     }));
     try {
       const catalogMatches = await findCatalogDuplicates(snapshot.draft, listCatalogSongs);
-      const queueMatches = findQueueDuplicates(snapshot.draft, entriesRef.current, key);
+      const queueMatches = findQueueDuplicates(snapshot.draft,
+        entriesRef.current.filter((entry) => entry.selected !== false), key);
       const matches = [...queueMatches, ...catalogMatches];
       let applied = false;
       updateEntry(key, (entry) => {
@@ -159,7 +186,8 @@ export default function AdminSongCreatePage() {
 
   const refreshLaterQueueMatches = (startIndex) => commitEntries((current) => current.map((entry, index) => {
     if (index < startIndex || entry.status === 'saved' || entry.duplicateState !== 'checked') return entry;
-    const queueMatches = findQueueDuplicates(entry.draft, current, entry.key);
+    const queueMatches = findQueueDuplicates(entry.draft,
+      current.filter((item) => item.selected !== false), entry.key);
     const matches = [...queueMatches, ...entry.duplicateMatches.filter((match) => match.source === 'catalog')];
     const previousQueue = entry.duplicateMatches.filter((match) => match.source === 'queue');
     const changed = duplicateReviewSignature(previousQueue) !== duplicateReviewSignature(queueMatches);
@@ -232,14 +260,15 @@ export default function AdminSongCreatePage() {
         issues.push(file.name + '：超过单文件 100 MB 限制');
       } else if (known.has(fileKey(file))) {
         issues.push(file.name + '：已在清单中');
-      } else if (entriesRef.current.length + accepted.length >= MAX_QUEUE) {
-        issues.push('清单最多放入 ' + MAX_QUEUE + ' 首，其余文件未加入');
+      } else if (entriesRef.current.filter((entry) => !entry.agent).length + accepted.length >= MAX_BROWSER_QUEUE
+        || entriesRef.current.length + accepted.length >= MAX_QUEUE) {
+        issues.push('浏览器文件最多放入 20 首，整个清单最多 500 首，其余文件未加入');
         break;
       } else {
         const draft = emptyDraft();
         draft.title = file.name.replace(/\.[^.]+$/, '');
         accepted.push({
-          key: crypto.randomUUID(), fileKey: fileKey(file), audioFile: file,
+          key: crypto.randomUUID(), fileKey: fileKey(file), audioFile: file, selected: true,
           coverFile: null, draft, languageGuess: null, languageEdited: false,
           duplicateMatches: [], duplicateState: 'unchecked', allowDuplicate: false, replaceTarget: null, reviewStale: false, checkToken: 0,
           uploaded: { audio: null, cover: null },
@@ -261,6 +290,67 @@ export default function AdminSongCreatePage() {
     setMessage(issues.length
       ? issues.join('；')
       : '已加入 ' + accepted.length + ' 首音频。请核对预览，必要时点击“编辑”。');
+  };
+
+  const addDeviceFiles = (files, device) => {
+    if (savingRef.current) return;
+    const known = new Set(entriesRef.current.map((entry) => entry.fileKey));
+    const added = [];
+    for (const file of files) {
+      if (entriesRef.current.length + added.length >= MAX_QUEUE) break;
+      const identity = `device:${device.id}:${file.id}`;
+      if (known.has(identity)) continue;
+      const common = file.common || {};
+      const textGuess = suggestSongLanguage(common);
+      const segments = file.path?.replaceAll('\\', '/').split('/') || [];
+      const folderCodes = { zh: 'zh', en: 'en', ja: 'ja', jp: 'ja', jn: 'ja', ko: 'ko', yue: 'yue',
+        instrumental: 'instrumental', '纯音乐': 'instrumental' };
+      const folder = [segments[1], segments[0]].find((part) => folderCodes[part?.toLowerCase()])?.toLowerCase();
+      const folderCode = folderCodes[folder] || '';
+      const languageGuess = folderCode
+        ? { code: folderCode, source: 'folder' } : textGuess;
+      const audioFile = { name: file.name, size: file.size, lastModified: file.lastModified };
+      const coverFile = file.cover ? { ...file.cover, agent: true } : null;
+      added.push({
+        key: crypto.randomUUID(), fileKey: identity, agent: { deviceId: device.id, fileId: file.id,
+          deviceName: device.name, path: file.path }, audioFile, coverFile, coverPreviewUrl: '',
+        draft: { ...emptyDraft(), title: common.title?.trim() || file.name.replace(/\.[^.]+$/, ''),
+          artist: common.artist?.trim() || common.artists?.join('、') || '',
+          album: common.album?.trim() || '', duration: file.duration || '',
+          language: languageGuess.code },
+        selected: true, languageGuess, languageEdited: false,
+        deviceJobs: {},
+        duplicateMatches: [], duplicateState: 'unchecked', allowDuplicate: false,
+        replaceTarget: null, reviewStale: false, checkToken: 0,
+        uploaded: { audio: null, cover: null }, status: 'ready',
+        message: '来自本地设备，等待核对。', progress: null,
+      });
+      known.add(identity);
+    }
+    if (!added.length) { setMessage('所选歌曲已在预览清单中，或清单已满。'); return; }
+    commitEntries((current) => [...current, ...added]);
+    setPreviewScrollToken((value) => value + 1);
+    setMessage(`已从“${device.name}”加入 ${added.length} 首，请在下方核对并勾选要入库的歌曲。`);
+    void (async () => { for (const entry of added) await checkEntry(entry.key); })();
+  };
+
+  const loadDeviceCover = async (entry) => {
+    if (!entry.agent || !entry.coverFile || loadingCoverId) return;
+    setLoadingCoverId(entry.key);
+    try {
+      const job = await runDeviceJob(entry.agent.deviceId,
+        { kind: 'cover', fileId: entry.agent.fileId }, {
+          jobId: entry.deviceJobs?.cover,
+          onJob: (created) => updateEntry(entry.key, (current) => ({
+            ...current, deviceJobs: { ...current.deviceJobs, cover: created.id },
+          })),
+        });
+      updateEntry(entry.key, (current) => ({
+        ...current, coverPreviewUrl: job.url,
+        uploaded: { ...current.uploaded, cover: { file: current.coverFile, url: job.url } },
+      }));
+    } catch (error) { setMessage('读取封面失败：' + error.message); }
+    finally { setLoadingCoverId(null); }
   };
 
   const removeEntry = (key) => {
@@ -291,7 +381,8 @@ export default function AdminSongCreatePage() {
     }
     setEditorError('');
     updateEntry(editingId, (entry) => ({
-      ...entry, coverFile: file, uploaded: { ...entry.uploaded, cover: null },
+      ...entry, coverFile: file, coverPreviewUrl: '',
+      uploaded: { ...entry.uploaded, cover: null },
     }));
   };
 
@@ -329,7 +420,8 @@ export default function AdminSongCreatePage() {
   const saveItems = async (onlyId = null) => {
     if (savingRef.current) return;
     const targets = entriesRef.current.filter((entry) =>
-      entry.status !== 'saved' && (!onlyId || entry.key === onlyId));
+      entry.status !== 'saved' && (!onlyId || entry.key === onlyId)
+      && (onlyId || entry.selected !== false));
     if (!targets.length) return;
     if (targets.some((entry) => ['reading', 'checking'].includes(entry.status))) {
       setMessage('请等待音频信息读取与查重完成。');
@@ -376,14 +468,33 @@ export default function AdminSongCreatePage() {
           await saveSingleSong({
             audioFile: current.audioFile, coverFile: current.coverFile,
             draft: current.draft, uploaded: current.uploaded,
-            uploadMedia: (kind, file, onProgress) =>
-              uploadCatalogMedia(kind, file, undefined, onProgress),
+            uploadMedia: async (kind, file, onProgress) => {
+              if (current.agent && !(file instanceof File)) {
+                const latest = entriesRef.current.find((entry) => entry.key === current.key);
+                const job = await runDeviceJob(current.agent.deviceId,
+                  { kind, fileId: current.agent.fileId }, {
+                    jobId: latest?.deviceJobs?.[kind],
+                    onJob: (created) => updateEntry(current.key, (entry) => ({
+                      ...entry, deviceJobs: { ...entry.deviceJobs, [kind]: created.id },
+                    })),
+                    onProgress: (progress) => {
+                      if (progress?.kind !== kind) return;
+                      updateEntry(current.key, (entry) => ({ ...entry,
+                        progress: { kind, loaded: progress.loaded, total: progress.total },
+                      }));
+                    },
+                  });
+                return { url: job.url };
+              }
+              return uploadCatalogMedia(kind, file, undefined, onProgress);
+            },
             createSong: createCatalogSong,
             replaceTarget, updateSong: updateCatalogSong,
             onUploaded: (uploaded) => updateEntry(current.key, (entry) => ({ ...entry, uploaded })),
             onStage: (stage) => updateEntry(current.key, (entry) => ({
-              ...entry, message: stage,
-              progress: stage.includes('上传')
+              ...entry, message: current.agent && stage.includes('上传')
+                ? stage.replace('正在上传', '设备正在上传') : stage,
+              progress: !current.agent && stage.includes('上传')
                 ? { kind: stage.includes('封面') ? 'cover' : 'audio', loaded: 0,
                   total: stage.includes('封面') ? current.coverFile?.size : current.audioFile.size }
                 : null,
@@ -435,16 +546,30 @@ export default function AdminSongCreatePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-24 text-[var(--ink)]">
       <div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">新增歌曲</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">选择或拖入音频，先预览并修正，再按顺序入库。</p>
+        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">歌曲入库</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">从当前浏览器或已连接设备挑选歌曲，使用同一预览清单核对后入库。</p>
       </div>
 
       <div className="rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold">音频文件</h2>
+          <h2 className="text-base font-bold">选择歌曲来源</h2>
           {entries.length > 0 && <span className="text-xs text-[var(--muted)]">已入库 {savedCount} / {entries.length}</span>}
         </div>
-        <div
+        <div className="mt-4 flex gap-2" role="tablist" aria-label="歌曲来源">
+          <button type="button" role="tab" aria-selected={source === 'browser'}
+            onClick={() => setSource('browser')}
+            className={'rounded-xl px-4 py-2 text-sm font-semibold ' +
+              (source === 'browser' ? 'primary-button' : 'border border-[var(--line)]')}>
+            此设备文件
+          </button>
+          <button type="button" role="tab" aria-selected={source === 'device'}
+            onClick={() => setSource('device')}
+            className={'rounded-xl px-4 py-2 text-sm font-semibold ' +
+              (source === 'device' ? 'primary-button' : 'border border-[var(--line)]')}>
+            已连接设备目录
+          </button>
+        </div>
+        {source === 'device' ? <div className="mt-4"><IngestDeviceSource disabled={saving} onAdd={addDeviceFiles} /></div> : <div
           className={'mt-3 rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-colors ' +
             (dragging ? 'border-[var(--accent)] bg-[var(--surface)]' : 'border-[var(--line)]')}
           onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
@@ -464,7 +589,7 @@ export default function AdminSongCreatePage() {
           </button>
           <input ref={fileInput} type="file" multiple accept=".mp3,.flac,.wav,.ogg,.m4a,.aac,.wma" className="sr-only"
             onChange={(event) => { addFiles(event.target.files); event.target.value = ''; }} />
-        </div>
+        </div>}
       </div>
 
       {message && <p role="status" className="rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 text-sm">{message}</p>}
@@ -481,8 +606,41 @@ export default function AdminSongCreatePage() {
           <button type="button" disabled={saving || hasChecking || eligibleCount === 0}
             onClick={() => void saveItems()}
             className="primary-button rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
-            {saving ? '正在依次入库…' : '入库可处理歌曲（' + eligibleCount + '）'}
+            {saving ? '正在依次入库…' : '入库已勾选歌曲（' + eligibleCount + '）'}
           </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+          <input aria-label="筛选预览歌曲" placeholder="筛选歌名、歌手、专辑或路径" value={previewQuery}
+            onChange={(event) => { setPreviewQuery(event.target.value); setPreviewPage(1); }}
+            className={inputClass + ' min-w-48 flex-1'} />
+          <select aria-label="筛选入库状态" value={previewStatus}
+            onChange={(event) => { setPreviewStatus(event.target.value); setPreviewPage(1); }}
+            className={inputClass + ' w-auto'}>
+            <option value="all">全部状态</option><option value="selected">已勾选</option>
+            <option value="pending">待处理</option><option value="duplicate">疑似重复</option>
+            <option value="error">失败</option><option value="saved">已入库</option>
+          </select>
+          <select aria-label="筛选歌曲语言" value={previewLanguage}
+            onChange={(event) => { setPreviewLanguage(event.target.value); setPreviewPage(1); }}
+            className={inputClass + ' w-auto'}>
+            <option value="all">全部语言</option>
+            {ALL_LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
+          </select>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+          <span>已勾选 {entries.filter((entry) => entry.selected !== false && entry.status !== 'saved').length} 首
+            · 筛选后 {previewRows.length} / {entries.length} 首</span>
+          <button type="button" disabled={saving || !previewRows.length} onClick={() => {
+            const keys = new Set(previewRows.map(({ entry }) => entry.key));
+            commitEntries((current) => current.map((entry) => entry.status === 'saved' || !keys.has(entry.key)
+              ? entry : { ...entry, selected: true }));
+          }}>勾选筛选结果</button>
+          <button type="button" disabled={saving || !previewRows.length} onClick={() => {
+            const keys = new Set(previewRows.map(({ entry }) => entry.key));
+            commitEntries((current) => current.map((entry) => entry.status === 'saved' || !keys.has(entry.key)
+              ? entry : { ...entry, selected: false }));
+          }}>取消筛选勾选</button>
         </div>
 
         {activeUpload && <div className="mt-4 rounded-xl bg-[var(--surface)] px-4 py-3">
@@ -502,15 +660,23 @@ export default function AdminSongCreatePage() {
         </div>}
 
         <div className="mt-4 space-y-2">
-          {entries.map((entry, index) => {
+          {shownPreviewRows.map(({ entry, index }) => {
             const source = entry.languageEdited ? '人工修改'
               : entry.languageGuess?.source === 'tag' ? '标签'
-                : entry.languageGuess?.source === 'text' ? '文字推测' : '待确认';
+                : entry.languageGuess?.source === 'text' ? '文字推测'
+                  : entry.languageGuess?.source === 'folder' ? '文件夹' : '待确认';
             const percent = entry.progress?.total
               ? Math.min(100, Math.round(entry.progress.loaded / entry.progress.total * 100)) : 0;
             return <article key={entry.key}
               className="flex flex-wrap items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 sm:flex-nowrap sm:p-4">
-              <CoverThumbnail file={entry.coverFile} />
+              <label className="shrink-0 pt-3">
+                <input type="checkbox" aria-label={'选择入库 ' + entry.draft.title}
+                  checked={entry.selected !== false} disabled={saving || entry.status === 'saved'}
+                  onChange={(event) => updateEntry(entry.key, (current) => ({
+                    ...current, selected: event.target.checked,
+                  }))} />
+              </label>
+              <CoverThumbnail file={entry.coverFile} previewUrl={entry.coverPreviewUrl} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold" title={entry.draft.title}>
                   {index + 1}. {entry.draft.title}
@@ -521,6 +687,7 @@ export default function AdminSongCreatePage() {
                     String(Number(entry.draft.duration) % 60).padStart(2, '0') : ''}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  {entry.agent && <span className="text-[var(--muted)]">来自 {entry.agent.deviceName} · {entry.agent.path}</span>}
                   <span className="rounded-full border border-[var(--line)] px-2 py-0.5">
                     {getLanguageLabel(entry.draft.language, '语言未设置')} · {source}
                   </span>
@@ -531,6 +698,12 @@ export default function AdminSongCreatePage() {
                 </div>
                 {(entry.status === 'error' || entry.status === 'uploading') &&
                   <p role="status" className="mt-2 text-xs text-[var(--muted)]">{entry.message}</p>}
+                {entry.agent && entry.coverFile && !entry.coverPreviewUrl && entry.status !== 'saved' &&
+                  <button type="button" disabled={loadingCoverId === entry.key || saving}
+                    onClick={() => void loadDeviceCover(entry)}
+                    className="mt-2 text-xs text-[var(--accent)] disabled:opacity-50">
+                    {loadingCoverId === entry.key ? '正在读取封面…' : '查看这首的封面'}
+                  </button>}
                 {entry.duplicateState === 'error' && !entry.allowDuplicate && !saving && <button type="button"
                   className="mt-2 rounded-lg border border-[var(--line)] px-2.5 py-1 text-xs font-semibold"
                   onClick={() => updateEntry(entry.key, (current) => ({
@@ -579,7 +752,13 @@ export default function AdminSongCreatePage() {
               </div>
             </article>;
           })}
+          {!shownPreviewRows.length && <p className="rounded-xl border border-[var(--line)] px-4 py-8 text-center text-sm text-[var(--muted)]">没有符合筛选条件的歌曲。</p>}
         </div>
+        {previewRows.length > PREVIEW_PAGE_SIZE && <div className="mt-4 flex items-center justify-end gap-3 text-xs">
+          <button type="button" disabled={previewPage === 1} onClick={() => setPreviewPage(previewPage - 1)}>上一页</button>
+          <span>{previewPage} / {previewPageCount}</span>
+          <button type="button" disabled={previewPage >= previewPageCount} onClick={() => setPreviewPage(previewPage + 1)}>下一页</button>
+        </div>}
       </section>}
 
       {reviewing && createPortal(<>
@@ -592,7 +771,7 @@ export default function AdminSongCreatePage() {
             <div className="rounded-xl border border-[var(--line)] p-3"><strong>本次文件：{reviewing.draft.title}</strong>
               <p className="mt-1 text-xs">{reviewing.draft.artist || '歌手未设置'} · {reviewing.draft.album || '专辑未设置'} · {reviewing.draft.duration || '时长未知'} 秒 · {getLanguageLabel(reviewing.draft.language, '语言未设置')}</p>
               <p className="mt-1 break-all text-xs text-[var(--muted)]">文件：{reviewing.audioFile.name} · 音频将使用本次文件</p>
-              <div className="mt-2 flex items-center gap-2"><CoverThumbnail file={reviewing.coverFile} /><span className="text-xs text-[var(--muted)]">本次封面；无封面时替换会保留旧封面</span></div>
+              <div className="mt-2 flex items-center gap-2"><CoverThumbnail file={reviewing.coverFile} previewUrl={reviewing.coverPreviewUrl} /><span className="text-xs text-[var(--muted)]">本次封面；无封面时替换会保留旧封面</span></div>
               <LocalAudioPreview file={reviewing.audioFile} /></div>
             <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><input type="radio" name="duplicate-choice" value="skip"
               checked={reviewChoice === 'skip'} onChange={() => setReviewChoice('skip')} /><span>跳过此首（默认）</span></label>

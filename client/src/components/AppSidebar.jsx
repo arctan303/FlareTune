@@ -48,7 +48,7 @@ const ADMIN_SETTINGS = [
   { id: 'admin-instance', label: '实例与访问', icon: SlidersHorizontal },
   { id: 'admin-assistant', label: 'AI 与助手', icon: Bot },
   { id: 'admin-catalog', label: '曲库管理', icon: Disc },
-  { id: 'admin-add-song', label: '新增歌曲', icon: Plus },
+  { id: 'admin-add-song', label: '歌曲入库', icon: Plus },
   { id: 'admin-accounts', label: '账号管理', icon: Users },
   { id: 'admin-system', label: '系统状态', icon: Activity },
 ];

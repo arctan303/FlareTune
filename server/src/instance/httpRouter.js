@@ -21,6 +21,7 @@ import { handleLocalMetadataReadRoute } from '../routes/localMetadataRead.js';
 import { handleLocalLyricsManageRoute } from '../routes/localLyricsManage.js';
 import { handleLocalCatalogAdminRoute } from '../routes/localCatalogAdmin.js';
 import { handleLocalCatalogMediaRoute } from '../routes/localCatalogMedia.js';
+import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
 import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
 import { updateOwnDisplayName } from '../auth/local/profile.js';
 import {
@@ -313,6 +314,9 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     const catalogMedia = await handleLocalCatalogMediaRoute(request, new URL(request.url), env.DB,
       {}, session, env);
     if (catalogMedia) return catalogMedia;
+    const ingestDevices = await handleLocalIngestDevicesRoute(request, new URL(request.url), env.DB,
+      {}, session, env);
+    if (ingestDevices) return ingestDevices;
     const catalogAdmin = await handleLocalCatalogAdminRoute(request, new URL(request.url), env.DB,
       {}, session, env);
     if (catalogAdmin) return catalogAdmin;
