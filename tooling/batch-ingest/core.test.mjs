@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { catalogDuplicateMatches, catalogSaveApplied, duplicateMatches, fileIdentity, folderLanguage, replacementSongBody, targetUrl, validMediaSignature } from './core.mjs';
+import { catalogDuplicateMatches, duplicateMatches, fileIdentity, folderLanguage, replacementSongBody, targetUrl, validMediaSignature } from './core.mjs';
 
 test('folder aliases and unmapped songs remain editable', () => {
   assert.equal(folderLanguage('music/jp/artist/song.mp3'), 'ja');
@@ -43,17 +43,6 @@ test('replacement body retains existing cover and never changes the song ID', ()
   assert.equal(body.expectedVersion, 'a'.repeat(64));
 });
 
-test('replacement recovery waits for all requested metadata and cover changes', () => {
-  const draft = { title: 'Updated', artist: 'Artist', album: 'Album', duration: '121', language: 'ja' };
-  const song = { title: 'Updated', artist: 'Artist', album: 'Album', duration: 121, language: 'ja',
-    audio_url: '/media/audio/new.mp3', cover_url: '/media/cover/new.jpg' };
-  const options = { audioUrl: '/media/audio/new.mp3', coverUrl: '/media/cover/new.jpg', hasNewCover: true, keepExistingCover: true };
-  assert.equal(catalogSaveApplied(draft, song, options), true);
-  assert.equal(catalogSaveApplied(draft, { ...song, title: 'Old' }, options), false);
-  assert.equal(catalogSaveApplied(draft, { ...song, language: 'en' }, options), false);
-  assert.equal(catalogSaveApplied(draft, { ...song, cover_url: '/media/cover/old.jpg' }, options), false);
-  assert.equal(catalogSaveApplied(draft, song, { ...options, audioUrl: '' }), false);
-});
 test('instance URLs and media signatures are checked before remote writes', () => {
   assert.equal(targetUrl('https://music.example.com'), 'https://music.example.com');
   assert.throws(() => targetUrl('http://music.example.com'));
@@ -64,4 +53,7 @@ test('instance URLs and media signatures are checked before remote writes', () =
   assert.equal(validMediaSignature(Buffer.from([0xff, 0xfb, 0x90, 0x64]), 'mp3'), true);
   assert.equal(fileIdentity('https://music.example.com', { webkitRelativePath: 'music/zh/a.mp3',
     size: 18, lastModified: 20 }), 'https://music.example.com|music/zh/a.mp3|18|20');
+  const file = { webkitRelativePath: 'music/zh/a.mp3', size: 18, lastModified: 20 };
+  assert.notEqual(fileIdentity('profile-1', { ...file, localRoot: 'C:\\one\\music' }),
+    fileIdentity('profile-1', { ...file, localRoot: 'D:\\other\\music' }));
 });

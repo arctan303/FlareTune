@@ -6,8 +6,12 @@ const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), '
 
 test('package metadata identifies FlareTune and deploys with the public root template', () => {
   const pkg = JSON.parse(read('package.json'));
+  const lock = JSON.parse(read('package-lock.json'));
   assert.equal(pkg.name, 'flaretune');
-  assert.equal(pkg.version, '1.0.0');
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(lock.version, pkg.version);
+  assert.equal(lock.packages[''].version, pkg.version);
+  assert.match(read('CHANGELOG.md'), new RegExp(`^## ${pkg.version.replaceAll('.', '\\.')} `, 'm'));
   assert.equal(pkg.private, true);
   assert.equal(pkg.scripts.deploy, 'wrangler deploy --config wrangler.toml');
   assert.equal(pkg.scripts['deploy:worker'], pkg.scripts.deploy);

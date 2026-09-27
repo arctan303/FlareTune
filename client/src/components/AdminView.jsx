@@ -6,6 +6,7 @@ import AdminCatalogSection from './AdminCatalogSection.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
 import Section from './SettingsSection.jsx';
+import IngestDevicesPanel from './IngestDevicesPanel.jsx';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 import {
   adminErrorMessage, createManagedAccount, getAdminOverview, parseExactHttpsOrigins,
@@ -450,7 +451,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           )}
 
           {/* 常规 */}
-          {(tab === 'general' || tab === 'instance') && (
+          {(tab === 'general' || tab === 'instance' || tab === 'system') && (
             <div className="space-y-6">
               <Section title="实例名称" description="用于识别当前私有音乐实例。">
                 <div className="flex flex-wrap items-center justify-between gap-4"><strong className="text-base text-[var(--ink)]">{overview.settings['instance.name']?.value || '未命名实例'}</strong><button type="button" className={buttonClass} onClick={() => { setMessage(''); setNameEditorOpen(true); }}>修改名称</button></div>
@@ -462,7 +463,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           )}
 
           {/* 访问 */}
-          {(tab === 'access' || tab === 'instance') && (
+          {(tab === 'access' || tab === 'instance' || tab === 'system') && (
             <div className="space-y-6">
               <Section title="附加允许来源" description="同源访问始终允许；仅在需要从其他网站访问 API 时配置。">
                 <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0 text-sm text-[var(--ink)]">{overview.settings['cors.allowed_origins']?.value?.length ? <><strong>{overview.settings['cors.allowed_origins'].value.length} 个来源</strong><p className="mt-1 break-all text-xs text-[var(--muted)]">{overview.settings['cors.allowed_origins'].value.slice(0, 2).join(' · ')}</p></> : <span className="text-[var(--muted)]">没有附加来源</span>}</div><button type="button" className={buttonClass} onClick={() => { setMessage(''); setOriginsEditorOpen(true); }}>管理来源</button></div>
@@ -710,6 +711,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {/* 系统 */}
           {tab === 'system' && (
             <div className="space-y-6">
+              <IngestDevicesPanel />
               <Section title="运行概况" description="显示当前能够验证的实例信息。">
                 <dl className="grid gap-4 sm:grid-cols-2">
                   <div className="wallpaper-content-surface p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)]">

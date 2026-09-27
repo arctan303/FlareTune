@@ -113,7 +113,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
   const authSession = useUIStore((state) => state.authSession);
 
   const isAdmin = authSession?.authenticated && authSession?.user?.role === 'admin';
-  const validSections = ['personal', 'appearance', 'admin-instance', 'admin-assistant', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
+  const validSections = ['personal', 'appearance', 'admin-assistant', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
   const requestedSection = section || 'appearance';
   const activeSection = validSections.includes(requestedSection)
     && (isAdmin || !requestedSection.startsWith('admin'))
@@ -706,7 +706,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
 
           {/* 分支 3：系统管理各个子页面 */}
           {activeSection === 'admin-add-song' && isAdmin && (
-            <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">正在打开新增歌曲…</p>}>
+            <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">正在打开歌曲入库…</p>}>
               <AdminSongCreatePage />
             </React.Suspense>
           )}
@@ -714,7 +714,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
           {activeSection.startsWith('admin-') && activeSection !== 'admin-add-song' && isAdmin && (
             <div className="space-y-8 animate-[fade-in_0.2s_ease-out]">
               <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)]">
-                {{ 'admin-instance': '实例与访问', 'admin-assistant': 'AI 与助手', 'admin-catalog': '曲库管理', 'admin-accounts': '账号管理', 'admin-system': '系统状态' }[activeSection] || '系统管理'}
+                {{ 'admin-assistant': 'AI 与助手', 'admin-catalog': '曲库管理', 'admin-accounts': '账号管理', 'admin-system': '系统管理' }[activeSection] || '系统管理'}
               </h1>
               <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">正在打开系统管理…</p>}>
                 <AdminView

@@ -186,8 +186,16 @@ test('HTTP setup, login, CSRF and logout use the new local account only', async 
     const cookie = loggedIn.headers.get('Set-Cookie');
     assert.match(cookie, /^__Host-ft_session=/);
     assert.match(cookie, /Secure;?/);
+    const originalPrepare = db.prepare;
+    let schemaInspections = 0;
+    db.prepare = (sql) => {
+      if (sql.includes("FROM sqlite_master WHERE type = 'table'")) schemaInspections += 1;
+      return originalPrepare(sql);
+    };
     const session = await worker.fetch(new Request('https://example.test/api/auth/session', { headers: { Cookie: cookie } }), env);
     assert.equal(session.status, 200);
+    assert.equal(schemaInspections, 1, 'authenticated API checks instance readiness once');
+    db.prepare = originalPrepare;
     const sessionBody = await session.json();
     assert.equal(sessionBody.authenticated, true);
     assert.equal(sessionBody.user.username, 'owner');
@@ -212,10 +220,17 @@ test('HTTP setup, login, CSRF and logout use the new local account only', async 
     assert.equal((await worker.fetch(new Request('https://example.test/api/auth/session',
       { headers: { Cookie: cookie } }), env).then((response) => response.json())).authenticated, true);
     assert.equal(typeof sessionBody.csrfToken, 'string');
+    schemaInspections = 0;
+    db.prepare = (sql) => {
+      if (sql.includes("FROM sqlite_master WHERE type = 'table'")) schemaInspections += 1;
+      return originalPrepare(sql);
+    };
     const media = await worker.fetch(new Request(mediaUrl, {
       headers: { Cookie: cookie, Range: 'bytes=0-1' },
     }), env);
     assert.equal(media.status, 206);
+    assert.equal(schemaInspections, 1, 'authenticated media checks instance readiness once');
+    db.prepare = originalPrepare;
     assert.equal(media.headers.get('Content-Range'), 'bytes 0-1/5');
     assert.equal(media.headers.get('Cache-Control'), 'private, no-store');
     assert.equal(await media.text(), 'audio');

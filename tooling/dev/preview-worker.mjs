@@ -163,7 +163,7 @@ async function main() {
     return;
   }
   const smoke = process.argv.includes('--smoke');
-  const preview = await startPreview({ ephemeral: smoke });
+  const preview = await startPreview({ ephemeral: smoke, seedEmpty: smoke });
   const stop = () => preview.stop().then(() => process.exit(0), (error) => { console.error(error); process.exit(1); });
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);

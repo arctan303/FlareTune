@@ -14,7 +14,7 @@ export async function verifyWorkerHttp(base = 'http://127.0.0.1:8790') {
   assert.equal(status.status, 200);
   assert.match(status.headers.get('content-type') || '', /application\/json/);
   assert.equal(status.headers.get('cache-control'), 'private, no-store');
-  assert.deepEqual(await status.json(), { state: 'setup_required' });
+  assert.deepEqual(await status.json(), { state: 'setup_required', schemaVersion: 0, targetVersion: 2 });
 
   for (const [path, init] of [
     ['/api/init', undefined],

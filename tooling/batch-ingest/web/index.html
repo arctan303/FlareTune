@@ -23,24 +23,29 @@
         <button class="primary" type="submit">连接并保存实例</button>
       </form>
     </section>
-    <div id="workspace" hidden>
-      <section class="panel instance-bar"><strong id="current-instance"></strong><button id="switch-instance" class="secondary">切换实例</button></section>
-      <nav class="tool-nav" aria-label="工具页面"><button data-view="catalog" class="active">曲库管理</button><button data-view="ingest">上传歌曲</button></nav>
+    <div id="workspace" class="workspace-layout" hidden>
+      <aside class="workspace-sidebar"><div class="sidebar-brand"><span class="sidebar-wordmark">Tune</span><span class="sidebar-product">曲库工具</span></div>
+        <div class="sidebar-scroll"><div class="sidebar-label">工作区</div><nav class="tool-nav" aria-label="工具页面"><button data-view="catalog" class="active">曲库管理</button><button data-view="ingest">上传歌曲</button></nav>
+          <div class="sidebar-label">播放器实例</div><div id="sidebar-profiles" class="sidebar-profiles"></div><button id="switch-instance" class="sidebar-add">＋ 添加实例</button></div>
+        <div class="sidebar-foot"><span class="sidebar-connection"><span class="connection-dot" aria-hidden="true"></span><strong id="current-instance"></strong></span><button id="sidebar-logout">退出登录</button></div>
+      </aside><div class="workspace-main">
       <div id="catalog-view">
-        <section class="panel"><div class="section-head"><div><h2>曲库管理</h2><p id="catalog-summary" class="hint"></p></div>
+        <section class="panel"><div class="section-head"><div><h1>曲库管理</h1><p id="catalog-summary" class="hint"></p></div>
           <div class="actions"><input id="catalog-search" type="search" placeholder="搜索歌名、歌手或专辑" aria-label="搜索曲库" /><button id="catalog-refresh" class="secondary">刷新</button></div></div>
           <div class="catalog-tools"><label class="check"><input id="catalog-only-duplicates" type="checkbox" /> 只看疑似重复</label><span class="hint">根据歌名、歌手和时长提示；请人工核对后再编辑或删除。</span></div>
           <div id="catalog-songs" class="songs"></div><div class="catalog-pages"><button id="catalog-prev">上一页</button><span id="catalog-page"></span><button id="catalog-next">下一页</button></div>
         </section>
       </div>
       <div id="ingest-view" hidden>
+      <div class="page-heading"><h1>上传歌曲</h1><p class="hint">扫描本机音乐目录，核对歌曲信息后批量入库。</p></div>
       <section class="panel">
-        <div class="section-head"><div><h2>选择音乐文件夹</h2><p class="hint">读取当前文件夹及其子文件夹中的音频。需要续传时重新选择同一个文件夹。</p></div>
-          <label class="button-like">选择文件夹<input id="folder" type="file" webkitdirectory multiple /></label></div>
+        <div class="section-head"><div><h2>音乐目录</h2><p class="hint">输入本机绝对路径，Node 会扫描音频并记住此实例的目录。下次启动可直接重新扫描。</p></div></div>
+        <div class="directory-row"><input id="folder-path" type="text" placeholder="例如 C:\\Music 或 /home/me/music" aria-label="本机音乐目录" /><button id="scan-folder" class="primary">扫描目录</button><button id="rescan-folder" class="secondary">重新扫描</button></div>
+        <details class="browser-folder"><summary>临时从浏览器选择文件夹</summary><label class="button-like">选择文件夹<input id="folder" type="file" webkitdirectory multiple /></label><span class="hint">这种方式在重启后需要重新选择。</span></details>
         <div id="mappings" class="mappings"></div>
       </section>
       <section class="panel">
-        <div class="section-head"><div><h2>上传方式</h2><p class="hint">默认逐首经 Worker 上传；单文件超过 100 MB 请使用 R2 直传。</p></div></div>
+        <div class="section-head"><div><h2>上传方式</h2><p class="hint">默认经 Worker 上传；单文件超过 100 MB 请使用 R2 直传。</p></div><label class="concurrency">同时上传 <select id="concurrency"><option value="1">1 首</option><option value="2">2 首</option><option value="3">3 首</option><option value="4">4 首</option></select></label></div>
         <div class="mode-row"><label><input type="radio" name="mode" value="worker" checked /> Worker</label>
           <label><input type="radio" name="mode" value="direct" /> R2 直传</label></div>
         <form id="r2-form" class="form-grid r2-form" hidden>
@@ -56,11 +61,14 @@
       <section class="panel">
         <div class="section-head"><div><h2>入库预览</h2><p id="summary" class="hint">尚未选择文件夹。</p></div>
           <div class="actions"><input id="search" type="search" placeholder="筛选歌名或歌手" aria-label="筛选歌曲" />
-            <button id="start" class="primary" disabled>开始入库</button><button id="pause" class="secondary" hidden>暂停</button></div></div>
+            <button id="start" class="primary" disabled>开始入库</button><button id="retry-failed" class="secondary">重试失败</button><button id="pause" class="secondary" hidden>暂停</button></div></div>
+        <div id="ingest-notice" class="notice inline-notice" role="status" hidden></div>
+        <div class="queue-tools"><label>状态<select id="status-filter"><option value="all">全部</option><option value="pending">待处理</option><option value="duplicate">疑似重复</option><option value="error">失败</option><option value="saved">已入库</option></select></label><label>语言<select id="language-filter"><option value="all">全部语言</option></select></label><button id="clear-completed" class="secondary">清理已完成</button><span id="filtered-count" class="hint"></span></div>
         <div class="bulk-language"><label><input id="select-visible" type="checkbox" /> 选中筛选结果</label><span id="selected-count">已选 0 首</span><select id="bulk-language"><option value="">选择语言…</option></select><button id="apply-language" class="secondary" disabled>应用到选中歌曲</button><button id="restore-language" class="secondary" disabled>选中歌曲自动判断</button></div>
         <div id="progress" class="progress" hidden><div class="progress-label"><span id="progress-text"></span><span id="progress-number"></span></div><div class="track"><div id="progress-fill"></div></div></div>
-        <div id="songs" class="songs"><p class="empty">请选择音乐文件夹。</p></div>
+        <div id="songs" class="songs"><p class="empty">请选择音乐文件夹。</p></div><div class="catalog-pages"><button id="queue-prev">上一页</button><span id="queue-page"></span><button id="queue-next">下一页</button></div>
       </section>
+      </div>
       </div>
     </div>
   </main>

@@ -31,6 +31,13 @@ bucket_name = "flaretune-media"
 workers_dev = true
 preview_urls = false
 
+[env.dev.observability]
+enabled = true
+head_sampling_rate = 1
+
+[env.dev.observability.logs]
+invocation_logs = true
+
 [env.dev.vars]
 MEDIA_PREFIX = "dist_music"
 MUSIC_WEB_ORIGIN = "http://127.0.0.1:3000"

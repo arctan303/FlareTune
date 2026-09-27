@@ -1,5 +1,11 @@
 import { targetUrl } from './core.mjs';
 
+function upstreamError(response, message) {
+  const error = new Error(message);
+  error.upstreamStatus = response.status;
+  return error;
+}
+
 export class RemoteCatalog {
   constructor(baseUrl, fetchImpl = fetch) {
     this.base = targetUrl(baseUrl);
@@ -9,9 +15,9 @@ export class RemoteCatalog {
     this.account = null;
   }
 
-  async request(path, { method = 'GET', body, headers = {} } = {}) {
+  async request(path, { method = 'GET', body, headers = {}, signal } = {}) {
     const response = await this.fetch(this.base + path, {
-      method, body, redirect: 'error', duplex: body && typeof body !== 'string' ? 'half' : undefined,
+      method, body, signal, redirect: 'error', duplex: body && typeof body !== 'string' ? 'half' : undefined,
       headers: {
         'X-Requested-With': 'FlareTune',
         ...(method !== 'GET' && method !== 'HEAD' ? { Origin: this.base } : {}),
@@ -47,7 +53,7 @@ export class RemoteCatalog {
     const response = await this.request(path, options);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) {
-      throw new Error(payload.message || payload.error || `实例请求失败（${response.status}）。`);
+      throw upstreamError(response, payload.message || payload.error || `实例请求失败（${response.status}）。`);
     }
     return payload.data ?? payload;
   }
@@ -65,7 +71,7 @@ export class RemoteCatalog {
     const response = await this.request(`/api/admin/catalog/songs/${encodeURIComponent(id)}`);
     if (response.status === 404) return null;
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.message || `读取歌曲失败（${response.status}）。`);
+    if (!response.ok) throw upstreamError(response, payload.message || `读取歌曲失败（${response.status}）。`);
     return payload.data?.song || null;
   }
 
@@ -104,13 +110,14 @@ export class RemoteCatalog {
     return { status: response.status, ...payload };
   }
 
-  async uploadWorker(kind, id, extension, contentType, length, body) {
+  async uploadWorker(kind, id, extension, contentType, length, body, signal) {
     const response = await this.request(`/api/admin/catalog/media/${kind}/${id}.${extension}`, {
-      method: 'PUT', body,
+      method: 'PUT', body, signal,
       headers: { 'Content-Type': contentType, 'Content-Length': String(length), 'X-FlareTune-Media-Size': String(length) },
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.ok !== true) throw new Error(payload.message || `Worker 上传失败（${response.status}）。`);
+    if (!response.ok || payload.ok !== true) throw upstreamError(response,
+      payload.message || `Worker 上传失败（${response.status}）。`);
     return payload.data;
   }
 
