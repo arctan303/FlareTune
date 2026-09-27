@@ -1,28 +1,45 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { mock } from 'node:test';
 
 const memoryStore = new Map();
 globalThis.localStorage = {
+  get length() { return memoryStore.size; },
+  key: (index) => [...memoryStore.keys()][index] ?? null,
   getItem: (key) => memoryStore.get(key) ?? null,
   setItem: (key, value) => memoryStore.set(key, String(value)),
   removeItem: (key) => memoryStore.delete(key),
   clear: () => memoryStore.clear(),
 };
-globalThis.window = { localStorage: globalThis.localStorage };
+const windowListeners = new Map();
+globalThis.window = {
+  localStorage: globalThis.localStorage,
+  addEventListener: (name, handler) => windowListeners.set(name, handler),
+  dispatch: (name, event = {}) => windowListeners.get(name)?.(event),
+};
+const documentListeners = new Map();
 globalThis.document = {
   documentElement: { classList: { contains: () => false } },
+  visibilityState: 'visible',
+  addEventListener: (name, handler) => documentListeners.set(name, handler),
+  dispatch: (name) => documentListeners.get(name)?.(),
 };
 
 const { usePlayStatsStore, resetSyncBackoff } = await import('./usePlayStatsStore.js');
 const { useUIStore } = await import('./useUIStore.js');
 
 function resetStats(overrides = {}) {
+  for (const key of [...memoryStore.keys()]) {
+    if (key.startsWith('music-play-stats-pending-v1:')) memoryStore.delete(key);
+  }
+  globalThis.document.visibilityState = 'visible';
   resetSyncBackoff();
   usePlayStatsStore.setState({
     ownerSubject: null,
     identityReady: false,
     playCounts: {},
     pendingQueue: [],
+    pendingBySubject: {},
+    legacyMigrationComplete: true,
     songMetaMap: {},
     topSongs: [],
     topAlbums: [],
@@ -32,13 +49,18 @@ function resetStats(overrides = {}) {
     lastSyncedAt: 0,
     ...overrides,
   });
+  if (overrides.ownerSubject) {
+    for (const event of overrides.pendingQueue || []) {
+      memoryStore.set(`music-play-stats-pending-v1:${overrides.ownerSubject}:${event.event_id}`, JSON.stringify(event));
+    }
+  }
 }
 
 function queuedEvents(count) {
   return Array.from({ length: count }, (_, index) => ({
     event_id: `event_${index + 1}`,
     song_id: `song-${index + 1}`,
-    played_at: 1000 + index,
+    played_at: Date.now() + index,
   }));
 }
 
@@ -87,6 +109,366 @@ test('usePlayStatsStore: plays without a confirmed owner are discarded and accou
 
   usePlayStatsStore.getState().setSubject(null);
   assert.equal(usePlayStatsStore.getState().ownerSubject, null);
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+});
+
+test('usePlayStatsStore: visible page submits then refreshes once at ten minutes', async () => {
+  resetStats();
+  mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
+  const requests = [];
+  globalThis.fetch = async (_url, init) => {
+    requests.push(init.method);
+    if (init.method === 'GET') {
+      return new Response(JSON.stringify({ ok: true, data: {
+        songs: [{ id: 'song-1', title: 'Song One', play_count: 1 }],
+        totalPlays: 1, totalUniqueSongs: 1,
+      } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    const { events } = JSON.parse(init.body);
+    return new Response(JSON.stringify({ ok: true, data: {
+      recorded: events.length,
+      acceptedEventIds: events.map((event) => event.event_id),
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    const store = usePlayStatsStore.getState();
+    store.setSubject('account-a');
+    store.recordQualifiedPlay('song-1');
+    assert.equal(usePlayStatsStore.getState().getPlayCount('song-1'), 1);
+    mock.timers.tick(590_000);
+    store.recordQualifiedPlay('song-2');
+    assert.equal(usePlayStatsStore.getState().getPlayCount('song-2'), 1);
+    mock.timers.tick(9999);
+    assert.deepEqual(requests, []);
+    mock.timers.tick(1);
+    await new Promise(setImmediate);
+    assert.deepEqual(requests, ['POST', 'GET']);
+    assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  } finally {
+    resetSyncBackoff();
+    mock.timers.reset();
+  }
+});
+
+test('usePlayStatsStore: three plays never trigger an early POST', async () => {
+  resetStats();
+  mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
+  let requests = 0;
+  globalThis.fetch = async () => { requests += 1; throw new Error('unexpected request'); };
+  try {
+    usePlayStatsStore.getState().setSubject('account-a');
+    for (let i = 0; i < 3; i += 1) usePlayStatsStore.getState().recordQualifiedPlay(`song-${i}`);
+    mock.timers.tick(9000);
+    assert.equal(requests, 0);
+    assert.equal(usePlayStatsStore.getState().pendingQueue.length, 3);
+  } finally {
+    resetSyncBackoff();
+    mock.timers.reset();
+  }
+});
+
+test('usePlayStatsStore: failed batch retries automatically with unchanged event IDs', async () => {
+  resetStats();
+  mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
+  const attempts = [];
+  globalThis.fetch = async (_url, init) => {
+    if (init.method === 'GET') {
+      return new Response(JSON.stringify({ ok: true, data: {
+        songs: [{ id: 'song-1', title: 'Song One', play_count: 1 }],
+        totalPlays: 1, totalUniqueSongs: 1,
+      } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    const { events } = JSON.parse(init.body);
+    attempts.push(events.map((event) => event.event_id));
+    if (attempts.length === 1) {
+      return new Response(JSON.stringify({ ok: false, error: 'MUSIC_STORAGE_UNAVAILABLE' }), {
+        status: 503, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ ok: true, data: {
+      recorded: events.length,
+      acceptedEventIds: events.map((event) => event.event_id),
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    usePlayStatsStore.getState().setSubject('account-a');
+    usePlayStatsStore.getState().recordQualifiedPlay('song-1');
+    mock.timers.tick(600_000);
+    await new Promise(setImmediate);
+    assert.equal(attempts.length, 1);
+    assert.equal(usePlayStatsStore.getState().pendingQueue.length, 1);
+    mock.timers.tick(30_000);
+    await new Promise(setImmediate);
+    assert.deepEqual(attempts, [attempts[0], attempts[0]]);
+    assert.equal(usePlayStatsStore.getState().pendingQueue.length, 0);
+  } finally {
+    resetSyncBackoff();
+    mock.timers.reset();
+  }
+});
+
+test('usePlayStatsStore: A to B to A restores only the original account pending events', () => {
+  resetStats({ ownerSubject: 'account-a', identityReady: true });
+  const store = usePlayStatsStore.getState();
+  store.recordQualifiedPlay('song-a');
+  const eventA = usePlayStatsStore.getState().pendingQueue[0];
+  store.setSubject('account-b');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  assert.equal(memoryStore.has(`music-play-stats-pending-v1:account-a:${eventA.event_id}`), true);
+  store.recordQualifiedPlay('song-b');
+  const eventB = usePlayStatsStore.getState().pendingQueue[0];
+  store.setSubject(null);
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  store.setSubject('account-a');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, [eventA]);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('song-a'), 1);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('song-b'), 0);
+  store.setSubject('account-b');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, [eventB]);
+});
+
+test('usePlayStatsStore: an in-flight A acknowledgement clears only A after switching to B', async () => {
+  resetStats({ ownerSubject: 'account-a', identityReady: true });
+  usePlayStatsStore.getState().recordQualifiedPlay('song-a');
+  const eventA = usePlayStatsStore.getState().pendingQueue[0];
+  let release;
+  globalThis.fetch = async () => new Promise((resolve) => {
+    release = () => resolve(new Response(JSON.stringify({ ok: true, data: {
+      recorded: 1,
+      acceptedEventIds: [eventA.event_id],
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  });
+
+  const flushingA = usePlayStatsStore.getState().flushQueue();
+  usePlayStatsStore.getState().setSubject('account-b');
+  usePlayStatsStore.getState().recordQualifiedPlay('song-b');
+  const eventB = usePlayStatsStore.getState().pendingQueue[0];
+  release();
+  assert.equal((await flushingA).reason, 'identity-changed');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, [eventB]);
+  assert.equal(usePlayStatsStore.getState().pendingBySubject['account-a'], undefined);
+  usePlayStatsStore.getState().setSubject('account-a');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+});
+
+test('usePlayStatsStore: reload restores an old same-account event with its ID', async () => {
+  resetStats({ ownerSubject: 'account-a', identityReady: true });
+  usePlayStatsStore.getState().recordQualifiedPlay('song-a');
+  const eventA = usePlayStatsStore.getState().pendingQueue[0];
+  usePlayStatsStore.getState().setSubject(null);
+  usePlayStatsStore.getState().setSubject('account-a');
+  const persisted = memoryStore.get('music-play-stats-v2');
+  usePlayStatsStore.setState({
+    ownerSubject: null, identityReady: false, pendingQueue: [], playCounts: {}, totalPlays: 0,
+  });
+  memoryStore.set('music-play-stats-v2', persisted);
+  await usePlayStatsStore.persist.rehydrate();
+  assert.equal(usePlayStatsStore.getState().identityReady, false);
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  usePlayStatsStore.getState().setSubject('account-a');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, [eventA]);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('song-a'), 1);
+});
+
+test('usePlayStatsStore: two tabs retain distinct events despite stale whole-state overwrites', async () => {
+  resetStats();
+  const store = usePlayStatsStore.getState();
+  store.setSubject('account-a');
+  store.recordQualifiedPlay('song-from-tab-a');
+  const eventA = usePlayStatsStore.getState().pendingQueue[0];
+  const eventB = { event_id: 'play_from_other_tab', song_id: 'song-from-tab-b', played_at: Date.now() + 1 };
+  const eventBKey = `music-play-stats-pending-v1:account-a:${eventB.event_id}`;
+
+  // A second tab can overwrite the old Zustand snapshot, but each event owns a separate key.
+  memoryStore.set('music-play-stats-v2', JSON.stringify({ version: 2, state: {
+    ownerSubject: 'account-a', playCounts: {}, pendingQueue: [],
+  } }));
+  memoryStore.set(eventBKey, JSON.stringify(eventB));
+  window.dispatch('storage', { key: eventBKey });
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue.map((event) => event.event_id), [
+    eventA.event_id, eventB.event_id,
+  ]);
+
+  usePlayStatsStore.setState({ ownerSubject: null, identityReady: false, pendingQueue: [] });
+  memoryStore.set('music-play-stats-v2', JSON.stringify({ version: 2, state: {
+    ownerSubject: 'account-a', playCounts: {}, pendingQueue: [],
+  } }));
+  await usePlayStatsStore.persist.rehydrate();
+  usePlayStatsStore.getState().setSubject('account-a');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue.map((event) => event.event_id), [
+    eventA.event_id, eventB.event_id,
+  ]);
+});
+
+test('usePlayStatsStore: another tab acknowledgement is rebased without double counting', async () => {
+  resetStats();
+  const store = usePlayStatsStore.getState();
+  store.setSubject('account-a');
+  store.recordQualifiedPlay('song-a');
+  const event = usePlayStatsStore.getState().pendingQueue[0];
+  const key = `music-play-stats-pending-v1:account-a:${event.event_id}`;
+  memoryStore.delete(key);
+  window.dispatch('storage', { key });
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('song-a'), 1);
+  globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: {
+    songs: [{ id: 'song-a', title: 'Song A', play_count: 1 }],
+    totalPlays: 1, totalUniqueSongs: 1,
+  } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  assert.equal((await store.refreshRemoteStats()).ok, true);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('song-a'), 1);
+  assert.equal(usePlayStatsStore.getState().totalPlays, 1);
+});
+
+test('usePlayStatsStore: legacy v2 queues migrate idempotently to account/event keys', async () => {
+  resetStats();
+  const eventA = { event_id: 'play_old_a', song_id: 'song-a', played_at: 1000 };
+  const eventB = { event_id: 'play_old_b', song_id: 'song-b', played_at: 2000 };
+  memoryStore.set('music-play-stats-v2', JSON.stringify({ version: 2, state: {
+    ownerSubject: 'account-a', pendingQueue: [eventA],
+    pendingBySubject: { 'account-b': [eventB] },
+  } }));
+  await usePlayStatsStore.persist.rehydrate();
+  const keysAfterFirst = [...memoryStore.keys()].filter((key) => key.startsWith('music-play-stats-pending-v1:'));
+  assert.equal(keysAfterFirst.length, 2);
+  assert.equal(JSON.parse(memoryStore.get('music-play-stats-v2')).state.pendingQueue, undefined);
+  await usePlayStatsStore.persist.rehydrate();
+  assert.deepEqual(
+    [...memoryStore.keys()].filter((key) => key.startsWith('music-play-stats-pending-v1:')),
+    keysAfterFirst,
+  );
+  usePlayStatsStore.getState().setSubject('account-a');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, [eventA]);
+  usePlayStatsStore.getState().setSubject('account-b');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, [eventB]);
+});
+
+test('usePlayStatsStore: interrupted legacy migration keeps the original queue for retry', async () => {
+  resetStats();
+  const eventA = { event_id: 'play_old_a', song_id: 'song-a', played_at: 1000 };
+  const eventB = { event_id: 'play_old_b', song_id: 'song-b', played_at: 2000 };
+  memoryStore.set('music-play-stats-v2', JSON.stringify({ version: 2, state: {
+    ownerSubject: 'account-a', pendingQueue: [eventA, eventB],
+  } }));
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = (key, value) => {
+    if (key.endsWith('play_old_b')) throw new Error('simulated full storage');
+    originalSetItem(key, value);
+  };
+  try {
+    await usePlayStatsStore.persist.rehydrate();
+    assert.deepEqual(JSON.parse(memoryStore.get('music-play-stats-v2')).state.pendingQueue, [eventA, eventB]);
+  } finally {
+    localStorage.setItem = originalSetItem;
+  }
+  usePlayStatsStore.getState().setSubject('account-b');
+  assert.deepEqual(JSON.parse(memoryStore.get('music-play-stats-v2')).state.pendingBySubject['account-a'], [eventA, eventB]);
+  await usePlayStatsStore.persist.rehydrate();
+  assert.equal(JSON.parse(memoryStore.get('music-play-stats-v2')).state.pendingQueue, undefined);
+  usePlayStatsStore.getState().setSubject('account-a');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, [eventA, eventB]);
+});
+
+test('usePlayStatsStore: legacy events without an owner remain quarantined across login', async () => {
+  resetStats();
+  const orphan = { event_id: 'play_orphan', song_id: 'song-a', played_at: 1000 };
+  memoryStore.set('music-play-stats-v2', JSON.stringify({ version: 2, state: {
+    ownerSubject: null, pendingQueue: [orphan], pendingBySubject: { '': [orphan] },
+  } }));
+  await usePlayStatsStore.persist.rehydrate();
+  await usePlayStatsStore.persist.rehydrate();
+  assert.deepEqual(usePlayStatsStore.getState().legacyUnownedPending, [orphan]);
+  usePlayStatsStore.getState().setSubject('account-b');
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  const persisted = JSON.parse(memoryStore.get('music-play-stats-v2')).state;
+  assert.deepEqual(persisted.legacyUnownedPending, [orphan]);
+  assert.deepEqual(persisted.pendingBySubject[''], [orphan]);
+  await usePlayStatsStore.persist.rehydrate();
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+});
+
+test('usePlayStatsStore: failed per-event storage writes trigger immediate best-effort POST', async () => {
+  resetStats();
+  usePlayStatsStore.getState().setSubject('storage-error-account');
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = (key, value) => {
+    if (key.startsWith('music-play-stats-pending-v1:')) throw new Error('simulated full storage');
+    originalSetItem(key, value);
+  };
+  let submitted = 0;
+  globalThis.fetch = async (_url, init) => {
+    const { events } = JSON.parse(init.body);
+    submitted += events.length;
+    return new Response(JSON.stringify({ ok: true, data: {
+      recorded: events.length,
+      acceptedEventIds: events.map((event) => event.event_id),
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    usePlayStatsStore.getState().recordQualifiedPlay('song-a');
+    await new Promise(setImmediate);
+    assert.equal(submitted, 1);
+    assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  } finally {
+    localStorage.setItem = originalSetItem;
+  }
+});
+
+test('usePlayStatsStore: hidden page keeps pending locally and runs the due cycle on return', async () => {
+  resetStats();
+  mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
+  const requests = [];
+  globalThis.fetch = async (_url, init) => {
+    requests.push(init.method);
+    if (init.method === 'GET') {
+      return new Response(JSON.stringify({ ok: true, data: {
+        songs: [{ id: 'song-a', title: 'Song A', play_count: 1 }],
+        totalPlays: 1, totalUniqueSongs: 1,
+      } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    const { events } = JSON.parse(init.body);
+    return new Response(JSON.stringify({ ok: true, data: {
+      recorded: events.length,
+      acceptedEventIds: events.map((event) => event.event_id),
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    usePlayStatsStore.getState().setSubject('hidden-account');
+    usePlayStatsStore.getState().recordQualifiedPlay('song-a');
+    document.visibilityState = 'hidden';
+    document.dispatch('visibilitychange');
+    await new Promise(setImmediate);
+    assert.deepEqual(requests, []);
+    assert.equal(usePlayStatsStore.getState().pendingQueue.length, 1);
+    mock.timers.tick(1_200_000);
+    assert.deepEqual(requests, []);
+    document.visibilityState = 'visible';
+    document.dispatch('visibilitychange');
+    mock.timers.tick(0);
+    await new Promise(setImmediate);
+    assert.deepEqual(requests, ['POST', 'GET']);
+  } finally {
+    resetSyncBackoff();
+    mock.timers.reset();
+    document.visibilityState = 'visible';
+  }
+});
+
+test('usePlayStatsStore: explicit keepalive flush submits pending events', async () => {
+  resetStats({ ownerSubject: 'account-a', identityReady: true });
+  usePlayStatsStore.getState().recordQualifiedPlay('song-a');
+  const requests = [];
+  globalThis.fetch = async (_url, init) => {
+    requests.push(init);
+    const { events } = JSON.parse(init.body);
+    return new Response(JSON.stringify({ ok: true, data: {
+      recorded: events.length,
+      acceptedEventIds: events.map((event) => event.event_id),
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  assert.equal((await usePlayStatsStore.getState().flushQueue({ keepalive: true })).ok, true);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].keepalive, true);
   assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
 });
 
@@ -184,6 +566,42 @@ test('usePlayStatsStore: remote refresh is subject-bound and returns an honest r
     ok: false,
     reason: 'unauthenticated',
   });
+});
+
+test('usePlayStatsStore: complete cloud counts preserve a low-ranked locally known song', async () => {
+  resetStats({
+    ownerSubject: 'account-a', identityReady: true,
+    playCounts: { 'low-song': 2 },
+    songMetaMap: { 'low-song': { id: 'low-song', title: 'Low Song', artist: 'Artist' } },
+    totalPlays: 2, totalUniqueSongs: 1,
+  });
+  globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: {
+    songs: [{ id: 'top-song', title: 'Top Song', play_count: 20 }],
+    playCounts: { 'top-song': 20, 'low-song': 2 },
+    totalPlays: 22, totalUniqueSongs: 2,
+  } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  assert.equal((await usePlayStatsStore.getState().refreshRemoteStats()).ok, true);
+  const state = usePlayStatsStore.getState();
+  assert.equal(state.getPlayCount('low-song'), 2);
+  assert.equal(state.songMetaMap['low-song'].title, 'Low Song');
+  assert.equal(state.totalPlays, 22);
+});
+
+test('usePlayStatsStore: complete cloud counts drop deleted songs but overlay unsent events', async () => {
+  resetStats({
+    ownerSubject: 'account-a', identityReady: true,
+    playCounts: { 'deleted-song': 2 },
+    songMetaMap: { 'deleted-song': { id: 'deleted-song', title: 'Deleted' } },
+  });
+  globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: {
+    songs: [], playCounts: {}, totalPlays: 0, totalUniqueSongs: 0,
+  } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  assert.equal((await usePlayStatsStore.getState().refreshRemoteStats()).ok, true);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('deleted-song'), 0);
+  usePlayStatsStore.getState().recordQualifiedPlay('still-pending');
+  assert.equal((await usePlayStatsStore.getState().refreshRemoteStats()).ok, true);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('still-pending'), 1);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('deleted-song'), 0);
 });
 
 test('usePlayStatsStore: unconfirmed identity neither submits hydrated account data nor assigns new plays to the next account', async () => {

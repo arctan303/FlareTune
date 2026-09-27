@@ -95,7 +95,8 @@ export function replacementSongBody(draft, target, { audioUrl, coverUrl, hasNewC
     audio_url: audioUrl, expectedVersion: target.version };
 }
 
-
 export function fileIdentity(baseUrl, file) {
+  if (file.localRoot) return [baseUrl, 'node', file.localRoot, file.webkitRelativePath || file.name,
+    file.size, file.lastModified].join('|');
   return [baseUrl, file.webkitRelativePath || file.name, file.size, file.lastModified].join('|');
 }

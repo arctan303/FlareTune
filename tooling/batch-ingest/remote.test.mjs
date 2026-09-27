@@ -25,3 +25,16 @@ test('login rejects a response without the secure session cookie', async () => {
   { headers: { 'Set-Cookie': 'ft_session=legacy-token; Path=/; HttpOnly' } }));
   await assert.rejects(remote.login('owner', 'password'), /可用的管理员会话/);
 });
+
+test('upstream 503 remains identifiable when Worker returns a JSON error', async () => {
+  const remote = new RemoteCatalog('https://music.example', async () =>
+    Response.json({ error: 'service_unavailable' }, { status: 503 }));
+  for (const operation of [
+    () => remote.getSong('song-1'),
+    () => remote.createSong({ id: 'song-1' }),
+    () => remote.uploadWorker('audio', '0123456789abcdef', 'mp3', 'audio/mpeg', 1, new Uint8Array([1])),
+  ]) {
+    await assert.rejects(operation(), (error) => error.upstreamStatus === 503
+      && (error.message === 'service_unavailable' || error.message.includes('503')));
+  }
+});

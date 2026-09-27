@@ -467,32 +467,42 @@ const recordPlays = async (db, accountId, input, now) => {
 const topPlays = async (db, accountId, input) => {
   const parsed = Number(input);
   const limit = Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : 20;
-  const [songs, totals, albums] = await Promise.all([
+  const [songs, playRows, albums] = await Promise.all([
     db.prepare(`SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url,
       s.cover_url, s.language, p.play_count, p.last_played_at
       FROM Member_Song_Plays p JOIN Songs s ON s.id = p.song_id
       WHERE p.account_id = ? ORDER BY p.play_count DESC, p.last_played_at DESC LIMIT ?`)
       .bind(accountId, limit).all(),
-    db.prepare(`SELECT COALESCE(SUM(play_count), 0) AS total_plays,
-      COUNT(*) AS total_unique_songs FROM Member_Song_Plays WHERE account_id = ?`)
-      .bind(accountId).first(),
-    db.prepare(`SELECT TRIM(s.artist) AS artist, TRIM(s.album) AS album,
-      (SELECT t.cover_url FROM Songs t WHERE t.audio_url IS NOT NULL AND TRIM(t.audio_url) <> ''
-        AND TRIM(t.artist) = TRIM(s.artist) AND TRIM(t.album) = TRIM(s.album)
-        AND t.cover_url IS NOT NULL AND TRIM(t.cover_url) <> ''
-        ORDER BY CASE WHEN t.created_at IS NULL THEN 1 ELSE 0 END, t.created_at, t.id LIMIT 1) AS cover_url,
-      SUM(p.play_count) AS play_count, COUNT(*) AS listened_track_count,
-      MAX(p.last_played_at) AS last_played_at
+    db.prepare(`SELECT song_id, play_count FROM Member_Song_Plays WHERE account_id = ?`)
+      .bind(accountId).all(),
+    db.prepare(`WITH album_plays AS (
+      SELECT TRIM(s.artist) AS artist, TRIM(s.album) AS album,
+        SUM(p.play_count) AS play_count, COUNT(*) AS listened_track_count,
+        MAX(p.last_played_at) AS last_played_at
       FROM Member_Song_Plays p JOIN Songs s ON s.id = p.song_id
       WHERE p.account_id = ? AND s.audio_url IS NOT NULL AND TRIM(s.audio_url) <> ''
         AND s.artist IS NOT NULL AND TRIM(s.artist) <> ''
         AND s.album IS NOT NULL AND TRIM(s.album) <> ''
       GROUP BY TRIM(s.artist), TRIM(s.album)
-      ORDER BY play_count DESC, last_played_at DESC, album COLLATE NOCASE LIMIT ?`)
+      ORDER BY play_count DESC, last_played_at DESC, album COLLATE NOCASE LIMIT ?
+    ), album_covers AS (
+      SELECT TRIM(artist) AS artist, TRIM(album) AS album, cover_url,
+        ROW_NUMBER() OVER (PARTITION BY TRIM(artist), TRIM(album)
+          ORDER BY CASE WHEN created_at IS NULL THEN 1 ELSE 0 END, created_at, id) AS cover_rank
+      FROM Songs WHERE audio_url IS NOT NULL AND TRIM(audio_url) <> ''
+        AND cover_url IS NOT NULL AND TRIM(cover_url) <> ''
+    )
+    SELECT a.artist, a.album, c.cover_url, a.play_count, a.listened_track_count, a.last_played_at
+    FROM album_plays a LEFT JOIN album_covers c
+      ON c.artist = a.artist AND c.album = a.album AND c.cover_rank = 1
+    ORDER BY a.play_count DESC, a.last_played_at DESC, a.album COLLATE NOCASE`)
       .bind(accountId, limit).all(),
   ]);
-  return { songs: rows(songs), totalPlays: Number(totals?.total_plays || 0),
-    totalUniqueSongs: Number(totals?.total_unique_songs || 0),
+  const allCounts = rows(playRows);
+  const playCounts = Object.fromEntries(allCounts.map((row) => [row.song_id, Number(row.play_count || 0)]));
+  return { songs: rows(songs), playCounts,
+    totalPlays: allCounts.reduce((total, row) => total + Number(row.play_count || 0), 0),
+    totalUniqueSongs: allCounts.length,
     topAlbums: rows(albums).map((row) => ({
       id: encodeAlbumId(row.artist, row.album), title: row.album, artist: row.artist,
       coverUrl: row.cover_url || '', playCount: Number(row.play_count || 0),

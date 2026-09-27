@@ -160,6 +160,19 @@ export async function getSession({ db, token, now = Date.now() }) {
   const tokenHash = await tokenDigest(token);
   if (!tokenHash) return null;
   await requireState(db, ['ready'], now);
+  return loadSession({ db, token, tokenHash, now });
+}
+
+// Only call after this request has already resolved the same DB to `ready`.
+// Standalone auth callers retain the full readiness check in getSession().
+export async function getSessionAfterReadyCheck({ db, token, now = Date.now() }) {
+  nowOrThrow(now);
+  const tokenHash = await tokenDigest(token);
+  if (!tokenHash) return null;
+  return loadSession({ db, token, tokenHash, now });
+}
+
+async function loadSession({ db, token, tokenHash, now }) {
   try {
     const row = await db.prepare(`SELECT s.token_hash, s.mode, s.expires_at, a.account_id, a.username,
       a.display_name, a.role, c.kdf, c.kdf_version, c.kdf_params_json, c.salt, c.password_hash,

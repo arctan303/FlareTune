@@ -10,6 +10,7 @@ import { RemoteCatalog } from './remote.mjs';
 import { AUDIO_TYPES, COVER_TYPES, mediaType, validMediaSignature, WORKER_MAX_BYTES } from './core.mjs';
 import { r2Settings, verifyR2Target, uploadR2 } from './r2.mjs';
 import { ProfileStore } from './profiles.mjs';
+import { LocalFolder } from './localFolder.mjs';
 
 const root = resolve(fileURLToPath(new URL('../../output/batch-ingest/', import.meta.url)));
 const json = (res, status, value, extra = {}) => {
@@ -60,6 +61,15 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
   makeR2Settings = r2Settings, verifyR2 = verifyR2Target, uploadDirect = uploadR2,
   profileStore = new ProfileStore() } = {}) {
   const sessions = new Map();
+  const retire = async (session, token) => {
+    session.revoked = true;
+    session.localFolder.invalidate();
+    session.abort.abort();
+    await Promise.allSettled([...session.activeOps]);
+    await session.remote.logout().catch(() => {});
+    session.r2?.client.destroy();
+    sessions.delete(token);
+  };
   const appCsrf = randomBytes(24).toString('base64url');
   const server = createServer(async (request, response) => {
     const host = request.headers.host;
@@ -76,8 +86,15 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
     if (isMutation && request.headers['x-ingest-csrf'] !== localCsrf) {
       return json(response, 403, { error: '本地会话无效。' });
     }
+    if (session?.closing) return json(response, 409, { error: '实例正在切换或退出，请稍后重试。' });
+    let finishOperation;
+    const operation = session && isMutation && !['/api/login', '/api/logout'].includes(url.pathname)
+      ? new Promise((resolveOperation) => { finishOperation = resolveOperation; }) : null;
+    if (operation) session.activeOps.add(operation);
     try {
       if (url.pathname === '/api/login' && request.method === 'POST') {
+        if (session) session.closing = true;
+        try {
         const data = await readJson(request);
         const selected = data.profileId ? (await profileStore.list()).find((item) => item.id === data.profileId) : null;
         if (data.profileId && !selected) throw new Error('实例配置不存在。');
@@ -97,16 +114,17 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
           throw error;
         }
         if (session) {
-          await session.remote.logout().catch(() => {});
-          session.r2?.client.destroy();
-          sessions.delete(token);
+          await retire(session, token);
         }
         const localToken = randomBytes(32).toString('base64url');
         const localCsrf = randomBytes(24).toString('base64url');
-        sessions.set(localToken, { remote, localCsrf, r2: null, profileId: saved.profile.id });
+        sessions.set(localToken, { remote, localCsrf, r2: null, profileId: saved.profile.id,
+          localFolder: new LocalFolder(), activeOps: new Set(), abort: new AbortController(),
+          closing: false, revoked: false });
         return json(response, 200, { account, csrf: localCsrf, profile: saved.profile, warning: saved.warning }, {
           'Set-Cookie': `ft_ingest=${localToken}; HttpOnly; SameSite=Strict; Path=/`,
         });
+        } catch (error) { if (session && !session.revoked) session.closing = false; throw error; }
       }
       if (url.pathname === '/api/state' && request.method === 'GET') {
         return json(response, 200, { loggedIn: Boolean(session),
@@ -125,6 +143,77 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
       }
       if (url.pathname.startsWith('/api/')) {
         if (!session) return json(response, 401, { error: '请先登录管理员账户。' });
+        if (url.pathname === '/api/local-folder/scan' && request.method === 'POST') {
+          const { path } = await readJson(request);
+          return json(response, 200, await session.localFolder.scan(path));
+        }
+        const localAudio = /^\/api\/local-file\/([0-9a-f]{32})\/audio$/.exec(url.pathname);
+        if (localAudio && request.method === 'GET') {
+          const file = await session.localFolder.get(localAudio[1]);
+          const range = request.headers.range;
+          const parsed = range && /^bytes=(\d{0,20})-(\d{0,20})$/.exec(range);
+          if (range && !parsed) return json(response, 416, { error: '音频范围无效。' });
+          const suffix = parsed && !parsed[1] ? Number(parsed[2]) : null;
+          const start = suffix === null ? (parsed ? Number(parsed[1]) : 0)
+            : Math.max(0, file.size - suffix);
+          const end = suffix === null && parsed?.[2] ? Number(parsed[2]) : file.size - 1;
+          if ((parsed && !parsed[1] && !parsed[2]) || suffix === 0
+            || !Number.isSafeInteger(start) || !Number.isSafeInteger(end)
+            || start > end || end >= file.size) {
+            return json(response, 416, { error: '音频范围无效。' });
+          }
+          const opened = await session.localFolder.openAudio(localAudio[1], { start, end });
+          response.writeHead(range ? 206 : 200, { 'Content-Type': AUDIO_TYPES[file.extension],
+            'Content-Length': end - start + 1, 'Accept-Ranges': 'bytes',
+            ...(range ? { 'Content-Range': `bytes ${start}-${end}/${file.size}` } : {}),
+            'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
+            'Cross-Origin-Resource-Policy': 'same-origin' });
+          await pipeline(opened.body, response);
+          return;
+        }
+        const localCover = /^\/api\/local-file\/([0-9a-f]{32})\/cover$/.exec(url.pathname);
+        if (localCover && request.method === 'GET') {
+          const media = await session.localFolder.media(localCover[1], 'cover');
+          response.writeHead(200, { 'Content-Type': COVER_TYPES[media.extension],
+            'Content-Length': media.size, 'Cache-Control': 'private, no-store',
+            'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Resource-Policy': 'same-origin' });
+          response.end(media.body);
+          return;
+        }
+        const localUpload = /^\/api\/local-file\/([0-9a-f]{32})\/upload\/(audio|cover)\/([0-9a-f]{16})$/.exec(url.pathname);
+        if (localUpload && request.method === 'POST') {
+          const [, fileId, kind, mediaId] = localUpload;
+          const { mode } = await readJson(request);
+          if (!['worker', 'direct'].includes(mode)) throw new Error('上传模式无效。');
+          if (mode === 'direct' && !session.r2) throw new Error('请先验证 R2 直传配置。');
+          const media = await session.localFolder.media(fileId, kind);
+          if (session.closing || session.revoked) throw new Error('实例会话已切换，上传已取消。');
+          if (mode === 'worker' && media.size > WORKER_MAX_BYTES) throw new Error('Worker 模式单文件不超过 100 MB。');
+          const contentType = mediaType(kind, media.extension);
+          response.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8',
+            'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+          let loaded = 0;
+          const body = Readable.from((async function* () {
+            for await (const chunk of media.body instanceof Uint8Array ? Readable.from([media.body]) : media.body) {
+              if (session.abort.signal.aborted) throw new Error('实例会话已结束，上传已取消。');
+              loaded += chunk.length;
+              response.write(`${JSON.stringify({ loaded, total: media.size })}\n`);
+              yield chunk;
+            }
+          })());
+          try {
+            const uploaded = mode === 'worker'
+              ? await session.remote.uploadWorker(kind, mediaId, media.extension, contentType, media.size, body, session.abort.signal)
+              : await uploadDirect(session.r2, { kind, id: mediaId, extension: media.extension,
+                contentType, length: media.size, body });
+            if (session.revoked) throw new Error('实例会话已结束，上传结果需重新核对。');
+            response.end(`${JSON.stringify({ result: uploaded })}\n`);
+          } catch (error) {
+            body.destroy();
+            response.end(`${JSON.stringify({ error: error.message, upstreamStatus: error.upstreamStatus })}\n`);
+          }
+          return;
+        }
         const cover = /^\/api\/cover\/([^/]+)\/([0-9a-f]{16})\.(jpg|jpeg|png|webp)$/.exec(url.pathname);
         if (cover && request.method === 'GET') {
           const [, profileId, id, extension] = cover;
@@ -208,9 +297,8 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
           return json(response, 200, { ready: false });
         }
         if (url.pathname === '/api/logout' && request.method === 'POST') {
-          await session.remote.logout().catch(() => {});
-          session.r2?.client.destroy();
-          sessions.delete(token);
+          session.closing = true;
+          await retire(session, token);
           return json(response, 200, { ok: true }, {
             'Set-Cookie': 'ft_ingest=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0',
           });
@@ -238,7 +326,7 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
           if (!['worker', 'direct'].includes(mode)) throw new Error('上传模式无效。');
           const body = await checkedStream(request, extension, length);
           const uploaded = mode === 'worker'
-            ? await session.remote.uploadWorker(kind, id, extension, contentType, length, body)
+            ? await session.remote.uploadWorker(kind, id, extension, contentType, length, body, session.abort.signal)
             : await uploadDirect(session.r2, { kind, id, extension, contentType, length, body });
           return json(response, 200, uploaded);
         }
@@ -261,7 +349,10 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
       return response.end(bytes);
     } catch (error) {
       if (response.headersSent) { response.destroy(); return; }
-      return json(response, 400, { error: error?.message || '操作失败。' });
+      return json(response, 400, { error: error?.message || '操作失败。',
+        ...(Number.isInteger(error?.upstreamStatus) ? { upstreamStatus: error.upstreamStatus } : {}) });
+    } finally {
+      if (operation) { session.activeOps.delete(operation); finishOperation(); }
     }
   });
   await new Promise((resolveListen, rejectListen) => {

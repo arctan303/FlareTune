@@ -3,6 +3,9 @@ import { AUDIO_TYPES, COVER_TYPES, WORKER_MAX_BYTES, catalogDuplicateMatches, ca
 import { suggestSongLanguage } from '../../../client/src/utils/songLanguageSuggestion.js';
 import { catalogSongBody } from '../../../client/src/utils/catalogSongDraft.js';
 import { compareSongIdentity, duplicateReviewSignature } from '../../../client/src/utils/songDuplicateCheck.js';
+import { uploadLocal } from './localFiles.js';
+import { beginProgress, updateProgress } from './queueProgress.js';
+import { filterEntries } from './queueFilters.js';
 
 const $ = (id) => document.getElementById(id);
 const LANGUAGES = [['', '未设置'], ['zh', '中文'], ['ja', '日语'], ['en', '英语'], ['ko', '韩语'],
@@ -10,12 +13,11 @@ const LANGUAGES = [['', '未设置'], ['zh', '中文'], ['ja', '日语'], ['en',
   ['de', '德语'], ['sv', '瑞典语'], ['vi', '越南语'], ['it', '意大利语'], ['th', '泰语'],
   ['pt', '葡萄牙语'], ['other', '其他']];
 const state = { csrf: '', baseUrl: '', profileId: '', account: null, profiles: [], catalog: [], catalogDuplicates: new Map(), expandedDuplicateIds: new Set(), entries: [], mappings: {}, reviewIndex: -1, reviewAudioUrl: '',
-  running: false, scanning: false, scanGeneration: 0, pause: false, r2Ready: false, mode: 'worker', view: 'catalog', catalogPage: 1, editing: null, deleteImpact: null, deleteGeneration: 0 };
+  running: false, scanning: false, scanGeneration: 0, pause: false, r2Ready: false, mode: 'worker', view: 'catalog', catalogPage: 1, queuePage: 1, queueOnlyFailed: false, concurrency: 1, editing: null, deleteImpact: null, deleteGeneration: 0 };
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g,
   (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const manifestKey = 'flaretune-batch-ingest-v1';
-const mediaId = () => [...crypto.getRandomValues(new Uint8Array(8))]
-  .map((byte) => byte.toString(16).padStart(2, '0')).join('');
+const mediaId = () => [...crypto.getRandomValues(new Uint8Array(8))].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 const manifest = (() => { try { return JSON.parse(localStorage.getItem(manifestKey) || '{}'); } catch { return {}; } })();
 function loadMappings() {
   try { state.mappings = JSON.parse(localStorage.getItem(`flaretune-folder-mappings-v1:${state.profileId}`) || '{}'); }
@@ -27,15 +29,19 @@ function saveMappings() {
 const persist = (entry) => {
   manifest[entry.identity] = { id: entry.draft.id, draft: entry.draft, languageMode: entry.languageMode,
     audioId: entry.audioId, coverId: entry.coverId,
-    audioUrl: entry.audioUrl || '', coverUrl: entry.coverUrl || '', saved: entry.status === 'saved', savedSongId: entry.savedSongId || '' };
+    audioUrl: entry.audioUrl || '', coverUrl: entry.coverUrl || '', saved: entry.status === 'saved',
+    status: entry.status === 'error' ? 'error' : 'ready', message: entry.status === 'error' ? entry.message : '',
+    savedSongId: entry.savedSongId || '' };
   localStorage.setItem(manifestKey, JSON.stringify(manifest));
 };
 const notice = (text, error = false) => {
   $('notice').textContent = text;
   $('notice').classList.toggle('error', error);
   $('notice').hidden = !text;
+  $('ingest-notice').textContent = text;
+  $('ingest-notice').classList.toggle('error', error);
+  $('ingest-notice').hidden = !text || state.view !== 'ingest';
 };
-
 async function api(path, { method = 'GET', body } = {}) {
   const response = await fetch(path, {
     method, credentials: 'same-origin',
@@ -45,7 +51,11 @@ async function api(path, { method = 'GET', body } = {}) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const value = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(value.error || `请求失败（${response.status}）`);
+  if (!response.ok) {
+    const error = new Error(value.error || `请求失败（${response.status}）`);
+    error.upstreamStatus = value.upstreamStatus;
+    throw error;
+  }
   return value;
 }
 
@@ -65,6 +75,7 @@ function renderProfiles() {
   $('profiles').innerHTML = state.profiles.length ? state.profiles.map((profile) =>
     `<div class="profile" data-id="${escape(profile.id)}"><div><strong>${escape(profile.name)}</strong><p class="hint">${escape(profile.baseUrl)} · ${escape(profile.username)} · ${profile.savedPassword ? '密码已保存' : '连接时输入密码'}</p></div>
       <div class="actions"><button data-profile-action="connect">连接</button><button data-profile-action="remove">删除配置</button></div></div>`).join('') : '<p class="hint">还没有保存的实例。</p>';
+  $('sidebar-profiles').innerHTML = state.profiles.map((profile) => `<button class="sidebar-profile ${profile.id === state.profileId ? 'active' : ''}" data-profile-id="${escape(profile.id)}" ${state.running ? 'disabled' : ''} title="${escape(profile.baseUrl)}">${escape(profile.name)}<small>${escape(profile.username)}</small></button>`).join('');
 }
 async function loadProfiles() {
   state.profiles = (await api('/api/profiles')).profiles;
@@ -75,6 +86,7 @@ function setView(view) {
   $('catalog-view').hidden = view !== 'catalog';
   $('ingest-view').hidden = view !== 'ingest';
   document.querySelectorAll('.tool-nav button').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
+  $('ingest-notice').hidden = view !== 'ingest' || !$('notice').textContent;
 }
 function catalogFiltered() {
   const query = $('catalog-search').value.trim().toLocaleLowerCase();
@@ -164,7 +176,7 @@ function recomputeMatches() {
 
 function closeDuplicateReview() {
   $('duplicate-dialog').close();
-  if (state.reviewAudioUrl) URL.revokeObjectURL(state.reviewAudioUrl);
+  if (state.reviewAudioUrl.startsWith('blob:')) URL.revokeObjectURL(state.reviewAudioUrl);
   state.reviewAudioUrl = ''; state.reviewIndex = -1;
 }
 function openDuplicateReview(index) {
@@ -173,7 +185,7 @@ function openDuplicateReview(index) {
   recomputeMatches();
   if (!entry.matches.length && !entry.reviewStale) { render(); return; }
   state.reviewIndex = index;
-  state.reviewAudioUrl = URL.createObjectURL(entry.file);
+  state.reviewAudioUrl = entry.file.localId ? `/api/local-file/${entry.file.localId}/audio` : URL.createObjectURL(entry.file);
   const selected = entry.replaceTarget ? `replace:${entry.replaceTarget.id}` : entry.allowDuplicate ? 'add' : 'skip';
   $('duplicate-review').innerHTML = `<div class="review-card"><strong>本次文件：${escape(entry.draft.title)}</strong>
     <p>${escape(entry.draft.artist || '歌手未设置')} · ${escape(entry.draft.album || '专辑未设置')} · ${escape(durationLabel(entry.draft.duration))} · ${escape(LANGUAGES.find(([code]) => code === entry.draft.language)?.[1] || '未设置语言')}</p>
@@ -204,8 +216,10 @@ function summary() {
   const failed = all.filter((entry) => entry.status === 'error').length;
   $('summary').textContent = all.length
     ? `${all.length} 首音频 · 已入库 ${saved} · 疑似重复 ${dup} · 失败 ${failed}`
-    : '尚未选择文件夹。';
+    : $('folder-path').value ? '当前列表为空，可重新扫描目录。' : '尚未选择文件夹。';
   $('start').disabled = !all.length || state.running || state.scanning || (state.mode === 'direct' && !state.r2Ready);
+  $('retry-failed').disabled = !failed || state.running || state.scanning || (state.mode === 'direct' && !state.r2Ready);
+  $('clear-completed').disabled = !saved || state.running;
   $('pause').hidden = !state.running;
 }
 
@@ -220,11 +234,8 @@ function syncR2Form() {
 
 const languageOptions = (selected) => LANGUAGES.map(([code, label]) =>
   `<option value="${code}" ${code === selected ? 'selected' : ''}>${label}</option>`).join('');
-const visibleEntries = () => {
-  const query = $('search').value.trim().toLocaleLowerCase();
-  return state.entries.filter((entry) => !query ||
-    `${entry.draft.title} ${entry.draft.artist} ${entry.path}`.toLocaleLowerCase().includes(query));
-};
+const visibleEntries = () => filterEntries(state.entries, { query: $('search').value,
+  status: $('status-filter').value, language: $('language-filter').value });
 function renderSelection() {
   const selected = state.entries.filter((entry) => entry.selected && entry.status !== 'saved');
   $('selected-count').textContent = `已选 ${selected.length} 首`;
@@ -238,7 +249,14 @@ function renderSelection() {
 function render() {
   summary();
   const visible = visibleEntries();
-  $('songs').innerHTML = visible.length ? visible.map((entry) => {
+  const pageCount = Math.max(1, Math.ceil(visible.length / 30));
+  state.queuePage = Math.min(state.queuePage, pageCount);
+  const page = visible.slice((state.queuePage - 1) * 30, state.queuePage * 30);
+  $('filtered-count').textContent = `筛选结果 ${visible.length} 首`;
+  $('queue-page').textContent = `${state.queuePage} / ${pageCount}`;
+  $('queue-prev').disabled = state.queuePage <= 1;
+  $('queue-next').disabled = state.queuePage >= pageCount;
+  $('songs').innerHTML = page.length ? page.map((entry) => {
     const index = state.entries.indexOf(entry);
     const match = entry.matches[0];
     const status = entry.status === 'saved' ? '已入库' : entry.status === 'uploading' ? '上传中'
@@ -253,6 +271,7 @@ function render() {
       <div><div class="song-title">${index + 1}. ${escape(entry.draft.title)}</div>
         <div class="song-path">${escape(entry.path)} · ${Math.round(entry.file.size / 1024 / 1024 * 10) / 10} MB</div>
         <div class="song-meta">${escape(entry.draft.artist || '未知歌手')} · ${escape(entry.draft.album || '未知专辑')} · ${escape(LANGUAGES.find(([code]) => code === entry.draft.language)?.[1] || '未设置语言')}</div>
+        ${entry.status === 'uploading' ? `<div class="entry-progress"><div class="track"><div style="width:${entry.progressPercent || 0}%"></div></div><span>${entry.progressPercent || 0}%</span></div>` : ''}
         ${entry.editorOpen ? `<div class="song-fields">
           <label>歌名<input data-field="title" value="${escape(entry.draft.title)}" ${disabled ? 'disabled' : ''} /></label>
           <label>歌手<input data-field="artist" value="${escape(entry.draft.artist)}" ${disabled ? 'disabled' : ''} /></label>
@@ -266,8 +285,9 @@ function render() {
         ${!disabled ? `<button data-action="edit">${entry.editorOpen ? '收起编辑' : '编辑'}</button>` : ''}
         ${entry.status !== 'saved' && !state.running ? `<button data-action="skip">${entry.skip ? '恢复' : '跳过'}</button>` : ''}
         ${(match || entry.reviewStale) && entry.status !== 'saved' && !entry.skip && !state.running ? '<button data-action="review">核对并选择</button>' : ''}
+        ${!state.running ? '<button data-action="remove">移出列表</button>' : ''}
       </div></article>`;
-  }).join('') : `<p class="empty">${state.entries.length ? '没有匹配的歌曲。' : '请选择音乐文件夹。'}</p>`;
+  }).join('') : `<p class="empty">${state.entries.length ? '没有匹配的歌曲。' : $('folder-path').value ? '列表已清空，可重新扫描目录。' : '请选择音乐文件夹。'}</p>`;
   renderSelection();
 }
 
@@ -291,13 +311,16 @@ async function readEntry(file) {
   const old = manifest[identity] || {};
   let common = {}, duration = '';
   try {
+    if (file.localId) { common = file.common || {}; duration = file.duration || ''; }
+    else {
     const data = await parseBlob(file, { duration: true });
     common = data.common || {};
     duration = Number.isFinite(data.format?.duration) ? String(Math.round(data.format.duration)) : '';
+    }
   } catch { /* Filename remains available for manual editing. */ }
   const picture = common.picture?.find((item) => COVER_TYPES[(item.format || '').split('/')[1]]);
   const ext = picture?.format?.split('/')[1];
-  const coverFile = picture && ext ? new File([picture.data], `cover.${ext}`, { type: picture.format }) : null;
+  const coverFile = file.localId && file.cover ? { ...file.cover, localId: file.localId } : picture && ext ? new File([picture.data], `cover.${ext}`, { type: picture.format }) : null;
   const folder = folderLanguage(path, mappings);
   const suggested = suggestSongLanguage(common);
   const languageMode = old.languageMode || (old.draft ? 'manual' : folder ? 'folder' : 'suggested');
@@ -309,13 +332,14 @@ async function readEntry(file) {
   };
   if (old.draft && languageMode !== 'manual') draft.language = language;
   const entry = { file, path, identity, draft, coverFile, languageMode, suggestedLanguage: suggested.code,
-    coverPreview: coverFile ? URL.createObjectURL(coverFile) : '',
+    coverPreview: file.localId && coverFile ? `/api/local-file/${file.localId}/cover` : coverFile ? URL.createObjectURL(coverFile) : '',
     audioId: old.audioId || old.audioUrl?.match(/\/([0-9a-f]{16})\.[a-z0-9]+$/)?.[1] || mediaId(),
     coverId: old.coverId || old.coverUrl?.match(/\/([0-9a-f]{16})\.[a-z0-9]+$/)?.[1] || mediaId(),
     audioUrl: old.audioUrl || '', coverUrl: old.coverUrl || '',
-    status: old.saved && catalog.some((song) => song.id === (old.savedSongId || draft.id)) ? 'saved' : 'ready',
+    status: old.saved && catalog.some((song) => song.id === (old.savedSongId || draft.id)) ? 'saved'
+      : old.status === 'error' ? 'error' : 'ready',
     savedSongId: old.savedSongId || '', skip: false, selected: false, allowDuplicate: false, replaceTarget: null, reviewStale: false,
-    reviewKey: '', currentMatchKey: '', matches: [], message: '', editorOpen: false,
+    reviewKey: '', currentMatchKey: '', matches: [], message: old.status === 'error' ? old.message || '上次入库失败。' : '', editorOpen: false,
     languageSource: languageMode === 'manual' ? '人工指定' : folder && languageMode === 'folder' ? '文件夹' : suggested.source === 'tag' ? '标签'
       : suggested.source === 'text' ? '文字推测' : '待确认',
   };
@@ -323,6 +347,7 @@ async function readEntry(file) {
 }
 
 function upload(file, kind, id, mode, onProgress) {
+  if (file.localId) return uploadLocal(file, kind, id, mode, state.csrf, onProgress);
   return new Promise((resolve, reject) => {
     const extension = file.name.split('.').at(-1)?.toLowerCase();
     const xhr = new XMLHttpRequest();
@@ -334,7 +359,11 @@ function upload(file, kind, id, mode, onProgress) {
     xhr.onload = () => {
       let data = {};
       try { data = JSON.parse(xhr.responseText); } catch { /* handled below */ }
-      if (xhr.status < 200 || xhr.status >= 300) reject(new Error(data.error || `上传失败（${xhr.status}）`));
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const error = new Error(data.error || `上传失败（${xhr.status}）`);
+        error.upstreamStatus = data.upstreamStatus;
+        reject(error);
+      }
       else resolve(data);
     };
     xhr.onerror = () => reject(new Error('本地工具连接中断。'));
@@ -347,7 +376,11 @@ async function existingMediaUrl(file, kind, id) {
   const path = `/media/${kind}/${id}.${extension}`;
   const response = await fetch(`/api${path}`, { method: 'HEAD', credentials: 'same-origin' });
   if (response.status === 204) return '';
-  if (!response.ok) throw new Error(`核对已上传媒体失败（${response.status}）。`);
+  if (!response.ok) {
+    const error = new Error(`核对已上传媒体失败（${response.status}）。`);
+    error.upstreamStatus = response.status;
+    throw error;
+  }
   if (Number(response.headers.get('content-length')) !== file.size) {
     throw new Error('已上传媒体大小与当前文件不一致，请重新选择文件。');
   }
@@ -355,10 +388,15 @@ async function existingMediaUrl(file, kind, id) {
 }
 
 function showProgress(entry, current, total) {
+  if (!state.queueProgress) return;
+  const value = updateProgress(state.queueProgress, entry, current);
+  entry.progressPercent = value.item;
   $('progress').hidden = false;
-  $('progress-text').textContent = `${entry.draft.title} · ${entry.message}`;
-  $('progress-number').textContent = `${Math.round(current / total * 100)}%`;
-  $('progress-fill').style.width = `${Math.min(100, current / total * 100)}%`;
+  $('progress-text').textContent = `${state.entries.filter((item) => item.status === 'uploading').length} 首正在处理 · 批次传输进度`;
+  $('progress-number').textContent = `${value.batch}%`;
+  $('progress-fill').style.width = `${value.batch}%`;
+  const row = [...$('songs').querySelectorAll('.song')].find((item) => state.entries[Number(item.dataset.index)] === entry);
+  if (row) { row.querySelector('.entry-progress .track>div')?.style.setProperty('width', `${value.item}%`); const label = row.querySelector('.entry-progress span'); if (label) label.textContent = `${value.item}%`; }
 }
 
 async function runQueue() {
@@ -370,20 +408,30 @@ async function runQueue() {
     if (state.profileId !== queueProfileId || state.csrf !== queueCsrf) throw new Error('实例会话已变化，当前批次已停止。');
   };
   const mode = state.mode;
+  const concurrency = state.concurrency;
   state.pause = false;
   $('pause').disabled = false;
   $('pause').textContent = '暂停';
   $('folder').disabled = true;
+  $('scan-folder').disabled = true; $('rescan-folder').disabled = true;
+  $('concurrency').disabled = true;
   $('logout').disabled = true;
   document.querySelectorAll('input[name=mode]').forEach((radio) => { radio.disabled = true; });
   syncR2Form();
   render();
-  let completed = 0, failed = 0, skipped = 0;
+  let completed = 0, failed = 0, skipped = 0, consecutiveUnavailable = 0;
+  const queue = state.entries.filter((entry) => !state.queueOnlyFailed || entry.status === 'error');
+  state.queueProgress = null;
+  state.queueOnlyFailed = false;
+  let cursor = 0;
   try {
-    await loadCatalog(); assertQueueSession();
-    for (const entry of state.entries) {
+    await loadCatalog(); assertQueueSession(); recomputeMatches();
+    state.queueProgress = beginProgress(queue.filter((entry) => entry.status !== 'saved' && !entry.skip
+      && !entry.reviewStale && (!entry.matches.length || entry.allowDuplicate)));
+    const worker = async () => { for (;;) {
       assertQueueSession();
-      if (state.pause) break;
+      if (state.pause || cursor >= queue.length) break;
+      const entry = queue[cursor++];
       if (entry.status === 'saved' || entry.skip) { skipped += 1; continue; }
       recomputeMatches();
       if (entry.reviewStale || entry.matches.length && !entry.allowDuplicate) {
@@ -402,6 +450,7 @@ async function runQueue() {
           if (catalogSaveApplied(entry.draft, replaceTarget, { audioUrl: entry.audioUrl,
             coverUrl: entry.coverUrl, hasNewCover: Boolean(entry.coverFile), keepExistingCover: true })) {
             entry.status = 'saved'; entry.savedSongId = replaceTarget.id; entry.message = '已替换曲库歌曲。';
+            consecutiveUnavailable = 0;
             completed += 1; persist(entry); render(); continue;
           }
           if (!replaceTarget || replaceTarget.version !== match.song.version
@@ -410,18 +459,22 @@ async function runQueue() {
           const existing = await api(`/api/song/${encodeURIComponent(entry.draft.id)}`);
           assertQueueSession();
           if (existing.song) { entry.status = 'saved'; entry.savedSongId = entry.draft.id;
-            entry.message = '已在曲库中。'; completed += 1; persist(entry); render(); continue; }
+            entry.message = '已在曲库中。'; consecutiveUnavailable = 0;
+            completed += 1; persist(entry); render(); continue; }
         }
         if (mode === 'worker' && (entry.file.size > WORKER_MAX_BYTES || entry.coverFile?.size > WORKER_MAX_BYTES)) {
           throw new Error('单文件超过 100 MB，请切换 R2 直传。');
         }
         entry.status = 'uploading'; entry.message = '正在上传音频'; render();
+        entry.progressBase = 0;
         showProgress(entry, 0, entry.file.size);
         entry.audioUrl = await existingMediaUrl(entry.file, 'audio', entry.audioId);
         assertQueueSession();
         if (!entry.audioUrl) entry.audioUrl = (await upload(entry.file, 'audio', entry.audioId, mode,
           (loaded, total) => showProgress(entry, loaded, total))).url;
         assertQueueSession();
+        entry.progressBase = entry.file.size;
+        showProgress(entry, 0, entry.coverFile?.size || entry.file.size);
         persist(entry);
         if (entry.coverFile) {
           entry.message = '正在上传封面'; render();
@@ -434,16 +487,18 @@ async function runQueue() {
           persist(entry);
         }
         entry.message = '正在保存歌曲信息'; render();
+        showProgress(entry, entry.coverFile?.size || 0, entry.coverFile?.size || entry.file.size);
         assertQueueSession();
         const saved = replaceTarget
           ? await api(`/api/song/${encodeURIComponent(replaceTarget.id)}`, { method: 'PUT',
             body: replacementSongBody(entry.draft, replaceTarget, { audioUrl: entry.audioUrl,
-              coverUrl: entry.coverUrl, hasNewCover: Boolean(entry.coverFile), keepExistingCover: true }) })
+              coverUrl: entry.coverUrl, hasNewCover: Boolean(entry.coverFile) }) })
           : await api('/api/song', { method: 'POST', body: catalogSongBody({ ...entry.draft,
             audio_url: entry.audioUrl, cover_url: entry.coverUrl }, true) });
         assertQueueSession();
         entry.status = 'saved'; entry.savedSongId = replaceTarget?.id || entry.draft.id;
         entry.message = replaceTarget ? '已替换曲库歌曲。' : '已加入曲库。'; completed += 1; persist(entry);
+        consecutiveUnavailable = 0;
         const savedSong = saved.song || { ...entry.draft, id: entry.savedSongId, audio_url: entry.audioUrl,
           cover_url: entry.coverFile ? entry.coverUrl : replaceTarget?.cover_url || entry.coverUrl };
         if (replaceTarget) state.catalog = state.catalog.map((song) => song.id === replaceTarget.id ? savedSong : song);
@@ -460,32 +515,42 @@ async function runQueue() {
           : Boolean(existing?.song);
         if (recovered) { entry.status = 'saved'; entry.savedSongId = recoveryId;
           entry.message = entry.replaceTarget ? '已替换曲库歌曲。' : '已在曲库中。'; completed += 1;
+          consecutiveUnavailable = 0;
           if (entry.replaceTarget) state.catalog = state.catalog.map((song) => song.id === recoveryId ? existing.song : song);
           state.catalogDuplicates = catalogDuplicateMatches(state.catalog); renderCatalog(); }
         else { entry.status = 'error'; entry.message = error.message; failed += 1;
+          consecutiveUnavailable = error.upstreamStatus === 503 ? consecutiveUnavailable + 1 : 0;
           if (error.message.includes('替换目标已变化') || error.message.includes('修改')) {
             entry.allowDuplicate = false; entry.replaceTarget = null; entry.reviewStale = true;
           } }
         persist(entry);
       }
       recomputeMatches(); render();
-    }
-    notice(`本次已入库 ${completed} 首，跳过 ${skipped} 首，失败 ${failed} 首。`);
+      if (consecutiveUnavailable >= 2) {
+        state.pause = true;
+        break;
+      }
+    } };
+    await Promise.all(Array.from({ length: concurrency }, () => worker()));
+    notice(`本次已入库 ${completed} 首，跳过 ${skipped} 首，失败 ${failed} 首。${consecutiveUnavailable >= 2
+      ? '实例连续返回 503，已自动暂停；服务恢复后可继续处理未入库歌曲。' : ''}`,
+    consecutiveUnavailable >= 2);
   } catch (error) { notice(error.message, true); }
   finally {
-    state.running = false; $('folder').disabled = false; $('logout').disabled = false; $('progress').hidden = true;
+    state.running = false; state.queueProgress = null; $('folder').disabled = false; $('scan-folder').disabled = false; $('rescan-folder').disabled = false; $('concurrency').disabled = false; $('logout').disabled = false; $('progress').hidden = true;
     document.querySelectorAll('input[name=mode]').forEach((radio) => { radio.disabled = false; });
     syncR2Form();
+    render();
   }
 }
 
 function clearWorkspace() {
   if ($('duplicate-dialog').open) closeDuplicateReview();
   state.scanGeneration += 1; state.scanning = false; $('folder').disabled = false;
-  state.entries.forEach((entry) => { if (entry.coverPreview) URL.revokeObjectURL(entry.coverPreview); });
-  state.entries = []; state.catalog = []; state.catalogDuplicates = new Map(); state.expandedDuplicateIds.clear(); state.mappings = {}; state.r2Ready = false;
+  state.entries.forEach((entry) => { if (entry.coverPreview?.startsWith('blob:')) URL.revokeObjectURL(entry.coverPreview); });
+  state.entries = []; state.catalog = []; state.catalogDuplicates = new Map(); state.expandedDuplicateIds.clear(); state.mappings = {}; state.r2Ready = false; state.queuePage = 1;
   $('r2-state').textContent = ''; $('songs').innerHTML = '<p class="empty">请选择音乐文件夹。</p>';
-  $('mappings').innerHTML = ''; $('catalog-search').value = ''; $('catalog-only-duplicates').checked = false; $('search').value = '';
+  $('mappings').innerHTML = ''; $('catalog-search').value = ''; $('catalog-only-duplicates').checked = false; $('search').value = ''; $('status-filter').value = 'all'; $('language-filter').value = 'all';
   renderCatalog(); render();
 }
 async function connectProfile(data) {
@@ -494,13 +559,17 @@ async function connectProfile(data) {
   clearWorkspace();
   state.csrf = result.csrf; state.account = result.account; state.baseUrl = result.profile.baseUrl;
   state.profileId = result.profile.id;
+  localStorage.setItem('flaretune-last-profile', state.profileId);
+  localStorage.removeItem('flaretune-auto-disabled');
+  $('folder-path').value = localStorage.getItem(`flaretune-last-folder:${state.profileId}`) || '';
   loadMappings();
   $('current-instance').textContent = `${result.profile.name} · ${result.profile.baseUrl} · ${result.account.username}`;
   $('login-form').elements.password.value = '';
   $('login-panel').hidden = true; $('workspace').hidden = false; $('logout').hidden = false;
   setView('catalog'); syncR2Form();
-  await loadProfiles(); await loadCatalog();
-  notice(result.warning || `已连接 ${result.profile.name}。`, Boolean(result.warning));
+  await loadProfiles();
+  try { await loadCatalog(); notice(result.warning || `已连接 ${result.profile.name}。`, Boolean(result.warning)); }
+  catch (error) { notice(`已连接 ${result.profile.name}，但曲库读取失败：${error.message}`, true); }
 }
 
 $('login-form').addEventListener('submit', async (event) => {
@@ -528,6 +597,14 @@ $('profiles').addEventListener('click', async (event) => {
     catch (error) { notice(error.message, true); }
     return;
   }
+  if (profile.savedPassword) {
+    try { await connectProfile({ profileId: id }); return; }
+    catch (error) { notice(`自动连接失败：${error.message}。请重新输入密码。`, true); }
+  }
+  showProfileDialog(profile);
+});
+function showProfileDialog(profile) {
+  const id = profile.id;
   $('profile-connect-form').dataset.profileId = id;
   $('profile-connect-form').reset();
   $('profile-connect-form').elements.rememberPassword.checked = profile.savedPassword;
@@ -538,6 +615,17 @@ $('profiles').addEventListener('click', async (event) => {
     : '此实例没有保存密码，请输入管理员密码。';
   $('profile-connect-error').hidden = true;
   $('profile-dialog').showModal();
+}
+$('sidebar-profiles').addEventListener('click', async (event) => {
+  const profile = state.profiles.find((item) => item.id === event.target.closest('[data-profile-id]')?.dataset.profileId);
+  if (!profile || profile.id === state.profileId) return;
+  if (state.running) { notice('请先暂停并等待当前上传完成。', true); return; }
+  notice(`正在切换到 ${profile.name}；如有其他窗口正在上传，会等待其结束。`);
+  if (profile.savedPassword) {
+    try { await connectProfile({ profileId: profile.id }); return; }
+    catch (error) { notice(`自动连接失败：${error.message}。请重新输入密码。`, true); }
+  }
+  showProfileDialog(profile);
 });
 $('profile-connect-cancel').addEventListener('click', () => $('profile-dialog').close());
 $('profile-connect-form').addEventListener('submit', async (event) => {
@@ -564,13 +652,48 @@ $('switch-instance').addEventListener('click', async () => {
 
 $('logout').addEventListener('click', async () => {
   if (state.running) { notice('请先等待当前歌曲上传完成并暂停入库。', true); return; }
+  notice('正在退出；如有其他窗口正在上传，会等待其结束。');
   try { await api('/api/logout', { method: 'POST' }); }
   catch (error) { notice(`退出失败：${error.message}`, true); return; }
   clearWorkspace(); state.csrf = (await api('/api/state')).csrf; state.account = null; state.profileId = '';
+  localStorage.setItem('flaretune-auto-disabled', '1');
   $('workspace').hidden = true; $('login-panel').hidden = false; $('logout').hidden = true;
   await loadProfiles();
   notice('已退出本地工具。');
 });
+$('sidebar-logout').addEventListener('click', () => $('logout').click());
+
+async function scanLocalFolder() {
+  if (state.running || state.scanning) return;
+  const path = $('folder-path').value.trim();
+  if (!path) { notice('请先输入本机音乐目录。', true); return; }
+  const generation = ++state.scanGeneration;
+  state.scanning = true; $('scan-folder').disabled = true; $('rescan-folder').disabled = true;
+  state.entries.forEach((entry) => { if (entry.coverPreview?.startsWith('blob:')) URL.revokeObjectURL(entry.coverPreview); });
+  state.entries = []; state.queuePage = 1; renderMappings(); render();
+  notice('Node 正在扫描本机目录与音频标签…');
+  try {
+    const result = await api('/api/local-folder/scan', { method: 'POST', body: { path } });
+    if (generation !== state.scanGeneration) return;
+    if (!await loadCatalog() || generation !== state.scanGeneration) return;
+    const entries = [];
+    for (const descriptor of result.files) {
+      const file = { ...descriptor, localId: descriptor.id, localRoot: result.path,
+        webkitRelativePath: descriptor.path };
+      entries.push(await readEntry(file));
+    }
+    state.entries = entries; state.queuePage = 1;
+    for (const entry of entries) persist(entry);
+    $('folder-path').value = result.path;
+    localStorage.setItem(`flaretune-last-folder:${state.profileId}`, result.path);
+    recomputeMatches(); renderMappings(); render();
+    notice(`已扫描 ${entries.length} 首音频。请核对语言与重复歌曲。`);
+  } catch (error) { if (generation === state.scanGeneration) notice(error.message, true); }
+  finally { if (generation === state.scanGeneration) { state.scanning = false; $('scan-folder').disabled = false; $('rescan-folder').disabled = false; render(); } }
+}
+$('scan-folder').addEventListener('click', () => void scanLocalFolder());
+$('rescan-folder').addEventListener('click', () => void scanLocalFolder());
+$('folder-path').addEventListener('keydown', (event) => { if (event.key === 'Enter') void scanLocalFolder(); });
 
 $('folder').addEventListener('change', async (event) => {
   const files = [...event.target.files].filter((file) => AUDIO_TYPES[file.name.split('.').at(-1)?.toLowerCase()] && file.size);
@@ -585,7 +708,7 @@ $('folder').addEventListener('change', async (event) => {
     for (const file of files) {
       const entry = await readEntry(file);
       if (generation !== state.scanGeneration) {
-        if (entry.coverPreview) URL.revokeObjectURL(entry.coverPreview);
+    if (entry.coverPreview?.startsWith('blob:')) URL.revokeObjectURL(entry.coverPreview);
         return;
       }
       state.entries.push(entry); persist(entry);
@@ -633,6 +756,14 @@ $('songs').addEventListener('click', (event) => {
   const row = event.target.closest('.song');
   if (!action || !row) return;
   const entry = state.entries[Number(row.dataset.index)];
+  if (action === 'remove') {
+    if (entry.coverPreview?.startsWith('blob:')) URL.revokeObjectURL(entry.coverPreview);
+    state.entries.splice(Number(row.dataset.index), 1);
+    state.queuePage = Math.max(1, state.queuePage);
+    recomputeMatches(); renderMappings(); render();
+    notice(`已从待处理列表移出《${entry.draft.title}》。`);
+    return;
+  }
   if (action === 'edit') entry.editorOpen = !entry.editorOpen;
   if (action === 'skip') entry.skip = !entry.skip;
   if (action === 'review') { openDuplicateReview(Number(row.dataset.index)); return; }
@@ -655,7 +786,12 @@ $('duplicate-confirm').addEventListener('click', () => {
     : choice === 'add' ? '将新增另一版本。' : '疑似重复，默认跳过。';
   closeDuplicateReview(); render();
 });
-$('search').addEventListener('input', render);
+$('search').addEventListener('input', () => { state.queuePage = 1; render(); });
+$('status-filter').addEventListener('change', () => { state.queuePage = 1; render(); });
+$('language-filter').innerHTML += LANGUAGES.filter(([code]) => code).map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+$('language-filter').addEventListener('change', () => { state.queuePage = 1; render(); });
+$('queue-prev').addEventListener('click', () => { state.queuePage -= 1; render(); });
+$('queue-next').addEventListener('click', () => { state.queuePage += 1; render(); });
 $('select-visible').addEventListener('change', (event) => {
   visibleEntries().forEach((entry) => { if (entry.status !== 'saved') entry.selected = event.target.checked; });
   render();
@@ -678,7 +814,25 @@ $('restore-language').addEventListener('click', () => {
   render();
 });
 $('start').addEventListener('click', () => void runQueue());
+$('retry-failed').addEventListener('click', () => { state.queueOnlyFailed = true; void runQueue(); });
+$('clear-completed').addEventListener('click', () => {
+  if (state.running) return;
+  const before = state.entries.length;
+  state.entries = state.entries.filter((entry) => {
+    if (entry.status !== 'saved') return true;
+    if (entry.coverPreview?.startsWith('blob:')) URL.revokeObjectURL(entry.coverPreview);
+    return false;
+  });
+  recomputeMatches(); renderMappings(); render();
+  notice(`已清理 ${before - state.entries.length} 首已完成歌曲的列表项。`);
+});
 $('pause').addEventListener('click', () => { state.pause = true; $('pause').disabled = true; $('pause').textContent = '当前歌曲完成后暂停'; });
+$('concurrency').value = localStorage.getItem('flaretune-concurrency') || '1';
+state.concurrency = Number($('concurrency').value) || 1;
+$('concurrency').addEventListener('change', () => {
+  state.concurrency = Number($('concurrency').value);
+  localStorage.setItem('flaretune-concurrency', String(state.concurrency));
+});
 document.querySelectorAll('input[name=mode]').forEach((radio) => radio.addEventListener('change', (event) => {
   state.mode = event.target.value; $('r2-form').hidden = state.mode !== 'direct'; render();
 }));
@@ -820,12 +974,22 @@ $('delete-confirm').addEventListener('click', async () => {
 api('/api/state').then(async (result) => {
   state.csrf = result.csrf;
   await loadProfiles();
-  if (!result.loggedIn) return;
+  if (!result.loggedIn) {
+    const id = localStorage.getItem('flaretune-last-profile');
+    const profile = state.profiles.find((item) => item.id === id && item.savedPassword)
+      || [...state.profiles].reverse().find((item) => item.savedPassword);
+    if (profile && !localStorage.getItem('flaretune-auto-disabled')) {
+      try { await connectProfile({ profileId: profile.id }); }
+      catch (error) { notice(`无法自动连接 ${profile.name}：${error.message}。请重新输入密码。`, true); }
+    }
+    return;
+  }
   state.account = result.account; state.baseUrl = result.baseUrl; state.profileId = result.profileId;
   loadMappings();
   if (result.r2Ready) await api('/api/r2/clear', { method: 'POST' });
   state.r2Ready = false;
   const profile = state.profiles.find((item) => item.id === result.profileId);
+  $('folder-path').value = localStorage.getItem(`flaretune-last-folder:${state.profileId}`) || '';
   $('current-instance').textContent = `${profile?.name || '当前实例'} · ${result.baseUrl} · ${result.account.username}`;
   $('login-panel').hidden = true; $('workspace').hidden = false; $('logout').hidden = false;
   $('r2-state').textContent = '';
