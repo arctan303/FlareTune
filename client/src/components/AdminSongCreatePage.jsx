@@ -6,6 +6,7 @@ import { saveSingleSong } from '../utils/singleSongIngest.js';
 import { catalogSaveApplied } from '../utils/catalogSaveVerification.js';
 import { compareSongIdentity, duplicateReviewSignature, findCatalogDuplicates, findQueueDuplicates } from '../utils/songDuplicateCheck.js';
 import { suggestSongLanguage } from '../utils/songLanguageSuggestion.js';
+import { resolveDeviceLanguage } from '../utils/deviceFolderLanguage.js';
 import { createCatalogSong, getCatalogSong, listCatalogSongs, updateCatalogSong, uploadCatalogMedia } from '../services/catalogAdminApi.js';
 import { hydrateSong } from '../utils.js';
 import { rejectDuplicateDecisionAfterCheckFailure } from '../utils/duplicateIngestDecision.js';
@@ -59,11 +60,14 @@ export default function AdminSongCreatePage() {
   const [reviewingId, setReviewingId] = React.useState(null);
   const [reviewChoice, setReviewChoice] = React.useState('skip');
   const [saving, setSaving] = React.useState(false);
+  const [batchSaving, setBatchSaving] = React.useState(false);
+  const [pauseRequested, setPauseRequested] = React.useState(false);
+  const [pausedKeys, setPausedKeys] = React.useState([]);
   const [dragging, setDragging] = React.useState(false);
   const [message, setMessage] = React.useState('');
   const [editorError, setEditorError] = React.useState('');
   const [activeUploadId, setActiveUploadId] = React.useState(null);
-  const [previewScrollToken, setPreviewScrollToken] = React.useState(0);
+  const [view, setView] = React.useState('source');
   const [source, setSource] = React.useState('browser');
   const [loadingCoverId, setLoadingCoverId] = React.useState(null);
   const [previewQuery, setPreviewQuery] = React.useState('');
@@ -72,8 +76,8 @@ export default function AdminSongCreatePage() {
   const [previewPage, setPreviewPage] = React.useState(1);
   const entriesRef = React.useRef([]);
   const savingRef = React.useRef(false);
+  const pauseRequestedRef = React.useRef(false);
   const fileInput = React.useRef(null);
-  const previewRef = React.useRef(null);
   const titleInput = React.useRef(null);
   const returnFocus = React.useRef(null);
   const editing = entries.find((entry) => entry.key === editingId);
@@ -87,6 +91,8 @@ export default function AdminSongCreatePage() {
   const eligibleCount = entries.filter((entry) => entry.selected !== false && entry.status !== 'saved'
     && !['reading', 'checking'].includes(entry.status)
     && !entry.reviewStale && (!entry.duplicateMatches?.length || entry.allowDuplicate)).length;
+  const pausedRemainingCount = entries.filter((entry) => pausedKeys.includes(entry.key)
+    && entry.selected !== false && entry.status !== 'saved').length;
   const previewRows = entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => {
     const query = previewQuery.trim().toLocaleLowerCase();
     if (query && ![entry.draft.title, entry.draft.artist, entry.draft.album, entry.agent?.path]
@@ -112,13 +118,9 @@ export default function AdminSongCreatePage() {
   const updateEntry = (key, update) => commitEntries((current) => current.map((entry) =>
     entry.key === key ? update(entry) : entry));
 
-  React.useEffect(() => {
-    if (!previewScrollToken) return undefined;
-    const frame = requestAnimationFrame(() => previewRef.current?.scrollIntoView({
-      behavior: 'smooth', block: 'start',
-    }));
-    return () => cancelAnimationFrame(frame);
-  }, [previewScrollToken]);
+  const showView = (nextView) => {
+    setView(nextView);
+  };
 
   React.useEffect(() => {
     if (!editingId) return undefined;
@@ -279,7 +281,9 @@ export default function AdminSongCreatePage() {
     }
     if (accepted.length) {
       commitEntries((current) => [...current, ...accepted]);
-      if (priorCount > 0 || accepted.length > 1) setPreviewScrollToken((value) => value + 1);
+      setPausedKeys((current) => current.length
+        ? [...current, ...accepted.map((entry) => entry.key)] : current);
+      showView('queue');
       void (async () => {
         for (const entry of accepted) await readEntry(entry);
         if (priorCount === 0 && accepted.length === 1 && entriesRef.current.length === 1) {
@@ -292,7 +296,7 @@ export default function AdminSongCreatePage() {
       : '已加入 ' + accepted.length + ' 首音频。请核对预览，必要时点击“编辑”。');
   };
 
-  const addDeviceFiles = (files, device) => {
+  const addDeviceFiles = (files, device, folderMappings = {}) => {
     if (savingRef.current) return;
     const known = new Set(entriesRef.current.map((entry) => entry.fileKey));
     const added = [];
@@ -301,14 +305,7 @@ export default function AdminSongCreatePage() {
       const identity = `device:${device.id}:${file.id}`;
       if (known.has(identity)) continue;
       const common = file.common || {};
-      const textGuess = suggestSongLanguage(common);
-      const segments = file.path?.replaceAll('\\', '/').split('/') || [];
-      const folderCodes = { zh: 'zh', en: 'en', ja: 'ja', jp: 'ja', jn: 'ja', ko: 'ko', yue: 'yue',
-        instrumental: 'instrumental', '纯音乐': 'instrumental' };
-      const folder = [segments[1], segments[0]].find((part) => folderCodes[part?.toLowerCase()])?.toLowerCase();
-      const folderCode = folderCodes[folder] || '';
-      const languageGuess = folderCode
-        ? { code: folderCode, source: 'folder' } : textGuess;
+      const languageGuess = resolveDeviceLanguage(file, folderMappings);
       const audioFile = { name: file.name, size: file.size, lastModified: file.lastModified };
       const coverFile = file.cover ? { ...file.cover, agent: true } : null;
       added.push({
@@ -327,10 +324,12 @@ export default function AdminSongCreatePage() {
       });
       known.add(identity);
     }
-    if (!added.length) { setMessage('所选歌曲已在预览清单中，或清单已满。'); return; }
+    if (!added.length) { setMessage('所选歌曲已在入库清单中，或清单已满。'); return; }
     commitEntries((current) => [...current, ...added]);
-    setPreviewScrollToken((value) => value + 1);
-    setMessage(`已从“${device.name}”加入 ${added.length} 首，请在下方核对并勾选要入库的歌曲。`);
+    setPausedKeys((current) => current.length
+      ? [...current, ...added.map((entry) => entry.key)] : current);
+    showView('queue');
+    setMessage(`已从“${device.name}”加入 ${added.length} 首，请核对并勾选要入库的歌曲。`);
     void (async () => { for (const entry of added) await checkEntry(entry.key); })();
   };
 
@@ -357,6 +356,8 @@ export default function AdminSongCreatePage() {
     if (savingRef.current) return;
     const removedIndex = entriesRef.current.findIndex((entry) => entry.key === key);
     commitEntries((current) => current.filter((entry) => entry.key !== key));
+    setPausedKeys((current) => current.filter((item) => item !== key));
+    if (entriesRef.current.length === 0) setView('source');
     if (editingId === key) setEditingId(null);
     refreshLaterQueueMatches(removedIndex);
   };
@@ -417,23 +418,36 @@ export default function AdminSongCreatePage() {
     setReviewingId(null);
   };
 
-  const saveItems = async (onlyId = null) => {
+  const saveItems = async (onlyId = null, resumePaused = false) => {
     if (savingRef.current) return;
+    const resumeKeys = resumePaused ? new Set(pausedKeys) : null;
     const targets = entriesRef.current.filter((entry) =>
       entry.status !== 'saved' && (!onlyId || entry.key === onlyId)
-      && (onlyId || entry.selected !== false));
+      && (onlyId || entry.selected !== false)
+      && (!resumeKeys || resumeKeys.has(entry.key)));
     if (!targets.length) return;
     if (targets.some((entry) => ['reading', 'checking'].includes(entry.status))) {
       setMessage('请等待音频信息读取与查重完成。');
       return;
     }
     savingRef.current = true;
+    pauseRequestedRef.current = false;
     setSaving(true);
+    setMessage('');
+    setBatchSaving(!onlyId);
+    setPauseRequested(false);
+    setPausedKeys((current) => onlyId ? current.filter((key) => key !== onlyId) : []);
     let completed = 0;
     let failed = 0;
     let skipped = 0;
+    let pausedAt = targets.length;
     try {
-      for (const target of targets) {
+      for (let index = 0; index < targets.length; index += 1) {
+        if (!onlyId && pauseRequestedRef.current) {
+          pausedAt = index;
+          break;
+        }
+        const target = targets[index];
         const current = entriesRef.current.find((entry) => entry.key === target.key);
         if (!current) continue;
         setActiveUploadId(current.key);
@@ -529,14 +543,26 @@ export default function AdminSongCreatePage() {
           failed += 1;
         }
       }
+      const remainingTargets = targets.slice(pausedAt);
+      if (remainingTargets.length) setPausedKeys(remainingTargets.map((entry) => entry.key));
       setMessage('本次已入库 ' + completed + ' 首'
         + (skipped ? '，跳过疑似重复 ' + skipped + ' 首' : '')
-        + (failed ? '，失败 ' + failed + ' 首，可重试' : '') + '。');
+        + (failed ? '，失败 ' + failed + ' 首，可单独重试' : '')
+        + (remainingTargets.length ? '；已暂停，剩余 ' + remainingTargets.length + ' 首未处理' : '') + '。');
     } finally {
       savingRef.current = false;
+      pauseRequestedRef.current = false;
       setSaving(false);
+      setBatchSaving(false);
+      setPauseRequested(false);
       setActiveUploadId(null);
     }
+  };
+
+  const pauseBatch = () => {
+    if (!savingRef.current || !batchSaving || pauseRequestedRef.current) return;
+    pauseRequestedRef.current = true;
+    setPauseRequested(true);
   };
 
   const activeProgress = activeUpload?.progress;
@@ -547,13 +573,29 @@ export default function AdminSongCreatePage() {
     <div className="mx-auto max-w-6xl space-y-5 pb-24 text-[var(--ink)]">
       <div>
         <h1 className="text-3xl font-black tracking-tight sm:text-4xl">歌曲入库</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">从当前浏览器或已连接设备挑选歌曲，使用同一预览清单核对后入库。</p>
+        <p className="mt-2 text-sm text-[var(--muted)]">先选歌，再在同一清单中核对与入库。</p>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2" aria-label="歌曲入库步骤">
+        <button type="button" aria-pressed={view === 'source'} disabled={saving}
+          onClick={() => showView('source')}
+          className={'rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 ' +
+            (view === 'source' ? 'primary-button' : 'border border-[var(--line)] bg-[var(--surface-raised)]')}>
+          选歌
+        </button>
+        <button type="button" aria-pressed={view === 'queue'} disabled={!entries.length}
+          onClick={() => showView('queue')}
+          className={'rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 ' +
+            (view === 'queue' ? 'primary-button' : 'border border-[var(--line)] bg-[var(--surface-raised)]')}>
+          入库清单（{entries.length}）
+        </button>
+        {entries.length > 0 && <span className="ml-auto text-xs text-[var(--muted)]">已入库 {savedCount} / {entries.length}</span>}
+      </div>
+
+      <div hidden={view !== 'source'}>
       <div className="rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-bold">选择歌曲来源</h2>
-          {entries.length > 0 && <span className="text-xs text-[var(--muted)]">已入库 {savedCount} / {entries.length}</span>}
         </div>
         <div className="mt-4 flex gap-2" role="tablist" aria-label="歌曲来源">
           <button type="button" role="tab" aria-selected={source === 'browser'}
@@ -591,23 +633,53 @@ export default function AdminSongCreatePage() {
             onChange={(event) => { addFiles(event.target.files); event.target.value = ''; }} />
         </div>}
       </div>
+      {message && <p role="status" className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 text-sm">{message}</p>}
+      </div>
 
-      {message && <p role="status" className="rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 text-sm">{message}</p>}
-
-      {entries.length > 0 && <section ref={previewRef}
-        className="scroll-mt-5 rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 shadow-xs sm:p-6">
+      {entries.length > 0 && <section hidden={view !== 'queue'}
+        className="rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 shadow-xs sm:p-6">
+        <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold">入库预览</h2>
+            <h2 className="text-lg font-bold">入库清单</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">
               语言建议和疑似重复均可核对。{duplicateCount ? duplicateCount + ' 首疑似重复默认跳过。' : ''}
             </p>
           </div>
-          <button type="button" disabled={saving || hasChecking || eligibleCount === 0}
-            onClick={() => void saveItems()}
-            className="primary-button rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
-            {saving ? '正在依次入库…' : '入库已勾选歌曲（' + eligibleCount + '）'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {saving ? batchSaving ? <button type="button" disabled={pauseRequested} onClick={pauseBatch}
+              className="rounded-xl border border-[var(--line)] px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
+              {pauseRequested ? '当前歌曲完成后暂停…' : '暂停入库'}
+            </button> : <span className="text-sm text-[var(--muted)]">正在入库…</span>
+              : <button type="button" disabled={hasChecking || (pausedRemainingCount || eligibleCount) === 0}
+              onClick={() => void saveItems(null, pausedRemainingCount > 0)}
+              className="primary-button rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
+              {pausedRemainingCount ? '继续入库（' + pausedRemainingCount + '）'
+                : '入库已勾选歌曲（' + eligibleCount + '）'}
+            </button>}
+          </div>
+        </div>
+
+        {message && <p role="status" className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm">{message}</p>}
+        {pausedRemainingCount > 0 && !saving && <p className="mt-2 text-xs text-[var(--muted)]">
+          已暂停。继续只处理剩余 {pausedRemainingCount} 首；之前失败的歌曲可单独重试。
+        </p>}
+
+        {activeUpload && <div className="mt-3 rounded-xl bg-[var(--surface)] px-4 py-3">
+          <p className="text-sm font-medium">正在处理：{activeUpload.draft.title}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{activeUpload.message}</p>
+          {activeProgress && <div className="mt-2">
+            <div className="mb-1 flex justify-between text-xs text-[var(--muted)]">
+              <span>{activeProgress.kind === 'cover' ? '封面上传' : '音频上传'}</span>
+              <span>{activePercent}%</span>
+            </div>
+            <div role="progressbar" aria-label="当前媒体上传进度" aria-valuemin="0" aria-valuemax="100"
+              aria-valuenow={activePercent} className="h-2 overflow-hidden rounded-full bg-[var(--line)]">
+              <div className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
+                style={{ width: activePercent + '%' }} />
+            </div>
+          </div>}
+        </div>}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
@@ -642,22 +714,6 @@ export default function AdminSongCreatePage() {
               ? entry : { ...entry, selected: false }));
           }}>取消筛选勾选</button>
         </div>
-
-        {activeUpload && <div className="mt-4 rounded-xl bg-[var(--surface)] px-4 py-3">
-          <p className="text-sm font-medium">正在处理：{activeUpload.draft.title}</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">{activeUpload.message}</p>
-          {activeProgress && <div className="mt-2">
-            <div className="mb-1 flex justify-between text-xs text-[var(--muted)]">
-              <span>{activeProgress.kind === 'cover' ? '封面上传' : '音频上传'}</span>
-              <span>{activePercent}%</span>
-            </div>
-            <div role="progressbar" aria-label="当前媒体上传进度" aria-valuemin="0" aria-valuemax="100"
-              aria-valuenow={activePercent} className="h-2 overflow-hidden rounded-full bg-[var(--line)]">
-              <div className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
-                style={{ width: activePercent + '%' }} />
-            </div>
-          </div>}
-        </div>}
 
         <div className="mt-4 space-y-2">
           {shownPreviewRows.map(({ entry, index }) => {

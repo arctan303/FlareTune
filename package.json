@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config client/vite.config.js",
+    "dev:cloud": "node tooling/dev/start-cloud-client.mjs",
     "dev:worker": "wrangler dev --config server/wrangler.local.toml --port 8789 --ip 127.0.0.1 --persist-to worker/.wrangler/state",
     "ingest:build": "vite build --config tooling/batch-ingest/vite.config.js",
     "ingest": "node tooling/ingest-agent/cli.mjs start",

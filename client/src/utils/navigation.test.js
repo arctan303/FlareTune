@@ -20,12 +20,13 @@ test('parsePathname resolves standard primary pages', () => {
 });
 
 test('settings sections have direct URLs and round-trip through browser history', () => {
-  const sections = ['personal', 'appearance', 'admin-instance', 'admin-assistant', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
+  const sections = ['personal', 'appearance', 'admin-assistant', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
   for (const section of sections) {
     const route = { type: 'page', page: 'settings', section };
     assert.deepEqual(parsePathname(formatPath(route)), route);
   }
-  assert.deepEqual(parsePathname('/settings/admin'), { type: 'page', page: 'settings', section: 'admin-instance' });
+  assert.deepEqual(parsePathname('/settings/admin'), { type: 'page', page: 'settings', section: 'admin-system' });
+  assert.deepEqual(parsePathname('/settings/admin/instance'), { type: 'page', page: 'settings', section: 'admin-system' });
   assert.deepEqual(parsePathname('/settings/unknown'), { type: 'page', page: 'settings', section: 'appearance' });
   assert.equal(formatPath({ type: 'page', page: 'settings' }), '/settings/appearance');
 });

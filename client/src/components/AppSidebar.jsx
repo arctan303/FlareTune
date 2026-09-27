@@ -16,7 +16,6 @@ import {
   Settings,
   FileText,
   Shuffle,
-  SlidersHorizontal,
   Trash2,
   UserRound,
   Users,
@@ -45,12 +44,11 @@ const PERSONAL_SETTINGS = [
 ];
 
 const ADMIN_SETTINGS = [
-  { id: 'admin-instance', label: '实例与访问', icon: SlidersHorizontal },
-  { id: 'admin-assistant', label: 'AI 与助手', icon: Bot },
   { id: 'admin-catalog', label: '曲库管理', icon: Disc },
   { id: 'admin-add-song', label: '歌曲入库', icon: Plus },
+  { id: 'admin-assistant', label: 'AI 与助手', icon: Bot },
   { id: 'admin-accounts', label: '账号管理', icon: Users },
-  { id: 'admin-system', label: '系统状态', icon: Activity },
+  { id: 'admin-system', label: '系统管理', icon: Activity },
 ];
 const LYRICS_SECTIONS = [
   { id: 'current', label: '当前歌词', icon: Languages },

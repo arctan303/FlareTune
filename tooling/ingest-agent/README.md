@@ -21,4 +21,4 @@ npm run ingest
 
 配置文件位于 Windows `%APPDATA%\FlareTune\ingest-agent.json`、macOS `~/Library/Application Support/FlareTune/ingest-agent.json` 或 Linux `${XDG_CONFIG_HOME:-~/.config}/flaretune/ingest-agent.json`。再次运行 `npm run ingest:configure` 会更新同一设备的配置。
 
-第一版通过已有管理员媒体接口传输，单文件上限为 100 MB；上传任务按顺序执行，网络中断后重试沿用原媒体 ID。该版本尚未部署到生产实例。
+第一版通过已有管理员媒体接口传输，单文件上限为 100 MB；上传任务按顺序执行，网络中断后重试沿用原媒体 ID。运行中的任务轮询若短暂出现 `fetch failed`，程序每 10 秒重试而不重新登录、扫描整个目录；恢复时记录一次恢复。心跳短暂失败也不会触发全量扫描。错误日志会尽量附上 `ECONNRESET`、连接超时等底层错误码；若仍反复失败，请核对设备到实例的网络或代理，并保留错误码。更新程序后停止旧进程并重新运行 `npm run ingest`，无需重新配置目录。该版本尚未部署到生产实例。

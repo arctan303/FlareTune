@@ -27,6 +27,8 @@ npm.cmd run dev
 
 前端地址是 `http://127.0.0.1:3000`，本地 Worker 默认在 `http://127.0.0.1:8789`。前端同源 `/api`、`/auth` 和 `/media` 请求默认代理到本机 Worker。需要连接自己管理的其他隔离 Worker 时，可显式设置 `FLARETUNE_DEV_WORKER_ORIGIN`；不要把陌生实例用于本地测试。
 
+只开发前端并连接本项目线上**开发** Worker 时，先停止已经占用 3000 端口的本地前端，再在仓库根目录运行 `npm.cmd run dev:cloud`，打开 `http://127.0.0.1:3000`。此命令将 `/api`、`/auth`、`/media` 代理至 `https://flaretune-dev.arctan.workers.dev`，无需启动本地 Wrangler；登录使用开发实例的管理员账号。默认 `npm.cmd run dev` 仍连接本地模拟 Worker，避免无意中修改开发云数据。需要更换端口可设置 `FLARETUNE_DEV_CLIENT_PORT` 后启动 `dev:cloud`。
+
 首次访问先验证 `SETUP_SECRET`，再填写管理员用户名和密码。密钥验证不写 D1；最终提交会安装当前内置数据库结构。
 
 ## 分支与开发 Worker

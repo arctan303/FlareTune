@@ -8,7 +8,6 @@ export const DEFAULT_PAGE = 'home';
 const SETTINGS_PATHS = Object.freeze({
   personal: '/settings/personal',
   appearance: '/settings/appearance',
-  'admin-instance': '/settings/admin/instance',
   'admin-assistant': '/settings/admin/assistant',
   'admin-catalog': '/settings/admin/catalog',
   'admin-add-song': '/settings/admin/catalog/new',
@@ -37,7 +36,10 @@ export function parsePathname(pathname = '') {
 
   if (firstSegment === 'settings') {
     if (segments.length === 1) return { type: 'page', page: 'settings', section: 'appearance' };
-    if (segments.length === 2 && segments[1] === 'admin') return { type: 'page', page: 'settings', section: 'admin-instance' };
+    if (segments.length === 2 && segments[1] === 'admin') return { type: 'page', page: 'settings', section: 'admin-system' };
+    if (segments.length === 3 && segments[1] === 'admin' && segments[2] === 'instance') {
+      return { type: 'page', page: 'settings', section: 'admin-system' };
+    }
     const section = Object.keys(SETTINGS_PATHS).find((key) => SETTINGS_PATHS[key] === `/${segments.join('/')}`);
     return { type: 'page', page: 'settings', section: section || 'appearance' };
   }

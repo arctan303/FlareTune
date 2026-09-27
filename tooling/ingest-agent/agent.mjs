@@ -10,6 +10,12 @@ import { mediaType, targetUrl } from '../batch-ingest/core.mjs';
 
 const API = '/api/admin/ingest/devices';
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+const isTransportFailure = (error) => error instanceof TypeError && error.message === 'fetch failed';
+const connectionError = (error) => {
+  const causes = [error?.cause, ...(error?.cause?.errors || [])];
+  const codes = [...new Set(causes.map((cause) => cause?.code).filter(Boolean))];
+  return `${error.message}${codes.length ? `（${codes.join('、')}）` : ''}`;
+};
 export function defaultAgentPath() {
   if (process.platform === 'win32') return join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'),
     'FlareTune', 'ingest-agent.json');
@@ -173,18 +179,41 @@ export class IngestAgent {
   async start() {
     await this.heartbeat();
     await this.scan();
-    await this.heartbeat();
-    this.log(`设备“${this.config.name}”已连接；后台可以选择目录歌曲。`);
+    let heartbeatUnavailable = false;
+    try { await this.heartbeat(); }
+    catch (error) {
+      if (!isTransportFailure(error)) throw error;
+      heartbeatUnavailable = true;
+      this.log(`扫描后的设备心跳暂时失败：${connectionError(error)}；定时心跳会继续重试。`);
+    }
+    if (!heartbeatUnavailable) this.log(`设备“${this.config.name}”已连接；后台可以选择目录歌曲。`);
     let heartbeatBusy = false;
     const heartbeatTimer = setInterval(() => {
       if (this.stopped || heartbeatBusy) return;
       heartbeatBusy = true;
-      void this.heartbeat().catch((error) => this.log(`设备心跳失败：${error.message}`))
+      void this.heartbeat().then(() => {
+        if (heartbeatUnavailable) this.log(`设备“${this.config.name}”心跳已恢复。`);
+        heartbeatUnavailable = false;
+      }).catch((error) => {
+        if (!heartbeatUnavailable) this.log(`设备心跳失败：${connectionError(error)}`);
+        heartbeatUnavailable = true;
+      })
         .finally(() => { heartbeatBusy = false; });
     }, this.heartbeatIntervalMs);
+    let pollUnavailable = false;
     try {
       while (!this.stopped) {
-        const { jobs = [] } = await this.remote.json(this.path('/poll'));
+        let jobs;
+        try { ({ jobs = [] } = await this.remote.json(this.path('/poll'))); }
+        catch (error) {
+          if (!isTransportFailure(error)) throw error;
+          if (!pollUnavailable) this.log(`任务轮询暂时失败：${connectionError(error)}；10 秒后重试，不重新扫描。`);
+          pollUnavailable = true;
+          await this.delay(10_000);
+          continue;
+        }
+        if (pollUnavailable) this.log('任务轮询已恢复。');
+        pollUnavailable = false;
         for (const job of jobs) {
           if (this.stopped) break;
           await this.process(job);
@@ -212,7 +241,7 @@ export async function startConfiguredAgent({ path = defaultAgentPath() } = {}) {
     }
     catch (error) {
       if (agent.stopped) break;
-      console.error('设备连接失败：' + error.message + '；10 秒后重试。');
+      console.error('设备连接失败：' + connectionError(error) + '；10 秒后重试。');
       await wait(10_000);
     }
   }

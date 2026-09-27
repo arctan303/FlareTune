@@ -129,3 +129,63 @@ test('heartbeat continues during a long upload job', async () => {
   await agent.start();
   assert.ok(beats >= 3, `only ${beats} heartbeats were sent`);
 });
+
+test('temporary poll transport failures retry without rescanning and report recovery once', async () => {
+  let polls = 0;
+  let scans = 0;
+  const delays = [];
+  const logs = [];
+  let agent;
+  const remote = { json: async (path) => {
+    assert.match(path, /\/poll$/);
+    polls += 1;
+    if (polls <= 2) {
+      const error = new TypeError('fetch failed');
+      error.cause = Object.assign(new Error('socket reset'), { code: 'ECONNRESET' });
+      throw error;
+    }
+    agent.stop();
+    return { jobs: [] };
+  } };
+  agent = new IngestAgent({ config: { deviceId, name: '测试设备', roots: ['D:/music'] },
+    remote, log: (message) => logs.push(message), delay: async (ms) => delays.push(ms) });
+  agent.heartbeat = async () => {};
+  agent.scan = async () => { scans += 1; return []; };
+  await agent.start();
+  assert.equal(scans, 1);
+  assert.equal(polls, 3);
+  assert.deepEqual(delays, [10_000, 10_000, 5_000]);
+  assert.equal(logs.filter((message) => message.includes('不重新扫描')).length, 1);
+  assert.ok(logs.some((message) => message.includes('ECONNRESET')));
+  assert.equal(logs.filter((message) => message.includes('任务轮询已恢复')).length, 1);
+});
+
+test('a temporary post-scan heartbeat failure keeps the scanned device running', async () => {
+  let heartbeats = 0;
+  let scans = 0;
+  let agent;
+  const remote = { json: async (path) => {
+    assert.match(path, /\/poll$/);
+    agent.stop();
+    return { jobs: [] };
+  } };
+  agent = new IngestAgent({ config: { deviceId, name: '测试设备', roots: ['D:/music'] },
+    remote, log: () => {}, delay: async () => {} });
+  agent.heartbeat = async () => {
+    heartbeats += 1;
+    if (heartbeats === 2) throw new TypeError('fetch failed');
+  };
+  agent.scan = async () => { scans += 1; return []; };
+  await agent.start();
+  assert.equal(heartbeats, 2);
+  assert.equal(scans, 1);
+});
+
+test('a rejected poll still exits the connection loop for a fresh login', async () => {
+  const agent = new IngestAgent({ config: { deviceId, name: '测试设备', roots: ['D:/music'] },
+    remote: { json: async () => { throw new Error('管理员会话已失效'); } },
+    delay: async () => {}, log: () => {} });
+  agent.heartbeat = async () => {};
+  agent.scan = async () => [];
+  await assert.rejects(agent.start(), /管理员会话已失效/);
+});
