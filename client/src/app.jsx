@@ -46,18 +46,14 @@ const loadFullScreenPlayer = () => import('./components/FullScreenPlayer.jsx').c
 const FullScreenPlayer = React.lazy(loadFullScreenPlayer);
 const PlaylistDrawer = React.lazy(retryDynamicImport(() => import('./components/PlaylistDrawer.jsx')));
 const AccountPlaylistDrawer = React.lazy(retryDynamicImport(() => import('./components/AccountPlaylistDrawer.jsx')));
-const RoamSettingsDrawer = React.lazy(retryDynamicImport(() => import('./components/RoamSettingsDrawer.jsx')));
-const FootprintDrawer = React.lazy(retryDynamicImport(() => import('./components/FootprintDrawer.jsx')));
 const BackgroundDrawer = React.lazy(retryDynamicImport(() => import('./components/BackgroundDrawer.jsx')));
 
 const OVERLAY_CLOSE_ORDER = [
     ['quickSongEditId', 'closeQuickSongEdit'],
     ['isAddToPlaylistOpen', 'closeAddToPlaylist'],
     ['isAccountPlaylistOpen', 'setIsAccountPlaylistOpen'],
-    ['isFootprintDrawerOpen', 'setIsFootprintDrawerOpen'],
     ['isPlaylistOpen', 'setIsPlaylistOpen'],
     ['isBackgroundDrawerOpen', 'setIsBackgroundDrawerOpen'],
-    ['isRoamSettingsOpen', 'setIsRoamSettingsOpen'],
     ['isFullScreen', 'setIsFullScreen'],
 ];
 
@@ -208,7 +204,7 @@ export default function App({ validatedSession }) {
         setVolume: state.setVolume,
     })));
 
-    const { toastMessage, isDarkMode, setIsDarkMode, isFullScreen, setIsFullScreen, isPlaylistOpen, setIsPlaylistOpen, isBackgroundDrawerOpen, setIsBackgroundDrawerOpen, isAccountPlaylistOpen, isRoamSettingsOpen, isFootprintDrawerOpen, isArtistDrawerOpen, setIsArtistDrawerOpen, activeArtistData, isAddToPlaylistOpen, quickSongEditId, isViewingAdmin, isViewingPlaylist, closeViewingPlaylist, visualMotionPhase } = useUIStore(useShallow((state) => ({
+    const { toastMessage, isDarkMode, setIsDarkMode, isFullScreen, setIsFullScreen, isPlaylistOpen, setIsPlaylistOpen, isBackgroundDrawerOpen, setIsBackgroundDrawerOpen, isAccountPlaylistOpen, isArtistDrawerOpen, setIsArtistDrawerOpen, activeArtistData, isAddToPlaylistOpen, quickSongEditId, isViewingAdmin, isViewingPlaylist, closeViewingPlaylist, visualMotionPhase } = useUIStore(useShallow((state) => ({
         toastMessage: state.toastMessage,
         isDarkMode: state.isDarkMode,
         setIsDarkMode: state.setIsDarkMode,
@@ -219,8 +215,6 @@ export default function App({ validatedSession }) {
         isBackgroundDrawerOpen: state.isBackgroundDrawerOpen,
         setIsBackgroundDrawerOpen: state.setIsBackgroundDrawerOpen,
         isAccountPlaylistOpen: state.isAccountPlaylistOpen,
-        isRoamSettingsOpen: state.isRoamSettingsOpen,
-        isFootprintDrawerOpen: state.isFootprintDrawerOpen,
         isArtistDrawerOpen: state.isArtistDrawerOpen,
         setIsArtistDrawerOpen: state.setIsArtistDrawerOpen,
         activeArtistData: state.activeArtistData,
@@ -249,8 +243,6 @@ export default function App({ validatedSession }) {
     const hasOpenedPlaylistDrawer = useOpenedOnce(isPlaylistOpen);
     const hasOpenedBackgroundDrawer = useOpenedOnce(isBackgroundDrawerOpen);
     const hasOpenedAccountPlaylistDrawer = useOpenedOnce(isAccountPlaylistOpen);
-    const hasOpenedRoamSettingsDrawer = useOpenedOnce(isRoamSettingsOpen);
-    const hasOpenedFootprintDrawer = useOpenedOnce(isFootprintDrawerOpen);
 
     const audioRef = useRef(null);
     const hasInitializedPlaylist = useRef(false);
@@ -578,8 +570,7 @@ export default function App({ validatedSession }) {
     // === 返回键拦截：关闭当前覆盖层而非退出网页 ===
     const prevAnyOpen = useRef(false);
     const secondaryModalOpen = Boolean(quickSongEditId) || isPlaylistOpen
-        || isBackgroundDrawerOpen || isRoamSettingsOpen
-        || isAccountPlaylistOpen || isAddToPlaylistOpen || isFootprintDrawerOpen;
+        || isBackgroundDrawerOpen || isAccountPlaylistOpen || isAddToPlaylistOpen;
     const modalOpen = isFullScreen || secondaryModalOpen;
     const anyOpen = modalOpen || isViewingPlaylist || isViewingAdmin;
 
@@ -694,16 +685,6 @@ export default function App({ validatedSession }) {
              <DrawerErrorBoundary title="个人歌单" isOpen={isAccountPlaylistOpen} onClose={() => useUIStore.getState().setIsAccountPlaylistOpen(false)}>
                <Suspense fallback={null}>
                     {authenticated && hasOpenedAccountPlaylistDrawer && <AccountPlaylistDrawer />}
-               </Suspense>
-             </DrawerErrorBoundary>
-             <DrawerErrorBoundary title="随心漫游偏好" isOpen={isRoamSettingsOpen} onClose={() => useUIStore.getState().setIsRoamSettingsOpen(false)}>
-               <Suspense fallback={null}>
-                    {authenticated && hasOpenedRoamSettingsDrawer && <RoamSettingsDrawer />}
-               </Suspense>
-             </DrawerErrorBoundary>
-             <DrawerErrorBoundary title="音乐足迹" isOpen={isFootprintDrawerOpen} onClose={() => useUIStore.getState().setIsFootprintDrawerOpen(false)}>
-               <Suspense fallback={null}>
-                    {authenticated && hasOpenedFootprintDrawer && <FootprintDrawer />}
                </Suspense>
              </DrawerErrorBoundary>
             {authenticated && <AddToPlaylistModal />}

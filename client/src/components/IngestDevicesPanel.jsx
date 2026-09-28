@@ -18,7 +18,7 @@ export default function IngestDevicesPanel() {
   }, []);
   React.useEffect(() => { void refresh(); }, [refresh]);
 
-  return <Section title="入库设备" description="运行本地入库程序的设备会显示在这里；离线设备保留上次连接和扫描记录。">
+  return <Section title="入库设备">
     <div className="flex justify-end">
       <button type="button" disabled={loading} onClick={() => void refresh()}
         className="rounded-xl border border-[var(--line)] px-3 py-2 text-xs font-semibold disabled:opacity-50">刷新状态</button>

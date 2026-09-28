@@ -12,7 +12,6 @@ export const WALLPAPER_PRESETS = Object.freeze([
   {
     id: 'natural-scenery',
     name: '山野幽林',
-    description: '青峰雾霭与自然山林',
     url: withBaseUrl('background/natural-scenery-poster.jpg'),
     thumbnailUrl: withBaseUrl('background/natural-scenery-poster.jpg'),
     defaultBlur: 16,
@@ -25,7 +24,6 @@ export const WALLPAPER_PRESETS = Object.freeze([
   {
     id: 'deep-space',
     name: '深邃星穹',
-    description: '幽蓝星云与静默宇宙',
     url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=2560&q=80',
     thumbnailUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=400&q=70',
     defaultBlur: 14,
@@ -38,7 +36,6 @@ export const WALLPAPER_PRESETS = Object.freeze([
   {
     id: 'sunset-glow',
     name: '余晖晚霞',
-    description: '温润橙粉暮光海景',
     url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2560&q=80',
     thumbnailUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=70',
     defaultBlur: 18,
@@ -51,7 +48,6 @@ export const WALLPAPER_PRESETS = Object.freeze([
   {
     id: 'misty-peaks',
     name: '云海群峰',
-    description: '层峦叠嶂与空灵群山',
     url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=2560&q=80',
     thumbnailUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=70',
     defaultBlur: 16,
@@ -64,7 +60,6 @@ export const WALLPAPER_PRESETS = Object.freeze([
   {
     id: 'dark-minimal',
     name: '暗调织物',
-    description: '低敛极简深色纹理',
     url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2560&q=80',
     thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=70',
     defaultBlur: 12,

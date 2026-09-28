@@ -12,7 +12,6 @@ import {
   decodeKrcContent,
   fetchLyricsAuditEvidenceWithFallback,
   fetchLyricsDocumentWithFallback,
-  isBadLyricsData,
   parseKrcLyrics,
   parseLyricsfile,
   resolveLyricSourceOrder,
@@ -963,11 +962,9 @@ test('circuit counts concurrent infrastructure failures and unavailable breaks t
   assert.equal(step, 4);
 });
 
-test('legacy source helpers retain order and bad-data classification only as migration compatibility', async () => {
+test('lyric source helpers retain the current provider order', async () => {
   assert.deepEqual(resolveLyricSourceOrder('auto'), ['kugou', 'netease', 'lrclib']);
   assert.deepEqual(resolveLyricSourceOrder('netease'), ['netease']);
   assert.deepEqual(resolveLyricSourceOrder('kugou'), ['kugou']);
-  assert.equal(isBadLyricsData('plain only'), true);
-  assert.equal(isBadLyricsData('[00:01.00]timed'), false);
   assert.ok(LyricSourceError.prototype instanceof Error);
 });

@@ -120,32 +120,12 @@ export const useUIStore = create(
           isFullScreen: false,
           isPlaylistOpen: false,
           isBackgroundDrawerOpen: false,
-          isRoamSettingsOpen: false,
-          isFootprintDrawerOpen: false,
           isArtistDrawerOpen: false,
         });
         syncBrowserHistory(formatPath({ type: 'page', page: 'lyrics', songId: String(song.id), section: 'current' }),
           { replace: typeof window !== 'undefined' && window.location.pathname.startsWith('/lyrics/') });
         return true;
       },
-      isRoamSettingsOpen: false,
-      setIsRoamSettingsOpen: (val) => {
-        const update = getDrawerVisibilityUpdate(get().isRoamSettingsOpen, val, 'isRoamSettingsOpen');
-        if (update?.isRoamSettingsOpen && !get().authSession?.authenticated) return false;
-        if (update?.isRoamSettingsOpen && get().setIsAccountPlaylistOpen(false) === false) return false;
-        if (update) set(update);
-        return Boolean(update);
-      },
-
-      isFootprintDrawerOpen: false,
-      setIsFootprintDrawerOpen: (val) => {
-        const update = getDrawerVisibilityUpdate(get().isFootprintDrawerOpen, val, 'isFootprintDrawerOpen');
-        if (update?.isFootprintDrawerOpen && !get().authSession?.authenticated) return false;
-        if (update?.isFootprintDrawerOpen && get().setIsAccountPlaylistOpen(false) === false) return false;
-        if (update) set(update);
-        return Boolean(update);
-      },
-
       isArtistDrawerOpen: false,
       activeArtistData: null,
       setIsArtistDrawerOpen: (val) => {
@@ -186,8 +166,6 @@ export const useUIStore = create(
           ...update,
           isPlaylistOpen: false,
           isBackgroundDrawerOpen: false,
-          isRoamSettingsOpen: false,
-          isFootprintDrawerOpen: false,
           isArtistDrawerOpen: false,
         } : { ...update, accountPlaylistBeforeCloseGuard: null });
         return true;
@@ -230,9 +208,7 @@ export const useUIStore = create(
             playlistInfo: null,
             isPlaylistOpen: false,
             isBackgroundDrawerOpen: false,
-            isRoamSettingsOpen: false,
             isAccountPlaylistOpen: false,
-            isFootprintDrawerOpen: false,
             isArtistDrawerOpen: false,
           } : {}),
         });
@@ -279,8 +255,6 @@ export const useUIStore = create(
             lyricsWorkspaceBeforeCloseGuard: null,
             lyricsWorkspaceExitApproved: false,
             isBackgroundDrawerOpen: false,
-            isRoamSettingsOpen: false,
-            isFootprintDrawerOpen: false,
             isArtistDrawerOpen: false,
             activeArtistData: null,
             isAddToPlaylistOpen: false,

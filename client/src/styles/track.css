@@ -2,12 +2,6 @@
    Track List & Rows (歌曲列表、单曲行、封面与频谱)
    ========================================================================== */
 
-.featured-track-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 16px;
-}
-
 .track-list--detail {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -858,22 +852,6 @@ html[data-page-hidden='true'] .lazy-image:not([data-image-state='ready'])::after
   background: var(--surface-raised);
   transform: translateY(-1px);
 }
-@media (min-width: 900px) {
-  .featured-track-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
-  }
-}
-
-@media (max-width: 899px) {
-  .featured-track-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-}
-
 @media (max-width: 599px) {
   .track-row { min-height: 66px; padding: 8px 4px; gap: 12px; }
   .track-row__number { display: none; }

@@ -56,7 +56,6 @@
   }
 
   [class*="lyric-single-"],
-  .lyric-soft-sway,
   .animate-pulse,
   .animate-spin,
   [class*="animate-"] {
@@ -379,11 +378,6 @@
   }
 }
 
-@keyframes ai-loading-bubble {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
-}
-
 .ai-typing-cursor {
   display: inline-block;
   width: 2px;
@@ -406,23 +400,6 @@
     opacity: 1;
   }
 }
-.ai-loading-bubble {
-  display: block;
-  height: 12px;
-  width: 220px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--soft-line) 25%, var(--line) 37%, var(--soft-line) 63%);
-  background-size: 200% 100%;
-  animation: ai-loading-bubble 1.4s ease-in-out infinite;
-}
-.ai-loading-bubble--short {
-  width: 150px;
-  animation-delay: 0.2s;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ai-loading-bubble { animation: none; }
-}
-
 @supports (backdrop-filter: blur(1px)) {
   .player-console {
     backdrop-filter: var(--player-glass-blur);

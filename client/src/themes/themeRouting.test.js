@@ -5,9 +5,7 @@ import { SHELL_THEME } from '../constants/shellThemes.js';
 
 const readSource = (relativePath) => readFileSync(new URL(relativePath, import.meta.url), 'utf8');
 
-test('theme configuration contains valid fluid theme metadata', () => {
-  assert.equal(SHELL_THEME.id, 'fluid');
-  assert.equal(SHELL_THEME.name, '流光');
+test('theme configuration keeps the fluid theme identifier', () => {
   assert.equal(SHELL_THEME.id, 'fluid');
 });
 

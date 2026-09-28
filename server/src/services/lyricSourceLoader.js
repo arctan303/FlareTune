@@ -18,10 +18,10 @@ import {
 } from './lyricSourceCache.js';
 import { LyricSourceError } from './lyricSourceError.js';
 import { searchNeteaseSelections, loadNeteaseSelection } from './neteaseLyricLoader.js';
-import { isBadLyricsData, parseLyricsfile } from './lyricPlainParsers.js';
+import { parseLyricsfile } from './lyricPlainParsers.js';
 
 export { LyricSourceError } from './lyricSourceError.js';
-export { isBadLyricsData, parseLyricsfile } from './lyricPlainParsers.js';
+export { parseLyricsfile } from './lyricPlainParsers.js';
 export { buildKugouDurationMsCandidates, buildKugouSearchKeyword, buildKugouSearchKeywords, rankLyricCandidates, scoreLyricCandidate } from './lyricSourceMatching.js';
 
 const VALID_SOURCES = new Set(['kugou', 'netease', 'lrclib']);
@@ -469,27 +469,6 @@ export async function fetchLyricsAuditEvidenceWithFallback(source, song, fetchSo
     });
   }
   return null;
-}
-
-// Temporary compatibility bridge while Phase 68 moves every caller to v2 documents.
-export async function fetchLyricsWithFallback(source, title, artist, fetchLyrics) {
-  const order = resolveLyricSourceOrder(source);
-  let lastLrc = '';
-  for (const provider of order) {
-    let lrc = '';
-    try {
-      lrc = await fetchLyrics(provider, title, artist);
-    } catch {
-      lrc = '';
-    }
-    if (!lrc) continue;
-    if (order.length > 1 && isBadLyricsData(lrc)) {
-      lastLrc = lrc;
-      continue;
-    }
-    return lrc;
-  }
-  return lastLrc || '';
 }
 
 const abortError = (provider, stage) => new LyricSourceError(

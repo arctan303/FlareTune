@@ -176,9 +176,6 @@ export default function AdminCatalogSection() {
             <Disc className="text-[var(--accent)]" size={20} />
             <span>曲库数据管理</span>
           </h2>
-          <p className="text-xs text-[var(--muted)] mt-1">
-            管理当前实例的单曲与云存储媒体引用。
-          </p>
         </div>
 
       </div>

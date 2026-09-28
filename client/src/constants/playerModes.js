@@ -17,12 +17,12 @@ export const isPlayerMode = (mode) => AVAILABLE_PLAYER_MODES.includes(mode);
 export const PLAYER_MODE_META = Object.freeze({
   [PLAYER_MODES.CLASSIC]: {
     name: '经典播放器',
-    description: '大专辑封面、滚动大字歌词与经典双栏全屏布局',
+    description: '专辑封面与滚动歌词，双栏布局',
     icon: Disc3,
   },
   [PLAYER_MODES.CINEMATIC]: {
     name: '歌手写真',
-    description: '歌手写真、大字歌词与慢镜光晕的影院体验',
+    description: '大字歌词与背景光晕',
     icon: Clapperboard,
   },
 });

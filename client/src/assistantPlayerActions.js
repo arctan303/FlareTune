@@ -298,7 +298,7 @@ export async function applyPlayerControl(args, { getState, playbackObservationMs
 }
 
 /**
- * 小A 漫游指令：复用 RoamSettingsDrawer / MainContent 同一份 randomRoam 状态机。
+ * 小A 漫游指令：复用 MainContent 的 randomRoam 状态机。
  * 语种沿用现有语种维度（all / zh / ja / en / yue），不做范围扩展。
  */
 export function applyRoamControl({ action, language } = {}, { getState } = {}) {

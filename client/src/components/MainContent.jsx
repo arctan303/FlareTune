@@ -82,7 +82,6 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     const setIsArtistDrawerOpen = useUIStore(s => s.setIsArtistDrawerOpen);
     const activeArtistData = useUIStore(s => s.activeArtistData);
     const setIsAccountPlaylistOpen = useUIStore(s => s.setIsAccountPlaylistOpen);
-    const setIsRoamSettingsOpen = useUIStore(s => s.setIsRoamSettingsOpen);
     const openAddToPlaylist = useUIStore((s) => s.openAddToPlaylist);
     const authUser = useUIStore((state) => state.authSession.user || null);
     const isAuthenticated = useUIStore((state) => Boolean(state.authSession.authenticated));

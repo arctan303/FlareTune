@@ -1,12 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { roamControlTool } from './roamControl.js';
-import { executeTool } from './index.js';
-
-const AUTHENTICATED_CONTEXT = { user: { subject: 'member-1' } };
 
 test('roam_control enable defaults to the whole library and only claims a dispatched instruction', async () => {
-  const res = await executeTool('roam_control', { action: 'enable' }, AUTHENTICATED_CONTEXT);
+  const res = await roamControlTool.execute({ action: 'enable' });
   assert.equal(res.eventData.ok, true);
   assert.equal(res.eventData.action, 'enable');
   assert.equal(res.eventData.language, 'all');
@@ -23,14 +20,14 @@ test('roam_control enable defaults to the whole library and only claims a dispat
 
 test('roam_control enable keeps the requested language', async () => {
   for (const language of ['zh', 'en', 'ja', 'ko', 'instrumental', 'other']) {
-    const res = await executeTool('roam_control', { action: 'enable', language }, AUTHENTICATED_CONTEXT);
+    const res = await roamControlTool.execute({ action: 'enable', language });
     assert.equal(res.playerAction.language, language, language);
     assert.equal(res.eventData.language, language, language);
   }
 });
 
 test('roam_control disable omits the language and reports a dispatched instruction', async () => {
-  const res = await executeTool('roam_control', { action: 'disable', language: 'zh' }, AUTHENTICATED_CONTEXT);
+  const res = await roamControlTool.execute({ action: 'disable', language: 'zh' });
   assert.equal(res.eventData.ok, true);
   assert.equal(res.eventData.action, 'disable');
   assert.equal(Object.hasOwn(res.eventData, 'language'), false);
@@ -42,12 +39,12 @@ test('roam_control disable omits the language and reports a dispatched instructi
 });
 
 test('roam_control rejects unknown actions and unsupported languages without emitting an instruction', async () => {
-  const badAction = await executeTool('roam_control', { action: 'toggle' }, AUTHENTICATED_CONTEXT);
+  const badAction = await roamControlTool.execute({ action: 'toggle' });
   assert.equal(badAction.eventData.ok, false);
   assert.equal(badAction.eventData.error.code, 'invalid_arguments');
   assert.equal(badAction.playerAction, null);
 
-  const badLanguage = await executeTool('roam_control', { action: 'enable', language: 'yue' }, AUTHENTICATED_CONTEXT);
+  const badLanguage = await roamControlTool.execute({ action: 'enable', language: 'yue' });
   assert.equal(badLanguage.eventData.ok, false);
   assert.equal(badLanguage.eventData.error.code, 'invalid_language');
   assert.equal(badLanguage.playerAction, null);

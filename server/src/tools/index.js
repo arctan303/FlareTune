@@ -1,41 +1,3 @@
-import { getCurrentPlaybackTool } from './getCurrentPlayback.js';
-import { musicQueryTool } from './musicQuery.js';
-import { musicControlTool } from './musicControl.js';
-import { managePlaylistTool } from './managePlaylist.js';
-import { playerQueueTool } from './playerQueue.js';
-import { playerSeekTool } from './playerSeek.js';
-import { currentTimeTool } from './currentTime.js';
-import { myListeningStatsTool } from './myListeningStats.js';
-import { roamControlTool } from './roamControl.js';
-import { assertToolResult, createToolFailure } from './toolResult.js';
-
-// 模型可见工具：共享查询、乐境账号歌单服务端工具与播放器浏览器工具。
-export const tools = [
-  musicQueryTool,
-  musicControlTool,
-  getCurrentPlaybackTool,
-  currentTimeTool,
-  managePlaylistTool,
-  playerQueueTool,
-  playerSeekTool,
-  myListeningStatsTool,
-  roamControlTool,
-];
-
-// 暴露给大模型 API 的工具结构定义数组
-export const AI_TOOLS = tools.map(t => ({
-  type: 'function',
-  function: {
-    name: t.name,
-    description: t.description,
-    parameters: t.parameters,
-  }
-}));
-
-export function getToolDisplayName(name) {
-  return tools.find(tool => tool.name === name)?.displayName || name;
-}
-
 const cleanProgressTarget = (value, maxLength = 36) => {
   if (typeof value !== 'string') return '';
   const cleaned = value
@@ -106,41 +68,4 @@ export function getToolProgressText(name, args = {}, callId = '') {
     return chooseProgressVariant(['我准备开启随机漫游。', '我先处理一下随机漫游的开关。', '我来打开随机漫游。', '我帮你把随机漫游开起来。'], callId);
   }
   return chooseProgressVariant(['我先核对一下相关信息。', '我去确认一下。', '我先看看具体情况。', '我帮你查一下。'], callId);
-}
-
-// 工具生产者已统一返回 createToolResult DTO，这里只负责路由与异常边界。
-export async function executeTool(name, args, context) {
-  const tool = tools.find(t => t.name === name);
-  if (!tool) {
-    return createToolFailure({
-      modelText: '工具不可用。',
-      summary: `未知工具 ${name}`,
-      type: 'knowledge',
-      code: 'unknown_tool',
-      message: `未知工具: ${name}`,
-    });
-  }
-
-  if (!context?.user?.subject) {
-    return createToolFailure({
-      modelText: '登录状态已失效，请重新登录后再试。',
-      summary: '需要登录账号',
-      type: 'authentication',
-      code: 'authentication_required',
-      message: 'authenticated user context is required',
-    });
-  }
-
-  try {
-    return assertToolResult(await tool.execute(args, context));
-  } catch (err) {
-    console.error(`Tool execution failed [${name}]:`, err);
-    return createToolFailure({
-      modelText: '工具查询失败，请稍后再试。',
-      summary: `工具 ${name} 执行异常`,
-      type: name === 'music_query' ? 'music_cards' : 'knowledge',
-      code: 'database_query_failed',
-      message: err.message || String(err),
-    });
-  }
 }

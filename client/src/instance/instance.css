@@ -246,8 +246,7 @@ html.dark .instance-page--login .instance-primary { color: var(--page, #09090b);
 
 /* ---------- 按钮 ---------- */
 
-.instance-primary,
-.instance-secondary {
+.instance-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -281,18 +280,7 @@ html.dark .instance-page--login .instance-primary { color: var(--page, #09090b);
 .instance-primary:disabled { opacity: 0.72; cursor: progress; transform: none; box-shadow: none; }
 .instance-primary__spinner { animation: instance-spin 800ms linear infinite; }
 
-.instance-secondary {
-  margin-top: 10px;
-  background: var(--surface, #f4f4f5);
-  color: var(--ink, #18181b);
-}
-
-.instance-secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--ink, #18181b) 8%, var(--surface, #f4f4f5)); }
-.instance-secondary:active:not(:disabled) { transform: scale(0.99); }
-.instance-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
-
 .instance-primary:focus-visible,
-.instance-secondary:focus-visible,
 .instance-link:focus-visible,
 .instance-reveal:focus-visible {
   outline: 3px solid var(--accent, #0284c7);

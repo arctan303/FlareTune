@@ -58,18 +58,6 @@
   background: var(--surface-raised);
 }
 
-.record-card--editable.is-dragging-card {
-  z-index: 40;
-  border-color: var(--accent) !important;
-  background: var(--surface-raised) !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22), 0 4px 12px color-mix(in srgb, var(--accent) 20%, transparent);
-  transform: scale(1.04);
-}
-
-html.dark .record-card--editable.is-dragging-card {
-  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.45);
-}
-
 .record-card--editable.is-dragging-placeholder {
   opacity: 0.35 !important;
   border: 2px dashed var(--accent) !important;

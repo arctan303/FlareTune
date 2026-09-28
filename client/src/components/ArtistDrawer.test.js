@@ -64,12 +64,12 @@ test('MainContent renders ArtistDetailView when artist is active', () => {
   assert.match(main, /artist=\{activeArtistData\}/);
 });
 
-test('HomeFeaturedSection wires spotlight card to openArtistDrawer', () => {
-  const featured = readSource('./HomeFeaturedSection.jsx');
+test('current home opens artist drawer from its artist preview row', () => {
+  const main = readSource('./MainContent.jsx');
+  const home = readSource('./HomeOverview.jsx');
 
-  assert.match(featured, /openArtistDrawer/);
-  assert.match(featured, /featuredArtist/);
-  assert.match(featured, /featuredArtistSongs/);
+  assert.match(main, /onOpenArtist=\{\(artist\) => useUIStore\.getState\(\)\.openArtistDrawer\(artist\)\}/);
+  assert.match(home, /<ArtistPreviewRow artists=\{topArtists\} onOpen=\{onOpenArtist\}/);
 });
 
 test('ArtistDrawer follows Rules of Hooks with all hooks called unconditionally before early return', () => {

@@ -6,12 +6,9 @@ import {
     deduplicateHighestResolution,
     filterLowResolutionPhotos,
     rankAndPadPhotos,
-    interleaveArtistPhotos,
-    resolveArtistPhotos,
-    deleteArtistPhotoFromDb,
     TARGET_MIN_COUNT,
     ARTIST_PHOTO_SCHEMA_VERSION
-} from '../../../server/src/services/artistPhoto.js';
+} from '../../../server/src/services/artistPhotoSources.js';
 
 test('parseArtistNames - 智能拆分合作、合唱、Feat.等多歌手', () => {
     // 单一歌手
@@ -137,100 +134,4 @@ test('rankAndPadPhotos - 4张保底动态按需补位与分辨率最优排序', 
     assert.equal(scarceResult.photos[1].url, 'real_qq.jpg');
     assert.equal(scarceResult.photos[2].url, 'apple1.jpg');
     assert.equal(scarceResult.photos[3].url, 'apple2.jpg');
-});
-
-test('interleaveArtistPhotos - 多歌手写真交织轮播合并', () => {
-    const artistA = {
-        artist_name: '周杰伦',
-        photos: [
-            { url: 'jay1.jpg', width: 1920, height: 1080 },
-            { url: 'jay2.jpg', width: 1500, height: 1500 },
-            { url: 'jay3.jpg', width: 1500, height: 1500 }
-        ]
-    };
-    const artistB = {
-        artist_name: '费玉清',
-        photos: [
-            { url: 'fei1.jpg', width: 1500, height: 1500 },
-            { url: 'fei2.jpg', width: 1500, height: 1500 }
-        ]
-    };
-
-    const interleaved = interleaveArtistPhotos([artistA, artistB]);
-    assert.equal(interleaved.length, 5);
-    // 交织顺序：Jay1 -> Fei1 -> Jay2 -> Fei2 -> Jay3
-    assert.equal(interleaved[0].url, 'jay1.jpg');
-    assert.equal(interleaved[0].artistName, '周杰伦');
-    assert.equal(interleaved[1].url, 'fei1.jpg');
-    assert.equal(interleaved[1].artistName, '费玉清');
-    assert.equal(interleaved[2].url, 'jay2.jpg');
-    assert.equal(interleaved[2].artistName, '周杰伦');
-    assert.equal(interleaved[3].url, 'fei2.jpg');
-    assert.equal(interleaved[3].artistName, '费玉清');
-    assert.equal(interleaved[4].url, 'jay3.jpg');
-    assert.equal(interleaved[4].artistName, '周杰伦');
-});
-
-test('D1 Cache & Admin Purge Endpoint - 模拟 D1 存取与管理员清理', async () => {
-    const mockDbStore = new Map();
-    const mockDb = {
-        prepare: (sql) => ({
-            bind: (...args) => ({
-                first: async () => {
-                    if (sql.includes('SELECT')) {
-                        const artistName = args[0];
-                        return mockDbStore.get(artistName) || null;
-                    }
-                    return null;
-                },
-                run: async () => {
-                    if (sql.includes('INSERT INTO Artist_Photos')) {
-                        const [name, url, photosJson, source, width, height, version, created, updated] = args;
-                        mockDbStore.set(name, {
-                            artist_name: name,
-                            photo_url: url,
-                            photos: photosJson,
-                            source,
-                            width,
-                            height,
-                            data_version: version,
-                            created_at: created,
-                            updated_at: updated
-                        });
-                        return { success: true };
-                    }
-                    if (sql.includes('DELETE FROM Artist_Photos')) {
-                        const name = args[0];
-                        mockDbStore.delete(name);
-                        return { success: true };
-                    }
-                    return { success: true };
-                }
-            })
-        })
-    };
-
-    // 预存一条数据
-    mockDbStore.set('周杰伦', {
-        artist_name: '周杰伦',
-        photo_url: 'https://example.com/jay.jpg',
-        photos: JSON.stringify([{ url: 'https://example.com/jay.jpg', width: 1920, height: 1080 }]),
-        source: 'tadb',
-        width: 1920,
-        height: 1080,
-        data_version: ARTIST_PHOTO_SCHEMA_VERSION,
-        created_at: 1000,
-        updated_at: 1000
-    });
-
-    // 命中缓存读取
-    const res = await resolveArtistPhotos(mockDb, '周杰伦');
-    assert.equal(res.artist, '周杰伦');
-    assert.equal(res.photos.length, 1);
-    assert.equal(res.photos[0].url, 'https://example.com/jay.jpg');
-
-    // 管理员清理缓存
-    const deleted = await deleteArtistPhotoFromDb(mockDb, '周杰伦');
-    assert.equal(deleted, true);
-    assert.equal(mockDbStore.has('周杰伦'), false);
 });
