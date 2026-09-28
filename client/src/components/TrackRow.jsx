@@ -29,6 +29,7 @@ export default function TrackRow({
     songs,
     index,
     variant = 'featured',
+    showPlayCount = true,
     currentSong,
     isPlaying,
     playSong,
@@ -113,7 +114,7 @@ export default function TrackRow({
                 ) : (
                     <div className="flex items-center gap-1.5 mt-1 truncate">
                         <p className="track-row__meta truncate text-xs">{song.artist}</p>
-                        {song.play_count != null && song.play_count > 0 && (
+                        {showPlayCount && song.play_count != null && song.play_count > 0 && (
                             <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
                                 {song.play_count}次
                             </span>

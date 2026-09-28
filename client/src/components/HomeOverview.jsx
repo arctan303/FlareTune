@@ -461,6 +461,7 @@ export default function HomeOverview({
                 key={`footprint-${song.id}`}
                 song={song}
                 songs={displayFootprints}
+                showPlayCount={false}
                 currentSong={currentSong}
                 isPlaying={isPlaying}
                 playSong={playSong}
