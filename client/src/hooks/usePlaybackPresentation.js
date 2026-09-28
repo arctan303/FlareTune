@@ -22,7 +22,7 @@ function updateFavicon(iconUrl) {
       if (link.getAttribute('type') === 'image/svg+xml' || link.dataset.originalType === 'image/svg+xml') {
         link.href = '/favicon.svg';
         link.setAttribute('type', 'image/svg+xml');
-      } else if (link.getAttribute('sizes') === '128x128' || link.dataset.originalType === 'image/png') {
+      } else if (link.getAttribute('type') === 'image/png' || link.dataset.originalType === 'image/png') {
         link.href = '/favicon.png';
         link.setAttribute('type', 'image/png');
       } else {
