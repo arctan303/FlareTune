@@ -544,7 +544,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   return (
     <div className="app-page search-page">
       <div className="w-full pt-2 sm:pt-4">
-        <form role="search" onSubmit={(event) => { event.preventDefault(); submitSearch(); }} className="search-bar-wrap search-page__bar mx-auto flex w-full max-w-[560px] items-center gap-3 rounded-full px-5 py-3.5 mb-10">
+        <form role="search" onSubmit={(event) => { event.preventDefault(); submitSearch(); }} className="search-bar-wrap search-page__bar mx-auto flex w-full max-w-[560px] items-center gap-1 rounded-full pl-5 pr-1.5 py-1 mb-10">
           <Search size={18} className="shrink-0 text-[var(--muted)] transition-colors" aria-hidden="true" />
           <input
             ref={inputRef}
@@ -555,14 +555,14 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
             onKeyDown={handleInputKeyDown}
             placeholder={t("搜索歌曲、歌手或专辑…")}
             aria-label={t("搜索曲库")}
-            className="w-full min-w-0 bg-transparent text-sm font-medium text-[var(--ink)] placeholder:text-[var(--muted)] outline-none"
+            className="ml-2 w-full min-w-0 bg-transparent text-sm font-medium text-[var(--ink)] placeholder:text-[var(--muted)] outline-none"
           />
           {draftQuery || query ? (
             <button
               type="button"
               onClick={clearSearch}
               aria-label={t("清空搜索")}
-              className="shrink-0 rounded-full p-1 text-[var(--muted)] transition-colors hover:bg-[var(--line)] hover:text-[var(--ink)] cursor-pointer"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--line)] hover:text-[var(--ink)] cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -572,7 +572,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
             </kbd>
           )}
           {(status === 'loading' || isFiltering) && <Loader2 size={16} className="shrink-0 animate-spin text-[var(--accent)]" aria-hidden="true" />}
-          <button type="submit" className="shrink-0 text-sm font-semibold text-[var(--accent)]"
+          <button type="submit" className="min-h-[44px] min-w-[52px] shrink-0 rounded-full px-3 text-sm font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--line)] disabled:opacity-50 disabled:cursor-default"
             disabled={!draftQuery.trim()}>{t('搜索')}</button>
         </form>
 
