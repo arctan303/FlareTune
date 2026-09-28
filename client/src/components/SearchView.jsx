@@ -16,7 +16,7 @@ import { resolveSongLanguage } from '../utils/songType.js';
 import { getLanguageShortLabel } from '../constants/language.js';
 import { getApiBaseUrl } from '../services/apiBase.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
-import { useCatalogPage } from '../hooks/useCatalogPage.js';
+import { useCatalogPage, invalidateCatalogSearch } from '../hooks/useCatalogPage.js';
 import { formatPath, returnToParentRoute, syncBrowserHistory } from '../utils/navigation.js';
 import PageBackButton from './PageBackButton.jsx';
 import ArtistCard from './catalog/ArtistCard.jsx';
@@ -41,9 +41,10 @@ import {
   toggleSearchBulkSelection,
 } from './search/searchBulkSelection.js';
 
+import { createSearchPageCache, searchPageKey } from '../utils/searchPageCache.js';
+
 export { HighlightText };
 
-const SEARCH_DEBOUNCE_MS = 700;
 const PAGE_SIZE = 20;
 
 const getSearchApiBase = () => getApiBaseUrl();
@@ -149,7 +150,7 @@ function RecentSearchCard({ item, onPlaySong, onOpenArtist, onRemove }) {
   );
 }
 
-export default function SearchView({ route, onBack, songsMap }) {
+export default function SearchView({ route, onBack, songsMap, cache }) {
   const [artistVisibleCount, setArtistVisibleCount] = useState(0);
   const [albumVisibleCount, setAlbumVisibleCount] = useState(0);
   const [songScrollOverflow, setSongScrollOverflow] = useState(false);
@@ -169,26 +170,26 @@ export default function SearchView({ route, onBack, songsMap }) {
   } = useFavoriteSongAction();
 
   const [query, setQuery] = useState(route?.query || '');
-  const [catalogQuery, setCatalogQuery] = useState(route?.query || '');
-  const [songs, setSongs] = useState([]);
+  const [draftQuery, setDraftQuery] = useState(route?.query || '');
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const composingRef = useRef(false);
+  const catalogQuery = query;
+  const searchCacheRef = useRef(cache || createSearchPageCache());
+  const initialPage = searchCacheRef.current.get(searchPageKey(route?.query || '', route?.language || 'all'));
+  const [songs, setSongs] = useState(() => initialPage?.songs || []);
   useEffect(() => {
     const handleSongUpdated = (event) => {
       const updated = event.detail;
       if (!updated?.id) return;
       setSongs((current) => current.map((song) => song.id === updated.id ? { ...song, ...updated } : song));
-      for (const [key, page] of searchCacheRef.current) {
-        searchCacheRef.current.set(key, {
-          ...page,
-          songs: page.songs.map((song) => song.id === updated.id ? { ...song, ...updated } : song),
-        });
-      }
+      searchCacheRef.current.updateSong(updated);
     };
     window.addEventListener('flaretune:catalog-song-updated', handleSongUpdated);
     return () => window.removeEventListener('flaretune:catalog-song-updated', handleSongUpdated);
   }, []);
-  const [status, setStatus] = useState('idle');
+  const [status, setStatus] = useState(initialPage ? 'ready' : 'idle');
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(() => initialPage?.hasMore || false);
   const [openMenuSongId, setOpenMenuSongId] = useState(null);
   const [isBulkSelecting, setIsBulkSelecting] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState([]);
@@ -203,8 +204,7 @@ export default function SearchView({ route, onBack, songsMap }) {
   const inputRef = useRef(null);
   const searchGenerationRef = useRef(0);
   const loadMoreControllerRef = useRef(null);
-  const searchCacheRef = useRef(new Map());
-  const prevQueryRef = useRef('');
+  const prevQueryRef = useRef(initialPage ? (route?.query || '').trim() : '');
   const prevSubCategoryRef = useRef('all');
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
@@ -228,21 +228,33 @@ export default function SearchView({ route, onBack, songsMap }) {
 
   useEffect(() => {
     setQuery(route?.query || '');
+    setDraftQuery(route?.query || '');
     setSubView(route?.view || 'overview');
     setSongSubCategory(route?.language || 'all');
   }, [route?.query, route?.view, route?.language]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      syncBrowserHistory(formatPath({ type: 'page', page: 'search', query, view: subView, language: songSubCategory }), { replace: true });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    syncBrowserHistory(formatPath({ type: 'page', page: 'search', query, view: subView, language: songSubCategory }), { replace: true });
   }, [query, songSubCategory, subView]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setCatalogQuery(query), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [query]);
+  const submitSearch = () => {
+    if (composingRef.current) return;
+    const nextQuery = draftQuery.trim();
+    if (nextQuery === query.trim()) {
+      if (status === 'loading' || isFiltering) return;
+      searchCacheRef.current.delete(searchPageKey(nextQuery, songSubCategory));
+      invalidateCatalogSearch(nextQuery, songSubCategory);
+      setRefreshVersion((value) => value + 1);
+    }
+    setQuery(nextQuery);
+    setDraftQuery(nextQuery);
+    setSubView('overview');
+  };
+  const clearSearch = () => {
+    setDraftQuery('');
+    setQuery('');
+    setSubView('overview');
+  };
 
   const navigateResults = (view) => {
     const url = formatPath({ type: 'page', page: 'search', query, view, language: songSubCategory });
@@ -255,9 +267,9 @@ export default function SearchView({ route, onBack, songsMap }) {
   };
 
   const hasCatalogQuery = Boolean(catalogQuery.trim());
-  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7,
+  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7, refreshKey: refreshVersion, retainWhileDisabled: true,
     enabled: hasCatalogQuery && subView === 'overview' });
-  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10,
+  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10, refreshKey: refreshVersion, retainWhileDisabled: true,
     enabled: hasCatalogQuery && subView === 'overview' });
   const fullArtistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'artists' });
   const fullAlbumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'albums' });
@@ -283,7 +295,6 @@ export default function SearchView({ route, onBack, songsMap }) {
       setStatus('idle');
       setHasMore(false);
       setIsFiltering(false);
-      searchCacheRef.current.clear();
       prevQueryRef.current = '';
       return undefined;
     }
@@ -291,9 +302,7 @@ export default function SearchView({ route, onBack, songsMap }) {
     // Full artist/album views have their own paged query. Song rows are only
     // needed by the overview and the full song view.
     if (subView === 'artists' || subView === 'albums') {
-      setSongs([]);
       setStatus('ready');
-      setHasMore(false);
       setIsFiltering(false);
       return undefined;
     }
@@ -303,12 +312,11 @@ export default function SearchView({ route, onBack, songsMap }) {
 
     if (queryChanged) {
       prevQueryRef.current = q;
-      searchCacheRef.current.clear();
     }
 
-    const cacheKey = `${q}::${songSubCategory}`;
-    if (searchCacheRef.current.has(cacheKey)) {
-      const cached = searchCacheRef.current.get(cacheKey);
+    const cacheKey = searchPageKey(q, songSubCategory);
+    const cached = searchCacheRef.current.get(cacheKey);
+    if (cached) {
       setSongs(cached.songs);
       setHasMore(cached.hasMore);
       setStatus('ready');
@@ -327,8 +335,6 @@ export default function SearchView({ route, onBack, songsMap }) {
     }
 
     const controller = new AbortController();
-    const debounceMs = queryChanged ? SEARCH_DEBOUNCE_MS : 0;
-
     const timer = setTimeout(async () => {
       try {
         const languageParam = songSubCategory === 'all'
@@ -367,12 +373,12 @@ export default function SearchView({ route, onBack, songsMap }) {
           setIsFiltering(false);
         }
       }
-    }, debounceMs);
+    }, 0);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, isAuthenticated, songSubCategory, subView]);
+  }, [query, isAuthenticated, songSubCategory, subView, refreshVersion]);
 
   useEffect(() => {
     setActiveIndex(-1);
@@ -426,7 +432,7 @@ export default function SearchView({ route, onBack, songsMap }) {
       const batch = (data?.data?.songs || []).map(hydratePlayableSong).filter(Boolean);
       setSongs((prev) => {
         const next = [...prev, ...batch];
-        const cacheKey = `${q}::${songSubCategory}`;
+        const cacheKey = searchPageKey(q, songSubCategory);
         searchCacheRef.current.set(cacheKey, { songs: next, hasMore: batch.length === PAGE_SIZE });
         return next;
       });
@@ -442,10 +448,16 @@ export default function SearchView({ route, onBack, songsMap }) {
   };
 
   const handleInputKeyDown = (e) => {
+    if (e.nativeEvent?.isComposing || composingRef.current || e.keyCode === 229) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitSearch();
+      return;
+    }
     if (status !== 'ready' || filteredSongs.length === 0) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (query) setQuery('');
+        if (draftQuery || query) clearSearch();
         else goHome();
       }
       return;
@@ -457,30 +469,12 @@ export default function SearchView({ route, onBack, songsMap }) {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActiveIndex((prev) => (prev > 0 ? prev - 1 : filteredSongs.length - 1));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const target = (activeIndex >= 0 && activeIndex < filteredSongs.length) ? filteredSongs[activeIndex] : filteredSongs[0];
-      if (target) {
-        if (e.shiftKey) {
-          insertNextWithFeedback(target);
-        } else {
-          recordRecentEntity({
-            type: 'song',
-            id: target.id,
-            title: target.title,
-            artist: target.artist,
-            coverUrl: target.cover_url,
-            song: target,
-          });
-          playSong(target, filteredSongs);
-        }
-      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       if (subView !== 'overview') {
         setSubView('overview');
-      } else if (query) {
-        setQuery('');
+      } else if (draftQuery || query) {
+        clearSearch();
       } else {
         goHome();
       }
@@ -550,21 +544,23 @@ export default function SearchView({ route, onBack, songsMap }) {
   return (
     <div className="app-page search-page">
       <div className="w-full pt-2 sm:pt-4">
-        <div className="search-bar-wrap search-page__bar mx-auto flex w-full max-w-[560px] items-center gap-3 rounded-full px-5 py-3.5 mb-10">
+        <form role="search" onSubmit={(event) => { event.preventDefault(); submitSearch(); }} className="search-bar-wrap search-page__bar mx-auto flex w-full max-w-[560px] items-center gap-3 rounded-full px-5 py-3.5 mb-10">
           <Search size={18} className="shrink-0 text-[var(--muted)] transition-colors" aria-hidden="true" />
           <input
             ref={inputRef}
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setSubView('overview'); }}
+            value={draftQuery}
+            onChange={(e) => setDraftQuery(e.target.value)}
+            onCompositionStart={() => { composingRef.current = true; }}
+            onCompositionEnd={() => { composingRef.current = false; }}
             onKeyDown={handleInputKeyDown}
             placeholder={t("搜索歌曲、歌手或专辑…")}
             aria-label={t("搜索曲库")}
             className="w-full min-w-0 bg-transparent text-sm font-medium text-[var(--ink)] placeholder:text-[var(--muted)] outline-none"
           />
-          {query ? (
+          {draftQuery || query ? (
             <button
               type="button"
-              onClick={() => setQuery('')}
+              onClick={clearSearch}
               aria-label={t("清空搜索")}
               className="shrink-0 rounded-full p-1 text-[var(--muted)] transition-colors hover:bg-[var(--line)] hover:text-[var(--ink)] cursor-pointer"
             >
@@ -576,7 +572,9 @@ export default function SearchView({ route, onBack, songsMap }) {
             </kbd>
           )}
           {(status === 'loading' || isFiltering) && <Loader2 size={16} className="shrink-0 animate-spin text-[var(--accent)]" aria-hidden="true" />}
-        </div>
+          <button type="submit" className="shrink-0 text-sm font-semibold text-[var(--accent)]"
+            disabled={!draftQuery.trim()}>{t('搜索')}</button>
+        </form>
 
         {status === 'error' && (
           <div className="theme-empty mx-auto max-w-2xl rounded-2xl p-6 text-center text-sm">{t("搜索失败，请稍后重试。")}</div>
@@ -639,7 +637,7 @@ export default function SearchView({ route, onBack, songsMap }) {
                   <Search size={20} />
                 </div>
                 <h3 className="text-sm font-bold text-[var(--ink)] mb-1">{t("探索曲库")}</h3>
-                <p className="text-xs text-[var(--muted)] max-w-xs mx-auto leading-relaxed">{t("在上方输入歌名、歌手或专辑，即刻检索并畅享旋律。")}</p>
+                <p className="text-xs text-[var(--muted)] max-w-xs mx-auto leading-relaxed">{t("输入歌名、歌手或专辑，按回车或点击搜索。")}</p>
               </div>
             )}
           </div>

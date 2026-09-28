@@ -7,6 +7,20 @@ import {
 } from './accountPlayStats.js';
 import { useUIStore } from '../store/useUIStore.js';
 
+test('accountPlayStats client: summary keeps the same authenticated account boundary', async () => {
+  const data = await fetchAccountPlayStats({
+    summaryOnly: true, limit: 50, expectedSubject: 'account-a', apiBase: 'https://test-api.example.com',
+    fetchImpl: async (url, init) => {
+      assert.equal(url, 'https://test-api.example.com/api/account/play-stats?limit=50&view=summary');
+      assert.equal(init.credentials, 'include');
+      assert.equal(init.headers['X-FlareTune-Expected-Account'], 'account-a');
+      return Response.json({ ok: true, data: { songs: [], view: 'summary' } });
+    },
+  });
+  assert.equal(data.view, 'summary');
+  assert.equal(data.playCounts, undefined);
+});
+
 test('accountPlayStats client: fetchAccountPlayStats queries play-stats endpoint', async () => {
   let requestedUrl = null;
   let requestedInit = null;

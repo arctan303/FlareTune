@@ -94,3 +94,23 @@ test('album and artist reads reject anonymous and invalid identity or filters', 
   assert.equal(await handleLocalAlbumReadRoute(new Request('https://flaretune.test/api/songs'),
     new URL('https://flaretune.test/api/songs'), db, {}, 'member'), null);
 });
+
+test('album cover ranking preserves playable counts, blank artwork, trimming and stable date ties', async () => {
+  const db = catalog();
+  db.sqlite.exec(`INSERT INTO Songs(id,title,artist,album,audio_url,cover_url,created_at) VALUES
+    ('r0','No artwork',' Rank ',' Edge ','/media/r0','  ',0),
+    ('r1','Undated','Rank','Edge','/media/r1','/media/undated',NULL),
+    ('r2','Tie first','Rank','Edge','/media/r2','/media/winner',1),
+    ('r3','Tie last','Rank','Edge','/media/r3','/media/loser',1),
+    ('r4','Unplayable','Rank','Edge',' ','/media/ignored',0),
+    ('r5','Blank album cover','Rank','Empty','/media/r5',' ',1),
+    ('r6','Null album cover','Rank','Empty','/media/r6',NULL,2)`);
+  const albums = (await call(db, '/api/albums?artist=Rank')).body.data.albums;
+  const edge = albums.find((album) => album.title === 'Edge');
+  assert.equal(edge.trackCount, 4);
+  assert.equal(edge.coverUrl, '/media/winner');
+  const empty = albums.find((album) => album.title === 'Empty');
+  assert.equal(empty.trackCount, 2);
+  assert.equal(empty.coverUrl, '');
+  db.sqlite.close();
+});

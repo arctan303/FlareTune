@@ -1,5 +1,6 @@
 import { CURRENT_SCHEMA_VERSION, KNOWN_MIGRATIONS, MIN_SUPPORTED_SCHEMA_VERSION } from './schemaManifest.js';
 import { isUsableCredentialMaterial } from './credentialFormat.js';
+import { invalidateSchemaInventory, readSchemaInventory } from './schemaInventory.js';
 
 const state = (name, reason = null) => ({ state: name, reason, schemaVersion: null });
 const validTime = (value) => Number.isSafeInteger(value) && value > 0;
@@ -10,11 +11,11 @@ const REQUIRED_TABLES = ['ft_instance', 'ft_migrations', 'ft_migration_lock', 'f
   'music_chat_threads', 'music_chat_thread_messages', 'music_chat_turns',
   'music_assistant_configs', 'AI_Assistants', 'Artist_Photos'];
 
-async function hasCompatibleServingSchema(db, names, triggers) {
+async function hasCompatibleServingSchema(inventory, names, triggers) {
   if (names.has('Playlists') || names.has('Playlist_Songs')) return false;
   for (const name of ['ft_migration_progress', 'ai_model_profiles', 'ai_feature_assignments',
     'assistant_memory_settings', 'assistant_memories']) if (!names.has(name)) return false;
-  const columns = await db.prepare('PRAGMA table_info(Member_Playlists)').all();
+  const columns = await inventory.playlistColumns();
   if (!columns?.results?.some((row) => row.name === 'cached_song_count'
     && String(row.type).toUpperCase() === 'INTEGER' && Number(row.notnull) === 1)) return false;
   return ['ft_member_playlist_songs_insert_count', 'ft_member_playlist_songs_delete_count',
@@ -22,14 +23,11 @@ async function hasCompatibleServingSchema(db, names, triggers) {
     .every((name) => triggers.has(name));
 }
 
-async function inspectInstanceState(db, now) {
+async function inspectInstanceState(db, now, cacheSchema) {
   if (!db?.prepare) return state('recovery_required', 'database_unavailable');
 
-  // A single schema inventory checks tables and required triggers. Scanning
-  // sqlite_master twice on every API/media request dominated D1 rows read.
-  const schema = await db.prepare(`SELECT type, name FROM sqlite_master
-    WHERE (type = 'table' AND name NOT LIKE 'sqlite_%')
-      OR (type = 'trigger' AND name LIKE 'ft_member_playlist_%')`).all();
+  const inventory = await readSchemaInventory(db, now, cacheSchema);
+  const { schema } = inventory;
   if (!Array.isArray(schema?.results)) return state('recovery_required', 'control_plane_unavailable');
   const names = new Set(schema.results.filter((row) => row.type === 'table' && row.name !== '_cf_METADATA')
     .map((row) => row.name));
@@ -117,18 +115,18 @@ async function inspectInstanceState(db, now) {
       return { state: 'maintenance', reason: activeLock ? 'migration_running' : 'migration_interrupted', schemaVersion: version };
     }
     if (retryableFailure) return { state: 'maintenance', reason: 'migration_retryable', schemaVersion: version };
-    if (version === CURRENT_SCHEMA_VERSION && !await hasCompatibleServingSchema(db, names, triggers)) {
+    if (version === CURRENT_SCHEMA_VERSION && !await hasCompatibleServingSchema(inventory, names, triggers)) {
       return state('recovery_required', 'schema_structure_invalid');
     }
     if (lock.owner_token !== null) return { state: 'maintenance',
       reason: activeLock ? 'migration_lock_held' : 'migration_lock_stale', schemaVersion: version };
     if (version === 1 && !names.has('Playlists')) {
-      const columns = await db.prepare('PRAGMA table_info(Member_Playlists)').all();
+      const columns = await inventory.playlistColumns();
       if (!columns?.results?.some((row) => row.name === 'cached_song_count')) {
         return state('recovery_required', 'migration_schema_inconsistent');
       }
     }
-    const compatibleOldWorker = version === 1 && await hasCompatibleServingSchema(db, names, triggers);
+    const compatibleOldWorker = version === 1 && await hasCompatibleServingSchema(inventory, names, triggers);
     if (version < CURRENT_SCHEMA_VERSION && !compatibleOldWorker) {
       return { state: 'maintenance', reason: 'migration_pending', schemaVersion: version };
     }
@@ -151,12 +149,20 @@ async function inspectInstanceState(db, now) {
     return state('recovery_required', 'claim_state_inconsistent');
 }
 
-export async function resolveInstanceState(db, now = Date.now()) {
+export async function resolveInstanceState(db, now = Date.now(), { cacheSchema = false } = {}) {
+  // Explicit health checks, writes and upgrade flows always inspect fresh
+  // metadata and discard any serving snapshot. No background timer is used.
+  if (!cacheSchema) invalidateSchemaInventory(db);
   // Only thrown storage failures are retried. A valid migration/recovery state
   // is returned immediately, so this cannot turn a failed ledger into ready.
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    try { return await inspectInstanceState(db, now); }
+    try {
+      const result = await inspectInstanceState(db, now, cacheSchema);
+      if (result.state !== 'ready') invalidateSchemaInventory(db);
+      return result;
+    }
     catch {
+      invalidateSchemaInventory(db);
       if (attempt === 1) return state('recovery_required', 'control_plane_unavailable');
     }
   }

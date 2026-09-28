@@ -17,6 +17,7 @@ export default function ArtistPreviewRow({ artists = [], onOpen, onVisibleCountC
     const element = containerRef.current;
     if (!element) return undefined;
     const update = () => {
+      if (element.clientWidth === 0) return;
       const width = Math.max(0, element.clientWidth - 8);
       const cardWidth = cardWidthFor(width);
       const capacity = Math.max(1, Math.floor((width + GAP) / (cardWidth + GAP)));

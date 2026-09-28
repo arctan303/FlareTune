@@ -4,6 +4,7 @@ import { MoreHorizontal, Loader2 } from 'lucide-react';
 import LazyImage from './LazyImage';
 import SongActionsMenu from './catalog/SongActionsMenu.jsx';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { usePageActivity } from '../hooks/usePageActivity.js';
 
 const LazyItem = ({ children, height = 80 }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -41,12 +42,16 @@ export default function TrackRow({
     onAddToPlaylist,
 }) {
     const isDetail = variant === 'detail';
+    const active = usePageActivity();
     const isCurrent = currentSong?.id === song.id;
     const isBuffering = usePlayerStore((state) => state.isBuffering);
     const [isMoreOpen, setIsMoreOpen] = useState(false);
     const moreButtonRef = useRef(null);
     const [isPendingLiked, setIsPendingLiked] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
+    useEffect(() => {
+        if (!active) setIsMoreOpen(false);
+    }, [active]);
 
     const handleRemove = () => {
         setIsMoreOpen(false);
@@ -138,7 +143,7 @@ export default function TrackRow({
                     >
                         <MoreHorizontal size={18} />
                     </button>
-                    {isMoreOpen && (
+                    {isMoreOpen && active && (
                         <SongActionsMenu song={song} anchorRef={moreButtonRef} onClose={() => setIsMoreOpen(false)}
                             isLiked={isLiked} isLikePending={isPendingLiked} onToggleLiked={onToggleLiked ? toggleLiked : undefined}
                             onInsertNext={onInsertNext}

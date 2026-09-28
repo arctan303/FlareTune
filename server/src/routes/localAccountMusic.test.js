@@ -90,6 +90,38 @@ test('account music route accepts only router-supplied normal account identity',
   ), null);
 });
 
+test('summary statistics read one bounded account ranking without reading the complete ledger', async () => {
+  const db = createDb();
+  db.database.exec(`INSERT INTO Member_Song_Plays(account_id, song_id, play_count, last_played_at) VALUES
+    ('account-a','song-1',4,100),('account-a','song-2',2,200),('account-b','song-2',99,300)`);
+  const statements = [];
+  const prepare = db.prepare;
+  db.prepare = function (sql) { statements.push(sql); return prepare.call(this, sql); };
+  const summary = await call(db, '/api/account/play-stats?view=summary&limit=1');
+  assert.equal(summary.response.status, 200);
+  assert.equal(summary.response.headers.get('Cache-Control'), 'private, no-store');
+  assert.deepEqual(summary.body.data.songs.map((song) => [song.id, song.play_count]), [['song-1', 4]]);
+  assert.equal(summary.body.data.playCounts, undefined);
+  assert.equal(summary.body.data.totalPlays, undefined);
+  assert.equal(statements.length, 1);
+  const plan = db.database.prepare(`EXPLAIN QUERY PLAN ${statements[0]}`).all('account-a', 1);
+  assert.ok(plan.some((row) => row.detail.includes('idx_member_song_plays_rank')), JSON.stringify(plan));
+  assert.ok(plan.every((row) => !row.detail.includes('USE TEMP B-TREE')), JSON.stringify(plan));
+  statements.length = 0;
+  const full = await call(db, '/api/account/play-stats?limit=1');
+  assert.equal(statements.length, 2);
+  assert.deepEqual(full.body.data.playCounts, { 'song-1': 4, 'song-2': 2 });
+  assert.equal(full.body.data.totalPlays, 6);
+  const other = await call(db, '/api/account/play-stats?view=summary', {
+    session: { accountId: 'account-b', mode: 'normal' },
+  });
+  assert.deepEqual(other.body.data.songs.map((song) => [song.id, song.play_count]), [['song-2', 99]]);
+  assert.equal((await call(db, '/api/account/play-stats?view=summary', { session: null })).response.status, 401);
+  assert.equal((await call(db, '/api/account/play-stats?view=summary', {
+    headers: { 'X-FlareTune-Expected-Account': 'account-b' },
+  })).response.status, 409);
+});
+
 test('favorite, playlist CRUD and song order stay isolated by account_id', async () => {
   const db = createDb();
   const a = { accountId: 'account-a', mode: 'normal' };

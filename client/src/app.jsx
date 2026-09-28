@@ -320,7 +320,7 @@ export default function App({ validatedSession }) {
             void accountPlaylistsStore.getState().refresh().catch((error) => {
                 console.warn('账号歌单加载失败:', error);
             });
-            void playStats.synchronizeAccountStats().then((result) => {
+            void playStats.synchronizeListeningPreview().then((result) => {
                 if (!result.ok && result.reason !== 'identity-changed') {
                     console.warn('账号播放统计初始化失败:', result.error || result.reason || result.stage);
                 }

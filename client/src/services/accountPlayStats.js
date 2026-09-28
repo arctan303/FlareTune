@@ -13,6 +13,7 @@ export class AccountPlayStatsRequestError extends Error {
 
 export async function fetchAccountPlayStats({
   limit = 20,
+  summaryOnly = false,
   expectedSubject,
   fetchImpl = globalThis.fetch,
   apiBase,
@@ -21,7 +22,7 @@ export async function fetchAccountPlayStats({
   return requestAccountJson({
     fetchImpl,
     base,
-    path: `/api/account/play-stats?limit=${encodeURIComponent(limit)}`,
+    path: `/api/account/play-stats?limit=${encodeURIComponent(limit)}${summaryOnly ? '&view=summary' : ''}`,
     init: {
       method: 'GET',
       headers: expectedSubject ? { 'X-FlareTune-Expected-Account': expectedSubject } : {},

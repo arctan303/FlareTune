@@ -494,15 +494,18 @@ const recordPlays = async (db, accountId, input, now) => {
   if (unresolved) fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
   return { recorded, acceptedEventIds: events.map((event) => event.eventId) };
 };
-const topPlays = async (db, accountId, input) => {
+const topPlays = async (db, accountId, input, summaryOnly = false) => {
   const parsed = Number(input);
   const limit = Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : 20;
-  const [songs, playRows] = await Promise.all([
-    db.prepare(`SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url,
+  const songsRequest = db.prepare(`SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url,
       s.cover_url, s.language, p.play_count, p.last_played_at
       FROM Member_Song_Plays p JOIN Songs s ON s.id = p.song_id
       WHERE p.account_id = ? ORDER BY p.play_count DESC, p.last_played_at DESC LIMIT ?`)
-      .bind(accountId, limit).all(),
+      .bind(accountId, limit).all();
+  // Home needs only the indexed top list, never the account's complete counts.
+  if (summaryOnly) return { songs: rows(await songsRequest), topAlbums: [], view: 'summary' };
+  const [songs, playRows] = await Promise.all([
+    songsRequest,
     db.prepare(`SELECT song_id, play_count FROM Member_Song_Plays WHERE account_id = ?`)
       .bind(accountId).all(),
   ]);
@@ -551,7 +554,8 @@ export async function handleLocalAccountMusicRoute(request, url, db, headers = {
       if (request.method === 'PUT') return success(await updateShelf(db, accountId, await bodyOf(request), now), 200, headers);
     }
     if (path === '/api/account/play-stats') {
-      if (request.method === 'GET') return success(await topPlays(db, accountId, url.searchParams.get('limit') || 20), 200, headers);
+      if (request.method === 'GET') return success(await topPlays(db, accountId,
+        url.searchParams.get('limit') || 20, url.searchParams.get('view') === 'summary'), 200, headers);
       if (request.method === 'POST') return success(await recordPlays(db, accountId, await bodyOf(request), now), 200, headers);
       return failure('METHOD_NOT_ALLOWED', 405, '不支持的请求方法。', headers);
     }

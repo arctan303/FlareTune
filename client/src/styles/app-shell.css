@@ -449,6 +449,10 @@
   animation: app-page-enter 180ms ease-out both;
 }
 
+.retained-page[data-restored="true"] > .app-page {
+  animation: none;
+}
+
 .app-page.artist-detail-page,
 .artist-detail-page,
 .app-page.assistant-page,

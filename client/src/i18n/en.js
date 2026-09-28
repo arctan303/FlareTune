@@ -4,6 +4,9 @@ import generated from './en.auto.js';
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
   ...generated,
+  '输入歌名、歌手或专辑，按回车或点击搜索。': 'Enter a song, artist or album, then press Enter or click Search.',
+  '播放统计加载失败，请刷新重试。': 'Could not load play statistics. Please refresh to try again.',
+  '还没有常听单曲': 'No frequently played songs yet',
   '个人设置': 'Personal settings',
   '账号信息': 'Account information',
   '管理员': 'Administrator',

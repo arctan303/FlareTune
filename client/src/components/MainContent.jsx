@@ -12,20 +12,22 @@ import { resolveVisibleShelfPlaylists } from '../accountPlaylistOrdering.js';
 import { createMemberPlaylistInfo, loadPlaylistPayload } from '../services/playlistPayloadLoader.js';
 import { useRandomSongs } from '../hooks/useRandomSongs';
 import SearchView from './SearchView.jsx';
+import { createSearchPageCache } from '../utils/searchPageCache.js';
 import { getPlaylistCoverUrls, PLAYLIST_COVER_FALLBACK } from './PlaylistCover.jsx';
 import PlaylistDetailView from './PlaylistDetailView.jsx';
 import AllPlaylistsView from './AllPlaylistsView.jsx';
 import { HomeExploreSection } from './HomeCollectionSections.jsx';
 import RoamOverview from './RoamOverview.jsx';
 import HomeOverview from './HomeOverview.jsx';
+import RetainedPage from './RetainedPage.jsx';
 import PlayHistoryView from './PlayHistoryView.jsx';
+import PlayStatsDetailView from './PlayStatsDetailView.jsx';
 import SettingsView from './SettingsView.jsx';
 const LyricsManagementWorkspace = React.lazy(() => import('./LyricsManagementWorkspace.jsx'));
 import AssistantView from './AssistantView.jsx';
 import ArtistDetailView from './ArtistDetailView.jsx';
 import AlbumDetailView from './AlbumDetailView.jsx';
 import CatalogBrowserView from './CatalogBrowserView.jsx';
-import TrackRow from './TrackRow.jsx';
 import ArtistCard from './catalog/ArtistCard.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import { formatPath, returnToOriginRoute, syncBrowserHistory } from '../utils/navigation.js';
@@ -84,7 +86,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     const openAddToPlaylist = useUIStore((s) => s.openAddToPlaylist);
     const authUser = useUIStore((state) => state.authSession.user || null);
     const isAuthenticated = useUIStore((state) => Boolean(state.authSession.authenticated));
-    const topSongs = usePlayStatsStore((state) => state.topSongs);
+    const topSongs = usePlayStatsStore((state) => state.listeningPreview);
     const resolvedTopSongs = React.useMemo(() => (topSongs || []).map((song) => {
         const mapped = songsMap instanceof Map
             ? songsMap.get(String(song.id)) || songsMap.get(Number(song.id)) || {}
@@ -225,6 +227,13 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     const requestGuardRef = useRef(null);
     if (!requestGuardRef.current) requestGuardRef.current = createLatestRequestGuard();
     const viewerKey = authUser?.accountId || '';
+    const sessionToken = useUIStore((state) => state.authSession.csrfToken);
+    const searchCache = React.useMemo(() => createSearchPageCache(), [viewerKey, sessionToken]);
+    useEffect(() => {
+        const update = (event) => { if (event.detail?.id) searchCache.updateSong(event.detail); };
+        window.addEventListener('flaretune:catalog-song-updated', update);
+        return () => window.removeEventListener('flaretune:catalog-song-updated', update);
+    }, [searchCache]);
     const previousViewerKeyRef = useRef(viewerKey);
 
     useEffect(() => {
@@ -494,6 +503,8 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     const isLyricsCandidatesActive = activePage === 'lyrics' && activeRoute?.type === 'page'
         && activeRoute.section === 'candidates'
         && !isViewingPlaylist && !isArtistDrawerOpen && !isViewingAdmin;
+    const isHomeActive = activePage === 'home' && (!activeRoute || activeRoute.type === 'page')
+        && !isArtistDrawerOpen && !isViewingAdmin;
 
     return (
         <div className={`collection-scroll h-full w-full ${isAssistantActive || isLyricsCurrentActive || isLyricsCandidatesActive ? 'overflow-hidden' : 'overflow-y-auto'} custom-scrollbar`} ref={containerRef}>
@@ -504,6 +515,9 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 data-lyrics-current-view={isLyricsCurrentActive}
                 data-lyrics-candidates-view={isLyricsCandidatesActive}
             >
+            <RetainedPage key={`home:${viewerKey}:${sessionToken}`} active={isHomeActive}>
+                {renderHome()}
+            </RetainedPage>
             <PlaylistDetailView
                 isViewingPlaylist={isViewingPlaylist && activeRoute?.type === 'playlist'}
                 loadState={activeRoute?.type === 'playlist' ? playlistLoadState : { status: 'idle' }}
@@ -563,14 +577,10 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                         onInsertNext={insertNextWithFeedback} onAddToPlaylist={(song, event) => { event?.stopPropagation(); openAddToPlaylist(song); }}
                         onToggleLiked={toggleLikedWithFeedback} isSongLiked={(song) => likedSongIdSet.has(String(song.id))} />
                 ) : activeRoute?.type === 'top-songs' ? (
-                    <div className="app-page pb-24">
-                        <PageBackButton className="mb-5" onClick={() => backToContent('/home')} />
-                        <h1 className="text-3xl font-bold mb-8">{t("常听单曲")}</h1>
-                        <div className="home-track-grid">{resolvedTopSongs.map((song) => <TrackRow key={song.id} song={song} songs={resolvedTopSongs}
-                            currentSong={currentSong} isPlaying={isPlaying} playSong={playSong}
-                            isLiked={likedSongIdSet.has(String(song.id))} onToggleLiked={toggleLikedWithFeedback}
-                            onInsertNext={insertNextWithFeedback} onAddToPlaylist={openAddToPlaylist} />)}</div>
-                    </div>
+                    <PlayStatsDetailView onBack={() => backToContent('/home')} songsMap={songsMap}
+                        currentSong={currentSong} isPlaying={isPlaying} playSong={playSong}
+                        likedSongIdSet={likedSongIdSet} onToggleLiked={toggleLikedWithFeedback}
+                        onInsertNext={insertNextWithFeedback} onAddToPlaylist={openAddToPlaylist} />
                 ) : activeRoute?.type === 'top-artists' ? (
                     <div className="app-page pb-24">
                         <PageBackButton className="mb-5" onClick={() => backToContent('/home')} />
@@ -592,14 +602,14 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                     likedSongIdSet={likedSongIdSet} onToggleLiked={toggleLikedWithFeedback}
                     onInsertNext={insertNextWithFeedback} onAddToPlaylist={openAddToPlaylist} />
                     : activePage === 'assistant' ? <AssistantView isAuthenticated section={activeRoute?.section || 'conversation'} />
-                    : activePage === 'search' ? <SearchView route={activeRoute} onBack={() => onNavigate('home')} songsMap={songsMap} />
+                    : activePage === 'search' ? <SearchView key={`${viewerKey}:${sessionToken}`} cache={searchCache} route={activeRoute} onBack={() => onNavigate('home')} songsMap={songsMap} />
                         : activePage === 'library' ? renderLibrary()
                         : activePage === 'roam' ? renderRoam()
                             : activePage === 'settings' ? <SettingsView section={activeRoute?.section} themePreference={themePreference} selectTheme={selectTheme} />
                                 : activePage === 'lyrics' ? <React.Suspense fallback={<div className="app-page" role="status">{t("正在打开歌词工作台…")}</div>}>
                                     <LyricsManagementWorkspace route={activeRoute} songFromLibrary={songsMap?.get(String(activeRoute?.songId))} onNavigate={onNavigate} />
                                   </React.Suspense>
-                                : renderHome()
+                                : null
             )}
         </div>
     </div>
