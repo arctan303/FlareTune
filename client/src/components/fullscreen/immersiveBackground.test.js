@@ -44,7 +44,8 @@ test('empty or failed photos use a darkened cover without starting scenery video
   const hookSrc = readHookSource();
   assert.match(hookSrc, /if \(!photos \|\| photos\.length === 0\) \{[\s\S]*setPhotoLayers\(\[\]\)/);
   assert.match(hookSrc, /setPhotoLayers\(\[\]\)/);
-  assert.match(src, /!showPhotos && coverUrl && <img src=\{coverUrl\}/);
+  assert.match(src, /resolvedCoverUrl = usePrivateMediaSource\(coverUrl\)/);
+  assert.match(src, /!showPhotos && resolvedCoverUrl && <img src=\{resolvedCoverUrl\}/);
   assert.doesNotMatch(src, /<video|videoSrc|onVideoReady/);
 });
 

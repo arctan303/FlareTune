@@ -83,7 +83,7 @@ export default function AiProfilesPanel({ csrfToken }) {
     <section className="wallpaper-content-surface space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h2 className="text-base font-bold text-[var(--ink)]">模型方案</h2>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">创建一次连接，再分配给助手、歌词 AI 等功能。密钥只在保存时提交，之后不回显。</p></div>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">密钥保存后不再回显。</p></div>
         <button type="button" className={buttonClass} onClick={() => startEdit()} disabled={busy}>创建方案</button>
       </div>
       {data && !data.credentialReady && <p className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">实例尚未配置 SETUP_SECRET，创建方案前需在开发 Worker 中设置它。</p>}
@@ -97,7 +97,7 @@ export default function AiProfilesPanel({ csrfToken }) {
     </section>
 
     <section className="wallpaper-content-surface space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs sm:p-7">
-      <div><h2 className="text-base font-bold text-[var(--ink)]">功能使用方案</h2><p className="mt-1 text-xs text-[var(--muted)]">每项功能可以复用同一方案，也可以分别选择。选择“原有部署配置”会沿用当前设置。</p></div>
+      <div><h2 className="text-base font-bold text-[var(--ink)]">功能使用方案</h2><p className="mt-1 text-xs text-[var(--muted)]">“原有部署配置”沿用当前设置。</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
         {[['assistant', '音乐助手'], ['lyrics', '歌词 AI']].map(([feature, label]) => <label key={feature} className="space-y-2 text-sm text-[var(--ink)]"><span className="font-semibold">{label}</span><select className={inputClass} disabled={!data || busy} value={data?.assignments[feature]?.profileId || ''} onChange={(event) => void assign(feature, event.target.value)}><option value="">原有部署配置</option>{data?.profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.model}</option>)}</select></label>)}
       </div>

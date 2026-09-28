@@ -10,26 +10,30 @@ const REQUIRED_TABLES = ['ft_instance', 'ft_migrations', 'ft_migration_lock', 'f
   'music_chat_threads', 'music_chat_thread_messages', 'music_chat_turns',
   'music_assistant_configs', 'AI_Assistants', 'Artist_Photos'];
 
-async function hasCompatibleServingSchema(db, names) {
+async function hasCompatibleServingSchema(db, names, triggers) {
   if (names.has('Playlists') || names.has('Playlist_Songs')) return false;
   for (const name of ['ft_migration_progress', 'ai_model_profiles', 'ai_feature_assignments',
     'assistant_memory_settings', 'assistant_memories']) if (!names.has(name)) return false;
   const columns = await db.prepare('PRAGMA table_info(Member_Playlists)').all();
   if (!columns?.results?.some((row) => row.name === 'cached_song_count'
     && String(row.type).toUpperCase() === 'INTEGER' && Number(row.notnull) === 1)) return false;
-  const triggers = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'ft_member_playlist_%'").all();
-  const found = new Set(triggers?.results?.map((row) => row.name));
   return ['ft_member_playlist_songs_insert_count', 'ft_member_playlist_songs_delete_count',
     'ft_member_playlist_songs_move_count', 'ft_member_playlist_owner_count']
-    .every((name) => found.has(name));
+    .every((name) => triggers.has(name));
 }
 
 async function inspectInstanceState(db, now) {
   if (!db?.prepare) return state('recovery_required', 'database_unavailable');
 
-  const tables = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all();
-  if (!Array.isArray(tables?.results)) return state('recovery_required', 'control_plane_unavailable');
-  const names = new Set(tables.results.map((row) => row.name).filter((name) => name !== '_cf_METADATA'));
+  // A single schema inventory checks tables and required triggers. Scanning
+  // sqlite_master twice on every API/media request dominated D1 rows read.
+  const schema = await db.prepare(`SELECT type, name FROM sqlite_master
+    WHERE (type = 'table' AND name NOT LIKE 'sqlite_%')
+      OR (type = 'trigger' AND name LIKE 'ft_member_playlist_%')`).all();
+  if (!Array.isArray(schema?.results)) return state('recovery_required', 'control_plane_unavailable');
+  const names = new Set(schema.results.filter((row) => row.type === 'table' && row.name !== '_cf_METADATA')
+    .map((row) => row.name));
+  const triggers = new Set(schema.results.filter((row) => row.type === 'trigger').map((row) => row.name));
   if (!names.has('ft_instance')) {
     // An empty provisioned D1 has no application schema. Never infer an empty
     // instance from a missing control table if unrelated data already exists.
@@ -113,7 +117,7 @@ async function inspectInstanceState(db, now) {
       return { state: 'maintenance', reason: activeLock ? 'migration_running' : 'migration_interrupted', schemaVersion: version };
     }
     if (retryableFailure) return { state: 'maintenance', reason: 'migration_retryable', schemaVersion: version };
-    if (version === CURRENT_SCHEMA_VERSION && !await hasCompatibleServingSchema(db, names)) {
+    if (version === CURRENT_SCHEMA_VERSION && !await hasCompatibleServingSchema(db, names, triggers)) {
       return state('recovery_required', 'schema_structure_invalid');
     }
     if (lock.owner_token !== null) return { state: 'maintenance',
@@ -124,7 +128,7 @@ async function inspectInstanceState(db, now) {
         return state('recovery_required', 'migration_schema_inconsistent');
       }
     }
-    const compatibleOldWorker = version === 1 && await hasCompatibleServingSchema(db, names);
+    const compatibleOldWorker = version === 1 && await hasCompatibleServingSchema(db, names, triggers);
     if (version < CURRENT_SCHEMA_VERSION && !compatibleOldWorker) {
       return { state: 'maintenance', reason: 'migration_pending', schemaVersion: version };
     }

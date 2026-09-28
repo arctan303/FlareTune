@@ -1,4 +1,3 @@
-import { parseArtistNames } from '../utils/artistParser.js';
 import { ARTIST_PHOTO_SCHEMA_VERSION } from './artistPhotoSources.js';
 
 export async function getArtistPhotoFromDb(db, artistName) {
@@ -53,20 +52,6 @@ export async function saveArtistPhotoToDb(db, photoRecord) {
         return true;
     } catch (error) {
         console.error('D1 saveArtistPhotoToDb error:', photoRecord.artist_name, error);
-        return false;
-    }
-}
-
-export async function deleteArtistPhotoFromDb(db, artistName) {
-    if (!db || !artistName) return false;
-    try {
-        const targets = [...new Set([artistName, ...parseArtistNames(artistName)])];
-        for (const name of targets) {
-            await db.prepare('DELETE FROM Artist_Photos WHERE artist_name = ?').bind(name).run();
-        }
-        return true;
-    } catch (error) {
-        console.error('D1 deleteArtistPhotoFromDb error:', artistName, error);
         return false;
     }
 }

@@ -189,7 +189,7 @@ test('HTTP setup, login, CSRF and logout use the new local account only', async 
     const originalPrepare = db.prepare;
     let schemaInspections = 0;
     db.prepare = (sql) => {
-      if (sql.includes("FROM sqlite_master WHERE type = 'table'")) schemaInspections += 1;
+      if (sql.includes('FROM sqlite_master')) schemaInspections += 1;
       return originalPrepare(sql);
     };
     const session = await worker.fetch(new Request('https://example.test/api/auth/session', { headers: { Cookie: cookie } }), env);
@@ -222,7 +222,7 @@ test('HTTP setup, login, CSRF and logout use the new local account only', async 
     assert.equal(typeof sessionBody.csrfToken, 'string');
     schemaInspections = 0;
     db.prepare = (sql) => {
-      if (sql.includes("FROM sqlite_master WHERE type = 'table'")) schemaInspections += 1;
+      if (sql.includes('FROM sqlite_master')) schemaInspections += 1;
       return originalPrepare(sql);
     };
     const media = await worker.fetch(new Request(mediaUrl, {

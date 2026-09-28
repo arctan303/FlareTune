@@ -1,6 +1,23 @@
 import { authenticatedFetch } from './authenticatedFetch.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { hydratePlayableSong } from '../utils.js';
+import { AUTH_SESSION_INVALIDATED_EVENT, AUTH_SESSION_UPDATED_EVENT } from '../authNavigation.js';
+
+const ALBUM_DETAIL_TTL_MS = 5 * 60_000;
+const ALBUM_DETAIL_CACHE_LIMIT = 40;
+const albumDetailCache = new Map();
+
+const clearAlbumDetailCache = () => albumDetailCache.clear();
+if (typeof window !== 'undefined') {
+  window.addEventListener(AUTH_SESSION_INVALIDATED_EVENT, clearAlbumDetailCache);
+  window.addEventListener(AUTH_SESSION_UPDATED_EVENT, clearAlbumDetailCache);
+  window.addEventListener('flaretune:catalog-song-updated', clearAlbumDetailCache);
+  import.meta.hot?.dispose(() => {
+    window.removeEventListener(AUTH_SESSION_INVALIDATED_EVENT, clearAlbumDetailCache);
+    window.removeEventListener(AUTH_SESSION_UPDATED_EVENT, clearAlbumDetailCache);
+    window.removeEventListener('flaretune:catalog-song-updated', clearAlbumDetailCache);
+  });
+}
 
 async function read(path, signal) {
   const response = await authenticatedFetch(`${getApiBaseUrl()}${path}`, { credentials: 'include', signal });
@@ -30,8 +47,21 @@ export async function readCatalog(type, { query = '', language = '', artist = ''
 }
 
 export async function readAlbum(id, signal) {
+  const key = JSON.stringify([getApiBaseUrl(), id]);
+  const cached = albumDetailCache.get(key);
+  if (cached && Date.now() - cached.savedAt < ALBUM_DETAIL_TTL_MS) {
+    albumDetailCache.delete(key);
+    albumDetailCache.set(key, cached);
+    return cached.album;
+  }
+  albumDetailCache.delete(key);
   const data = await read(`/api/albums/${encodeURIComponent(id)}`, signal);
-  return { ...data, songs: (data.songs || []).map(hydratePlayableSong).filter(Boolean) };
+  const album = { ...data, songs: (data.songs || []).map(hydratePlayableSong).filter(Boolean) };
+  albumDetailCache.set(key, { album, savedAt: Date.now() });
+  if (albumDetailCache.size > ALBUM_DETAIL_CACHE_LIMIT) {
+    albumDetailCache.delete(albumDetailCache.keys().next().value);
+  }
+  return album;
 }
 
 export async function readArtist(name, { offset = 0, limit = 50, signal } = {}) {

@@ -119,7 +119,7 @@ test('the password reveal is an accessible 44px icon control', () => {
 });
 
 test('the primary action and error block reuse the shared accent and radius tokens', () => {
-  assert.match(css, /\.instance-primary,\s*\.instance-secondary \{[\s\S]*border-radius: var\(--radius-control/);
+  assert.match(css, /\.instance-primary \{[\s\S]*border-radius: var\(--radius-control/);
   assert.match(css, /\.instance-primary \{[\s\S]*margin-top: 26px[\s\S]*background: var\(--accent/);
   assert.match(css, /\.instance-primary:hover:not\(:disabled\) \{[\s\S]*background: var\(--accent-strong/);
   assert.match(css, /\.instance-error \{[\s\S]*border-radius: var\(--radius-control[\s\S]*animation: instance-error-enter 200ms/);

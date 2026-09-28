@@ -110,7 +110,7 @@ function RecentSearchCard({ item, onPlaySong, onOpenArtist, onRemove }) {
         {item.type === 'artist' ? (
           <div className="w-12 h-12 rounded-full overflow-hidden bg-neutral-800 shadow-xs flex items-center justify-center transition-transform group-hover:scale-105">
             {displayAvatar ? (
-              <img src={displayAvatar} alt="" className="w-full h-full object-cover" loading="lazy" />
+              <LazyImage src={displayAvatar} alt="" className="w-full h-full object-cover" />
             ) : (
               <User size={20} className="text-[var(--muted)]" />
             )}
@@ -118,7 +118,7 @@ function RecentSearchCard({ item, onPlaySong, onOpenArtist, onRemove }) {
         ) : (
           <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-800 shadow-xs flex items-center justify-center transition-transform group-hover:scale-105">
             {item.coverUrl ? (
-              <img src={item.coverUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+              <LazyImage src={item.coverUrl} alt="" className="w-full h-full object-cover" />
             ) : (
               <Disc size={20} className="text-[var(--muted)]" />
             )}
@@ -254,8 +254,10 @@ export default function SearchView({ route, onBack, songsMap }) {
   };
 
   const hasCatalogQuery = Boolean(catalogQuery.trim());
-  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7, enabled: hasCatalogQuery });
-  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10, enabled: hasCatalogQuery });
+  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7,
+    enabled: hasCatalogQuery && subView === 'overview' });
+  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10,
+    enabled: hasCatalogQuery && subView === 'overview' });
   const fullArtistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'artists' });
   const fullAlbumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'albums' });
 
@@ -282,6 +284,16 @@ export default function SearchView({ route, onBack, songsMap }) {
       setIsFiltering(false);
       searchCacheRef.current.clear();
       prevQueryRef.current = '';
+      return undefined;
+    }
+
+    // Full artist/album views have their own paged query. Song rows are only
+    // needed by the overview and the full song view.
+    if (subView === 'artists' || subView === 'albums') {
+      setSongs([]);
+      setStatus('ready');
+      setHasMore(false);
+      setIsFiltering(false);
       return undefined;
     }
 
@@ -359,7 +371,7 @@ export default function SearchView({ route, onBack, songsMap }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, isAuthenticated, songSubCategory]);
+  }, [query, isAuthenticated, songSubCategory, subView]);
 
   useEffect(() => {
     setActiveIndex(-1);
@@ -638,15 +650,15 @@ export default function SearchView({ route, onBack, songsMap }) {
           </div>
         )}
 
-        {status === 'ready' && songs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status !== 'loading' && albumResults.status !== 'loading' && songSubCategory === 'all' && (
+        {subView === 'overview' && status === 'ready' && songs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status !== 'loading' && albumResults.status !== 'loading' && songSubCategory === 'all' && (
           <div className="theme-empty mx-auto max-w-2xl rounded-2xl p-8 text-center text-sm">
             没有找到与“{query.trim()}”匹配的内容。
           </div>
         )}
 
-        {status === 'ready' && (songs.length > 0 || matchedArtists.length > 0 || albumResults.items.length > 0 || songSubCategory !== 'all') && (
+        {status === 'ready' && (subView !== 'overview' || songs.length > 0 || matchedArtists.length > 0 || albumResults.items.length > 0 || songSubCategory !== 'all') && (
           <div className="w-full">
-            {filteredSongs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && (
+            {subView === 'overview' && filteredSongs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && (
               <div className="theme-empty mx-auto my-6 rounded-2xl p-8 text-center text-sm">
                 <p className="mb-3 text-[var(--muted)]">当前筛选下没有与“{query.trim()}”匹配的内容。</p>
                 {songSubCategory !== 'all' && (

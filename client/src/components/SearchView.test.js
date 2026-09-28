@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const readSource = (relativePath) => readFileSync(new URL(relativePath, import.meta.url), 'utf8');
 
-test('SearchView source contains major scope tabs, language subfilters, batch actions, keyboard nav, and zero-shift layout', () => {
+test('SearchView source keeps current category filters, batch actions, keyboard nav, and stable layout', () => {
   const source = readSource('./SearchView.jsx');
   const row = readSource('./search/SearchTrackRow.jsx');
   const globalPlaylistModal = readSource('./AddToPlaylistModal.jsx');
@@ -74,10 +74,6 @@ test('SearchView source contains major scope tabs, language subfilters, batch ac
 
   // Styles & Layout stability
   assert.match(css, /scrollbar-gutter:\s*stable/);
-  assert.match(css, /\.search-scope-tabs/);
-  assert.match(css, /\.search-scope-tab/);
-  assert.match(css, /\.search-subfilter-bar/);
-  assert.match(css, /\.search-subfilter-pill/);
   assert.match(css, /\.search-type-badge--en/);
   assert.match(css, /\.search-type-badge--ja/);
   assert.match(css, /\.search-type-badge--ko/);

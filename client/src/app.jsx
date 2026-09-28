@@ -26,7 +26,7 @@ import { usePlayStatsStore } from './store/usePlayStatsStore.js';
 import { usePlaybackPresentation } from './hooks/usePlaybackPresentation.js';
 import { selectHasRenderableWallpaper, useWallpaperStore } from './store/useWallpaperStore.js';
 import { toShellAuthSession } from './instance/state.js';
-import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, SUPPORTED_PAGES } from './utils/navigation.js';
+import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, restoreSidebarWorkspaceAfterRejectedBack, SUPPORTED_PAGES } from './utils/navigation.js';
 
 const retryDynamicImport = (importer, retries = 2, delayMs = 600) => async () => {
     try {
@@ -46,18 +46,14 @@ const loadFullScreenPlayer = () => import('./components/FullScreenPlayer.jsx').c
 const FullScreenPlayer = React.lazy(loadFullScreenPlayer);
 const PlaylistDrawer = React.lazy(retryDynamicImport(() => import('./components/PlaylistDrawer.jsx')));
 const AccountPlaylistDrawer = React.lazy(retryDynamicImport(() => import('./components/AccountPlaylistDrawer.jsx')));
-const RoamSettingsDrawer = React.lazy(retryDynamicImport(() => import('./components/RoamSettingsDrawer.jsx')));
-const FootprintDrawer = React.lazy(retryDynamicImport(() => import('./components/FootprintDrawer.jsx')));
 const BackgroundDrawer = React.lazy(retryDynamicImport(() => import('./components/BackgroundDrawer.jsx')));
 
 const OVERLAY_CLOSE_ORDER = [
     ['quickSongEditId', 'closeQuickSongEdit'],
     ['isAddToPlaylistOpen', 'closeAddToPlaylist'],
     ['isAccountPlaylistOpen', 'setIsAccountPlaylistOpen'],
-    ['isFootprintDrawerOpen', 'setIsFootprintDrawerOpen'],
     ['isPlaylistOpen', 'setIsPlaylistOpen'],
     ['isBackgroundDrawerOpen', 'setIsBackgroundDrawerOpen'],
-    ['isRoamSettingsOpen', 'setIsRoamSettingsOpen'],
     ['isFullScreen', 'setIsFullScreen'],
 ];
 
@@ -208,7 +204,7 @@ export default function App({ validatedSession }) {
         setVolume: state.setVolume,
     })));
 
-    const { toastMessage, isDarkMode, setIsDarkMode, isFullScreen, setIsFullScreen, isPlaylistOpen, setIsPlaylistOpen, isBackgroundDrawerOpen, setIsBackgroundDrawerOpen, isAccountPlaylistOpen, isRoamSettingsOpen, isFootprintDrawerOpen, isArtistDrawerOpen, setIsArtistDrawerOpen, activeArtistData, isAddToPlaylistOpen, quickSongEditId, isViewingAdmin, isViewingPlaylist, closeViewingPlaylist, visualMotionPhase } = useUIStore(useShallow((state) => ({
+    const { toastMessage, isDarkMode, setIsDarkMode, isFullScreen, setIsFullScreen, isPlaylistOpen, setIsPlaylistOpen, isBackgroundDrawerOpen, setIsBackgroundDrawerOpen, isAccountPlaylistOpen, isArtistDrawerOpen, setIsArtistDrawerOpen, activeArtistData, isAddToPlaylistOpen, quickSongEditId, isViewingAdmin, isViewingPlaylist, closeViewingPlaylist, visualMotionPhase } = useUIStore(useShallow((state) => ({
         toastMessage: state.toastMessage,
         isDarkMode: state.isDarkMode,
         setIsDarkMode: state.setIsDarkMode,
@@ -219,8 +215,6 @@ export default function App({ validatedSession }) {
         isBackgroundDrawerOpen: state.isBackgroundDrawerOpen,
         setIsBackgroundDrawerOpen: state.setIsBackgroundDrawerOpen,
         isAccountPlaylistOpen: state.isAccountPlaylistOpen,
-        isRoamSettingsOpen: state.isRoamSettingsOpen,
-        isFootprintDrawerOpen: state.isFootprintDrawerOpen,
         isArtistDrawerOpen: state.isArtistDrawerOpen,
         setIsArtistDrawerOpen: state.setIsArtistDrawerOpen,
         activeArtistData: state.activeArtistData,
@@ -249,8 +243,6 @@ export default function App({ validatedSession }) {
     const hasOpenedPlaylistDrawer = useOpenedOnce(isPlaylistOpen);
     const hasOpenedBackgroundDrawer = useOpenedOnce(isBackgroundDrawerOpen);
     const hasOpenedAccountPlaylistDrawer = useOpenedOnce(isAccountPlaylistOpen);
-    const hasOpenedRoamSettingsDrawer = useOpenedOnce(isRoamSettingsOpen);
-    const hasOpenedFootprintDrawer = useOpenedOnce(isFootprintDrawerOpen);
 
     const audioRef = useRef(null);
     const hasInitializedPlaylist = useRef(false);
@@ -262,7 +254,7 @@ export default function App({ validatedSession }) {
         const init = initialRouteRef.current;
         if (init?.type === 'explore') return 'roam';
         if (init?.type === 'playlist' && init?.id === 'daily-recommend') return 'home';
-        if (init?.type === 'top-songs' || init?.type === 'top-albums' || init?.type === 'top-artists' || init?.type === 'playlist' || init?.type === 'album') return 'library';
+        if (init?.type === 'top-songs' || init?.type === 'top-artists' || init?.type === 'playlist' || init?.type === 'album') return 'library';
         return (init && init.type === 'page' && SUPPORTED_PAGES.includes(init.page)) ? init.page : 'home';
     });
     const [activeRoute, setActiveRoute] = useState(() => initialRouteRef.current || { type: 'page', page: 'home' });
@@ -407,7 +399,7 @@ export default function App({ validatedSession }) {
             setActiveRoute(nextRoute);
             if (nextRoute.type === 'page') setActivePage(nextRoute.page);
             else if (nextRoute.type === 'explore') setActivePage('roam');
-            else if (nextRoute.type === 'top-songs' || nextRoute.type === 'top-albums' || nextRoute.type === 'top-artists') setActivePage('library');
+            else if (nextRoute.type === 'top-songs' || nextRoute.type === 'top-artists') setActivePage('library');
         };
         window.addEventListener('flaretune:navigate', handleNavigation);
         return () => window.removeEventListener('flaretune:navigate', handleNavigation);
@@ -423,7 +415,7 @@ export default function App({ validatedSession }) {
                 if (ui.lyricsWorkspaceExitApproved) {
                     useUIStore.setState({ lyricsWorkspaceExitApproved: false });
                 } else if (ui.lyricsWorkspaceBeforeCloseGuard?.() === false) {
-                    window.history.pushState({ url: routeKeyRef.current, from: window.location.pathname + window.location.search }, '', routeKeyRef.current);
+                    restoreSidebarWorkspaceAfterRejectedBack(routeKeyRef.current, routeEntryRef.current);
                     return;
                 }
             }
@@ -454,7 +446,7 @@ export default function App({ validatedSession }) {
                 if (ui.isArtistDrawerOpen) ui.setIsArtistDrawerOpen(false);
                 if (route.type !== 'playlist' && ui.isViewingPlaylist) ui.closeViewingPlaylist();
                 if (route.type === 'explore') setActivePage('roam');
-                else if (route.type === 'top-songs' || route.type === 'top-albums' || route.type === 'top-artists') setActivePage('library');
+                else if (route.type === 'top-songs' || route.type === 'top-artists') setActivePage('library');
             }
         };
         window.addEventListener('popstate', handlePopState);
@@ -578,8 +570,7 @@ export default function App({ validatedSession }) {
     // === 返回键拦截：关闭当前覆盖层而非退出网页 ===
     const prevAnyOpen = useRef(false);
     const secondaryModalOpen = Boolean(quickSongEditId) || isPlaylistOpen
-        || isBackgroundDrawerOpen || isRoamSettingsOpen
-        || isAccountPlaylistOpen || isAddToPlaylistOpen || isFootprintDrawerOpen;
+        || isBackgroundDrawerOpen || isAccountPlaylistOpen || isAddToPlaylistOpen;
     const modalOpen = isFullScreen || secondaryModalOpen;
     const anyOpen = modalOpen || isViewingPlaylist || isViewingAdmin;
 
@@ -694,16 +685,6 @@ export default function App({ validatedSession }) {
              <DrawerErrorBoundary title="个人歌单" isOpen={isAccountPlaylistOpen} onClose={() => useUIStore.getState().setIsAccountPlaylistOpen(false)}>
                <Suspense fallback={null}>
                     {authenticated && hasOpenedAccountPlaylistDrawer && <AccountPlaylistDrawer />}
-               </Suspense>
-             </DrawerErrorBoundary>
-             <DrawerErrorBoundary title="随心漫游偏好" isOpen={isRoamSettingsOpen} onClose={() => useUIStore.getState().setIsRoamSettingsOpen(false)}>
-               <Suspense fallback={null}>
-                    {authenticated && hasOpenedRoamSettingsDrawer && <RoamSettingsDrawer />}
-               </Suspense>
-             </DrawerErrorBoundary>
-             <DrawerErrorBoundary title="音乐足迹" isOpen={isFootprintDrawerOpen} onClose={() => useUIStore.getState().setIsFootprintDrawerOpen(false)}>
-               <Suspense fallback={null}>
-                    {authenticated && hasOpenedFootprintDrawer && <FootprintDrawer />}
                </Suspense>
              </DrawerErrorBoundary>
             {authenticated && <AddToPlaylistModal />}

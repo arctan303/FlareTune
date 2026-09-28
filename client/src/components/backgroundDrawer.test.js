@@ -73,21 +73,18 @@ test('BackgroundDrawer provides presets, custom URL, tuning sliders and reset', 
   assert.match(drawer, /referrerPolicy="no-referrer"/);
 });
 
-test('music-shell reflects wallpaper state and applies frosted glass acrylic to cards', () => {
+test('music-shell reflects wallpaper state and applies frosted glass acrylic to current surfaces', () => {
   const app = readSource('../app.jsx');
-  const homeFeatured = readSource('./HomeFeaturedSection.jsx');
+  const settings = readSource('./SettingsView.jsx');
   const componentsCss = readSource('../styles/components.css');
 
   assert.match(app, /import \{ selectHasRenderableWallpaper, useWallpaperStore \} from '\.\/store\/useWallpaperStore(\.js)?'/);
   assert.match(app, /const hasWallpaper = useWallpaperStore\(selectHasRenderableWallpaper\);/);
   assert.match(app, /data-has-wallpaper=\{hasWallpaper \? 'true' : 'false'\}/);
 
-  assert.match(homeFeatured, /className="sound-escape-subcard group text-left h-full flex flex-col justify-between[^"]*"/);
-  assert.match(homeFeatured, /sound-escape-subcard__badge/);
+  assert.match(settings, /wallpaper-content-surface/);
 
-  assert.match(componentsCss, /\.music-shell\[data-has-wallpaper='true'\] \.sound-escape-card/);
-  assert.match(componentsCss, /\.music-shell\[data-has-wallpaper='true'\] \.sound-escape-subcard/);
-  assert.match(componentsCss, /\.music-shell\[data-has-wallpaper='true'\] \.sound-escape-header-bar/);
+  assert.match(componentsCss, /\.music-shell\[data-has-wallpaper='true'\] \.wallpaper-content-surface/);
   assert.match(componentsCss, /backdrop-filter:\s*blur\(16px\)/);
 });
 

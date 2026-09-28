@@ -2,7 +2,6 @@
 // after instance-state, authentication and CSRF checks. Request data never
 // determines the account used in a query.
 import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
-import { encodeAlbumId } from './localAlbumRead.js';
 
 const MAX_REGULAR_PLAYLISTS = 50;
 const MAX_PLAYLIST_SONGS = 500;
@@ -451,23 +450,54 @@ const recordPlays = async (db, accountId, input, now) => {
   if (current + fresh.length > MAX_PLAY_EVENT_RECEIPTS) {
     fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
   }
-  const statements = [];
+  // D1 batch is transactional. Recheck quota as its first write so another
+  // request cannot take the remaining slots between the preflight and inserts.
+  // This deliberately conflicts with an existing receipt when the quota is
+  // exhausted, rolling back the whole batch (the same guard pattern used for
+  // playlist revisions above).
+  const statements = [db.prepare(`INSERT INTO Member_Play_Events
+    (account_id, event_id, song_id, played_at, received_at)
+    SELECT e.account_id, e.event_id, e.song_id, e.played_at, e.received_at
+    FROM Member_Play_Events e WHERE e.account_id = ?
+      AND (SELECT COUNT(*) FROM Member_Play_Events WHERE account_id = ?) + ? > ?
+    LIMIT 1`).bind(accountId, accountId, fresh.length, MAX_PLAY_EVENT_RECEIPTS)];
   fresh.forEach((event) => statements.push(db.prepare(`INSERT INTO Member_Play_Events
     (account_id, event_id, song_id, played_at, received_at)
     SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM Songs WHERE id = ?)
-      AND (SELECT COUNT(*) FROM Member_Play_Events WHERE account_id = ?) < ?
     ON CONFLICT(account_id, event_id) DO NOTHING`).bind(accountId, event.eventId, event.songId,
-    event.playedAt, now, event.songId, accountId, MAX_PLAY_EVENT_RECEIPTS)));
-  const results = statements.length ? await db.batch(statements) : [];
+    event.playedAt, now, event.songId)));
+  let results = [];
+  if (fresh.length) {
+    try {
+      results = (await db.batch(statements)).slice(1);
+    } catch (error) {
+      const latest = Number((await db.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+        WHERE account_id = ?`).bind(accountId).first())?.count || 0);
+      if (latest + fresh.length > MAX_PLAY_EVENT_RECEIPTS) {
+        fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
+      }
+      throw error;
+    }
+  }
   // D1 meta.changes includes the summary trigger's write. Each statement can
   // insert at most one event, so count successful statements instead.
   const recorded = results.filter((result) => changed(result) > 0).length;
+  // A song can disappear or another request can insert the same event after
+  // preflight. Only acknowledge an event if its receipt exists, or its song
+  // is now definitely absent.
+  const unresolved = await db.prepare(`WITH incoming(event_id, song_id) AS
+    (VALUES ${events.map(() => '(?, ?)').join(',')})
+    SELECT 1 AS pending FROM incoming i JOIN Songs s ON s.id = i.song_id
+    WHERE NOT EXISTS (SELECT 1 FROM Member_Play_Events r
+      WHERE r.account_id = ? AND r.event_id = i.event_id) LIMIT 1`)
+    .bind(...events.flatMap((event) => [event.eventId, event.songId]), accountId).first();
+  if (unresolved) fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
   return { recorded, acceptedEventIds: events.map((event) => event.eventId) };
 };
 const topPlays = async (db, accountId, input) => {
   const parsed = Number(input);
   const limit = Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : 20;
-  const [songs, playRows, albums] = await Promise.all([
+  const [songs, playRows] = await Promise.all([
     db.prepare(`SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url,
       s.cover_url, s.language, p.play_count, p.last_played_at
       FROM Member_Song_Plays p JOIN Songs s ON s.id = p.song_id
@@ -475,40 +505,13 @@ const topPlays = async (db, accountId, input) => {
       .bind(accountId, limit).all(),
     db.prepare(`SELECT song_id, play_count FROM Member_Song_Plays WHERE account_id = ?`)
       .bind(accountId).all(),
-    db.prepare(`WITH album_plays AS (
-      SELECT TRIM(s.artist) AS artist, TRIM(s.album) AS album,
-        SUM(p.play_count) AS play_count, COUNT(*) AS listened_track_count,
-        MAX(p.last_played_at) AS last_played_at
-      FROM Member_Song_Plays p JOIN Songs s ON s.id = p.song_id
-      WHERE p.account_id = ? AND s.audio_url IS NOT NULL AND TRIM(s.audio_url) <> ''
-        AND s.artist IS NOT NULL AND TRIM(s.artist) <> ''
-        AND s.album IS NOT NULL AND TRIM(s.album) <> ''
-      GROUP BY TRIM(s.artist), TRIM(s.album)
-      ORDER BY play_count DESC, last_played_at DESC, album COLLATE NOCASE LIMIT ?
-    ), album_covers AS (
-      SELECT TRIM(artist) AS artist, TRIM(album) AS album, cover_url,
-        ROW_NUMBER() OVER (PARTITION BY TRIM(artist), TRIM(album)
-          ORDER BY CASE WHEN created_at IS NULL THEN 1 ELSE 0 END, created_at, id) AS cover_rank
-      FROM Songs WHERE audio_url IS NOT NULL AND TRIM(audio_url) <> ''
-        AND cover_url IS NOT NULL AND TRIM(cover_url) <> ''
-    )
-    SELECT a.artist, a.album, c.cover_url, a.play_count, a.listened_track_count, a.last_played_at
-    FROM album_plays a LEFT JOIN album_covers c
-      ON c.artist = a.artist AND c.album = a.album AND c.cover_rank = 1
-    ORDER BY a.play_count DESC, a.last_played_at DESC, a.album COLLATE NOCASE`)
-      .bind(accountId, limit).all(),
   ]);
   const allCounts = rows(playRows);
   const playCounts = Object.fromEntries(allCounts.map((row) => [row.song_id, Number(row.play_count || 0)]));
   return { songs: rows(songs), playCounts,
     totalPlays: allCounts.reduce((total, row) => total + Number(row.play_count || 0), 0),
     totalUniqueSongs: allCounts.length,
-    topAlbums: rows(albums).map((row) => ({
-      id: encodeAlbumId(row.artist, row.album), title: row.album, artist: row.artist,
-      coverUrl: row.cover_url || '', playCount: Number(row.play_count || 0),
-      listenedTrackCount: Number(row.listened_track_count || 0),
-      lastPlayedAt: Number(row.last_played_at || 0),
-    })) };
+    topAlbums: [] };
 };
 
 const ACCOUNT_PATHS = /^\/api\/account\/(?:playlists(?:\/|$)|playlist-songs$|playlist-shelf(?:\/|$)|play-stats$)/;

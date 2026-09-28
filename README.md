@@ -1,55 +1,64 @@
-# FlareTune
+# <img src="client/public/favicon.svg" alt="" width="44" height="44"> FlareTune
 
-**把自己的音乐，放进一个随时可听的私人空间。**
+**把自己的音乐，放进随时可听的私人曲库。**
 
-FlareTune 是一款面向个人、家庭和小型私有群体的自建音乐应用。你可以把自己的歌曲与封面放进曲库，在电脑和手机浏览、搜索和播放；每位成员用自己的账号保存收藏、歌单与收听记录。实例由你自己管理，音乐文件存放在你绑定的私有存储中。
+FlareTune 是一款可自行部署的音乐应用，适合个人、家庭和小型私有群体。管理员导入自己的音频文件后，成员可以在电脑或手机上找歌、播放、收藏和整理歌单。曲库数据与媒体文件分别保存在部署者自己的 Cloudflare D1 和私有 R2 中。
 
-## 你可以用它做什么
+[界面预览](#界面预览) · [功能](#功能) · [部署](#部署到-cloudflare) · [使用指南](guide/using-flaretune.md) · [参与贡献](CONTRIBUTING.md)
 
-### 找到想听的音乐
+## 界面预览
 
-从主页进入曲库，按歌曲、歌手或专辑搜索；也可以通过「漫游」发现下一首。资料库集中呈现自己的收藏和歌单，最近听过的内容与收听足迹也能随时回看。
+桌面端主页展示曲库内容、常听歌曲和播放入口。下方截图还展示歌手页、播放器、手机歌词页与外观设置。点击图片可查看原图。
 
-### 按自己的方式播放
+[![FlareTune 桌面端主页，展示推荐卡片、歌曲列表和底部播放器](guide/images/home-desktop.png)](guide/images/home-desktop.png)
 
-播放器支持队列、播放控制和全屏欣赏。全屏可在经典封面与歌手写真两种视图间切换；歌词随音乐同步显示。遇到缺失或不准确的歌词，管理员可以在歌词工作台查找候选、编辑时间轴和译文，并保存到曲库供成员使用。
+| 歌手与专辑 | 外观与播放设置 |
+| --- | --- |
+| [<img src="guide/images/artist-desktop.png" alt="桌面端歌手页面，展示歌曲和专辑" width="600">](guide/images/artist-desktop.png) | [<img src="guide/images/appearance-desktop.png" alt="桌面端外观设置，展示主题和播放器样式选项" width="600">](guide/images/appearance-desktop.png) |
 
-### 整理个人曲库
+| 桌面端全屏播放器 | 手机端封面视图 | 手机端歌词视图 |
+| --- | --- | --- |
+| [<img src="guide/images/player-current-desktop.png" alt="桌面端全屏播放器，展示封面、同步歌词和播放控制" width="600">](guide/images/player-current-desktop.png) | [<img src="guide/images/player-current-mobile.png" alt="手机端全屏播放器封面视图" width="220">](guide/images/player-current-mobile.png) | [<img src="guide/images/lyrics-current-mobile.png" alt="手机端全屏播放器歌词视图" width="220">](guide/images/lyrics-current-mobile.png) |
 
-给喜欢的歌曲加星，建立和排序个人歌单；每个账号只管理自己的歌单和收听数据。管理员可在网页后台上传歌曲与封面、修正曲目信息、管理成员账号，并调整实例设置。
+## 功能
 
-### 和音乐助手对话
+- **浏览与播放**：按歌曲、歌手和专辑搜索，或通过「漫游」探索曲库；播放器支持队列、全屏封面和同步歌词。
+- **个人资料库**：每个账号管理自己的收藏、歌单和收听内容，桌面与手机共用同一套数据。
+- **曲库管理**：管理员可在网页中上传歌曲和封面、编辑曲目信息、管理成员账号；大量本地文件可使用[入库设备工具](tooling/ingest-agent/README.md)挑选并导入。
+- **可选音乐助手**：管理员配置 AI 模型后，助手「小A」可回答曲库相关问题、找歌和协助整理歌单；不配置也能正常使用曲库与播放器。
+- **外观选择**：支持跟随系统、浅色和深色主题，以及背景和播放器样式偏好。
 
-助手「小A」可以围绕当前歌曲、曲库和个人收听内容回答问题，帮你找歌、控制播放或整理自己的歌单。AI 服务由实例管理员按需配置；不配置时，曲库和播放功能仍可使用。
+## 部署到 Cloudflare
 
-### 调成喜欢的样子
-
-支持跟随系统、浅色和深色外观，以及背景与播放器显示偏好。桌面与手机使用同一套曲库和账号数据。
-
-## 适合谁
-
-FlareTune 适合已经拥有音乐文件、希望自己管理曲库和访问权限的人。它不提供音乐订阅或内置版权曲库；请只导入你有权存储和使用的内容。
-
-## 开始使用
-
-FlareTune 从旧项目 5.0 演进为独立产品，首个发行版本从 **1.0.0** 开始。主要功能已在维护者的生产实例测试正常。Cloudflare 部署模板会为使用者绑定独立的 D1 和 R2；首次访问先验证初始化密钥，再建立数据库和管理员账户。空库安装与升级流程已通过本地 Worker 和 D1 演练，全新云端账号验收仍待完成，进度见[部署指南](guide/deployment.md)。
+使用 Cloudflare 账号点击下方按钮，部署向导会创建并绑定 Worker、D1 数据库和私有 R2 存储桶。
 
 [![一键部署到 Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune)
 
-部署向导中填写高熵初始化密钥 `SETUP_SECRET`，D1 和 R2 由 Cloudflare 创建并绑定。仓库公开后按钮才可供其他用户使用；全新云端账号的安装流程仍待最终验收。
+1. 在部署向导中填写至少 32 个字符的随机 `SETUP_SECRET`，并保存好该密钥。
+2. 部署完成后打开实例地址，输入 `SETUP_SECRET` 验证首次初始化。
+3. 创建首个管理员账号，然后登录并导入音乐。
 
-| 你想了解 | 入口 |
+详细的初始化、升级和数据备份步骤见[部署与初始化指南](guide/deployment.md)。
+
+## 开发与文档
+
+项目使用 React、Vite 和 Cloudflare Workers，数据使用 D1，音频与封面使用私有 R2。本地开发需要 Node.js 22.12.0 或更新版本；完整的启动与验证步骤见[本地开发指南](guide/local-development.md)。
+
+| 文档 | 内容 |
 | --- | --- |
-| 页面和功能如何使用 | [使用指南](guide/using-flaretune.md) |
-| 如何部署、初始化与升级 | [部署指南与当前进度](guide/deployment.md) |
-| 管理员可以配置什么 | [管理与维护](guide/administration.md) |
-| 全部公开文档 | [文档索引](guide/README.md) |
-| 版本变化 | [更新日志](CHANGELOG.md) |
+| [使用指南](guide/using-flaretune.md) | 找歌、播放、歌单、助手和个人设置 |
+| [部署与初始化](guide/deployment.md) | 首次安装、密钥、升级和数据备份 |
+| [管理与维护](guide/administration.md) | 曲库、账号、实例设置和数据维护 |
+| [本地入库设备](tooling/ingest-agent/README.md) | 批量读取本地目录并在网页中挑选歌曲 |
+| [全部文档](guide/README.md) | 面向使用者和管理员的文档索引 |
+| [更新日志](CHANGELOG.md) | 版本变化与已知限制 |
 
-## 一起完善 FlareTune
+## 关于项目
 
-Node.js 版一键入库工具仍在开发测试，尤其需要真实曲库与 R2 场景的反馈。欢迎熟悉 Node.js、Cloudflare Workers／R2，或愿意测试不同平台和大量歌曲入库的朋友参与。可以从问题反馈、复现步骤、文档改进或代码贡献开始，详见[参与贡献](CONTRIBUTING.md)。请勿在公开反馈中附上音乐文件、密码或 Cloudflare 凭据。
+FlareTune 源自我的个人音乐播放器「乐境」。从乐境 4.0 到 5.0，项目经历了一年多的持续迭代；随后以 FlareTune 1.0.0 作为独立开源项目的起点。
 
-## 许可与素材
+我希望有更多愿意投入的开发者参与，一起把它做得更好。欢迎从代码、设计、测试或文档开始贡献，具体方式见[参与贡献](CONTRIBUTING.md)。如果使用中遇到问题，请通过 [GitHub Issues](https://github.com/arctan303/FlareTune/issues) 反馈，尽量附上运行环境、复现步骤和必要的脱敏日志。我会认真跟进并持续修复。感谢你的支持。
 
-项目原创代码与文档采用 [MIT 许可证](LICENSE)。页面照片来自 Unsplash，遵循 [Unsplash License](https://unsplash.com/license)，不纳入 MIT；品牌标识和参考数据的范围见[素材说明](ASSETS.md)。
+## 许可
+
+代码与文档采用 [MIT 许可证](LICENSE)；图片与品牌素材见[素材说明](ASSETS.md)。

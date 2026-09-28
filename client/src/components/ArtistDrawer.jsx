@@ -16,6 +16,7 @@ import {
   preloadAndDecodeImage,
 } from '../hooks/useArtistPhotos.js';
 import { useMediaQuery } from './fullscreen/useMediaQuery.js';
+import { usePrivateMediaSource } from '../hooks/usePrivateMediaSource.js';
 import { handleKeyboardActivation } from '../utils/keyboardActivation.js';
 import {
   ARTIST_HEADER_MAX_HEIGHT,
@@ -183,9 +184,10 @@ export default function ArtistDrawer() {
     }
   };
 
-  if (!mounted) return null;
-
   const displayAvatar = artistPhoto || fallbackCover || (resolvedSongs[0]?.cover_url) || '';
+  const resolvedAvatar = usePrivateMediaSource(displayAvatar);
+
+  if (!mounted) return null;
 
   return (
     <DrawerFrame
@@ -205,16 +207,16 @@ export default function ArtistDrawer() {
         >
           {/* 背景写真图片 */}
           <div ref={photoBgRef} className="absolute inset-0 w-full h-full will-change-transform origin-top">
-            {artistPhoto ? (
+            {artistPhoto && resolvedAvatar ? (
               <img
-                src={artistPhoto}
+                src={resolvedAvatar}
                 alt=""
                 className="w-full h-full object-cover object-top filter brightness-[0.8] transition-opacity duration-500"
                 loading="lazy"
               />
-            ) : fallbackCover ? (
+            ) : fallbackCover && resolvedAvatar ? (
               <img
-                src={fallbackCover}
+                src={resolvedAvatar}
                 alt=""
                 className="w-full h-full object-cover object-center filter blur-md brightness-50 opacity-60"
                 loading="lazy"
@@ -245,9 +247,9 @@ export default function ArtistDrawer() {
               ref={avatarRef}
               className="relative w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-full overflow-hidden bg-neutral-950 border-2 border-white/20 shadow-xl flex items-center justify-center shrink-0 origin-bottom-left will-change-transform"
             >
-              {displayAvatar ? (
+              {resolvedAvatar ? (
                 <img
-                  src={displayAvatar}
+                  src={resolvedAvatar}
                   alt={artistName}
                   className="w-full h-full object-cover"
                   loading="lazy"

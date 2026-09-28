@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshCw, KeyRound, Check, Copy, UserPlus, X, Edit3 } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore.js';
 import { getInstanceStatus, runAdminMigration } from '../instance/api.js';
+import { validLocalPassword } from '../instance/state.js';
 import AdminCatalogSection from './AdminCatalogSection.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
@@ -72,6 +73,10 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
     event.preventDefault();
     const form = event.currentTarget;
     const password = new FormData(form).get('temporaryPassword');
+    if (!validLocalPassword(password)) {
+      onMessage('临时密码至少需要 8 个字符，且不能超过 1024 字节。');
+      return;
+    }
     setBusy(true);
     onMessage('');
     try {
@@ -200,8 +205,8 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
       {resetOpen && (
         <form onSubmit={reset} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] p-3 animate-[fade-in_0.15s_ease-out]">
           <div className="flex-1 min-w-[200px]">
-            <Field label="一次性临时密码" hint="至少 15 个字符；不会保存在浏览器。">
-              <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={15} maxLength={1024} required placeholder="输入新的临时密码" />
+            <Field label="一次性临时密码" hint="至少 8 个字符；不会保存在浏览器。">
+              <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder="输入新的临时密码" />
             </Field>
           </div>
           <div className="flex items-center gap-1.5">
@@ -336,6 +341,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    if (!validLocalPassword(data.get('temporaryPassword'))) {
+      setMessage('临时密码至少需要 8 个字符，且不能超过 1024 字节。');
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
@@ -388,7 +397,6 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
               <PageBackButton onClick={onBack} className="mb-4" />
             )}
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[var(--ink)]">系统管理</h1>
-            <p className="mt-1 text-xs text-[var(--muted)]">配置 FlareTune 实例访问安全、AI 模型、曲库与账号体系。</p>
           </div>
           <button
             type="button"
@@ -453,7 +461,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {/* 常规 */}
           {(tab === 'general' || tab === 'instance' || tab === 'system') && (
             <div className="space-y-6">
-              <Section title="实例名称" description="用于识别当前私有音乐实例。">
+              <Section title="实例名称">
                 <div className="flex flex-wrap items-center justify-between gap-4"><strong className="text-base text-[var(--ink)]">{overview.settings['instance.name']?.value || '未命名实例'}</strong><button type="button" className={buttonClass} onClick={() => { setMessage(''); setNameEditorOpen(true); }}>修改名称</button></div>
               </Section>
               {nameEditorOpen && <SettingsEditDialog title="修改实例名称" message={message} busy={busy} onClose={() => { setDraft((current) => ({ ...current, 'instance.name': overview.settings['instance.name']?.value || '' })); setNameEditorOpen(false); }}>
@@ -465,7 +473,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {/* 访问 */}
           {(tab === 'access' || tab === 'instance' || tab === 'system') && (
             <div className="space-y-6">
-              <Section title="附加允许来源" description="同源访问始终允许；仅在需要从其他网站访问 API 时配置。">
+              <Section title="附加允许来源">
                 <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0 text-sm text-[var(--ink)]">{overview.settings['cors.allowed_origins']?.value?.length ? <><strong>{overview.settings['cors.allowed_origins'].value.length} 个来源</strong><p className="mt-1 break-all text-xs text-[var(--muted)]">{overview.settings['cors.allowed_origins'].value.slice(0, 2).join(' · ')}</p></> : <span className="text-[var(--muted)]">没有附加来源</span>}</div><button type="button" className={buttonClass} onClick={() => { setMessage(''); setOriginsEditorOpen(true); }}>管理来源</button></div>
               </Section>
               {originsEditorOpen && <SettingsEditDialog title="管理附加允许来源" message={message} busy={busy} onClose={() => { setDraft((current) => ({ ...current, 'cors.allowed_origins': (overview.settings['cors.allowed_origins']?.value || []).join('\n') })); setOriginsEditorOpen(false); }}>
@@ -479,7 +487,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
             <div className="space-y-6">
               <AiProfilesPanel csrfToken={csrfToken} />
 
-              <Section title="助手资料" description="对话入口统一叫“助手”；名称、人设和回复准则由此管理。">
+              <Section title="助手资料">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1.5 text-sm"><p><span className="text-[var(--muted)]">名称：</span><strong>{overview.assistant?.name || '小A'}</strong></p><p className="line-clamp-2 max-w-xl text-xs text-[var(--muted)]">{overview.assistant?.description || '暂无描述'}</p></div>
                   <button type="button" className={buttonClass} onClick={() => { setMessage(''); setAssistantDraft({ ...overview.assistant }); setAssistantEditorOpen(true); }}>编辑助手资料</button>
@@ -545,7 +553,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                 </form>
               </SettingsEditDialog>}
 
-              <Section title="歌词 AI" description="管理员统一设定共享歌词的目标译文语言与处理规则。模型在上方选择；工作台只负责发起处理。">
+              <Section title="歌词 AI">
                 <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
                   <div className="space-y-1.5">
                     <p><span className="text-[var(--muted)]">目标译文：</span>{getLanguageLabel(draft['lyrics.ai']?.targetLanguage)}</p>
@@ -638,7 +646,6 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       </div>
                       <div>
                         <h3 className="text-xs font-bold text-[var(--ink)]">创建新成员账号</h3>
-                        <p className="text-[11px] text-[var(--muted)]">填写用户名并指定临时密码，保存后自动加入下方列表。</p>
                       </div>
                     </div>
                     <button
@@ -665,8 +672,8 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                         <option value="admin">系统管理员</option>
                       </select>
                     </Field>
-                    <Field label="一次性临时密码" hint="至少 15 个字符；不会保存在浏览器。">
-                      <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={15} maxLength={1024} required placeholder="初始临时密码" />
+                    <Field label="一次性临时密码" hint="至少 8 个字符；不会保存在浏览器。">
+                      <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder="初始临时密码" />
                     </Field>
                     <div className="sm:col-span-2 pt-2 flex items-center gap-2">
                       <button className={buttonClass} type="submit" disabled={busy}>确认创建账号</button>
@@ -712,7 +719,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {tab === 'system' && (
             <div className="space-y-6">
               <IngestDevicesPanel />
-              <Section title="运行概况" description="显示当前能够验证的实例信息。">
+              <Section title="运行概况">
                 <dl className="grid gap-4 sm:grid-cols-2">
                   <div className="wallpaper-content-surface p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)]">
                     <dt className="text-xs text-[var(--muted)]">应用版本</dt>

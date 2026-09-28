@@ -1,10 +1,5 @@
 export const SHELL_THEME = {
   id: 'fluid',
-  name: '流光',
-  shortName: 'Tune',
-  eyebrow: 'FLUID AUDIO CRAFT // FLARETUNE',
-  title: 'FlareTune',
-  description: '以极简与克制雕琢交互细节，让旋律在纯粹中流淌。记录反复重听的声音，为专注与独处留白。',
   modes: {
     light: {
       page: '#ffffff',

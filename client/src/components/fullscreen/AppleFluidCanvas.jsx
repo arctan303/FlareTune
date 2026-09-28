@@ -1,4 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { imageLoadRegistry } from '../../utils/imageLoadRegistry.js';
+import { usePrivateMediaRouteRevision } from '../../hooks/usePrivateMediaRouteRevision.js';
+import { isTextureAuthorized } from '../../utils/privateTextureAuthorization.js';
 
 /* ==========================================================================
    Apple Music 调色提取器
@@ -289,6 +292,8 @@ export default function AppleFluidCanvas({
     suspended = false,
     className = '',
 }) {
+    const routeRevision = usePrivateMediaRouteRevision();
+    const [textureAuthorization, setTextureAuthorization] = useState(null);
     const canvasRef = useRef(null);
     const glRef = useRef(null);
     const programRef = useRef(null);
@@ -297,6 +302,8 @@ export default function AppleFluidCanvas({
     const timeRef = useRef(0);
     const animFrameRef = useRef(null);
     const lastCoverUrlRef = useRef('');
+    const lastRouteRevisionRef = useRef(routeRevision);
+    const lastCoverWasPrivateRef = useRef(false);
 
     // 使用 Ref 解决 React 闭包陈旧状态导致动画循环死锁的问题
     const isPlayingRef = useRef(isPlaying);
@@ -436,11 +443,28 @@ export default function AppleFluidCanvas({
     // 封面更新与过渡
     useEffect(() => {
         const gl = glRef.current;
-        if (!gl || !coverUrl || coverUrl === lastCoverUrlRef.current) return;
+        if (!gl) return;
+        if (lastRouteRevisionRef.current !== routeRevision) {
+            if (lastCoverWasPrivateRef.current || imageLoadRegistry.isPrivateMediaUrl(coverUrl)) {
+                if (texturesRef.current.current) gl.deleteTexture(texturesRef.current.current);
+                if (texturesRef.current.prev) gl.deleteTexture(texturesRef.current.prev);
+                texturesRef.current.current = createSolidTexture(gl, 28, 24, 36);
+                texturesRef.current.prev = createSolidTexture(gl, 28, 24, 36);
+                crossfadeRef.current = { startTime: 0, progress: 1.0 };
+                lastCoverUrlRef.current = '';
+                setTextureAuthorization(null);
+                triggerRender();
+            }
+            lastRouteRevisionRef.current = routeRevision;
+        }
+        if (!coverUrl || coverUrl === lastCoverUrlRef.current) return;
+        lastCoverWasPrivateRef.current = imageLoadRegistry.isPrivateMediaUrl(coverUrl);
+        if (lastCoverWasPrivateRef.current && !imageLoadRegistry.shouldLoadPrivately(coverUrl)) return;
 
         const img = new Image();
         img.crossOrigin = 'Anonymous';
         let cancelled = false;
+        let authorizedSource = null;
 
         img.onload = () => {
             if (cancelled || !glRef.current) return;
@@ -460,6 +484,9 @@ export default function AppleFluidCanvas({
                 progress: 0.0,
             };
             lastCoverUrlRef.current = coverUrl;
+            if (lastCoverWasPrivateRef.current) {
+                setTextureAuthorization({ coverUrl, routeRevision, source: authorizedSource });
+            }
 
             triggerRender();
         };
@@ -473,14 +500,25 @@ export default function AppleFluidCanvas({
         const optimizedUrl = coverUrl.includes('size=')
             ? coverUrl.replace(/size=\d+/, 'size=100')
             : coverUrl;
-        img.src = optimizedUrl + (optimizedUrl.includes('?') ? '&' : '?') + '_c=1';
+        if (imageLoadRegistry.shouldLoadPrivately(coverUrl)) {
+            void imageLoadRegistry.load(coverUrl).then(({ url }) => {
+                if (!cancelled) {
+                    authorizedSource = url;
+                    img.src = url;
+                }
+            }).catch(() => {
+                if (!cancelled) img.onerror?.();
+            });
+        } else {
+            img.src = optimizedUrl + (optimizedUrl.includes('?') ? '&' : '?') + '_c=1';
+        }
 
         return () => {
             cancelled = true;
             img.onload = null;
             img.onerror = null;
         };
-    }, [coverUrl]);
+    }, [coverUrl, routeRevision]);
 
     // 播放/缓冲状态变化时触发渲染循环检查
     useEffect(() => {
@@ -496,9 +534,12 @@ export default function AppleFluidCanvas({
         }
     }, [suspended, isPlaying, isBuffering]);
 
+    const textureVisible = isTextureAuthorized(coverUrl, routeRevision, textureAuthorization, imageLoadRegistry);
+
     return (
         <div className={`apple-fluid-canvas absolute inset-0 overflow-hidden pointer-events-none z-[-2] bg-[#050404] ${className}`}>
             <canvas
+                style={textureVisible ? undefined : { visibility: 'hidden' }}
                 ref={canvasRef}
                 className="w-full h-full object-cover scale-105 filter blur-[26px] md:blur-[38px] opacity-100 transition-opacity duration-1000 ease-out"
             />

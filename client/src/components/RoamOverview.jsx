@@ -173,34 +173,17 @@ export default function RoamOverview({
                                 <div className="roam-radio__languages inline-flex p-0.5 rounded-full bg-black/25 backdrop-blur-md">
                                     {ROAM_LANGUAGES.map((item, index) => {
                                         const isSelected = selectedKeys.includes(item.key);
-                                        const prevSelected = index > 0 && selectedKeys.includes(ROAM_LANGUAGES[index - 1].key);
                                         const nextSelected = index < ROAM_LANGUAGES.length - 1 && selectedKeys.includes(ROAM_LANGUAGES[index + 1].key);
-
-                                        let roundedClass = 'rounded-full';
-                                        if (isSelected) {
-                                            if (prevSelected && nextSelected) {
-                                                roundedClass = 'rounded-none';
-                                            } else if (prevSelected && !nextSelected) {
-                                                roundedClass = 'rounded-l-none rounded-r-full';
-                                            } else if (!prevSelected && nextSelected) {
-                                                roundedClass = 'rounded-l-full rounded-r-none';
-                                            } else {
-                                                roundedClass = 'rounded-full';
-                                            }
-                                        }
 
                                         return (
                                             <button
                                                 key={item.key}
                                                 type="button"
                                                 onClick={() => handleToggleKey(item.key)}
-                                                className={`relative px-3 py-1 text-xs transition-all cursor-pointer ${roundedClass} ${
-                                                    isSelected
-                                                        ? 'bg-white text-slate-900 font-bold'
-                                                        : 'text-white/75 hover:text-white font-medium'
-                                                }`}
+                                                aria-pressed={isSelected}
+                                                className={`roam-radio__language${isSelected ? ' is-selected' : ''}${isSelected && nextSelected ? ' is-connected' : ''}`}
                                             >
-                                                {item.label}
+                                                <span>{item.label}</span>
                                             </button>
                                         );
                                     })}

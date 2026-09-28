@@ -25,8 +25,9 @@ test('validated local account maps into shell auth without OAuth fields', () => 
 });
 
 test('password rule uses Unicode code points and UTF-8 byte limit', () => {
-  assert.equal(validLocalPassword('a'.repeat(14)), false);
-  assert.equal(validLocalPassword('a'.repeat(15)), true);
-  assert.equal(validLocalPassword('🔒'.repeat(15)), true);
+  assert.equal(validLocalPassword('a'.repeat(7)), false);
+  assert.equal(validLocalPassword('a'.repeat(8)), true);
+  assert.equal(validLocalPassword('🔒'.repeat(7)), false);
+  assert.equal(validLocalPassword('🔒'.repeat(8)), true);
   assert.equal(validLocalPassword('🔒'.repeat(257)), false);
 });

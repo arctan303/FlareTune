@@ -1,26 +1,27 @@
 import React from 'react';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry';
 import { useImageInView } from '../hooks/useImageInView.js';
+import { usePrivateMediaRouteRevision } from '../hooks/usePrivateMediaRouteRevision.js';
+import { visibleImageSource } from '../utils/privateImageVisibility.js';
 
-const isReadyCandidate = (cachedSrc, requestedSrc, fallback) => {
-    return Boolean(cachedSrc && (cachedSrc === requestedSrc || requestedSrc === fallback));
-};
+const isReadyCandidate = (cachedSrc) => Boolean(cachedSrc);
 
 const getInitialState = (src, fallback) => {
     const requestedSrc = src || fallback;
     const cachedSrc = imageLoadRegistry.getReadySource(requestedSrc, fallback);
-    return isReadyCandidate(cachedSrc, requestedSrc, fallback)
+    return isReadyCandidate(cachedSrc)
         ? { requestedSrc, displaySrc: cachedSrc, status: 'displaying', reveal: false }
         : { requestedSrc, displaySrc: null, status: 'loading', reveal: false };
 };
 
 export default function LazyImage({ src, alt = '专辑封面', className = '', fallback = '/placeholder-album.svg', style = {}, eager = false }) {
     const requestedSrc = src || fallback;
+    const routeRevision = usePrivateMediaRouteRevision();
     const [imageState, setImageState] = React.useState(() => getInitialState(src, fallback));
     const [prevSrc, setPrevSrc] = React.useState(requestedSrc);
     const imageRef = React.useRef(null);
     const cachedAtMount = imageLoadRegistry.getReadySource(requestedSrc, fallback);
-    const initiallyInView = isReadyCandidate(cachedAtMount, requestedSrc, fallback);
+    const initiallyInView = isReadyCandidate(cachedAtMount);
     const { containerRef, inView, setInView } = useImageInView({
         rootMargin: '300px',
         initiallyInView: eager || initiallyInView,
@@ -30,7 +31,7 @@ export default function LazyImage({ src, alt = '专辑封面', className = '', f
     if (requestedSrc !== prevSrc) {
         setPrevSrc(requestedSrc);
         const cached = imageLoadRegistry.getReadySource(requestedSrc, fallback);
-        if (isReadyCandidate(cached, requestedSrc, fallback)) {
+        if (isReadyCandidate(cached)) {
             setImageState({ requestedSrc, displaySrc: cached, status: 'displaying', reveal: false });
             setInView(true);
         } else {
@@ -47,8 +48,29 @@ export default function LazyImage({ src, alt = '专辑封面', className = '', f
         }
 
         const cachedSrc = imageLoadRegistry.getReadySource(requestedSrc, fallback);
+        if (imageLoadRegistry.isPrivateMediaUrl(requestedSrc) && !imageLoadRegistry.shouldLoadPrivately(requestedSrc)) {
+            setImageState({ requestedSrc, displaySrc: null, status: 'loading', reveal: false });
+            return undefined;
+        }
+        if (imageLoadRegistry.shouldLoadPrivately(requestedSrc) && !cachedSrc) {
+            let cancelled = false;
+            setImageState((current) => current.requestedSrc === requestedSrc
+                ? { requestedSrc, displaySrc: null, status: 'loading', reveal: false } : current);
+            void imageLoadRegistry.loadWithFallback(requestedSrc, fallback).then(({ url }) => {
+                if (cancelled) return;
+                setImageState((current) => current.requestedSrc === requestedSrc
+                    ? { requestedSrc, displaySrc: url, status: 'displaying', reveal: false }
+                    : current);
+            }).catch(() => {
+                if (cancelled) return;
+                setImageState((current) => current.requestedSrc === requestedSrc
+                    ? { requestedSrc, displaySrc: null, status: 'error', reveal: false }
+                    : current);
+            });
+            return () => { cancelled = true; };
+        }
         setImageState((current) => {
-            if (current.requestedSrc !== requestedSrc || current.displaySrc) return current;
+            if (current.requestedSrc !== requestedSrc || current.displaySrc === (cachedSrc || requestedSrc)) return current;
             return {
                 requestedSrc,
                 displaySrc: cachedSrc || requestedSrc,
@@ -57,10 +79,10 @@ export default function LazyImage({ src, alt = '专辑封面', className = '', f
             };
         });
         return undefined;
-    }, [requestedSrc, fallback, inView]);
+    }, [requestedSrc, fallback, inView, routeRevision]);
 
     const handleDisplayedImageError = (failedSrc) => {
-        imageLoadRegistry.markError(failedSrc);
+        imageLoadRegistry.markError(failedSrc.startsWith('blob:') ? requestedSrc : failedSrc);
         setImageState((current) => {
             if (current.requestedSrc !== requestedSrc || current.displaySrc !== failedSrc) return current;
             if (fallback && failedSrc !== fallback) {
@@ -84,14 +106,15 @@ export default function LazyImage({ src, alt = '专辑封面', className = '', f
             : current);
     }, [requestedSrc, imageState.requestedSrc, imageState.displaySrc, imageState.status]);
 
-    const isReady = imageState.requestedSrc === requestedSrc && imageState.status === 'ready' && Boolean(imageState.displaySrc);
-    const displayedSrc = imageState.requestedSrc === requestedSrc ? imageState.displaySrc : null;
+    const displayedSrc = imageState.requestedSrc === requestedSrc
+        ? visibleImageSource(requestedSrc, imageState.displaySrc, fallback, imageLoadRegistry) : null;
+    const isReady = imageState.requestedSrc === requestedSrc && imageState.status === 'ready' && Boolean(displayedSrc);
 
     return (
         <div
             ref={containerRef}
             className={`lazy-image relative overflow-hidden ${className}`}
-            data-image-state={imageState.status}
+            data-image-state={displayedSrc ? imageState.status : imageState.status === 'error' ? 'error' : 'loading'}
             style={style}
         >
             {!isReady && (

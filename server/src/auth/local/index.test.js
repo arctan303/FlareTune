@@ -81,15 +81,20 @@ const claim = (db, overrides = {}) => claimInstance({
 
 test('password format uses supported PBKDF2 material and enforces length without composition rule', async () => {
   assert.equal(validatePassword('short'), false);
-  assert.equal(validatePassword('十五个汉字也要足够长呀哈喽世界'), true);
+  assert.equal(validatePassword('1234567'), false);
+  assert.equal(validatePassword('12345678'), true);
+  assert.equal(validatePassword('🔒'.repeat(7)), false);
+  assert.equal(validatePassword('🔒'.repeat(8)), true);
+  assert.equal(validatePassword('🔒'.repeat(257)), false);
   assert.equal(validatePassword(password), true);
-  const material = await hashPassword(password);
+  await assert.rejects(hashPassword('1234567'), TypeError);
+  const material = await hashPassword('12345678');
   assert.equal(material.kdf, 'pbkdf2-sha256-chain');
   assert.equal(material.kdf_version, 2);
   assert.deepEqual(JSON.parse(material.kdf_params_json), { iterations: 100_000, rounds: 6 });
-  assert.equal(await verifyPassword(password, material), true);
+  assert.equal(await verifyPassword('12345678', material), true);
   assert.equal(await verifyPassword('wrong password', material), false);
-  assert.equal(await verifyPassword(password, { ...material, kdf_version: 1 }), false);
+  assert.equal(await verifyPassword('12345678', { ...material, kdf_version: 1 }), false);
 });
 
 test('password hashing and verification stay within the Cloudflare per-call PBKDF2 limit', async () => {
@@ -213,6 +218,24 @@ test('temporary credential signs in only to change-password mode and change revo
       currentPassword: newPassword, newPassword: password, now }), { changed: true });
     assert.equal(await getSession({ db: f.db, token: normal.token, now }), null);
     assert.equal((await login({ db: f.db, username: 'owner', password, now })).mode, 'normal');
+  } finally { f.close(); }
+});
+
+test('normal account accepts an eight-character new password and revokes old sessions', async () => {
+  const f = fixture();
+  try {
+    await claim(f.db);
+    const signedIn = await login({ db: f.db, username: 'owner', password, now });
+    const session = await getSession({ db: f.db, token: signedIn.token, now });
+    await assert.rejects(changePassword({ db: f.db, session, currentPassword: password,
+      newPassword: '1234567', now }), (error) => error.code === 'invalid_input');
+    assert.notEqual(await getSession({ db: f.db, token: signedIn.token, now }), null);
+    assert.deepEqual(await changePassword({ db: f.db, session, currentPassword: password,
+      newPassword: 'safe2026', now }), { changed: true });
+    assert.equal(await getSession({ db: f.db, token: signedIn.token, now }), null);
+    await assert.rejects(login({ db: f.db, username: 'owner', password, now }),
+      (error) => error.code === 'invalid_credentials');
+    assert.equal((await login({ db: f.db, username: 'owner', password: 'safe2026', now })).mode, 'normal');
   } finally { f.close(); }
 });
 

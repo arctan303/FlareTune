@@ -2,7 +2,7 @@ const hydrateActionSong = (rawSong, hydrateSong) => (
   rawSong ? hydrateSong(rawSong) : null
 );
 
-// 漫游语种标签与 RoamSettingsDrawer / MainContent 的 ROAM_LANGUAGE_OPTIONS 保持一致（仅用于提示文案）。
+// 漫游语种标签与 MainContent 的 ROAM_LANGUAGE_OPTIONS 保持一致（仅用于提示文案）。
 const ROAM_LANGUAGE_LABELS = {
   all: '全库',
   zh: '华语',

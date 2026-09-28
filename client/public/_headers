@@ -16,9 +16,6 @@
 /placeholder-album.svg
   Cache-Control: public, max-age=604800
 
-/arc.png
-  Cache-Control: public, max-age=604800
-
 /manifest.json
   Cache-Control: public, max-age=86400
 

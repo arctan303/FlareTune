@@ -18,6 +18,7 @@ const RESULT_TYPES = new Set(['songs', 'artists', 'albums']);
 const EXPLORE_TYPES = new Set(['songs', 'artists', 'albums']);
 const EXPLORE_LANGUAGES = new Set(['zh', 'en', 'instrumental', 'ja', 'other', 'ko']);
 const LYRICS_SECTIONS = new Set(['current', 'tools', 'candidates']);
+const SIDEBAR_WORKSPACES = new Set(['settings', 'assistant', 'lyrics']);
 
 /**
  * 将当前路径解析为结构化路由对象
@@ -66,7 +67,7 @@ export function parsePathname(pathname = '') {
   }
 
   if (firstSegment === 'library' && rest.length === 1 && rest[0] === 'top-albums') {
-    return { type: 'top-albums' };
+    return { type: 'page', page: 'library' };
   }
 
   if (firstSegment === 'library' && rest.length === 1 && rest[0] === 'top-artists') {
@@ -164,7 +165,6 @@ export function formatPath(route) {
 
   if (route.type === 'album' && route.id) return `/album/${encodeURIComponent(route.id)}`;
   if (route.type === 'top-songs') return '/library/top-songs';
-  if (route.type === 'top-albums') return '/library/top-albums';
   if (route.type === 'top-artists') return '/library/top-artists';
   if (route.type === 'explore' && EXPLORE_LANGUAGES.has(route.language)) {
     const base = `/explore/${route.language}`;
@@ -207,15 +207,69 @@ export function syncBrowserHistory(url, { replace = false, state = {} } = {}) {
   const currentPath = window.location.pathname + window.location.search;
   if (currentPath === url) return;
 
+  const targetPage = parsePathname(url).page;
+  const currentPage = parsePathname(currentPath).page;
+  let sidebarState = {};
+  if (SIDEBAR_WORKSPACES.has(targetPage)) {
+    const previous = window.history.state;
+    if (currentPage === targetPage) {
+      const origin = previous?.sidebarPage === targetPage ? previous.sidebarOrigin : null;
+      const depth = origin ? Number(previous.sidebarDepth) || 0 : 0;
+      sidebarState = { sidebarPage: targetPage, sidebarOrigin: origin,
+        sidebarDepth: origin ? depth + (replace ? 0 : 1) : 0 };
+    } else {
+      sidebarState = { sidebarPage: targetPage, sidebarOrigin: currentPath,
+        sidebarDepth: replace ? 0 : 1 };
+    }
+  }
+
   ensureHistoryScrollEntry();
   const scrollEntryId = `${Date.now()}-${++scrollEntrySequence}`;
 
   if (replace) {
-    window.history.replaceState({ ...window.history.state, ...state, url, scrollEntryId }, '', url);
+    window.history.replaceState({ ...window.history.state, ...state, ...sidebarState, url, scrollEntryId }, '', url);
   } else {
-    window.history.pushState({ ...state, from: currentPath, url, scrollEntryId }, '', url);
+    window.history.pushState({ ...state, ...sidebarState, from: currentPath, url, scrollEntryId }, '', url);
   }
   window.dispatchEvent(new CustomEvent('flaretune:navigate', { detail: { url, replace } }));
+}
+
+export function returnFromSidebarWorkspace(fallbackUrl = '/home') {
+  if (typeof window === 'undefined' || !window.history) return;
+  const currentPath = window.location.pathname + window.location.search;
+  const state = window.history.state;
+  const origin = state?.sidebarOrigin;
+  const depth = Number(state?.sidebarDepth);
+  const validOrigin = state?.url === currentPath
+    && state?.sidebarPage === parsePathname(currentPath).page
+    && typeof origin === 'string' && origin.startsWith('/') && !origin.startsWith('//')
+    && origin !== currentPath;
+  if (validOrigin && Number.isInteger(depth) && depth > 0
+    && window.history.length > depth && typeof window.history.go === 'function') {
+    window.history.go(-depth);
+    return 'back';
+  }
+  return returnToParentRoute(validOrigin ? origin : fallbackUrl);
+}
+
+// A guarded browser Back has already moved onto the previous entry. Recreate
+// the workspace as one entry above that page so its sidebar return still lands
+// on the page the user just attempted to leave for.
+export function restoreSidebarWorkspaceAfterRejectedBack(url, scrollEntryId) {
+  if (typeof window === 'undefined' || !window.history) return null;
+  const sidebarPage = parsePathname(url).page;
+  const from = window.location.pathname + window.location.search;
+  if (!SIDEBAR_WORKSPACES.has(sidebarPage) || from === url) return null;
+  const state = {
+    url,
+    from,
+    sidebarPage,
+    sidebarOrigin: from,
+    sidebarDepth: 1,
+    scrollEntryId: scrollEntryId || `${Date.now()}-${++scrollEntrySequence}`,
+  };
+  window.history.pushState(state, '', url);
+  return state;
 }
 
 export function returnToParentRoute(parentUrl) {

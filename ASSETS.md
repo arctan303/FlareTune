@@ -10,6 +10,12 @@
 
 ## 品牌标识与参考数据
 
-`client/public/arc.png`、`favicon.*` 和项目字标作为 FlareTune／Arc 的品牌标识随应用提供，不纳入 MIT 或 Unsplash 照片许可的再授权。`data/music/songs.json` 与 `server/db/seed.sql` 只含虚构曲目和歌单示例；对应音频、封面和歌词文件并未随仓库提供。
+`client/public/favicon.*` 是 FlareTune 的项目标识；应用内 `Tune` 字标作为产品标识使用。这些品牌素材不纳入 MIT 或 Unsplash 照片许可的再授权。`data/music/songs.json` 与 `server/db/seed.sql` 只含虚构曲目和歌单示例；对应音频、封面和歌词文件并未随仓库提供。
+
+`guide/images/desktop-roam.png`、`mobile-roam.png`、`player-desktop.png` 和 `player-mobile.png` 是在隔离的本地演示实例中截取的实际应用页面，使用虚构曲目。截图内的示例封面复用了上述 Unsplash 页面照片，因此截图中的照片部分仍遵循 Unsplash License。
+
+`guide/images/home-desktop.png`、`artist-desktop.png`、`appearance-desktop.png`、`player-current-desktop.png`、`player-current-mobile.png` 和 `lyrics-current-mobile.png` 由维护者提供，展示本地实例中的真实界面。截图出现的曲名、歌词、专辑封面和其他第三方内容仅用于界面展示，不作为 MIT 授权素材或项目随附曲库提供；相关权利仍归原权利人。
+
+`guide/logo-concepts/` 保留标识探索图；其中第二版“三条声波”已用于项目图标。探索图和正式图标均不纳入 MIT 代码与文档许可。
 
 部署者自行导入的音频、封面、歌词与歌手照片不属于本仓库授权范围；请确认自己有权存储和使用这些内容。

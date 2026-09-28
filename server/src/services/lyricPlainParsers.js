@@ -1,17 +1,6 @@
 import { parseDocument as parseYamlDocument } from 'yaml';
-import { parseLrcLines } from '../utils/lyricsTranslation.js';
 import { LYRIC_DOCUMENT_LIMITS, createLyricDocument } from '../utils/lyricDocument.js';
 import { LyricSourceError } from './lyricSourceError.js';
-
-const TIMELINE_RATIO_THRESHOLD = 0.6;
-
-export function isBadLyricsData(lrc) {
-  if (!lrc || typeof lrc !== 'string' || !lrc.trim()) return true;
-  const units = parseLrcLines(lrc);
-  if (units.length === 0) return true;
-  const withTimeline = units.filter((unit) => unit.timestamps.length > 0).length;
-  return (withTimeline / units.length) < TIMELINE_RATIO_THRESHOLD;
-}
 
 export function parseLyricsfile(lyricsfile, { providerMeta } = {}) {
   if (typeof lyricsfile !== 'string' || !lyricsfile.trim() || lyricsfile.length > LYRIC_DOCUMENT_LIMITS.maxLyricTextLength) {

@@ -11,6 +11,7 @@ import { createCatalogSong, getCatalogSong, listCatalogSongs, updateCatalogSong,
 import { hydrateSong } from '../utils.js';
 import { rejectDuplicateDecisionAfterCheckFailure } from '../utils/duplicateIngestDecision.js';
 import IngestDeviceSource from './IngestDeviceSource.jsx';
+import PrivateCoverImage from './PrivateCoverImage.jsx';
 import { runDeviceJob } from '../services/ingestDeviceApi.js';
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'wav', 'ogg', 'm4a', 'aac', 'wma']);
@@ -38,7 +39,7 @@ function CoverThumbnail({ file, previewUrl = '' }) {
     return () => URL.revokeObjectURL(next);
   }, [file]);
   return <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
-    {url || previewUrl ? <img src={url || previewUrl} alt="" className="h-full w-full object-cover" />
+    {url || previewUrl ? <PrivateCoverImage src={url || previewUrl} alt="" className="h-full w-full object-cover" />
       : <Disc size={21} className="text-[var(--muted)]" aria-hidden="true" />}
   </div>;
 }
@@ -845,7 +846,7 @@ export default function AdminSongCreatePage() {
                 {' · ' + (match.strength === 'strong' ? '高度相似' : '可能不同版本')}
                 {match.id ? ' · ID ' + match.id : ''}</p>
               {match.source === 'catalog' && <div className="mt-2 flex items-center gap-2">
-                {match.cover_url && <img src={hydrateSong(match).cover_url} alt="现有歌曲封面" className="h-12 w-12 rounded-lg object-cover" />}
+                {match.cover_url && <PrivateCoverImage src={hydrateSong(match).cover_url} alt="现有歌曲封面" className="h-12 w-12 rounded-lg object-cover" />}
                 <span className="text-xs text-[var(--muted)]">{match.cover_url ? '现有封面' : '现有歌曲无封面'}</span></div>}
               {match.source === 'catalog' && match.audio_url && <audio controls preload="none" src={hydrateSong(match).audio_url}
                 className="mt-2 w-full" aria-label={'试听曲库歌曲 ' + match.title} />}

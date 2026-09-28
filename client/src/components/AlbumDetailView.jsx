@@ -13,7 +13,7 @@ export default function AlbumDetailView({ id, onBack, currentSong, isPlaying, on
     const controller = new AbortController();
     setState({ status: 'loading', album: null });
     readAlbum(id, controller.signal)
-      .then((album) => setState({ status: 'ready', album }))
+      .then((album) => { if (!controller.signal.aborted) setState({ status: 'ready', album }); })
       .catch((error) => { if (error.name !== 'AbortError') setState({ status: 'error', album: null }); });
     return () => controller.abort();
   }, [id]);

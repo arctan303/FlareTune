@@ -9,6 +9,12 @@ import { getApiBaseUrl } from './apiBase.js';
 import { authenticatedFetch } from './authenticatedFetch.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const libraryPayloadCache = createExpiringAsyncCache({ ttlMs: CACHE_TTL_MS });
+
+export const invalidateLibraryPayloadCache = () => libraryPayloadCache.clear();
+if (typeof window !== 'undefined') {
+  window.addEventListener('flaretune:catalog-song-updated', invalidateLibraryPayloadCache);
+}
 
 const formatDate = (ts) => {
   if (!ts) return '';
@@ -25,10 +31,11 @@ export const createMemberPlaylistInfo = (playlist, currentUser) => ({
 export const createPlaylistPayloadLoader = ({
   getApiBaseUrl: resolveApiBase = getApiBaseUrl,
   getAuthenticated = () => Boolean(useUIStore.getState().authSession?.authenticated),
+  getAccountId = () => useUIStore.getState().authSession?.user?.accountId || null,
   hydrateSong: hydrate = hydrateSong,
   loadMemberDetail = (id) => accountPlaylistsStore.getState().loadDetail(id),
   fetchImpl = (url, init) => fetch(url, init),
-  cache = createExpiringAsyncCache({ ttlMs: CACHE_TTL_MS }),
+  cache = libraryPayloadCache,
 } = {}) => async (
   playlist,
   currentUser,
@@ -52,8 +59,7 @@ export const createPlaylistPayloadLoader = ({
     const page = playlist.page || 1;
     const limit = playlist.limit || 30;
     const apiBase = resolveApiBase();
-    const authTag = isAuthed ? 'auth' : 'anon';
-    const cacheKey = `lang::${langKey}::${sort}::${page}::${limit}::${authTag}`;
+    const cacheKey = JSON.stringify([apiBase, getAccountId(), langKey, sort, page, limit]);
     const loader = async () => {
       const apiUrl = `${apiBase}/api/songs?language=${encodeURIComponent(langKey)}&page=${page}&limit=${limit}&sort=${sort}`;
       const response = await authenticatedFetch(apiUrl, { credentials: 'include', cache: 'no-store' }, fetchImpl);
@@ -93,6 +99,10 @@ export const createPlaylistPayloadLoader = ({
       };
     };
     if (!revalidate) return cache.load(cacheKey, loader);
+    // Navigation can reuse a fresh value. Identity changes pass required
+    // revalidation without staleWhileRevalidate and still fetch from D1.
+    const fresh = staleWhileRevalidate ? cache.peek(cacheKey) : null;
+    if (fresh !== null) return fresh;
     return revalidateExpiringCache(cache, cacheKey, loader, {
       staleWhileRevalidate,
       onRefresh,

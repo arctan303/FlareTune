@@ -3,7 +3,6 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useUIStore, showToast } from '../store/useUIStore';
 import { hydrateSong } from '../utils';
 import { useShallow } from 'zustand/react/shallow';
-import { imageLoadRegistry } from '../utils/imageLoadRegistry';
 import {
     createLatestRequestGuard,
 } from '../utils/expiringAsyncCache';
@@ -27,7 +26,6 @@ import AlbumDetailView from './AlbumDetailView.jsx';
 import CatalogBrowserView from './CatalogBrowserView.jsx';
 import TrackRow from './TrackRow.jsx';
 import ArtistCard from './catalog/ArtistCard.jsx';
-import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import { formatPath, returnToOriginRoute, syncBrowserHistory } from '../utils/navigation.js';
 import { EXPLORE_CATEGORIES } from '../constants/explore.js';
@@ -82,12 +80,10 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     const setIsArtistDrawerOpen = useUIStore(s => s.setIsArtistDrawerOpen);
     const activeArtistData = useUIStore(s => s.activeArtistData);
     const setIsAccountPlaylistOpen = useUIStore(s => s.setIsAccountPlaylistOpen);
-    const setIsRoamSettingsOpen = useUIStore(s => s.setIsRoamSettingsOpen);
     const openAddToPlaylist = useUIStore((s) => s.openAddToPlaylist);
     const authUser = useUIStore((state) => state.authSession.user || null);
     const isAuthenticated = useUIStore((state) => Boolean(state.authSession.authenticated));
     const topSongs = usePlayStatsStore((state) => state.topSongs);
-    const topAlbums = usePlayStatsStore((state) => state.topAlbums);
     const resolvedTopSongs = React.useMemo(() => (topSongs || []).map((song) => {
         const mapped = songsMap instanceof Map
             ? songsMap.get(String(song.id)) || songsMap.get(Number(song.id)) || {}
@@ -147,7 +143,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         }
     }, [playlistInfo, refreshRandomSongs, setViewingPlaylist]);
     const currentRoamLang = randomRoam.language || 'all';
-    const langCounts = useSongLanguageCounts(isAuthenticated);
+    const langCounts = useSongLanguageCounts(isAuthenticated && activePage === 'roam' && activeRoute?.type === 'page');
 
     const handleStartRandomRoam = React.useCallback(() => {
         if (randomRoam.enabled) {
@@ -356,13 +352,6 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         }, 250);
     };
 
-    const prefetchPlaylist = React.useCallback((playlist) => {
-        if (!playlist || navigator.connection?.saveData) return;
-        void loadPlaylistPayload(playlist, authUser).catch(() => {});
-        const urls = getPlaylistCoverUrls(playlist, songsMap);
-        void imageLoadRegistry.loadGroup(urls, PLAYLIST_COVER_FALLBACK).catch(() => {});
-    }, [songsMap, authUser]);
-
     const openPlaylist = async (playlist, event = null) => {
         if (!playlist) return;
         if (playlistLoadState.playlist?.id === playlist.id && ['opening', 'skeleton'].includes(playlistLoadState.status)) return;
@@ -461,7 +450,6 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             likedSongs={likedSongs}
             randomSongs={randomSongs}
             resolvedTopSongs={resolvedTopSongs}
-            topAlbums={topAlbums}
             currentSong={currentSong}
             isPlaying={isPlaying}
             playSong={playSong}
@@ -469,9 +457,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             onOpenHistory={() => syncBrowserHistory('/history')}
             onNavigateRoam={() => onNavigate('roam')}
             onOpenTopSongs={() => syncBrowserHistory('/library/top-songs')}
-            onOpenTopAlbums={() => syncBrowserHistory('/library/top-albums')}
             onOpenTopArtists={() => syncBrowserHistory('/library/top-artists')}
-            onOpenAlbum={(album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }))}
             onOpenArtist={(artist) => useUIStore.getState().openArtistDrawer(artist)}
             onToggleRoam={handleStartRandomRoam}
             randomRoam={randomRoam}
@@ -504,7 +490,6 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 songsMap={songsMap}
                 loadState={playlistLoadState}
                 onOpen={openPlaylist}
-                onPrefetch={prefetchPlaylist}
                 onBack={() => onNavigate('home')}
                 onManageShelf={() => setIsAccountPlaylistOpen(true)}
                 isAuthenticated
@@ -596,15 +581,6 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                             currentSong={currentSong} isPlaying={isPlaying} playSong={playSong}
                             isLiked={likedSongIdSet.has(String(song.id))} onToggleLiked={toggleLikedWithFeedback}
                             onInsertNext={insertNextWithFeedback} onAddToPlaylist={openAddToPlaylist} />)}</div>
-                    </div>
-                ) : activeRoute?.type === 'top-albums' ? (
-                    <div className="app-page pb-24">
-                        <PageBackButton className="mb-5" onClick={() => backToContent('/home')} />
-                        <h1 className="text-3xl font-bold mb-8">常听专辑</h1>
-                        {topAlbums.length > 0
-                            ? <AlbumPreviewGrid albums={topAlbums} maxRows={Infinity}
-                                onOpen={(album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }))} />
-                            : <p className="text-sm text-[var(--muted)]">还没有常听专辑</p>}
                     </div>
                 ) : activeRoute?.type === 'top-artists' ? (
                     <div className="app-page pb-24">

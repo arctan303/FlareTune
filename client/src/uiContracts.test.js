@@ -31,7 +31,7 @@ test('closed lazy drawers and dead visual layers do not perform startup work', (
   assert.equal(existsSync(new URL('../../tooling/diagnostics/artist-photo-test.html', import.meta.url)), true);
 });
 
-test('playlist navigation has immediate feedback, delayed skeleton, prefetch, and stale-request protection', () => {
+test('playlist navigation has immediate feedback, delayed skeleton, no hover fetch, and stale-request protection', () => {
   const main = readSource('./components/MainContent.jsx');
   const shelf = readSource('./components/PlaylistShelfGrid.jsx');
   const card = readSource('./components/catalog/CollectionCard.jsx');
@@ -42,10 +42,8 @@ test('playlist navigation has immediate feedback, delayed skeleton, prefetch, an
   assert.match(main, /status: 'skeleton'/);
   assert.match(main, /}, 100\);/);
   assert.match(card, /record-card__opening/);
-  assert.match(main, /navigator\.connection\?\.saveData/);
-  assert.match(card, /onPointerEnter=/);
-  assert.match(card, /onPointerDown=\{\(\) => onPrefetch/);
-  assert.match(card, /onFocus=\{\(\) => onPrefetch/);
+  assert.doesNotMatch(main, /onPrefetch=\{prefetchPlaylist\}/);
+  assert.doesNotMatch(main, /imageLoadRegistry\.loadGroup/);
   assert.match(main, /createLatestRequestGuard/);
   assert.match(main, /requestGuardRef\.current\.isCurrent/);
   assert.match(detail, /PendingPlaylistDetail/);
@@ -349,7 +347,6 @@ test('account playlists remain independent while the assistant page uses account
   const threadSync = readSource('./services/aiThreadSync.js');
   const accountStore = `${readSource('./accountPlaylists.js')}\n${readSource('./services/accountApiRequest.js')}`;
   const accountOrdering = readSource('./accountPlaylistOrdering.js');
-  const clientTools = readSource('./assistantClientTools.js');
   const manageTool = readSource('../../server/src/tools/managePlaylist.js');
   const worker = readSource('../../server/src/routes/localAssistant.js');
 
@@ -407,7 +404,6 @@ test('account playlists remain independent while the assistant page uses account
   for (const action of ['list', 'read', 'create', 'add_songs', 'remove_songs', 'clear', 'replace_songs', 'reorder_songs', 'update_metadata', 'delete']) {
     assert.match(manageTool, new RegExp(`'${action}'`));
   }
-  assert.doesNotMatch(clientTools, /local_playlist|read_xiaoa_playlist|edit_xiaoa_playlist|localAiPlaylistStore/);
   assert.match(assistant, /import \{ getApiBaseUrl \} from '\.\.\/services\/apiBase\.js'/);
   assert.doesNotMatch(assistant, /getXiaoaApiBase|if \(!xiaoaApiBase\)|getApiBaseUrl\(\) \|\| ''/);
   assert.match(threadSync, /authenticatedFetch\(`\$\{apiBase\}\/api\/ai\/thread`/);
@@ -492,7 +488,7 @@ test('all current overlays participate in inertness and browser-back closing', (
   const app = readSource('./app.jsx');
   for (const stateKey of [
     'isAddToPlaylistOpen',
-    'isRoamSettingsOpen',
+    'isBackgroundDrawerOpen',
     'isAccountPlaylistOpen',
   ]) {
     assert.match(app, new RegExp(`\\['${stateKey}',`));
@@ -558,7 +554,7 @@ test('fullscreen lyric entry opens the shared workspace without a tools drawer',
 
 test('random suggestions stay auth-gated and persist a single local cache key', () => {
   const mainContent = readSource('./components/MainContent.jsx');
-  const homeFeatured = readSource('./components/HomeFeaturedSection.jsx');
+  const home = readSource('./components/HomeOverview.jsx');
   const hook = readSource('./hooks/useRandomSongs.js');
   const cache = readSource('./randomSongCache.js');
   const request = readSource('./randomSongRequest.js');
@@ -577,15 +573,10 @@ test('random suggestions stay auth-gated and persist a single local cache key', 
   assert.match(hook, /getApiBaseUrl\(\)/);
   assert.match(hook, /loadRandomSongs\(\)/);
   assert.match(hook, /saveRandomSongs\(/);
-  assert.match(homeFeatured, /01 \/ INSPIRATION & ROAM/);
-  assert.match(homeFeatured, /灵感漫游/);
   assert.match(mainContent, /useRandomSongs\(isAuthenticated\)/);
-  assert.doesNotMatch(homeFeatured, /isAuthenticated|精选单曲|SELECTED TRACKS/);
   assert.match(mainContent, /handleRefreshRandomSongs/);
-  assert.match(homeFeatured, /<h3 id="featured-title">灵感漫游<\/h3>/);
-  assert.match(homeFeatured, /暂无随机推荐，点击刷新试试/);
-  assert.match(homeFeatured, /\{error\}，点击右上角刷新重试/);
-  assert.match(homeFeatured, /songs\.slice\(0, 3\)\.map/);
+  assert.match(mainContent, /randomSongs=\{randomSongs\}/);
+  assert.match(home, /const pool = randomSongs\?\.length \? randomSongs : likedSongs/);
   assert.match(worker, /handleLocalMusicDiscoveryRoute\(request/);
   assert.match(worker, /decideApiAccess\(/);
   assert.match(songs, /isRandom = pathname === '\/api\/songs\/random' && request\.method === 'GET'/);
@@ -617,7 +608,8 @@ test('player context waits for identity and never repairs or persists an anonymo
 
 test('random roam has a home entry, queue switch, app-level continuation and local player persistence', () => {
   const main = readSource('./components/MainContent.jsx');
-  const homeFeatured = readSource('./components/HomeFeaturedSection.jsx');
+  const home = readSource('./components/HomeOverview.jsx');
+  const roam = readSource('./components/RoamOverview.jsx');
   const queue = readSource('./components/PlaylistDrawer.jsx');
   const app = readSource('./App.jsx');
   const hook = readSource('./hooks/useRandomRoam.js');
@@ -625,10 +617,10 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
   const worker = readSource('../../server/src/instance/httpRouter.js');
   const songs = readSource('../../server/src/routes/localMusicDiscovery.js');
 
-  assert.match(homeFeatured, /随机漫游/);
+  assert.match(home, /onClick=\{onToggleRoam\}/);
   assert.match(main, /startRandomRoam\(randomSongs/);
   assert.match(main, /setRandomRoamEnabled/);
-  assert.match(homeFeatured, /aria-pressed=\{randomRoam\.enabled\}/);
+  assert.match(roam, /aria-label=\{randomRoam\.enabled \? '暂停漫游' : '开启漫游电台'\}/);
   assert.match(queue, /队尾随机续播/);
   assert.match(queue, /role="switch"/);
   assert.match(queue, /retryRandomRoam/);
@@ -651,7 +643,7 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
 
 test('playlist requests live in the DOM-free payload loader while MainContent keeps navigation orchestration', () => {
   const main = readSource('./components/MainContent.jsx');
-  const homeFeatured = readSource('./components/HomeFeaturedSection.jsx');
+  const home = readSource('./components/HomeOverview.jsx');
   const homeCollections = readSource('./components/HomeCollectionSections.jsx');
   const playlistLoader = readSource('./services/playlistPayloadLoader.js');
   const cover = readSource('./components/PlaylistCover.jsx');
@@ -660,8 +652,7 @@ test('playlist requests live in the DOM-free payload loader while MainContent ke
   const detail = readSource('./components/PlaylistDetailView.jsx');
 
   assert.match(main, /import PlaylistDetailView from '.\/PlaylistDetailView\.jsx'/);
-  assert.match(homeFeatured, /import TrackRow from '.\/TrackRow\.jsx'/);
-  assert.match(homeCollections, /import PlaylistShelfGrid from '.\/PlaylistShelfGrid\.jsx'/);
+  assert.match(home, /import TrackRow from '.\/TrackRow\.jsx'/);
   assert.match(main, /import \{ createMemberPlaylistInfo, loadPlaylistPayload \} from '\.\.\/services\/playlistPayloadLoader\.js'/);
   assert.match(main, /createLatestRequestGuard/);
   assert.match(main, /loadPlaylistPayload/);
@@ -674,8 +665,7 @@ test('playlist requests live in the DOM-free payload loader while MainContent ke
   assert.doesNotMatch(playlistLoader, /\/api\/playlists\/\$\{playlist\.id\}/);
   assert.match(playlistLoader, /throw new Error\('歌单不存在'\)/);
   assert.match(main, /<PlaylistDetailView/);
-  assert.match(homeCollections, /<PlaylistShelfGrid/);
-  assert.match(homeFeatured, /<TrackRow/);
+  assert.match(home, /<TrackRow/);
   assert.match(detail, /<TrackRow/);
   assert.match(shelf, /<CollectionCard/);
   assert.match(readSource('./components/catalog/CollectionCard.jsx'), /<PlaylistCover/);
@@ -821,21 +811,18 @@ test('assistant entry remains on the main sidebar and empty playlist', () => {
 });
 
 test('protected pages rely on the app auth gate without shipping visitor UI branches', () => {
-  const homeFeatured = readSource('./components/HomeFeaturedSection.jsx');
+  const home = readSource('./components/HomeOverview.jsx');
   const search = readSource('./components/SearchView.jsx');
   const lyrics = readSource('./components/LyricsManagementWorkspace.jsx');
-  const footprint = readSource('./components/FootprintDrawer.jsx');
   const main = readSource('./components/MainContent.jsx');
 
-  assert.doesNotMatch(homeFeatured, /isAuthenticated|SELECTED TRACKS|精选单曲/);
+  assert.doesNotMatch(home, /isAuthenticated|SELECTED TRACKS|精选单曲/);
   assert.doesNotMatch(search, /登录后才能使用曲库搜索|isAuthenticated && status/);
   assert.doesNotMatch(lyrics, /lyrics-workspace__auth|访客状态|登录后管理共享歌词/);
-  assert.doesNotMatch(footprint, /本地播放统计|访客/);
   assert.doesNotMatch(main, /曲库探索仅对登录用户开放|isAuthenticated \? toggleLikedWithFeedback/);
 
   assert.match(search, /if \(!isAuthenticated\) \{/);
   assert.match(lyrics, /enabled: Boolean\(baseSong\?\.id\) && authenticated/);
-  assert.match(footprint, /if \(!isAuthenticated\) return/);
   assert.match(main, /useRandomSongs\(isAuthenticated\)/);
 });
 
@@ -847,7 +834,7 @@ test('Explore library section is gated for authenticated members only on client 
   // Client gates explore section with isAuthenticated
   assert.match(main, /<RoamOverview[\s\S]*isAuthenticated/);
   // Client gates remote language counts fetch
-  assert.match(main, /useSongLanguageCounts\(isAuthenticated\)/);
+  assert.match(main, /useSongLanguageCounts\(isAuthenticated && activePage === 'roam' && activeRoute\?\.type === 'page'\)/);
   assert.match(languageCounts, /if \(!isAuthenticated\) return undefined;[\s\S]*\/api\/songs\?counts=language/);
   // Server applies one session gate before all Tune business routes.
   assert.match(worker, /decideApiAccess\(/);
@@ -872,19 +859,6 @@ test('daily recommend full playlist provides refresh button with natural transit
   assert.match(main, /handleRefreshDailyRecommendInDetail/);
   assert.match(main, /onRefreshDailyRecommend=\{handleRefreshDailyRecommendInDetail\}/);
   assert.match(main, /isRefreshingDailyRecommend=\{isRandomRefreshing\}/);
-});
-
-test('sound-escape-header-bar is clickable to view full playlist and isolates child button clicks', () => {
-  const homeFeatured = readSource('./components/HomeFeaturedSection.jsx');
-  const css = readSource('./styles/components.css');
-
-  assert.match(homeFeatured, /className="sound-escape-header-bar[^"]*"[\s\S]*type="button"[\s\S]*onClick=\{handleOpenFullPlaylist\}/);
-  assert.match(homeFeatured, /aria-label="打开完整随机推荐列表"/);
-  assert.doesNotMatch(homeFeatured, /className="sound-escape-header-bar[^"]*"[\s\S]{0,160}role="button"/);
-  assert.match(homeFeatured, /e\.stopPropagation\(\);\s*onRefresh\(\);/);
-  assert.match(homeFeatured, /e\.stopPropagation\(\);\s*onPlay\(songs\[0\], songs\);/);
-  assert.match(css, /\.sound-escape-header-bar\s*\{[\s\S]*cursor:\s*pointer;/);
-  assert.match(css, /\.sound-escape-header-bar:hover/);
 });
 
 test('retired public information entries are absent from Settings and the account popover', () => {

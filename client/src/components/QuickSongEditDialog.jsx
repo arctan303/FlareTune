@@ -3,6 +3,7 @@ import { ALL_LANGUAGES } from '../constants/language.js';
 import { resolveCoverUrl } from '../utils.js';
 import { getCatalogSong, updateCatalogSong, uploadCatalogMedia } from '../services/catalogAdminApi.js';
 import { createQuickSongPatch } from '../utils/quickSongEditPatch.js';
+import PrivateCoverImage from './PrivateCoverImage.jsx';
 
 const editableFields = ['title', 'artist', 'album', 'language'];
 
@@ -81,7 +82,7 @@ export default function QuickSongEditDialog({ songId, onClose, onSaved }) {
         <p className="text-xs text-[var(--muted)]">修改这首歌的资料，或上传正确封面。</p>
         {loading ? <p role="status" className="py-8 text-center text-sm text-[var(--muted)]">正在读取歌曲…</p> : song && draft ? <>
           <div className="flex items-center gap-4 rounded-xl bg-[var(--surface)] p-3">
-            {previewUrl || song.cover_url ? <img src={previewUrl || resolveCoverUrl(song.cover_url)} alt="当前歌曲封面预览" className="h-20 w-20 shrink-0 rounded-lg object-cover" /> : <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[var(--line)] text-xs text-[var(--muted)]">无封面</span>}
+            {previewUrl || song.cover_url ? <PrivateCoverImage src={previewUrl || resolveCoverUrl(song.cover_url)} alt="当前歌曲封面预览" className="h-20 w-20 shrink-0 rounded-lg object-cover" /> : <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[var(--line)] text-xs text-[var(--muted)]">无封面</span>}
             <div className="min-w-0"><strong className="block truncate text-sm">{song.title}</strong><span className="block truncate text-xs text-[var(--muted)]">{song.artist || '未知歌手'}</span><label className="mt-2 inline-flex cursor-pointer items-center rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs hover:border-[var(--accent)]">替换封面<input type="file" accept=".jpg,.jpeg,.png,.webp" className="sr-only" onChange={(event) => { setFile(event.target.files?.[0] || null); uploadedCoverRef.current = null; }} /></label>{file && <span className="ml-2 text-xs text-[var(--muted)]">{file.name}</span>}</div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

@@ -92,8 +92,8 @@ test('application sidebar uses labeled desktop navigation and a focus-managed mo
   assert.match(css, /@media \(max-width: 639px\)[\s\S]*\.app-mobile-header \{[\s\S]*display: flex/);
   assert.match(css, /\.app-sidebar\.is-mobile-open \{[\s\S]*visibility: visible/);
   assert.match(css, /\.player-console__icon\s*\{[\s\S]*?min-width:\s*36px;[\s\S]*?min-height:\s*36px/);
-  assert.match(css, /\.queue-row__remove\s*\{[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px/);
-  assert.doesNotMatch(queue, /queue-row__remove[^"\n]*hidden/);
+  assert.match(queue, /className="queue-row__action/);
+  assert.match(queue, /aria-label=\{`从播放列表移出/);
   assert.match(queue, /theme-drawer__close/);
 });
 
@@ -115,7 +115,7 @@ test('sidebar account entry revalidates local session and opens account settings
   assert.doesNotMatch(accountMenu, /\/api\/ai\/auth|beginAuthLogin|sso_attempted|yifang_error/);
 });
 
-test('identity-sensitive music data waits for session discovery and always revalidates', () => {
+test('identity-sensitive music data waits for session discovery and forces revalidation', () => {
   const store = readSource('./store/useUIStore.js');
   const musicData = readSource('./hooks/useMusicData.js');
   const main = readSource('./components/MainContent.jsx');
@@ -135,7 +135,8 @@ test('identity-sensitive music data waits for session discovery and always reval
   assert.match(app, /accountPlaylistsStore\.getState\(\)\.refresh\(\)/);
   assert.match(playlistLoader, /apiUrl, \{ credentials: 'include', cache: 'no-store' \}/);
   assert.match(playlistLoader, /revalidateExpiringCache\(cache, cacheKey, loader/);
-  assert.match(playlistLoader, /const cacheKey = `lang::\$\{langKey\}::\$\{sort\}::\$\{page\}::\$\{limit\}::\$\{authTag\}`/);
+  assert.match(playlistLoader, /const cacheKey = JSON\.stringify\(\[apiBase, getAccountId\(\), langKey, sort, page, limit\]\)/);
+  assert.match(playlistLoader, /const fresh = staleWhileRevalidate \? cache\.peek\(cacheKey\) : null/);
   assert.doesNotMatch(playlistLoader, /const cacheKey = `\$\{playlist\.id\}::\$\{authed\}`/);
   assert.match(asyncCache, /const refreshPromise = cache\.refresh\(key, loader\)/);
   assert.match(main, /previousViewerKeyRef\.current === viewerKey/);
@@ -220,6 +221,7 @@ test('page navigation owns scroll restoration, admin priority, and playlist focu
   assert.match(app, /routeScrollPositionsRef/);
   assert.match(app, /routeScrollPositionsRef\.current\[routeEntryRef\.current\] = contentScrollRef\.current\.scrollTop/);
   assert.match(app, /scrollContainerRef=\{contentScrollRef\}/);
+  assert.match(app, /restoreSidebarWorkspaceAfterRejectedBack\(routeKeyRef\.current, routeEntryRef\.current\)/);
   assert.ok(main.indexOf('isViewingAdmin ? (') < main.indexOf("activePage === 'search'"));
   assert.match(home, /data-playlist-id=\{leadPlaylist\?\.id\}/);
   assert.match(home, /openPlaylist\(leadPlaylist, event\)/);
@@ -228,12 +230,12 @@ test('page navigation owns scroll restoration, admin priority, and playlist focu
 
 test('authenticated featured tracks play from the main row action while the secondary action only queues next', () => {
   const main = readSource('./components/MainContent.jsx');
-  const homeFeatured = readSource('./components/HomeFeaturedSection.jsx');
+  const home = readSource('./components/HomeOverview.jsx');
   const trackRow = readSource('./components/TrackRow.jsx');
   const css = readSource('./index.css');
   assert.match(trackRow, /track-row__main-action"[\s\S]{0,220}onClick=\{\(\) => playSong\(song, songs\)\}/);
-  assert.match(homeFeatured, /song=\{song\}[\s\S]{0,120}songs=\{songs\}/);
-  assert.doesNotMatch(homeFeatured, /featured-track-list|精选单曲|SELECTED TRACKS/);
+  assert.match(home, /song=\{song\}[\s\S]{0,120}songs=\{displayFootprints\}/);
+  assert.doesNotMatch(home, /featured-track-list|精选单曲|SELECTED TRACKS/);
   assert.match(trackRow, /<SongActionsMenu[\s\S]*onToggleLiked=\{onToggleLiked \? toggleLiked : undefined\}/);
   const coverZone = trackRow.indexOf('track-row__cover');
   const actionsZone = trackRow.indexOf('track-row__actions');
@@ -249,12 +251,12 @@ test('authenticated featured tracks play from the main row action while the seco
   assert.match(css, /@media \(max-width: 599px\)[\s\S]*\.track-row__action \{ width: 44px; height: 44px; opacity: 1; \}/);
   assert.match(trackRow, /<SongActionsMenu[\s\S]*onInsertNext=\{onInsertNext\}/);
   assert.doesNotMatch(trackRow, /PlayCircle size=\{20\} className="track-row__play"/);
-  assert.doesNotMatch(homeFeatured, /insertAndPlay/);
+  assert.doesNotMatch(home, /insertAndPlay/);
 });
 
 test('manual insert-next actions only show accurate feedback after a successful player update', () => {
   const main = readSource('./components/MainContent.jsx');
-  const homeFeatured = readSource('./components/HomeFeaturedSection.jsx');
+  const home = readSource('./components/HomeOverview.jsx');
   const trackRow = readSource('./components/TrackRow.jsx');
   const playerActions = readSource('./services/playerActionsCore.js');
 
@@ -263,8 +265,8 @@ test('manual insert-next actions only show accurate feedback after a successful 
   assert.match(playerActions, /已将《\$\{song\.title\}》插播为下一首/);
   assert.match(playerActions, /已开始播放《\$\{song\.title\}》/);
   assert.match(trackRow, /onInsertNext=\{onInsertNext\}/);
-  assert.equal((homeFeatured.match(/onInsertNext=\{insertNextWithFeedback\}/g) || []).length, 2);
-  assert.match(homeFeatured, /onInsertNext=\{onInsertNext\}/);
+  assert.match(home, /onInsertNext=\{insertNextWithFeedback\}/);
+  assert.match(main, /onInsertNext=\{insertNextWithFeedback\}/);
 });
 
 test('homepage editorial cards replace the retired account favorite workspace', () => {
@@ -308,16 +310,25 @@ test('retired public information drawers are absent from the application shell',
   assert.doesNotMatch(store, /isAboutOpen|setIsAboutOpen|isDmcaOpen|setIsDmcaOpen/);
 });
 
-test('displayed images own loading while explicit prefetch remains shared', () => {
+test('private displayed media reuses session memory while other images retain direct loading', () => {
   const css = readSource('./index.css');
   const lazyImage = readSource('./components/LazyImage.jsx');
+  const privateMediaSource = readSource('./hooks/usePrivateMediaSource.js');
+  const privateMediaRevision = readSource('./hooks/usePrivateMediaRouteRevision.js');
   const cover = readSource('./components/PlaylistCover.jsx');
   const registry = readSource('./utils/imageLoadRegistry.js');
 
   assert.match(lazyImage, /imageLoadRegistry\.getReadySource/);
   assert.match(lazyImage, /imageLoadRegistry\.markReady/);
   assert.match(lazyImage, /imageLoadRegistry\.markError/);
-  assert.doesNotMatch(lazyImage, /imageLoadRegistry\.loadWithFallback/);
+  assert.match(lazyImage, /usePrivateMediaRouteRevision\(\)/);
+  assert.match(lazyImage, /visibleImageSource\(requestedSrc, imageState\.displaySrc/);
+  assert.match(lazyImage, /fallback, inView, routeRevision/);
+  assert.match(privateMediaSource, /visibleImageSource\(src, resolved\.url/);
+  assert.match(privateMediaRevision, /imageLoadRegistry\.subscribeVisibility/);
+  assert.match(lazyImage, /shouldLoadPrivately\(requestedSrc\)[\s\S]*loadWithFallback\(requestedSrc, fallback\)/);
+  assert.match(registry, /credentials: 'include', cache: 'no-store'/);
+  assert.match(registry, /setSessionScope\(session\)/);
   assert.doesNotMatch(lazyImage, /new Image\(|\.decode\(\)/);
   assert.doesNotMatch(lazyImage, /setTimeout\([^)]*150/);
   assert.match(cover, /getPlaylistCoverUrls\(playlist, songsMap\)\[0\]/);

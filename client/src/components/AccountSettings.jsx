@@ -80,7 +80,7 @@ export default function AccountSettings() {
     event.preventDefault();
     setErrorContext('password');
     if (!validLocalPassword(newPassword)) {
-      setError('新密码至少需要 15 个字符，且不能超过 1024 字节。');
+      setError('新密码至少需要 8 个字符，且不能超过 1024 字节。');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -162,6 +162,7 @@ export default function AccountSettings() {
             <form className="mt-6 space-y-4" onSubmit={handlePasswordChange}>
               <label className="block text-sm font-medium">当前密码<input autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
               <label className="block text-sm font-medium">新密码<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+              <p className="text-sm text-[var(--muted)]">至少 8 个字符，建议使用独一无二的长密码。</p>
               <label className="block text-sm font-medium">确认新密码<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
               {error && errorContext === 'password' && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">

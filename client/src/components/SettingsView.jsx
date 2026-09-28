@@ -23,6 +23,7 @@ import {
 import { AVAILABLE_PLAYER_MODES, PLAYER_MODE_META } from '../constants/playerModes.js';
 import { resolveCoverUrl } from '../utils.js';
 import AccountSettings from './AccountSettings.jsx';
+import PrivateCoverImage from './PrivateCoverImage.jsx';
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
 const AdminSongCreatePage = React.lazy(() => import('./AdminSongCreatePage.jsx'));
@@ -75,7 +76,7 @@ function PlayerModeMockup({ mode, coverUrl }) {
       <div className="relative z-10 flex items-stretch gap-2.5 flex-1 min-h-0 my-0.5">
         <div className="w-[43%] flex flex-col justify-between shrink-0">
           <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-white/20 shadow-lg bg-black/60 shrink-0">
-            <img
+            <PrivateCoverImage
               src={coverUrl}
               alt=""
               className="w-full h-full object-cover"
@@ -249,7 +250,6 @@ export default function SettingsView({ section, themePreference = 'system', sele
             <div className="space-y-6 sm:space-y-7 animate-[fade-in_0.2s_ease-out]">
               <header className="border-b border-[var(--line)] pb-4">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)]">外观与样式</h1>
-                <p className="text-xs text-[var(--muted)] mt-1">个性化调节界面主题、播放器形态与背景毛玻璃质感</p>
               </header>
 
               {/* 模块 1：外观与色彩模式 */}
@@ -261,8 +261,8 @@ export default function SettingsView({ section, themePreference = 'system', sele
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl" role="group" aria-label="外观模式">
                   {[
                     { id: 'system', label: '跟随系统', detail: '随设备自动切换', icon: Monitor },
-                    { id: 'light', label: '浅色模式', detail: '明亮通透', icon: Sun },
-                    { id: 'dark', label: '深色模式', detail: '专注沉浸', icon: Moon },
+                    { id: 'light', label: '浅色模式', icon: Sun },
+                    { id: 'dark', label: '深色模式', icon: Moon },
                   ].map(({ id, label, detail, icon: Icon }) => (
                     <button
                       key={id}
@@ -275,7 +275,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span className="w-7 h-7 rounded-lg bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] flex items-center justify-center shrink-0"><Icon size={15} strokeWidth={2} /></span>
-                        <span className="min-w-0"><strong className="block text-xs font-semibold">{label}</strong><span className="block text-[10px] opacity-70">{detail}</span></span>
+                        <span className="min-w-0"><strong className="block text-xs font-semibold">{label}</strong>{detail && <span className="block text-[10px] opacity-70">{detail}</span>}</span>
                       </div>
                       {themePreference === id && <Check size={15} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />}
                     </button>
@@ -493,9 +493,6 @@ export default function SettingsView({ section, themePreference = 'system', sele
                             应用链接
                           </button>
                         </div>
-                        <p className="text-[11px] text-[var(--muted)]">
-                          支持来自任何公开可靠 CDN 的高清图片链接，建议分辨率 1920×1080 以上。
-                        </p>
                       </form>
                     )}
 

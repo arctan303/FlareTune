@@ -2,48 +2,6 @@ import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import HorizontalScrollButtons from './catalog/HorizontalScrollButtons.jsx';
 import { horizontalScrollState, moveHorizontalScroll } from './catalog/horizontalScroll.js';
-import PlaylistShelfGrid from './PlaylistShelfGrid.jsx';
-
-export function HomePlaylistShelfSection({
-    playlists,
-    songsMap,
-    loadState,
-    onOpen,
-    onPrefetch,
-    onViewAll,
-}) {
-    return (
-        <section className="collection-section collection-section--shelf" aria-labelledby="shelf-title">
-            <div className="collection-section__header mb-5">
-                <p className="collection-section__index whitespace-nowrap">02 / RECORD SHELF</p>
-                <div className="flex items-center justify-between gap-3">
-                    <h3 id="shelf-title">唱片架</h3>
-                    <div className="collection-section__actions flex items-center gap-3 shrink-0">
-                        {playlists.length > 0 && (
-                            <button
-                                type="button"
-                                className="shelf-view-all-btn group inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] border border-[var(--line)] hover:border-[var(--accent)] transition-all shadow-xs"
-                                onClick={onViewAll}
-                                aria-label="查看全部歌单"
-                            >
-                                <span>{playlists.length > 5 ? `全部歌单 (${playlists.length})` : '全部歌单'}</span>
-                                <ChevronRight size={13} strokeWidth={2.2} className="text-[var(--faint)] group-hover:text-[var(--accent-strong)] transition-colors" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-            <PlaylistShelfGrid
-                playlists={playlists.slice(0, 5)}
-                songsMap={songsMap}
-                loadState={loadState}
-                onOpen={onOpen}
-                onPrefetch={onPrefetch}
-                className="record-shelf--single-row"
-            />
-        </section>
-    );
-}
 
 export function HomeExploreSection({ items = [], langCounts, onOpen }) {
     const scrollRef = React.useRef(null);

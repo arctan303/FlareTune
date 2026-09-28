@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { currentTimeTool } from './currentTime.js';
-import { AI_TOOLS } from './index.js';
 import { buildUnifiedAiSystemPrompt } from '../utils/unifiedAiSystemPrompt.js';
 
 test('current_time uses the same stable time contract', async () => {
@@ -27,7 +26,12 @@ test('unified prompt exposes facts without administrator behavior branches', () 
   const prompt = buildUnifiedAiSystemPrompt({
     persona: 'PERSONA_MARKER', systemRules: 'GLOBAL_RULES_MARKER',
     siteName: 'FlareTune', siteUrl: 'flaretune.local', location: '/', playback: '无',
-    currentUser: { subject: 'u1', name: '站长', role: 'admin' }, availableTools: AI_TOOLS,
+    currentUser: { subject: 'u1', name: '站长', role: 'admin' },
+    availableTools: [{ type: 'function', function: {
+      name: currentTimeTool.name,
+      description: currentTimeTool.description,
+      parameters: currentTimeTool.parameters,
+    } }],
   });
   const indices = ['[助手 Persona]', '[全局系统准则]', '[当前用户事实]', '[当前站点与现场]', '[本轮实际注册工具]'].map((part) => prompt.indexOf(part));
   assert.deepEqual(indices, [...indices].sort((a, b) => a - b));
