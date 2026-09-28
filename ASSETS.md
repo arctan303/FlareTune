@@ -12,4 +12,6 @@
 
 `client/public/arc.png`、`favicon.*` 和项目字标作为 FlareTune／Arc 的品牌标识随应用提供，不纳入 MIT 或 Unsplash 照片许可的再授权。`data/music/songs.json` 与 `server/db/seed.sql` 只含虚构曲目和歌单示例；对应音频、封面和歌词文件并未随仓库提供。
 
+`guide/images/*.png` 是在隔离的本地演示实例中截取的实际应用页面，使用虚构曲目。截图内的示例封面复用了上述 Unsplash 页面照片，因此截图中的照片部分仍遵循 Unsplash License。
+
 部署者自行导入的音频、封面、歌词与歌手照片不属于本仓库授权范围；请确认自己有权存储和使用这些内容。

@@ -4,6 +4,18 @@
 
 FlareTune 是一款面向个人、家庭和小型私有群体的自建音乐应用。你可以把自己的歌曲与封面放进曲库，在电脑和手机浏览、搜索和播放；每位成员用自己的账号保存收藏、歌单与收听记录。实例由你自己管理，音乐文件存放在你绑定的私有存储中。
 
+## 页面预览
+
+以下截图来自本地演示实例，使用虚构曲目和示例封面，展示 1440 px 桌面与 390 px 手机宽度下的实际页面。点击图片可查看原图；界面会随屏宽调整。
+
+| 桌面：漫游与曲库探索 | 手机：同一页面的窄屏布局 |
+| --- | --- |
+| [<img src="guide/images/desktop-roam.png" alt="桌面端漫游页面：导航、随心漫游电台与曲库探索卡片" width="680">](guide/images/desktop-roam.png) | [<img src="guide/images/mobile-roam.png" alt="手机端漫游页面：折叠导航、漫游电台、探索卡片与迷你播放器" width="240">](guide/images/mobile-roam.png) |
+
+| 桌面：全屏播放器 | 手机：全屏播放器 |
+| --- | --- |
+| [<img src="guide/images/player-desktop.png" alt="桌面端全屏播放器：封面、播放控制与纯音乐提示" width="680">](guide/images/player-desktop.png) | [<img src="guide/images/player-mobile.png" alt="手机端全屏播放器：封面与触屏播放控制" width="240">](guide/images/player-mobile.png) |
+
 ## 你可以用它做什么
 
 ### 找到想听的音乐
@@ -17,6 +29,12 @@ FlareTune 是一款面向个人、家庭和小型私有群体的自建音乐应�
 ### 整理个人曲库
 
 给喜欢的歌曲加星，建立和排序个人歌单；每个账号只管理自己的歌单和收听数据。管理员可在网页后台上传歌曲与封面、修正曲目信息、管理成员账号，并调整实例设置。
+
+### 从本地目录入库
+
+少量歌曲可以直接在网页后台选择文件。批量入库时，可以在存放音乐的电脑上运行 **Node.js 入库设备工具**：首次配置实例、管理员账号和音乐目录，之后用 `npm run ingest` 启动。工具主动连接 FlareTune；管理员可以在另一台设备的网页后台筛选目录歌曲、只勾选需要的部分，再与浏览器文件一起预览、编辑、查重和入库。运行工具的电脑无需开放公网端口。
+
+安装、配置、多目录选择、语言映射和常见问题见[本地入库设备使用指南](tooling/ingest-agent/README.md)。
 
 ### 和音乐助手对话
 
@@ -43,12 +61,18 @@ FlareTune 从旧项目 5.0 演进为独立产品，首个发行版本从 **1.0.0
 | 页面和功能如何使用 | [使用指南](guide/using-flaretune.md) |
 | 如何部署、初始化与升级 | [部署指南与当前进度](guide/deployment.md) |
 | 管理员可以配置什么 | [管理与维护](guide/administration.md) |
+| 如何从本地目录批量入库 | [本地入库设备使用指南](tooling/ingest-agent/README.md) |
 | 全部公开文档 | [文档索引](guide/README.md) |
 | 版本变化 | [更新日志](CHANGELOG.md) |
 
+## 后续开发方向
+
+- **第三方播放器兼容**：计划研究实现 [Subsonic／OpenSubsonic API](https://opensubsonic.netlify.app/docs/)，让[音流](https://github.com/liuyincs/musiver)等支持该 API 的客户端连接 FlareTune。当前尚未提供兼容接口；先确定认证、曲库浏览、音频与封面读取等基础范围，再做客户端互通测试。
+- **界面多语言**：计划为网页界面与公开文档加入多语言支持。当前的歌曲语言识别和目录语言映射只用于整理曲目，不代表界面已经完成国际化。
+
 ## 一起完善 FlareTune
 
-Node.js 版一键入库工具仍在开发测试，尤其需要真实曲库与 R2 场景的反馈。欢迎熟悉 Node.js、Cloudflare Workers／R2，或愿意测试不同平台和大量歌曲入库的朋友参与。可以从问题反馈、复现步骤、文档改进或代码贡献开始，详见[参与贡献](CONTRIBUTING.md)。请勿在公开反馈中附上音乐文件、密码或 Cloudflare 凭据。
+入库设备工具已有可用版本，仍欢迎更多人验证不同系统、文件格式和较大曲库；协议兼容与多语言也需要共同设计和实现。欢迎熟悉 Node.js、Cloudflare Workers／R2、播放器 API 或翻译的朋友参与。可以从问题反馈、复现步骤、文档改进或代码贡献开始，详见[参与贡献](CONTRIBUTING.md)。请勿在公开反馈中附上音乐文件、密码或 Cloudflare 凭据。
 
 ## 许可与素材
 

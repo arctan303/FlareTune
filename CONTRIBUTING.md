@@ -1,15 +1,17 @@
 # 参与贡献
 
-感谢帮助完善 FlareTune。项目的主要功能已在维护者生产实例测试正常；**Node.js 版一键入库工具仍在开发测试**，欢迎优先帮助验证与改进它。
+感谢帮助完善 FlareTune。Node.js 入库设备工具已有可用版本，欢迎在更多设备、操作系统与曲库规模下验证，也欢迎一起推进第三方播放器兼容和界面多语言。
 
 ## 适合参与的方向
 
 - 在自己的测试实例中验证多首歌曲预检、重复识别、失败重试与恢复；反馈可复现的问题。
 - 验证不同操作系统、浏览器和音乐文件格式下的入库体验。
 - 帮助验证 Cloudflare R2 直传、分片上传和目标 bucket 核对，或改进相应测试与说明。
+- 研究 [Subsonic／OpenSubsonic API](https://opensubsonic.netlify.app/docs/) 的基础接口，并用音流等客户端做互通测试；FlareTune 目前尚未实现该兼容接口。
+- 设计界面与公开文档的多语言方案，帮助整理术语、翻译和校对；歌曲语言分类与界面国际化是两项不同工作。
 - 改进播放器、歌词、助手、无障碍和中文使用文档。
 
-Node.js 工具在仓库根目录通过 `npm run ingest` 启动（Windows PowerShell 使用 `npm.cmd run ingest`）；使用前请阅读[本地开发指南](guide/local-development.md)。当前工具仍在测试，建议先使用自己的隔离实例与少量可重建的样本。
+Node.js 工具的安装、首次配置和后台操作见[本地入库设备使用指南](tooling/ingest-agent/README.md)（Windows PowerShell 使用 `npm.cmd`）。参与代码开发可阅读[本地开发指南](guide/local-development.md)；验证新功能时建议先使用自己的隔离实例与少量可重建的样本。
 
 ## 提交问题和修改
 
