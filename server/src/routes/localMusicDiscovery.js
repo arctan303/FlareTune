@@ -1,6 +1,9 @@
 import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
 import { buildSongLanguageFilter } from '../utils/songLanguage.js';
 import { runtimeSongColumns } from '../utils/songProjection.js';
+import { createRoamSampler } from '../services/roamSampler.js';
+
+const roamSampler = createRoamSampler();
 
 const SONG_COLUMNS = runtimeSongColumns('s');
 const MAX_ID_LENGTH = 80;
@@ -95,8 +98,23 @@ async function resolveSongs(request, db, headers) {
 }
 
 async function roamSongs(request, db, headers) {
-  const parsed = await bodyJson(request, headers, 512 * 1024);
+  const parsed = await bodyJson(request, headers, 1024 * 1024);
   if (parsed.response) return parsed.response;
+  if (parsed.body.strategy === 'recent') {
+    const recent = normalizeIds(parsed.body.recentSongIds, MAX_SEEN_IDS);
+    const queued = normalizeIds(parsed.body.queuedSongIds, MAX_SEEN_IDS);
+    const limit = parseBatch(parsed.body.limit, 10);
+    const language = parsed.body.language ?? 'all';
+    if (!recent || !queued || limit === null || typeof language !== 'string'
+      || !buildSongLanguageFilter(language === 'all' ? null : language)) return invalid('Invalid roam parameters', headers);
+    const result = await roamSampler.sample(db, { recent, queued, limit, language });
+    return success({ songs: result.songs, strategy: 'recent', language, limit,
+      totalPlayable: result.rangeSize, remainingPlayable: Math.max(0, result.eligible - result.songs.length),
+      recentWindow: result.windowSize, relaxed: result.relaxed,
+      // A full queue is temporary; playing it makes older songs eligible again.
+      exhausted: result.rangeSize === 0 || (result.songs.length === 0 && queued.length <= 1 && !result.stale),
+    }, headers);
+  }
   const seenIds = normalizeIds(parsed.body.seenSongIds, MAX_SEEN_IDS);
   const limit = parseBatch(parsed.body.limit ?? parsed.body.batchSize, 10);
   const language = parsed.body.language === undefined || parsed.body.language === 'all'

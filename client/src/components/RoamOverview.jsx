@@ -3,7 +3,6 @@ import React, { useMemo, useCallback } from 'react';
 import {
     Play,
     Pause,
-    RotateCcw,
 } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { showToast } from '../store/useUIStore';
@@ -32,7 +31,6 @@ export default function RoamOverview({
 }) {
     const setRandomRoamLanguage = usePlayerStore((s) => s.setRandomRoamLanguage);
     const setRandomRoamBatchSize = usePlayerStore((s) => s.setRandomRoamBatchSize);
-    const resetRandomRoamHistory = usePlayerStore((s) => s.resetRandomRoamHistory);
 
     // 解析当前语种多选
     const selectedKeys = useMemo(() => {
@@ -44,7 +42,6 @@ export default function RoamOverview({
 
     const isAllSelected = selectedKeys.length === ALL_KEYS.length;
     const currentBatchSize = randomRoam?.batchSize || 10;
-    const seenCount = randomRoam?.seenSongIds?.length || 0;
 
     // 语种切换
     const handleToggleKey = useCallback((key) => {
@@ -88,11 +85,6 @@ export default function RoamOverview({
         setRandomRoamBatchSize(size);
         showToast(t("已设置每次补充 {p0} 首歌曲", { p0: (size) }));
     }, [setRandomRoamBatchSize]);
-
-    const handleResetHistory = useCallback(() => {
-        resetRandomRoamHistory();
-        showToast(t("已重置漫游去重记录，歌曲可再次被推荐"));
-    }, [resetRandomRoamHistory]);
 
     // 当前语种文案摘要
     const languageSummary = useMemo(() => {
@@ -197,7 +189,7 @@ export default function RoamOverview({
                             </div>
 
                             {/* 数量与去重：单次补充数量精炼为“数量：”，已去重曲目精炼为“已去重：” */}
-                            <div className="flex items-center gap-4 text-white/80">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white/80">
                                 <div className="flex items-center gap-1.5" title={t("单次补充数量")}>
                                     <span className="font-semibold text-white/70">{t("数量：")}</span>
                                     <div className="inline-flex p-0.5 rounded-full bg-black/25 backdrop-blur-md">
@@ -217,14 +209,7 @@ export default function RoamOverview({
                                         ))}
                                     </div>
                                 </div>
-                                <span className="text-white/70" title={t("已去重曲目")}>{t("已去重：")}{seenCount}{' '}{t("首")}</span>
-                                {seenCount > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={handleResetHistory}
-                                        className="underline text-sky-200 hover:text-white cursor-pointer"
-                                    >{t("重置")}</button>
-                                )}
+                                <span className="text-white/70 whitespace-nowrap">{t("近期去重：20%")}</span>
                             </div>
                         </div>
                     </div>

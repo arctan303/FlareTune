@@ -632,7 +632,7 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
   assert.match(store, /waitingAtQueueEnd/);
   assert.match(store, /resumeWhenAppended/);
   assert.match(store, /removePlaylistSong/);
-  assert.match(store, /本轮已漫游完整个曲库/);
+  assert.match(store, /当前范围暂无可补充的歌曲/);
   assert.match(worker, /handleLocalMusicDiscoveryRoute\(request/);
   assert.match(songs, /isRoam = pathname === '\/api\/songs\/roam' && request\.method === 'POST'/);
   assert.match(songs, /totalPlayable: playable\.length/);

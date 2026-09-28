@@ -103,6 +103,9 @@ export default Object.freeze({
   '请求暂时无法完成，请重试。': 'The request could not be completed. Try again.',
   // Reviewed navigation and count labels override machine translations.
   '主页': 'Home',
+  '近期去重：20%': 'Recent exclusion: 20%',
+  '当前范围暂无可补充的歌曲': 'No more songs are available in this selection',
+  '暂无可补充歌曲': 'No songs available to add',
   '搜索': 'Search',
   '漫游': 'Roam',
   '资料库': 'Library',

@@ -407,7 +407,7 @@ export default function PlaylistDrawer() {
                                         <span className="text-xs font-semibold text-[var(--ink)] leading-snug whitespace-nowrap">{t("队尾随机续播")}</span>
                                         <span className="text-[10px] text-[var(--muted)] leading-snug truncate max-w-[125px]">
                                             {randomRoam.status === 'exhausted'
-                                                ? t("本轮已走完")
+                                                ? t("暂无可补充歌曲")
                                                 : randomRoam.status === 'loading'
                                                     ? t("正在寻找…")
                                                     : randomRoam.status === 'error'
@@ -415,7 +415,7 @@ export default function PlaylistDrawer() {
                                                         : randomRoam.enabled && !authenticated
                                                             ? t("未登录暂停")
                                                             : isRoamLibraryQueued
-                                                                ? t("全曲库已进队")
+                                                                ? t("暂无可补充歌曲")
                                                                 : t("队尾自动补充")}
                                         </span>
                                     </div>

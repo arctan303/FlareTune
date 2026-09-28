@@ -29,9 +29,8 @@ test('RoamOverview embeds console, inline settings, and library categories witho
   assert.match(roam, /setRandomRoamBatchSize/);
 
   // 内嵌去重记录管理
-  assert.match(roam, /已去重曲目/);
-  assert.match(roam, /handleResetHistory/);
-  assert.match(roam, /resetRandomRoamHistory/);
+  assert.match(roam, /近期去重：20%/);
+  assert.doesNotMatch(roam, /handleResetHistory/);
 
   // 内嵌曲库分类探索
   assert.match(roam, /曲库探索/);
