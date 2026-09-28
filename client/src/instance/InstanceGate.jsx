@@ -9,6 +9,7 @@ import { AUTH_SESSION_CHECK_FAILED_EVENT, AUTH_SESSION_INVALIDATED_EVENT, AUTH_S
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 import TuneWordmark from '../components/TuneWordmark.jsx';
 import { useInstanceTheme } from './theme.js';
+import { getUiLanguage, setUiLanguage, t, useLocale } from '../i18n/index.js';
 import './instance.css';
 
 const USERNAME_PATTERN = '[a-z0-9_.\\-]{3,64}';
@@ -17,7 +18,7 @@ function StatusMessage({ error, errorRef }) {
   return error ? (
     <p className="instance-error" role="alert" tabIndex={-1} ref={errorRef}>
       <AlertCircle size={16} aria-hidden="true" />
-      <span>{error}</span>
+      <span>{t(error)}</span>
     </p>
   ) : null;
 }
@@ -28,7 +29,7 @@ function Field({ id, label, type = 'text', autoComplete, value, onChange, hint, 
   const describedBy = [hint ? `${id}-hint` : null, status ? `${id}-status` : null].filter(Boolean).join(' ') || undefined;
   return (
     <div className="instance-field" data-invalid={invalid ? 'true' : undefined}>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{t(label)}</label>
       <div className="instance-input-wrap">
         <input
           id={id} name={id} type={secret && visible ? 'text' : type}
@@ -43,7 +44,7 @@ function Field({ id, label, type = 'text', autoComplete, value, onChange, hint, 
           <button
             type="button"
             className="instance-reveal"
-            aria-label={`${visible ? '隐藏' : '显示'}${label}`}
+            aria-label={`${t(visible ? '隐藏' : '显示')} ${t(label)}`}
             aria-pressed={visible}
             onClick={() => setVisible((current) => !current)}
           >
@@ -51,8 +52,8 @@ function Field({ id, label, type = 'text', autoComplete, value, onChange, hint, 
           </button>
         )}
       </div>
-      {hint && <p id={`${id}-hint`} className="instance-hint">{hint}</p>}
-      {status && <p id={`${id}-status`} className="instance-field-status" role="status">{status}</p>}
+      {hint && <p id={`${id}-hint`} className="instance-hint">{t(hint)}</p>}
+      {status && <p id={`${id}-status`} className="instance-field-status" role="status">{t(status)}</p>}
     </div>
   );
 }
@@ -62,8 +63,8 @@ function Page({ title, description, children, footer }) {
     <main className="instance-page">
       <section className="instance-portal" aria-labelledby="instance-title">
         <TuneWordmark className="instance-wordmark" />
-        <h1 id="instance-title">{title}</h1>
-        {description && <p className="instance-description">{description}</p>}
+        <h1 id="instance-title">{t(title)}</h1>
+        {description && <p className="instance-description">{t(description)}</p>}
         <div className="instance-portal__body">{children}</div>
         {footer && <div className="instance-footer">{footer}</div>}
       </section>
@@ -132,7 +133,7 @@ function SetupPage({ onComplete }) {
           <Field id="setup-password" label="密码" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} hint="至少 8 个字符；建议使用独一无二的长密码。" />
           <Field id="setup-confirm" label="确认密码" type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
         </>}
-        <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{busy ? '请稍候…' : proof ? '初始化并创建管理员' : '验证密钥'}</button>
+        <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{t(busy ? '请稍候…' : proof ? '初始化并创建管理员' : '验证密钥')}</button>
       </form>
     </Page>
   );
@@ -165,8 +166,8 @@ function MaintenancePage({ onRefresh }) {
       if (result.status === 'completed' || result.status === 'already_completed' || result.status === 'current') {
         setProof('');
         await onRefresh();
-      } else if (result.status === 'lease_busy') setProgress('另一次升级正在进行，请稍后继续。');
-      else setProgress(`已处理 ${result.processed || 0} 条记录，继续升级以完成下一批。`);
+      } else if (result.status === 'lease_busy') setProgress(t('另一次升级正在进行，请稍后继续。'));
+      else setProgress(t('已处理 {count} 条记录，继续升级以完成下一批。', { count: result.processed || 0 }));
     } catch (cause) {
       setError(cause?.code === 'backup_required'
         ? '检测到旧共享歌单。请先备份 D1，再用初始化密钥确认升级。'
@@ -180,12 +181,12 @@ function MaintenancePage({ onRefresh }) {
       {progress && <p className="instance-progress" role="status">{progress}</p>}
       {!proof ? <form onSubmit={verify} className="instance-form">
         <Field id="maintenance-secret" label="初始化密钥" type="password" autoComplete="off" value={setupSecret} onChange={(event) => setSetupSecret(event.target.value)} />
-        <button className="instance-primary" type="submit" disabled={busy}>{busy ? '正在验证…' : '验证密钥'}</button>
+        <button className="instance-primary" type="submit" disabled={busy}>{t(busy ? '正在验证…' : '验证密钥')}</button>
       </form> : <div className="instance-form">
-        <label className="instance-hint"><input type="checkbox" checked={backupConfirmed} onChange={(event) => setBackupConfirmed(event.target.checked)} /> 已备份 D1 数据库，确认可以执行涉及旧共享歌单的迁移</label>
-        <button className="instance-primary" type="button" disabled={busy} onClick={() => void upgrade()}>{busy ? '正在升级…' : '继续数据库升级'}</button>
+        <label className="instance-hint"><input type="checkbox" checked={backupConfirmed} onChange={(event) => setBackupConfirmed(event.target.checked)} /> {t('已备份 D1 数据库，确认可以执行涉及旧共享歌单的迁移')}</label>
+        <button className="instance-primary" type="button" disabled={busy} onClick={() => void upgrade()}>{t(busy ? '正在升级…' : '继续数据库升级')}</button>
       </div>}
-      <button className="instance-link" type="button" disabled={busy} onClick={onRefresh}>刷新状态</button>
+      <button className="instance-link" type="button" disabled={busy} onClick={onRefresh}>{t('刷新状态')}</button>
     </div>
   </Page>;
 }
@@ -227,12 +228,12 @@ function LoginPage({ onSuccess }) {
         <div className="instance-login__identity">
           <TuneWordmark className="instance-wordmark" />
           <div className="instance-login__headline">
-            <h1 id="instance-title">欢迎回来</h1>
+            <h1 id="instance-title">{t('欢迎回来')}</h1>
             <div className="instance-login__rule" aria-hidden="true" />
           </div>
         </div>
         <div className="instance-login__access">
-          <h2 id="instance-login-title">登录</h2>
+          <h2 id="instance-login-title">{t('登录')}</h2>
           <form onSubmit={submit} className="instance-form" aria-labelledby="instance-login-title" aria-busy={busy || undefined}>
             <StatusMessage error={error} errorRef={errorRef} />
             <Field id="login-username" label="用户名" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} invalid={credentialError} readOnly={busy} />
@@ -245,7 +246,7 @@ function LoginPage({ onSuccess }) {
             />
             <button className="instance-primary" type="submit" disabled={busy} aria-busy={busy || undefined} data-busy={busy ? 'true' : undefined}>
               {busy && <Loader2 className="instance-primary__spinner" size={17} aria-hidden="true" />}
-              <span>{busy ? '正在登录…' : '登录'}</span>
+              <span>{t(busy ? '正在登录…' : '登录')}</span>
             </button>
           </form>
         </div>
@@ -289,19 +290,20 @@ function ChangePasswordPage({ csrfToken, onComplete, onLogout }) {
     }
   };
   return (
-    <Page title="设置新密码" description="临时密码只用于首次验证。设置新密码后，请重新登录。" footer={<button type="button" className="instance-link" onClick={onLogout}>退出登录</button>}>
+    <Page title="设置新密码" description="临时密码只用于首次验证。设置新密码后，请重新登录。" footer={<button type="button" className="instance-link" onClick={onLogout}>{t('退出登录')}</button>}>
       <form onSubmit={submit} className="instance-form">
         <StatusMessage error={error} errorRef={errorRef} />
         <Field id="change-current" label="当前临时密码" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
         <Field id="change-new" label="新密码" type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} hint="至少 8 个字符。" />
         <Field id="change-confirm" label="确认新密码" type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
-        <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{busy ? '正在保存…' : '设置新密码'}</button>
+        <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{t(busy ? '正在保存…' : '设置新密码')}</button>
       </form>
     </Page>
   );
 }
 
 export default function InstanceGate({ App }) {
+  useLocale();
   useInstanceTheme();
   const [status, setStatus] = useState(null);
   const [session, setSession] = useState(null);
@@ -329,6 +331,14 @@ export default function InstanceGate({ App }) {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
+    setUiLanguage(session?.authenticated ? session.user?.uiLanguage : 'auto');
+  }, [session?.authenticated, session?.user?.uiLanguage]);
+  useEffect(() => {
+    const handleLanguageChange = () => setUiLanguage(getUiLanguage());
+    window.addEventListener('languagechange', handleLanguageChange);
+    return () => window.removeEventListener('languagechange', handleLanguageChange);
+  }, []);
+  useEffect(() => {
     let active = true;
     let unsubscribe = null;
     void import('../store/useUIStore.js').then(({ useUIStore }) => {
@@ -344,6 +354,7 @@ export default function InstanceGate({ App }) {
   useEffect(() => {
     const invalidate = () => {
       imageLoadRegistry.setSessionScope(null);
+      setUiLanguage('auto');
       setSession(normalizeSession(null));
       setMode(null);
       void import('../store/useUIStore.js').then(({ useUIStore }) => {
@@ -356,6 +367,7 @@ export default function InstanceGate({ App }) {
   useEffect(() => {
     const unavailable = () => {
       imageLoadRegistry.setSessionScope(null);
+      setUiLanguage('auto');
       setStatus({ state: 'unavailable' });
       setSession(null);
       setMode(null);
@@ -412,18 +424,18 @@ export default function InstanceGate({ App }) {
       else setStatus({ state: 'unavailable' });
     }
   };
-  if (current === 'loading') return <Page title="正在连接" description="正在确认实例状态。"><p className="instance-progress" role="status">请稍候…</p></Page>;
-  if (current === 'unavailable') return <Page title="暂时无法连接" description="实例状态暂时无法确认。为保护数据，应用尚未打开。"><button className="instance-primary" type="button" onClick={refresh}>重新检查</button></Page>;
+  if (current === 'loading') return <Page title="正在连接" description="正在确认实例状态。"><p className="instance-progress" role="status">{t('请稍候…')}</p></Page>;
+  if (current === 'unavailable') return <Page title="暂时无法连接" description="实例状态暂时无法确认。为保护数据，应用尚未打开。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
   if (current === 'setup') return <SetupPage onComplete={() => setMode('setup_complete')} />;
-  if (current === 'setup_complete') return <Page title="实例已准备好" description="管理员账户已创建。现在可以登录。"><button className="instance-primary" type="button" onClick={refresh}>前往登录</button></Page>;
+  if (current === 'setup_complete') return <Page title="实例已准备好" description="管理员账户已创建。现在可以登录。"><button className="instance-primary" type="button" onClick={refresh}>{t('前往登录')}</button></Page>;
   if (current === 'maintenance') return <MaintenancePage onRefresh={refresh} />;
-  if (current === 'instance_error') return <Page title="实例需要维护" description="当前实例暂时无法打开，请联系部署者检查实例状态。"><button className="instance-primary" type="button" onClick={refresh}>重新检查</button></Page>;
+  if (current === 'instance_error') return <Page title="实例需要维护" description="当前实例暂时无法打开，请联系部署者检查实例状态。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
   if (current === 'login') return <LoginPage onSuccess={handleLogin} />;
   if (current === 'change_password') return <ChangePasswordPage csrfToken={session?.csrfToken} onComplete={() => { imageLoadRegistry.setSessionScope(null); setSession(normalizeSession(null)); setMode('password_changed'); }} onLogout={handleLogout} />;
-  if (current === 'password_changed') return <Page title="密码已更新" description="临时会话已失效。请使用新密码重新登录。"><button className="instance-primary" type="button" onClick={() => setMode(null)}>前往登录</button></Page>;
+  if (current === 'password_changed') return <Page title="密码已更新" description="临时会话已失效。请使用新密码重新登录。"><button className="instance-primary" type="button" onClick={() => setMode(null)}>{t('前往登录')}</button></Page>;
   if (current === 'app') {
     if (readyShellSession !== session) return <Page title="正在打开 Tune" description="正在准备你的音乐空间。" />;
     return <React.Suspense fallback={<Page title="正在打开 Tune" description="正在加载你的音乐空间。" />}><App validatedSession={session} /></React.Suspense>;
   }
-  return <Page title="无法打开应用" description="状态暂时无法确认。"><button className="instance-primary" type="button" onClick={refresh}>重新检查</button></Page>;
+  return <Page title="无法打开应用" description="状态暂时无法确认。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
 }

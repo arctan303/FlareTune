@@ -20,7 +20,9 @@ test('instance state only opens app after ready and normal authenticated session
 
 test('validated local account maps into shell auth without OAuth fields', () => {
   const session = normalizeSession({ authenticated: true, mustChangePassword: false, user, csrfToken: 'csrf' });
-  assert.deepEqual(toShellAuthSession(session), { authenticated: true, user, initialized: true, csrfToken: 'csrf', error: null });
+  assert.deepEqual(toShellAuthSession(session), { authenticated: true, user: { ...user, uiLanguage: 'auto' }, initialized: true, csrfToken: 'csrf', error: null });
+  assert.equal(normalizeSession({ authenticated: true, user: { ...user, uiLanguage: 'en' } }).user.uiLanguage, 'en');
+  assert.equal(normalizeSession({ authenticated: true, user: { ...user, uiLanguage: 'fr' } }).user.uiLanguage, 'auto');
   assert.equal(toShellAuthSession(normalizeSession({ authenticated: true, mustChangePassword: true, user })).authenticated, false);
 });
 

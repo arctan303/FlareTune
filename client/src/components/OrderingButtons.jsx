@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -8,7 +9,7 @@ export default function OrderingButtons({ itemKey, index, total, onMove }) {
         type="button"
         disabled={index === 0}
         onClick={() => onMove(itemKey, -1)}
-        aria-label="上移一项"
+        aria-label={t("上移一项")}
         className="p-1 text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <ChevronUp size={15} aria-hidden="true" />
@@ -17,7 +18,7 @@ export default function OrderingButtons({ itemKey, index, total, onMove }) {
         type="button"
         disabled={index === total - 1}
         onClick={() => onMove(itemKey, 1)}
-        aria-label="下移一项"
+        aria-label={t("下移一项")}
         className="p-1 text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <ChevronDown size={15} aria-hidden="true" />

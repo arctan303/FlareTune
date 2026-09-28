@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { ArrowUpDown, GripVertical, Loader2, Plus, X } from 'lucide-react';
@@ -263,7 +264,7 @@ export default function AllPlaylistsView({
     const handleSaveOrder = async () => {
         const shelf = accountPlaylistsStore.getState().shelf;
         if (!shelf || !Number.isInteger(shelf.revision)) {
-            showToast('唱片架尚未准备就绪，请稍后重试');
+            showToast(t("唱片架尚未准备就绪，请稍后重试"));
             return;
         }
 
@@ -271,11 +272,11 @@ export default function AllPlaylistsView({
         try {
             const items = draftPlaylists.map((p) => ({ kind: 'member', id: String(p.id) }));
             await accountPlaylistsStore.getState().updateShelfOrder(items, shelf.revision);
-            showToast('歌单排序已保存');
+            showToast(t("歌单排序已保存"));
             setIsOrdering(false);
         } catch (error) {
             if (error?.status === 409) {
-                showToast('歌单顺序已在其他位置更新，正在刷新');
+                showToast(t("歌单顺序已在其他位置更新，正在刷新"));
                 await accountPlaylistsStore.getState().refreshShelf().catch(() => {});
             } else {
                 showToast(error?.message || '保存歌单排序失败');
@@ -308,7 +309,7 @@ export default function AllPlaylistsView({
                 name: trimmedName,
                 description: description.trim(),
             });
-            showToast(`已创建歌单《${result.playlist?.name || trimmedName}》`);
+            showToast(t("已创建歌单《{p0}》", { p0: (result.playlist?.name || trimmedName) }));
             setIsCreateOpen(false);
         } catch (error) {
             setErrorMsg(error?.code === 'PLAYLIST_LIMIT_REACHED' ? '已达 50 个歌单上限。' : (error?.message || '创建歌单失败'));
@@ -323,16 +324,16 @@ export default function AllPlaylistsView({
             key="create-playlist-card"
             onClick={() => setIsCreateOpen(true)}
             className="record-card record-card--create group cursor-pointer text-center"
-            aria-label="新建个人歌单"
+            aria-label={t("新建个人歌单")}
         >
             <div className="record-card__cover mb-3 flex flex-col items-center justify-center border-2 border-dashed border-[var(--line)] rounded-xl aspect-square w-full transition-all duration-200 group-hover:border-[var(--accent)] group-hover:bg-[var(--surface-raised)]">
                 <div className="flex items-center justify-center w-11 h-11 rounded-full bg-[var(--surface-raised)] text-[var(--accent-strong)] mb-2 group-hover:scale-110 transition-transform">
                     <Plus size={22} strokeWidth={2.2} />
                 </div>
-                <span className="text-xs font-semibold text-[var(--ink)]">新建歌单</span>
+                <span className="text-xs font-semibold text-[var(--ink)]">{t("新建歌单")}</span>
             </div>
-            <h4 className="record-card__title truncate text-sm font-semibold text-[var(--ink)] group-hover:text-[var(--accent-strong)]">＋ 新建歌单</h4>
-            <p className="record-card__meta mt-1 text-xs text-[var(--muted)]">点击快捷创建</p>
+            <h4 className="record-card__title truncate text-sm font-semibold text-[var(--ink)] group-hover:text-[var(--accent-strong)]">{t("＋ 新建歌单")}</h4>
+            <p className="record-card__meta mt-1 text-xs text-[var(--muted)]">{t("点击快捷创建")}</p>
         </button>
     ) : null;
 
@@ -348,9 +349,9 @@ export default function AllPlaylistsView({
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
                         <p className="collection-section__index">YOUR LIBRARY</p>
-                        <h2 className="all-playlists-title text-2xl sm:text-3xl font-semibold tracking-tight">{standalone ? '资料库' : '全部歌单'}</h2>
+                        <h2 className="all-playlists-title text-2xl sm:text-3xl font-semibold tracking-tight">{standalone ? t("资料库") : t("全部歌单")}</h2>
                         <p className="all-playlists-meta text-xs sm:text-sm text-[var(--muted)] mt-1">
-                            {isOrdering ? '按住手柄拖拽或使用箭头调整歌单顺序' : `共 ${combinedPlaylists.length} 个歌单`}
+                            {isOrdering ? t("按住手柄拖拽或使用箭头调整歌单顺序") : t("共 {p0} 个歌单", { p0: (combinedPlaylists.length) })}
                         </p>
                     </div>
 
@@ -363,9 +364,7 @@ export default function AllPlaylistsView({
                                         disabled={isSavingOrder}
                                         onClick={handleCancelOrdering}
                                         className="secondary-button px-3.5 py-1.5 text-xs font-medium rounded-xl cursor-pointer"
-                                    >
-                                        取消
-                                    </button>
+                                    >{t("取消")}</button>
                                     <button
                                         type="button"
                                         disabled={isSavingOrder}
@@ -373,7 +372,7 @@ export default function AllPlaylistsView({
                                         className="primary-button inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl cursor-pointer shadow-sm"
                                     >
                                         {isSavingOrder ? <Loader2 size={13} className="animate-spin" /> : null}
-                                        <span>完成保存</span>
+                                        <span>{t("完成保存")}</span>
                                     </button>
                                 </>
                             ) : (
@@ -381,10 +380,10 @@ export default function AllPlaylistsView({
                                     type="button"
                                     onClick={handleStartOrdering}
                                     className="text-button text-button--accent inline-flex items-center gap-1.5 min-h-9 px-3.5 py-1.5 text-xs font-medium rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] hover:bg-[var(--surface)] cursor-pointer transition-all shadow-2xs"
-                                    aria-label="调整歌单展示顺序"
+                                    aria-label={t("调整歌单展示顺序")}
                                 >
                                     <ArrowUpDown size={14} aria-hidden="true" />
-                                    <span>排序编辑</span>
+                                    <span>{t("排序编辑")}</span>
                                 </button>
                             )}
                         </div>
@@ -392,7 +391,7 @@ export default function AllPlaylistsView({
                 </div>
             </header>
 
-            <section className="all-playlists-content" aria-label="全量歌单列表">
+            <section className="all-playlists-content" aria-label={t("全量歌单列表")}>
                 <PlaylistShelfGrid
                     playlists={displayPlaylists}
                     songsMap={songsMap}
@@ -422,58 +421,56 @@ export default function AllPlaylistsView({
                     />
                     <div className="playlist-modal-dialog relative z-10 animate-[fade-in_0.2s_ease-out]">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 id="create-playlist-title" className="text-lg font-semibold text-[var(--ink)]">新建个人歌单</h3>
+                            <h3 id="create-playlist-title" className="text-lg font-semibold text-[var(--ink)]">{t("新建个人歌单")}</h3>
                             <button
                                 type="button"
                                 disabled={isCreating}
                                 onClick={() => setIsCreateOpen(false)}
                                 className="text-[var(--muted)] hover:text-[var(--ink)] p-1 rounded-md cursor-pointer"
-                                aria-label="关闭对话框"
+                                aria-label={t("关闭对话框")}
                             >
                                 <X size={18} />
                             </button>
                         </div>
                         <form onSubmit={handleCreate} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-medium text-[var(--muted)] mb-1">歌单名称 <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-medium text-[var(--muted)] mb-1">{t("歌单名称")}{' '}<span className="text-red-500">*</span></label>
                                 <input
                                     ref={nameInputRef}
                                     type="text"
                                     value={name}
                                     maxLength={40}
                                     onChange={(e) => setName(e.target.value)}
-                                    placeholder="输入歌单名称 (1~40字)"
+                                    placeholder={t("输入歌单名称 (1~40字)")}
                                     className="playlist-modal-input"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-[var(--muted)] mb-1">歌单简介</label>
+                                <label className="block text-xs font-medium text-[var(--muted)] mb-1">{t("歌单简介")}</label>
                                 <textarea
                                     value={description}
                                     maxLength={300}
                                     rows={3}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="输入歌单简介 (选填，最多300字)"
+                                    placeholder={t("输入歌单简介 (选填，最多300字)")}
                                     className="playlist-modal-input resize-none"
                                 />
                             </div>
-                            {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
+                            {errorMsg && <p className="text-xs text-red-500">{t(errorMsg)}</p>}
                             <div className="flex items-center justify-end gap-3 pt-2">
                                 <button
                                     type="button"
                                     disabled={isCreating}
                                     onClick={() => setIsCreateOpen(false)}
                                     className="secondary-button px-4 py-2 text-sm font-medium rounded-xl cursor-pointer"
-                                >
-                                    取消
-                                </button>
+                                >{t("取消")}</button>
                                 <button
                                     type="submit"
                                     disabled={isCreating}
                                     className="primary-button inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold rounded-xl cursor-pointer"
                                 >
                                     {isCreating ? <Loader2 size={16} className="animate-spin" /> : null}
-                                    <span>创建歌单</span>
+                                    <span>{t("创建歌单")}</span>
                                 </button>
                             </div>
                         </form>
@@ -499,17 +496,17 @@ export default function AllPlaylistsView({
                         <div className="flex items-center justify-between p-1 mb-2 rounded-lg bg-[var(--surface-raised)] border border-[var(--accent)] text-[var(--accent-strong)] text-xs font-medium shadow-xs">
                             <div className="flex-1 flex items-center justify-center gap-1.5 py-1">
                                 <GripVertical size={14} className="shrink-0 text-[var(--accent)]" />
-                                <span className="text-[11px] font-semibold">拖拽调整中</span>
+                                <span className="text-[11px] font-semibold">{t("拖拽调整中")}</span>
                             </div>
                         </div>
                         <div className="record-card__cover mb-3 overflow-hidden rounded-xl flex-1 pointer-events-none">
                             <PlaylistCover playlist={floatingDrag.playlist} songsMap={songsMap} />
                         </div>
                         <h3 className="record-card__title truncate text-sm font-semibold">
-                            {floatingDrag.playlist?.kind === 'favorite' ? '我的收藏' : floatingDrag.playlist?.name}
+                            {floatingDrag.playlist?.kind === 'favorite' ? t('我的收藏') : floatingDrag.playlist?.name}
                         </h3>
                         <p className="record-card__meta mt-1 truncate text-xs text-[var(--muted)]">
-                            {`${floatingDrag.playlist?.songCount || 0} 首`}
+                            {t("{p0} 首", { p0: (floatingDrag.playlist?.songCount || 0) })}
                         </p>
                     </div>
                 </div>,

@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { EXPLORE_PRESETS } from '../constants/explore.js';
 import { useCatalogPage } from '../hooks/useCatalogPage.js';
@@ -38,7 +39,7 @@ export default function CatalogBrowserView({ route, onBack, currentSong, isPlayi
   const openAlbum = (album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }));
   const label = EXPLORE_PRESETS[language]?.subtitle || EXPLORE_PRESETS[language]?.label || '曲库';
   const renderItems = (type, items) => {
-    if (type === 'songs') return selected === 'overview' ? <SongColumnShelf key={language} label="歌曲" onOverflowChange={setSongScrollOverflow}>{items.map((song) => <TrackRow key={song.id} song={song} songs={items}
+    if (type === 'songs') return selected === 'overview' ? <SongColumnShelf key={language} label={t("歌曲")} onOverflowChange={setSongScrollOverflow}>{items.map((song) => <TrackRow key={song.id} song={song} songs={items}
       currentSong={currentSong} isPlaying={isPlaying} playSong={onPlaySong} isLiked={isSongLiked(song)}
       onToggleLiked={onToggleLiked} onInsertNext={onInsertNext} onAddToPlaylist={onAddToPlaylist} />)}</SongColumnShelf>
       : <div className="home-track-grid">{items.map((song) => <TrackRow key={song.id} song={song} songs={items}
@@ -65,10 +66,10 @@ export default function CatalogBrowserView({ route, onBack, currentSong, isPlayi
           totalCount: data.total ?? data.items.length, hasMore: data.hasMore,
           scrollOverflow: key === 'songs' && songScrollOverflow,
         }) ? () => navigate(key) : null} />}
-        {data.status === 'loading' ? <p role="status" className="text-sm text-[var(--muted)]">正在加载…</p>
-          : data.status === 'error' ? <p role="alert" className="text-sm text-[var(--muted)]">{title}加载失败</p>
-            : items.length ? renderItems(key, items) : <p className="text-sm text-[var(--muted)]">暂无{title}</p>}
-        {selected !== 'overview' && data.hasMore && <button type="button" className="secondary-button px-4 py-2" onClick={data.loadMore} disabled={data.loadingMore}>{data.loadingMore ? '加载中…' : '加载更多'}</button>}
+        {data.status === 'loading' ? <p role="status" className="text-sm text-[var(--muted)]">{t("正在加载…")}</p>
+          : data.status === 'error' ? <p role="alert" className="text-sm text-[var(--muted)]">{title}{t("加载失败")}</p>
+            : items.length ? renderItems(key, items) : <p className="text-sm text-[var(--muted)]">{t("暂无")}{title}</p>}
+        {selected !== 'overview' && data.hasMore && <button type="button" className="secondary-button px-4 py-2" onClick={data.loadMore} disabled={data.loadingMore}>{data.loadingMore ? t("加载中…") : t("加载更多")}</button>}
       </section>;
     })}</div>
   </div>;

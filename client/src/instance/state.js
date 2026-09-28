@@ -25,6 +25,7 @@ export function normalizeSession(value) {
       username: user.username,
       displayName: typeof user.displayName === 'string' ? user.displayName : user.username,
       role: user.role === 'admin' ? 'admin' : 'member',
+      uiLanguage: ['auto', 'zh', 'en'].includes(user.uiLanguage) ? user.uiLanguage : 'auto',
     },
     csrfToken: typeof value.csrfToken === 'string' && value.csrfToken.length > 0 ? value.csrfToken : null,
   };

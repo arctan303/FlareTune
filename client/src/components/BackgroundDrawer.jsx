@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import {
   X,
@@ -121,7 +122,7 @@ export default function BackgroundDrawer() {
     const trimmed = customInput.trim();
     if (trimmed) {
       setCustomUrl(trimmed);
-      showToast('已应用自定义图片链接');
+      showToast(t("已应用自定义图片链接"));
     }
   };
 
@@ -130,14 +131,14 @@ export default function BackgroundDrawer() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast('请选择有效的图片文件（支持 JPG / PNG / WebP / AVIF）');
+      showToast(t("请选择有效的图片文件（支持 JPG / PNG / WebP / AVIF）"));
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     const sizeMb = file.size / (1024 * 1024);
     if (sizeMb > 20) {
-      showToast(`图片体积为 ${sizeMb.toFixed(1)}MB，请选择 20MB 以内的壁纸图片`);
+      showToast(t("图片体积为 {p0}MB，请选择 20MB 以内的壁纸图片", { p0: (sizeMb.toFixed(1)) }));
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -151,7 +152,7 @@ export default function BackgroundDrawer() {
         : '本地壁纸已应用，但仅本次会话有效');
     } catch (err) {
       console.error('保存本地壁纸失败:', err);
-      showToast('保存本地壁纸失败，请重试');
+      showToast(t("保存本地壁纸失败，请重试"));
     } finally {
       setIsProcessingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -172,13 +173,11 @@ export default function BackgroundDrawer() {
     >
       <div className="theme-drawer__header sticky top-0 z-10 flex items-center justify-between px-6 py-5 bg-[var(--page)] border-b border-[var(--line)]">
         <h2 id="background-drawer-title" className="theme-drawer__title text-lg font-semibold flex items-center gap-2">
-          <ImageIcon size={20} strokeWidth={1.8} />
-          全站背景设置
-        </h2>
+          <ImageIcon size={20} strokeWidth={1.8} />{t("全站背景设置")}</h2>
         <button
           ref={closeButtonRef}
           type="button"
-          aria-label="关闭背景设置"
+          aria-label={t("关闭背景设置")}
           onClick={handleClose}
           className="theme-drawer__close flex items-center justify-center text-[var(--muted)] hover:text-[var(--ink)]"
         >
@@ -191,12 +190,8 @@ export default function BackgroundDrawer() {
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)]">
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold text-[var(--ink)] flex items-center gap-1.5">
-              <Sparkles size={15} className="text-[var(--accent)]" />
-              启用全站背景
-            </span>
-            <span className="text-[11px] text-[var(--muted)]">
-              开启自定义壁纸与卡片玻璃通透质感
-            </span>
+              <Sparkles size={15} className="text-[var(--accent)]" />{t("启用全站背景")}</span>
+            <span className="text-[11px] text-[var(--muted)]">{t("开启自定义壁纸与卡片玻璃通透质感")}</span>
           </div>
           <button
             type="button"
@@ -216,22 +211,16 @@ export default function BackgroundDrawer() {
         </div>
 
         {imageStatus === 'error' && (
-          <p role="status" className="text-xs leading-relaxed text-amber-600 dark:text-amber-300">
-            当前图片无法加载，已恢复默认背景。你可以更换图片或重试当前来源。
-          </p>
+          <p role="status" className="text-xs leading-relaxed text-amber-600 dark:text-amber-300">{t("当前图片无法加载，已恢复默认背景。你可以更换图片或重试当前来源。")}</p>
         )}
 
         {/* 本地图片持久化选择 */}
         <div className="space-y-2.5 p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
-              <Upload size={14} />
-              本地图片 (IndexedDB 离线保存)
-            </span>
+              <Upload size={14} />{t("本地图片 (IndexedDB 离线保存)")}</span>
             {isLocalActive && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/15 text-[var(--accent)] font-medium">
-                生效中
-              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/15 text-[var(--accent)] font-medium">{t("生效中")}</span>
             )}
           </div>
 
@@ -249,7 +238,7 @@ export default function BackgroundDrawer() {
                 {localImageUrl ? (
                   <img
                     src={localImageUrl}
-                    alt="本地壁纸缩略图"
+                    alt={t("本地壁纸缩略图")}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -260,12 +249,12 @@ export default function BackgroundDrawer() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-[var(--ink)] truncate" title={localImageName}>
-                  {localImageName || '本地壁纸'}
+                  {localImageName || t("本地壁纸")}
                 </p>
                 <p className="text-[10px] text-[var(--muted)] truncate">
                   {localImagePersistence === 'durable'
-                    ? '已保存在浏览器本地数据库'
-                    : '仅本次会话有效'}
+                    ? t("已保存在浏览器本地数据库")
+                    : t("仅本次会话有效")}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -275,30 +264,26 @@ export default function BackgroundDrawer() {
                     onClick={() => {
                       setActiveSource('local');
                       useWallpaperStore.getState().setEnabled(true);
-                      showToast('已切换至本地壁纸');
+                      showToast(t("已切换至本地壁纸"));
                     }}
                     className="px-2 py-1 text-xs font-semibold rounded-lg bg-[var(--accent)] text-white"
-                  >
-                    使用
-                  </button>
+                  >{t("使用")}</button>
                 )}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isProcessingFile}
                   className="px-2 py-1 text-xs font-medium rounded-lg bg-[var(--surface-raised)] border border-[var(--line)] text-[var(--ink)] hover:border-[var(--muted)]"
-                >
-                  更换
-                </button>
+                >{t("更换")}</button>
                 <button
                   type="button"
                   onClick={async () => {
                     const result = await removeLocalImage();
-                    showToast(result?.ok ? '已移除本地图片' : '移除失败，请重试');
+                    showToast(result?.ok ? t("已移除本地图片") : t("移除失败，请重试"));
                   }}
                   className="p-1 text-[var(--muted)] hover:text-rose-500 rounded-lg"
-                  title="移除本地壁纸"
-                  aria-label="移除本地壁纸"
+                  title={t("移除本地壁纸")}
+                  aria-label={t("移除本地壁纸")}
                 >
                   <Trash2 size={13} />
                 </button>
@@ -312,7 +297,7 @@ export default function BackgroundDrawer() {
               className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-[var(--line-strong)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5 text-xs font-medium text-[var(--ink)] transition-all cursor-pointer"
             >
               <Upload size={14} className="text-[var(--accent)]" />
-              <span>{isProcessingFile ? '正在保存...' : '从本地选择图片 (支持 JPG / PNG / WebP)'}</span>
+              <span>{isProcessingFile ? t("正在保存...") : t("从本地选择图片 (支持 JPG / PNG / WebP)")}</span>
             </button>
           )}
         </div>
@@ -320,9 +305,7 @@ export default function BackgroundDrawer() {
         {/* 预设画廊 */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-              精选主题壁纸
-            </span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">{t("精选主题壁纸")}</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -371,19 +354,15 @@ export default function BackgroundDrawer() {
         <div className="space-y-2 p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
-              <Link2 size={14} />
-              图片网络直链 (URL)
-            </span>
+              <Link2 size={14} />{t("图片网络直链 (URL)")}</span>
             {isCustomActive && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/15 text-[var(--accent)] font-medium">
-                生效中
-              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/15 text-[var(--accent)] font-medium">{t("生效中")}</span>
             )}
           </div>
           <form onSubmit={handleApplyCustomUrl} className="flex gap-2">
             <input
               type="url"
-              placeholder="https://.../bg.webp (含敏感签名或令牌请勿填)"
+              placeholder={t("https://.../bg.webp (含敏感签名或令牌请勿填)")}
               value={customInput}
               onChange={(e) => setCustomInput(e.target.value)}
               className="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl bg-[var(--page)] border border-[var(--line)] text-[var(--ink)] placeholder:text-[var(--muted)]/50 focus:border-[var(--accent)] focus:outline-none"
@@ -392,9 +371,7 @@ export default function BackgroundDrawer() {
               type="submit"
               disabled={!customInput.trim() || isCustomActive}
               className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[var(--accent)] text-white disabled:opacity-40 transition-opacity"
-            >
-              应用
-            </button>
+            >{t("应用")}</button>
           </form>
         </div>
 
@@ -402,7 +379,7 @@ export default function BackgroundDrawer() {
         {!enabled && (
           <div className="flex items-center gap-2 p-3 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--line)] text-xs text-[var(--muted)]">
             <Sparkles size={14} className="text-[var(--accent)] shrink-0" />
-            <span>开启背景壁纸后，画面调节与卡片通透度将实时生效</span>
+            <span>{t("开启背景壁纸后，画面调节与卡片通透度将实时生效")}</span>
           </div>
         )}
 
@@ -411,21 +388,17 @@ export default function BackgroundDrawer() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
-                <Layers size={14} className="text-[var(--accent)]" />
-                画面与卡片质感调节
-              </span>
-              <span className="text-[10px] text-[var(--muted)] mt-0.5">
-                一键联动虚化、遮罩与卡片通透度
-              </span>
+                <Layers size={14} className="text-[var(--accent)]" />{t("画面与卡片质感调节")}</span>
+              <span className="text-[10px] text-[var(--muted)] mt-0.5">{t("一键联动虚化、遮罩与卡片通透度")}</span>
             </div>
             <button
               type="button"
               onClick={handleResetDefaults}
               className="text-xs text-[var(--muted)] hover:text-[var(--accent)] flex items-center gap-1 transition-colors"
-              title="恢复当前主题推荐默认"
+              title={t("恢复当前主题推荐默认")}
             >
               <RotateCcw size={12} />
-              <span>恢复默认</span>
+              <span>{t("恢复默认")}</span>
             </button>
           </div>
 
@@ -461,9 +434,7 @@ export default function BackgroundDrawer() {
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-[var(--ink)] flex items-center gap-1.5">
-                  <Droplet size={13} className="text-cyan-500" />
-                  背景模糊度 (Blur)
-                </span>
+                  <Droplet size={13} className="text-cyan-500" />{t("背景模糊度 (Blur)")}</span>
                 <span className="font-mono text-cyan-600 dark:text-cyan-400">{blur}px</span>
               </div>
               <input
@@ -476,8 +447,8 @@ export default function BackgroundDrawer() {
                 className="w-full accent-cyan-500 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-[var(--muted)] font-mono">
-                <span>清晰 ({WALLPAPER_LIMITS.blur.min}px)</span>
-                <span>柔焦 ({WALLPAPER_LIMITS.blur.max}px)</span>
+                <span>{t("清晰 (")}{WALLPAPER_LIMITS.blur.min}px)</span>
+                <span>{t("柔焦 (")}{WALLPAPER_LIMITS.blur.max}px)</span>
               </div>
             </div>
 
@@ -485,9 +456,7 @@ export default function BackgroundDrawer() {
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-[var(--ink)] flex items-center gap-1.5">
-                  <Sliders size={13} className="text-indigo-500" />
-                  自适应遮罩 (Mask)
-                </span>
+                  <Sliders size={13} className="text-indigo-500" />{t("自适应遮罩 (Mask)")}</span>
                 <span className="font-mono text-indigo-600 dark:text-indigo-400">{opacity}%</span>
               </div>
               <input
@@ -500,8 +469,8 @@ export default function BackgroundDrawer() {
                 className="w-full accent-indigo-500 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-[var(--muted)] font-mono">
-                <span>轻透 ({WALLPAPER_LIMITS.opacity.min}%)</span>
-                <span>浓郁 ({WALLPAPER_LIMITS.opacity.max}%)</span>
+                <span>{t("轻透 (")}{WALLPAPER_LIMITS.opacity.min}%)</span>
+                <span>{t("浓郁 (")}{WALLPAPER_LIMITS.opacity.max}%)</span>
               </div>
             </div>
 
@@ -510,7 +479,7 @@ export default function BackgroundDrawer() {
               <div className="flex justify-between items-center text-xs font-medium text-[var(--ink)]">
                 <label htmlFor="card-glass-opacity" className="flex items-center gap-1.5">
                   <Sun size={13} className="text-amber-500" />
-                  <span>卡片通透度 (Opacity)</span>
+                  <span>{t("卡片通透度 (Opacity)")}</span>
                 </label>
                 <span className="font-mono text-amber-600 dark:text-amber-400">{cardOpacity}%</span>
               </div>
@@ -525,8 +494,8 @@ export default function BackgroundDrawer() {
                 className="w-full accent-amber-500 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-[var(--muted)]">
-                <span>通透 ({CARD_GLASS_LIMITS.opacity.min}%)</span>
-                <span>凝实 ({CARD_GLASS_LIMITS.opacity.max}%)</span>
+                <span>{t("通透 (")}{CARD_GLASS_LIMITS.opacity.min}%)</span>
+                <span>{t("凝实 (")}{CARD_GLASS_LIMITS.opacity.max}%)</span>
               </div>
             </div>
           </div>

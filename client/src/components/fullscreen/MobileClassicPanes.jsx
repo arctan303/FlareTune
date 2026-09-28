@@ -1,3 +1,4 @@
+import { localizeUnknownArtist, t } from '../../i18n/index.js';
 import React from 'react';
 import { Star } from 'lucide-react';
 import LazyImage from '../LazyImage.jsx';
@@ -41,18 +42,18 @@ export function MobileLyricsPane({
   return (
     <div className="lg:hidden flex flex-col w-full h-full min-h-0">
       <div className="flex items-center gap-3 w-full pb-2 pt-1 shrink-0 relative">
-        <button type="button" onClick={onExit} className="relative w-12 h-12 sm:w-14 sm:h-14 min-w-[48px] min-h-[48px] sm:min-w-[56px] sm:min-h-[56px] rounded-xl overflow-hidden shadow-md flex-shrink-0 active:scale-95 transition-transform group focus:outline-none bg-white/10 animate-mini-cover-pop" title="点击返回大封面视图">
+        <button type="button" onClick={onExit} className="relative w-12 h-12 sm:w-14 sm:h-14 min-w-[48px] min-h-[48px] sm:min-w-[56px] sm:min-h-[56px] rounded-xl overflow-hidden shadow-md flex-shrink-0 active:scale-95 transition-transform group focus:outline-none bg-white/10 animate-mini-cover-pop" title={t("点击返回大封面视图")}>
           <LazyImage src={coverUrl} fallback="/placeholder-album.svg" className="w-full h-full object-cover" />
           <div className="absolute inset-0 ring-1 ring-inset ring-white/15 rounded-xl pointer-events-none" />
         </button>
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <div className="flex items-center justify-between gap-2">
-            <div onClick={onExit} className="truncate font-bold text-white text-base sm:text-lg tracking-tight cursor-pointer" title="点击返回大封面视图">{currentSong?.title || '未知歌曲'}</div>
+            <div onClick={onExit} className="truncate font-bold text-white text-base sm:text-lg tracking-tight cursor-pointer" title={t("点击返回大封面视图")}>{currentSong?.title || t("未知歌曲")}</div>
             <div className="flex items-center gap-2 shrink-0 relative">
               <button
                 type="button"
-                aria-label={isInFavorite ? '移出我的收藏' : '加入我的收藏'}
-                title={isInFavorite ? '移出我的收藏' : '加入我的收藏'}
+                aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
+                title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                 onClick={(event) => toggleFavorite(currentSong, event)}
                 aria-busy={isPendingFavorite}
                 className={`h-6 w-6 inline-flex items-center justify-center transition-all hover:scale-110 active:scale-90 focus:outline-none cursor-pointer shrink-0 ${
@@ -68,7 +69,7 @@ export function MobileLyricsPane({
             </div>
           </div>
           <div className="truncate text-xs sm:text-sm text-gray-400 font-medium mt-0.5">
-            {currentSong?.artist && currentSong?.album ? `${currentSong.artist} — ${currentSong.album}` : (currentSong?.artist || currentSong?.album || '未知艺术家')}
+            {currentSong?.artist && currentSong?.album ? `${localizeUnknownArtist(currentSong.artist)} — ${currentSong.album}` : (currentSong?.artist ? localizeUnknownArtist(currentSong.artist) : currentSong?.album || t("未知艺术家"))}
           </div>
         </div>
       </div>
@@ -121,10 +122,10 @@ export function MobileSongPane({
 
   return (
     <>
-      <div role={isMobile && canShowLyrics ? 'button' : undefined} tabIndex={isMobile && canShowLyrics ? 0 : undefined} aria-label={isMobile && canShowLyrics ? '点击进入多行歌词模式' : undefined} onClick={() => { if (isMobile && canShowLyrics) onEnterLyrics(); }} onKeyDown={enterWithKeyboard} className={`w-full flex-1 lg:flex-initial flex flex-col items-center justify-center min-h-0 relative mb-3 lg:mb-6 select-none ${isMobile && canShowLyrics ? 'cursor-pointer focus:outline-none' : ''}`} title={isMobile && canShowLyrics ? '点击切换多行歌词' : undefined}>
+      <div role={isMobile && canShowLyrics ? 'button' : undefined} tabIndex={isMobile && canShowLyrics ? 0 : undefined} aria-label={isMobile && canShowLyrics ? t("点击进入多行歌词模式") : undefined} onClick={() => { if (isMobile && canShowLyrics) onEnterLyrics(); }} onKeyDown={enterWithKeyboard} className={`w-full flex-1 lg:flex-initial flex flex-col items-center justify-center min-h-0 relative mb-3 lg:mb-6 select-none ${isMobile && canShowLyrics ? 'cursor-pointer focus:outline-none' : ''}`} title={isMobile && canShowLyrics ? t("点击切换多行歌词") : undefined}>
         {artwork || <ClassicArtwork coverUrl={coverUrl} isPlaying={isPlaying} isBuffering={isBuffering} isExpandingToSong={isExpandingToSong} />}
         {canShowLyrics && hasValidLyrics && (
-          <div className={`paper-mobile-lyric-preview lg:hidden cursor-pointer hover:opacity-95 transition-all select-none mt-5 sm:mt-7 mb-1 ${isExpandingToSong ? 'animate-large-cover-expand' : ''}`} title="点击展开完整多行歌词">
+          <div className={`paper-mobile-lyric-preview lg:hidden cursor-pointer hover:opacity-95 transition-all select-none mt-5 sm:mt-7 mb-1 ${isExpandingToSong ? 'animate-large-cover-expand' : ''}`} title={t("点击展开完整多行歌词")}>
             <div className="paper-mobile-lyric-preview__viewport" style={{ height: `${viewportHeight}px` }}>
               <div className="paper-mobile-lyric-preview__roller" style={{ transform: `translateY(${-(safeLyricIndex * rowHeight - centerOffset)}px)` }}>
                 {lyrics.map((lyric, index) => {

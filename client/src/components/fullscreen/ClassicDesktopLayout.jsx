@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import PlayerSkinEntry from '../PlayerSkinEntry';
 import { DesktopLyricsPane, MobileSongPane } from './MobileClassicPanes.jsx';
@@ -20,7 +21,7 @@ export default function ClassicDesktopLayout({
         <div className="classic-player__toolbar flex items-center">
           <button
             type="button"
-            aria-label="退出全屏"
+            aria-label={t("退出全屏")}
             onClick={handleClose}
             className="flex h-11 w-11 items-center justify-center text-white/70 transition-all duration-200 hover:text-white hover:scale-110 active:scale-95 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
           >

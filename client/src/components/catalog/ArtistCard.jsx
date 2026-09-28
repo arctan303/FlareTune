@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { User } from 'lucide-react';
 import LazyImage from '../LazyImage.jsx';
@@ -17,7 +18,7 @@ export default function ArtistCard({ artist, onOpen }) {
       type="button"
       onClick={() => onOpen?.(artist)}
       className="artist-card group relative flex flex-col items-center text-center cursor-pointer select-none border-0 bg-transparent p-0 focus-visible:outline-none"
-      aria-label={`查看歌手 ${artist.name}`}
+      aria-label={t("查看歌手 {p0}", { p0: (artist.name) })}
     >
       <div className="artist-card__avatar relative aspect-square w-full max-w-[160px] overflow-hidden rounded-full bg-[var(--surface-raised)] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] transition-all duration-300 ease-out group-hover:shadow-[0_8px_24px_rgba(0,0,0,0.14)] dark:group-hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)] group-hover:-translate-y-1">
         {cover ? (

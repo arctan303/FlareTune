@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -26,13 +27,13 @@ export default function PlayModeToggle({ isExpanded }) {
         <button 
             type="button"
             onClick={handleClick} 
-            aria-label={`切换播放模式，当前为${modeNameMap[playMode] || '未知'}`}
+            aria-label={t("切换播放模式，当前为{p0}", { p0: (modeNameMap[playMode] || t("未知")) })}
             className={`transition-all active:scale-90 outline-none flex items-center justify-center ${
                 isExpanded 
                     ? 'text-white/70 hover:text-white hover:scale-110' 
                     : 'player-console__icon'
             }`}
-            title={`当前模式: ${modeNameMap[playMode] || '未知'}`}
+            title={t("当前模式: {p0}", { p0: (modeNameMap[playMode] || t("未知")) })}
         >
             <span
                 key={playMode}

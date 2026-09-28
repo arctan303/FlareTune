@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore';
@@ -51,7 +52,7 @@ export default function AssistantView({ section = 'conversation' }) {
     const [showScrollBottom, setShowScrollBottom] = React.useState(false);
     const [welcomeConfig, setWelcomeConfig] = React.useState({ accountId: null, text: FALLBACK_WELCOME, ready: false });
     const welcomeReady = welcomeConfig.ready && welcomeConfig.accountId === accountId;
-    const welcomeText = welcomeConfig.text;
+    const welcomeText = welcomeConfig.text === FALLBACK_WELCOME ? t(FALLBACK_WELCOME) : welcomeConfig.text;
     const [phase, setPhase] = React.useState('skeleton');
     const [expandedDetails, setExpandedDetails] = React.useState({});
     const [playlistConfirmations, setPlaylistConfirmations] = React.useState({});
@@ -206,7 +207,7 @@ export default function AssistantView({ section = 'conversation' }) {
                 if (error?.status === 401) {
                     setAuthSession({ authenticated: false, user: null, initialized: true });
                 } else {
-                    showToast('对话历史暂时无法载入，请稍后刷新。');
+                    showToast(t("对话历史暂时无法载入，请稍后刷新。"));
                     setMessages([]);
                 }
             })
@@ -223,7 +224,7 @@ export default function AssistantView({ section = 'conversation' }) {
     }, []);
 
     const handleClearMessages = React.useCallback(async () => {
-        if (!window.confirm('确定要清空与小A的全部对话记录吗？')) return;
+        if (!window.confirm(t('确定要清空与小A的全部对话记录吗？'))) return;
         handleStopGeneration();
         const requestAccountId = accountIdRef.current;
         try {
@@ -236,7 +237,7 @@ export default function AssistantView({ section = 'conversation' }) {
             const data = await response.json().catch(() => ({}));
             if (accountIdRef.current !== requestAccountId) return;
             if (response.status === 409 && applyThread(data.thread, requestAccountId)) {
-                showToast('对话已在其他页面更新，请确认后重试清空。');
+                showToast(t("对话已在其他页面更新，请确认后重试清空。"));
                 return;
             }
             if (response.status === 401) {
@@ -246,10 +247,10 @@ export default function AssistantView({ section = 'conversation' }) {
             if (!response.ok || !applyThread(data.thread, requestAccountId)) {
                 throw new Error(data.message || '清空失败，请重试。');
             }
-            showToast('对话历史已清空');
+            showToast(t("对话历史已清空"));
             setPlaylistConfirmations({});
         } catch (error) {
-            if (accountIdRef.current === requestAccountId) showToast(error.message || '清空失败，请重试。');
+            if (accountIdRef.current === requestAccountId) showToast(t(error.message || '清空失败，请重试。'));
         }
     }, [applyThread, authSession?.csrfToken, handleStopGeneration, setAuthSession]);
 
@@ -361,7 +362,7 @@ export default function AssistantView({ section = 'conversation' }) {
                 if (response.status === 401) {
                     setAuthSession({ authenticated: false, user: null, initialized: true });
                 }
-                throw new Error(data.message || `助手暂时无法回应 (${response.status})`);
+                throw new Error(data.message || t('助手暂时无法回应 ({status})', { status: response.status }));
             }
             await consumeSseJsonStream(response.body, {
                 signal: controller.signal,
@@ -410,7 +411,7 @@ export default function AssistantView({ section = 'conversation' }) {
                     } else if (event.type === 'tool_result') {
                         if (event.name === 'remember_user' && event.data?.ok === true
                             && event.data.action !== 'unchanged' && event.data.memory?.content) {
-                            showToast(`助手已${event.data.action === 'created' ? '记住' : '更新记忆'}：${event.data.memory.content}`);
+                            showToast(t("助手已{p0}：{p1}", { p0: t(event.data.action === 'created' ? '记住' : '更新记忆'), p1: event.data.memory.content }));
                         }
                         liveProcessEntries = finishToolProcessEntry(liveProcessEntries, {
                             id: event.id, summary: event.summary,
@@ -483,7 +484,7 @@ export default function AssistantView({ section = 'conversation' }) {
         } catch (err) {
             typewriter?.cancel();
             if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
-            if (err.name !== 'AbortError') showToast(err.message || '助手连接失败，请稍后重试。');
+            if (err.name !== 'AbortError') showToast(t(err.message || '助手连接失败，请稍后重试。'));
             if (useUIStore.getState().authSession?.authenticated) {
                 await syncThread({ expectedAccountId: requestAccountId }).catch(() => {
                     if (accountIdRef.current !== requestAccountId) return;
@@ -518,7 +519,7 @@ export default function AssistantView({ section = 'conversation' }) {
     if (section === 'memory') return <AssistantMemoryView />;
     return (
         <div className={`app-page xiaoa-page assistant-page flex flex-col h-full w-full relative overflow-hidden select-text !pt-0 ${placement === 'dock' && hasCurrentSong ? 'assistant-page--with-dock' : ''}`}>
-            <h1 className="sr-only">助手</h1>
+            <h1 className="sr-only">{t("助手")}</h1>
 
             {/* 对话区主体（通透流式布局） */}
             <div className="flex-1 min-h-0 flex flex-col w-full relative">
@@ -545,7 +546,7 @@ export default function AssistantView({ section = 'conversation' }) {
                         disabled={!showScrollBottom}
                         aria-hidden={!showScrollBottom}
                         className="assistant-scroll-bottom p-2.5 rounded-full border border-[var(--line)] text-[var(--ink)] shadow-lg cursor-pointer z-20"
-                        aria-label="回到底部"
+                        aria-label={t("回到底部")}
                     >
                         <ArrowDown size={17} />
                     </button>

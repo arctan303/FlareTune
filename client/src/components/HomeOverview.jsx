@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { ArrowRight, Pause, Play } from 'lucide-react';
 import LazyImage from './LazyImage.jsx';
@@ -57,12 +58,12 @@ function FeaturedCardShelf({ children }) {
     moveHorizontalScroll(viewport, direction, pitch);
   };
 
-  return <section className="editorial-grid" aria-label="精选内容">
+  return <section className="editorial-grid" aria-label={t("精选内容")}>
     <div ref={viewportRef} className="editorial-grid__viewport" onScroll={updateScroll}
-      tabIndex={0} role="region" aria-label="精选内容，横向滚动查看更多">
+      tabIndex={0} role="region" aria-label={t("精选内容，横向滚动查看更多")}>
       {children}
     </div>
-    <HorizontalScrollButtons canScroll={canScroll} onMove={move} label="精选卡片" />
+    <HorizontalScrollButtons canScroll={canScroll} onMove={move} label={t("精选卡片")} />
   </section>;
 }
 
@@ -119,6 +120,7 @@ export default function HomeOverview({
     }
     return leadPlaylist.name || '我的收藏';
   }, [leadPlaylist]);
+  const localizedLeadPlaylistTitle = leadPlaylistTitle === '我的收藏' ? t('我的收藏') : leadPlaylistTitle;
 
   const leadPlaylistCover = getPlaylistCoverUrls({ ...leadPlaylist, songs: leadPlaylistSongs }, songsMap)[0];
 
@@ -269,7 +271,7 @@ export default function HomeOverview({
   return (
     <div className="app-page home-overview">
       <header className="app-page-heading">
-        <h1>主页</h1>
+        <h1>{t("主页")}</h1>
       </header>
 
       {/* 焦点内容 */}
@@ -314,18 +316,18 @@ export default function HomeOverview({
             </>
           )}
           <span className="editorial-card__copy">
-            <strong>{leadPlaylistTitle}</strong>
+            <strong>{localizedLeadPlaylistTitle}</strong>
             <span>
               {leadPlaylistSongs.length > 0
-                ? `${leadPlaylistSongs.length} 首歌曲`
-                : (leadPlaylist ? `${leadPlaylist.songCount || 0} 首歌曲` : '曲库准备好后会出现在这里')}
+                ? t("{p0} 首歌曲", { p0: (leadPlaylistSongs.length) })
+                : (leadPlaylist ? t("{p0} 首歌曲", { p0: (leadPlaylist.songCount || 0) }) : t("曲库准备好后会出现在这里"))}
             </span>
           </span>
           {leadPlaylist && (
             <span
               className={`editorial-card__play ${isLeadPlaylistPlaying ? 'is-active' : ''}`}
               role="button"
-              aria-label={`${isLeadPlaylistPlaying ? '暂停' : '播放'} ${leadPlaylistTitle}`}
+              aria-label={`${isLeadPlaylistPlaying ? t("暂停") : t("播放")} ${localizedLeadPlaylistTitle}`}
               onClick={handleLeadPlaylistPlay}
             >
               {isLeadPlaylistPlaying ? (
@@ -377,22 +379,22 @@ export default function HomeOverview({
           <span className="editorial-card__copy">
             <span className="editorial-card__kicker">
               {isLeadSongPlaying ? (
-                <span className="editorial-card__playing-indicator" aria-label="正在播放">
+                <span className="editorial-card__playing-indicator" aria-label={t("正在播放")}>
                   <span />
                   <span />
                   <span />
                 </span>
               ) : null}
-              <span>今日精选</span>
+              <span>{t("今日精选")}</span>
             </span>
-            <strong>{leadSong?.title || '等待新的旋律'}</strong>
-            <span>{leadSong?.artist || '探索更多曲目'}</span>
+            <strong>{leadSong?.title || t("等待新的旋律")}</strong>
+            <span>{leadSong?.artist || t("探索更多曲目")}</span>
           </span>
           {leadSong && (
             <span
               className={`editorial-card__play ${isLeadSongPlaying ? 'is-active' : ''}`}
               role="button"
-              aria-label={isLeadSongPlaying ? `暂停 ${leadSong.title}` : `播放 ${leadSong.title}`}
+              aria-label={isLeadSongPlaying ? t("暂停 {p0}", { p0: (leadSong.title) }) : t("播放 {p0}", { p0: (leadSong.title) })}
               onClick={handleLeadSongPlay}
             >
               {isLeadSongPlaying ? (
@@ -407,15 +409,15 @@ export default function HomeOverview({
           type="button"
           className={`editorial-card editorial-card--history ${history.length ? 'has-history' : 'is-empty'}`}
           onClick={onOpenHistory}
-          aria-label={`打开播放历史，共 ${history.length} 首记录`}
+          aria-label={t("打开播放历史，共 {p0} 首记录", { p0: (history.length) })}
         >
           <HistoryCoverStack history={history} />
           <span className="editorial-card__scrim editorial-card__scrim--history" />
           <span className="editorial-card__copy">
-            <strong>播放历史</strong>
+            <strong>{t("播放历史")}</strong>
             <span>{history.length > 0
-              ? `${history.length} 首歌曲 · ${formatRelativeTime(history[0].playedAt)}听过`
-              : '播放过的歌曲会出现在这里'}</span>
+              ? t("{p0} 首歌曲 · {p1}听过", { p0: (history.length), p1: (formatRelativeTime(history[0].playedAt)) })
+              : t("播放过的歌曲会出现在这里")}</span>
           </span>
           <span className="editorial-card__play" aria-hidden="true"><ArrowRight size={19} strokeWidth={2.3} /></span>
         </button>
@@ -423,8 +425,8 @@ export default function HomeOverview({
 
       {accountStatus === 'error' && (
         <div className="app-inline-notice" role="alert">
-          <span>{accountError?.message || '个人歌单暂时不可用。'}</span>
-          <button type="button" className="app-section-link" onClick={onRetryAccount}>重试</button>
+          <span>{accountError?.message || t("个人歌单暂时不可用。")}</span>
+          <button type="button" className="app-section-link" onClick={onRetryAccount}>{t("重试")}</button>
         </div>
       )}
 
@@ -432,7 +434,7 @@ export default function HomeOverview({
       <section className="app-content-section" aria-labelledby="home-footprints-title">
         <div className="app-section-heading">
           <div>
-            <SectionHeading id="home-footprints-title" title="常听单曲"
+            <SectionHeading id="home-footprints-title" title={t("常听单曲")}
               className="text-[clamp(22px,2vw,27px)] font-bold text-[var(--ink)]"
               onViewAll={hasPreviewOverflow({ renderedCount: displayFootprints.length,
                 visibleCount: displayFootprints.length, totalCount: resolvedTopSongs.length,
@@ -445,12 +447,12 @@ export default function HomeOverview({
               onClick={() => playSong(displayFootprints[0], displayFootprints)}
             >
               <Play size={14} fill="currentColor" aria-hidden="true" />
-              <span>播放全部</span>
+              <span>{t("播放全部")}</span>
             </button>
           )}
         </div>
         {displayFootprints.length > 0 ? (
-          <SongColumnShelf label="常听单曲" onOverflowChange={setSongScrollOverflow}>
+          <SongColumnShelf label={t("常听单曲")} onOverflowChange={setSongScrollOverflow}>
             {displayFootprints.map((song) => (
               <TrackRow
                 key={`footprint-${song.id}`}
@@ -470,7 +472,7 @@ export default function HomeOverview({
         ) : (
           <div className="home-empty-footprints">
             <div className="home-empty-footprints__text">
-              <h4>暂无常听单曲</h4>
+              <h4>{t("暂无常听单曲")}</h4>
             </div>
             {onToggleRoam && (
               <button
@@ -479,7 +481,7 @@ export default function HomeOverview({
                 className="home-empty-footprints__btn"
               >
                 <Play size={12} fill="currentColor" />
-                <span>开启随心漫游</span>
+                <span>{t("开启随心漫游")}</span>
               </button>
             )}
           </div>
@@ -491,7 +493,7 @@ export default function HomeOverview({
         <section className="app-content-section" aria-labelledby="home-artists-title">
           <div className="app-section-heading">
             <div>
-              <SectionHeading id="home-artists-title" title="常听歌手"
+              <SectionHeading id="home-artists-title" title={t("常听歌手")}
                 className="text-[clamp(22px,2vw,27px)] font-bold text-[var(--ink)]"
                 onViewAll={hasPreviewOverflow({ renderedCount: topArtists.length,
                   visibleCount: artistVisibleCount }) ? onOpenTopArtists : null} />

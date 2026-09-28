@@ -21,12 +21,12 @@ test('Node scans a local directory and rejects changed or stale file references'
     for await (const chunk of media.body) chunks.push(chunk);
     assert.equal(Buffer.concat(chunks).length, 35);
     await writeFile(song, Buffer.concat([Buffer.from('ID3'), Buffer.alloc(36)]));
-    await assert.rejects(() => folder.get(scanned.files[0].id), /已变化/);
+    await assert.rejects(() => folder.get(scanned.files[0].id), /changed after scanning/);
     await folder.scan(root);
-    await assert.rejects(() => folder.get(scanned.files[0].id), /已失效/);
+    await assert.rejects(() => folder.get(scanned.files[0].id), /reference has expired/);
     const rescanned = await folder.scan(root);
     await assert.rejects(() => folder.scan(join(root, 'missing')), /ENOENT/);
-    await assert.rejects(() => folder.get(rescanned.files[0].id), /已失效/);
+    await assert.rejects(() => folder.get(rescanned.files[0].id), /reference has expired/);
   } finally { await unlink(song); await rmdir(zh); await rmdir(root); }
 });
 

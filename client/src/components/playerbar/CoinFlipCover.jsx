@@ -1,3 +1,4 @@
+import { localizeUnknownArtist, t } from '../../i18n/index.js';
 import React from 'react';
 import LazyImage from '../LazyImage';
 
@@ -69,7 +70,7 @@ export default function CoinFlipCover({ currentSong, isExpanded, switchDirection
                             src={slot0Song.cover_url || '/placeholder-album.svg'}
                             fallback="/placeholder-album.svg"
                             className={getImgClass()}
-                            alt={slot0Song.title ? `${slot0Song.title} - ${slot0Song.artist} 专辑封面` : '专辑封面'}
+                            alt={slot0Song.title ? t("{p0} - {p1} 专辑封面", { p0: slot0Song.title, p1: localizeUnknownArtist(slot0Song.artist) }) : t("专辑封面")}
                         />
                     )}
                 </div>
@@ -82,7 +83,7 @@ export default function CoinFlipCover({ currentSong, isExpanded, switchDirection
                             src={slot1Song.cover_url || '/placeholder-album.svg'}
                             fallback="/placeholder-album.svg"
                             className={getImgClass()}
-                            alt={slot1Song.title ? `${slot1Song.title} - ${slot1Song.artist} 专辑封面` : '专辑封面'}
+                            alt={slot1Song.title ? t("{p0} - {p1} 专辑封面", { p0: slot1Song.title, p1: localizeUnknownArtist(slot1Song.artist) }) : t("专辑封面")}
                         />
                     )}
                 </div>

@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React, { useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { showToast, useUIStore } from '../store/useUIStore';
@@ -70,7 +71,7 @@ export default function AddToPlaylistModal() {
             Promise.all(missing.map((playlist) => accountPlaylistsStore.getState().loadDetail(playlist.id)))
                 .catch((error) => {
                     if (!isAccountPlaylistStaleError(error)) {
-                        showToast('歌单内容加载失败，请重试');
+                        showToast(t("歌单内容加载失败，请重试"));
                     }
                 })
                 .finally(() => setIsLoading(false));
@@ -99,7 +100,7 @@ export default function AddToPlaylistModal() {
     const handleConfirm = async () => {
         if (songIds.length === 0 || selectedTargetIds.length === 0) return;
         if (songIds.length * selectedTargetIds.length > 500) {
-            showToast('一次加入的歌曲与歌单组合不能超过 500');
+            showToast(t("一次加入的歌曲与歌单组合不能超过 500"));
             return;
         }
         const state = accountPlaylistsStore.getState();
@@ -108,15 +109,15 @@ export default function AddToPlaylistModal() {
             return detail ? [{ playlistId, expectedRevision: detail.revision }] : [];
         });
         if (targets.length !== selectedTargetIds.length) {
-            showToast('部分歌单内容尚未加载，请重试');
+            showToast(t("部分歌单内容尚未加载，请重试"));
             return;
         }
         setIsLoading(true);
         try {
             const data = await accountPlaylistsStore.getState().addSongs(targets, songIds);
-            if (data.outcome === 'partial') showToast('部分歌单已更新，冲突或达到上限的目标未修改');
-            else if (data.refreshFailed) showToast('歌曲已加入，列表刷新失败');
-            else if (data.outcome === 'noop') showToast('所选歌曲已在目标歌单中');
+            if (data.outcome === 'partial') showToast(t("部分歌单已更新，冲突或达到上限的目标未修改"));
+            else if (data.refreshFailed) showToast(t("歌曲已加入，列表刷新失败"));
+            else if (data.outcome === 'noop') showToast(t("所选歌曲已在目标歌单中"));
             else showToast(songIds.length === 1 && songs[0]?.title
                 ? `已将《${songs[0].title}》加入 ${selectedTargetIds.length} 个歌单`
                 : `已将 ${songIds.length} 首歌曲加入 ${selectedTargetIds.length} 个歌单`);
@@ -134,20 +135,19 @@ export default function AddToPlaylistModal() {
     return (
         <div ref={modalRef} className={`search-playlist-picker-sheet ${isClosing ? 'is-closing' : ''}`} role="dialog" aria-modal="true" aria-hidden={isClosing || !isOpen}>
             <div className="search-playlist-picker-sheet__backdrop" onClick={closeAddToPlaylist} />
-            <section className="search-playlist-picker" aria-label="选择目标歌单">
+            <section className="search-playlist-picker" aria-label={t("选择目标歌单")}>
                 <div className="search-playlist-picker__heading">
                     <div>
-                        <strong>加入歌单</strong>
-                        <small>{songIds.length === 1 && firstSongTitle ? `《${firstSongTitle}》` : `已选择 ${songIds.length} 首，可多选目标歌单`}</small>
+                        <strong>{t("加入歌单")}</strong>
+                        <small>{songIds.length === 1 && firstSongTitle ? `《${firstSongTitle}》` : t("已选择 {p0} 首，可多选目标歌单", { p0: (songIds.length) })}</small>
                     </div>
-                    <button type="button" onClick={closeAddToPlaylist} aria-label="关闭加入歌单选择器">
+                    <button type="button" onClick={closeAddToPlaylist} aria-label={t("关闭加入歌单选择器")}>
                         <X size={16} />
                     </button>
                 </div>
                 {isLoading && playlistTargets.some((playlist) => !accountDetails[playlist.id]) ? (
                     <div className="search-playlist-picker__loading">
-                        <Loader2 size={14} className="animate-spin" />正在读取歌单
-                    </div>
+                        <Loader2 size={14} className="animate-spin" />{t("正在读取歌单")}</div>
                 ) : (
                     <div className="search-playlist-picker__targets">
                         {playlistTargets.map((playlist) => {
@@ -164,17 +164,16 @@ export default function AddToPlaylistModal() {
                                         onChange={() => toggleTarget(playlist.id)}
                                     />
                                     <span>
-                                        <strong>{playlist.kind === 'favorite' ? '我的收藏' : playlist.name}</strong>
+                                        <strong>{playlist.kind === 'favorite' ? t("我的收藏") : playlist.name}</strong>
                                         <small>
-                                            {playlist.songCount || 0} 首歌曲
-                                            {includedCount > 0 ? ` · ${includedCount === songIds.length ? '均已收录' : `已收录 ${includedCount} 首`}` : ''}
+                                            {playlist.songCount || 0}{t("首歌曲")}{includedCount > 0 ? ` · ${includedCount === songIds.length ? t("均已收录") : t("已收录 {p0} 首", { p0: (includedCount) })}` : ''}
                                         </small>
                                     </span>
-                                    {overLimit && <em>超过 500 首上限</em>}
+                                    {overLimit && <em>{t("超过 500 首上限")}</em>}
                                 </label>
                             );
                         })}
-                        {playlistTargets.length === 0 && <p className="theme-empty py-3 text-center text-xs">暂无可用歌单</p>}
+                        {playlistTargets.length === 0 && <p className="theme-empty py-3 text-center text-xs">{t("暂无可用歌单")}</p>}
                     </div>
                 )}
                 <button
@@ -183,7 +182,7 @@ export default function AddToPlaylistModal() {
                     disabled={isLoading || songIds.length === 0 || selectedTargetIds.length === 0}
                     onClick={handleConfirm}
                 >
-                    {isLoading ? '正在加入...' : `确定加入${selectedTargetIds.length > 0 ? ` (${selectedTargetIds.length})` : ''}`}
+                    {isLoading ? t("正在加入...") : t("确定加入{p0}", { p0: (selectedTargetIds.length > 0 ? ` (${selectedTargetIds.length})` : '') })}
                 </button>
             </section>
         </div>

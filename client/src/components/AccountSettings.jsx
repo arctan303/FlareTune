@@ -1,15 +1,19 @@
 import React from 'react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
-import { changePassword, logout, messageForError, updateOwnProfile } from '../instance/api.js';
+import { changePassword, logout, messageForError, updateOwnProfile, updateOwnUiLanguage } from '../instance/api.js';
 import { validLocalPassword } from '../instance/state.js';
 import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
 import SettingsSection from './SettingsSection.jsx';
+import { setUiLanguage, t, useLocale } from '../i18n/index.js';
 
 export default function AccountSettings() {
+  useLocale();
   const authSession = useUIStore((state) => state.authSession);
   const setAuthSession = useUIStore((state) => state.setAuthSession);
   const [nickname, setNickname] = React.useState(authSession.user?.displayName || '');
   const [nicknameBusy, setNicknameBusy] = React.useState(false);
+  const [languageBusy, setLanguageBusy] = React.useState(false);
+  const [languageError, setLanguageError] = React.useState('');
   const [nicknameError, setNicknameError] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -20,10 +24,25 @@ export default function AccountSettings() {
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const passwordDialogRef = React.useRef(null);
   const user = authSession.user;
-  const name = user?.displayName || user?.username || '已登录用户';
+  const name = user?.displayName || user?.username || t('已登录用户');
   const passwordInputClassName = 'mt-1.5 block min-h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-3.5 text-sm text-[var(--ink)]';
 
   React.useEffect(() => { setNickname(user?.displayName || ''); }, [user?.accountId, user?.displayName]);
+
+  const saveLanguage = async (event) => {
+    const nextLanguage = event.target.value;
+    setLanguageBusy(true);
+    setLanguageError('');
+    try {
+      await updateOwnUiLanguage(nextLanguage, authSession.csrfToken, user.accountId);
+      if (useUIStore.getState().authSession?.user?.accountId !== user.accountId) return;
+      setAuthSession((current) => current.user?.accountId === user.accountId
+        ? { ...current, user: { ...current.user, uiLanguage: nextLanguage } } : current);
+      setUiLanguage(nextLanguage);
+    } catch {
+      setLanguageError('界面语言保存失败，请重试。');
+    } finally { setLanguageBusy(false); }
+  };
 
   const saveNickname = async (event) => {
     event.preventDefault();
@@ -32,9 +51,9 @@ export default function AccountSettings() {
     try {
       const result = await updateOwnProfile({ displayName: nickname }, authSession.csrfToken, user.accountId);
       setAuthSession((current) => current.user?.accountId === result.user.accountId
-        ? { ...current, user: result.user } : current);
+        ? { ...current, user: { ...current.user, ...result.user } } : current);
       setNickname(result.user.displayName);
-      showToast(result.user.displayName ? '昵称已更新' : '已恢复显示用户名');
+      showToast(t(result.user.displayName ? '昵称已更新' : '已恢复显示用户名'));
     } catch {
       setNicknameError('昵称保存失败，请检查长度后重试。');
     } finally { setNicknameBusy(false); }
@@ -65,7 +84,7 @@ export default function AccountSettings() {
     try {
       await logout(authSession.csrfToken);
       window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
-      showToast('已退出登录');
+      showToast(t('已退出登录'));
     } catch (logoutError) {
       if (logoutError?.status === 401) {
         window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
@@ -93,7 +112,7 @@ export default function AccountSettings() {
       await changePassword({ currentPassword, newPassword }, authSession.csrfToken);
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
       window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
-      showToast('密码已更新，请使用新密码登录');
+      showToast(t('密码已更新，请使用新密码登录'));
     } catch (cause) {
       setError(messageForError(cause, 'change'));
       setBusy(false);
@@ -102,16 +121,16 @@ export default function AccountSettings() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-black tracking-tight text-[var(--ink)] sm:text-4xl">个人设置</h1>
+      <h1 className="text-3xl font-black tracking-tight text-[var(--ink)] sm:text-4xl">{t('个人设置')}</h1>
 
-      <SettingsSection title="账号信息">
+      <SettingsSection title={t('账号信息')}>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <span className="account-avatar-char !h-14 !w-14 !text-xl" aria-hidden="true">{name.trim().slice(0, 1).toUpperCase()}</span>
             <div className="min-w-0">
               <p className="truncate text-lg font-semibold text-[var(--ink)]">{name}</p>
               {user?.username && user.username !== name && <p className="truncate text-sm text-[var(--muted)]">{user.username}</p>}
-              <p className="text-sm text-[var(--muted)]">{user?.role === 'admin' ? '管理员' : '成员'}</p>
+              <p className="text-sm text-[var(--muted)]">{t(user?.role === 'admin' ? '管理员' : '成员')}</p>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
@@ -120,7 +139,7 @@ export default function AccountSettings() {
               onClick={() => { setError(''); setIsPasswordDialogOpen(true); }}
               className="primary-button min-h-11 rounded-xl px-5 text-sm font-semibold"
             >
-              修改密码
+              {t('修改密码')}
             </button>
             <button
               type="button"
@@ -128,24 +147,37 @@ export default function AccountSettings() {
               disabled={busy}
               className="min-h-11 rounded-xl px-3 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-950/30"
             >
-              {busy && errorContext === 'logout' ? '正在退出…' : '退出登录'}
+              {t(busy && errorContext === 'logout' ? '正在退出…' : '退出登录')}
             </button>
           </div>
         </div>
-        {error && errorContext === 'logout' && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && errorContext === 'logout' && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{t(error)}</p>}
       </SettingsSection>
 
-      <SettingsSection title="展示昵称">
+      <SettingsSection title={t('展示昵称')}>
         <form onSubmit={saveNickname} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="min-w-0 flex-1 text-sm font-medium">昵称
+          <label className="min-w-0 flex-1 text-sm font-medium">{t('昵称')}
             <input className={passwordInputClassName} value={nickname} maxLength={80}
-              onChange={(event) => setNickname(event.target.value)} placeholder={user?.username || '账号用户名'} />
+              onChange={(event) => setNickname(event.target.value)} placeholder={user?.username || t('账号用户名')} />
           </label>
           <button type="submit" className="primary-button min-h-11 rounded-xl px-5 text-sm font-semibold disabled:opacity-60"
-            disabled={nicknameBusy}>{nicknameBusy ? '正在保存…' : '保存昵称'}</button>
+            disabled={nicknameBusy}>{t(nicknameBusy ? '正在保存…' : '保存昵称')}</button>
         </form>
-        <p className="mt-2 text-sm text-[var(--muted)]">仅用于展示和助手称呼。留空后显示用户名，不影响登录。</p>
-        {nicknameError && <p role="alert" className="mt-2 text-sm text-red-600">{nicknameError}</p>}
+        <p className="mt-2 text-sm text-[var(--muted)]">{t('仅用于展示和助手称呼。留空后显示用户名，不影响登录。')}</p>
+        {nicknameError && <p role="alert" className="mt-2 text-sm text-red-600">{t(nicknameError)}</p>}
+      </SettingsSection>
+
+      <SettingsSection title={t('界面语言')}>
+        <label className="block max-w-sm text-sm font-medium text-[var(--ink)]">
+          {t('语言')}
+          <select className={`${passwordInputClassName} cursor-pointer`} value={user?.uiLanguage || 'auto'}
+            onChange={saveLanguage} disabled={languageBusy}>
+            <option value="auto">{t('跟随浏览器')}</option>
+            <option value="zh">简体中文</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        {languageError && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{t(languageError)}</p>}
       </SettingsSection>
 
       {isPasswordDialogOpen && (
@@ -157,17 +189,17 @@ export default function AccountSettings() {
           onClick={(event) => { if (event.target === event.currentTarget) closePasswordDialog(); }}
         >
           <div className="p-6 sm:p-7">
-            <h2 id="change-password-title" className="text-lg font-semibold">修改密码</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">修改后所有设备的会话都会失效，请用新密码重新登录。</p>
+            <h2 id="change-password-title" className="text-lg font-semibold">{t('修改密码')}</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">{t('修改后所有设备的会话都会失效，请用新密码重新登录。')}</p>
             <form className="mt-6 space-y-4" onSubmit={handlePasswordChange}>
-              <label className="block text-sm font-medium">当前密码<input autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
-              <label className="block text-sm font-medium">新密码<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
-              <p className="text-sm text-[var(--muted)]">至少 8 个字符，建议使用独一无二的长密码。</p>
-              <label className="block text-sm font-medium">确认新密码<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
-              {error && errorContext === 'password' && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+              <label className="block text-sm font-medium">{t('当前密码')}<input autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
+              <label className="block text-sm font-medium">{t('新密码')}<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+              <p className="text-sm text-[var(--muted)]">{t('至少 8 个字符，建议使用独一无二的长密码。')}</p>
+              <label className="block text-sm font-medium">{t('确认新密码')}<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+              {error && errorContext === 'password' && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(error)}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closePasswordDialog} disabled={busy} className="min-h-11 rounded-xl px-4 text-sm font-medium text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-60">取消</button>
-                <button type="submit" disabled={busy} className="primary-button min-h-11 rounded-xl px-5 text-sm font-semibold disabled:opacity-60">{busy ? '正在更新…' : '保存新密码'}</button>
+                <button type="button" onClick={closePasswordDialog} disabled={busy} className="min-h-11 rounded-xl px-4 text-sm font-medium text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-60">{t('取消')}</button>
+                <button type="submit" disabled={busy} className="primary-button min-h-11 rounded-xl px-5 text-sm font-semibold disabled:opacity-60">{t(busy ? '正在更新…' : '保存新密码')}</button>
               </div>
             </form>
           </div>

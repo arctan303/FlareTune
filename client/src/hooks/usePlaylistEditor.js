@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { accountPlaylistsStore } from '../accountPlaylists.js';
 import { getEdgeAutoScrollDelta } from '../accountPlaylistOrdering.js';
@@ -313,7 +314,7 @@ export default function usePlaylistEditor({ playlist, playlistInfo, playlistSong
             if (songsChanged) {
                 await accountPlaylistsStore.getState().reorderSongs(playlist.id, draftSongIds, currentRevision);
             }
-            showToast('歌单修改已保存');
+            showToast(t("歌单修改已保存"));
             setIsEditing(false);
         } catch (error) {
             setErrorMsg(error?.status === 409 ? '歌单已在其他页面更新，请重试' : (error?.message || '保存失败'));
@@ -327,7 +328,7 @@ export default function usePlaylistEditor({ playlist, playlistInfo, playlistSong
         setIsSaving(true);
         try {
             await accountPlaylistsStore.getState().deletePlaylist(playlist.id, playlist.revision);
-            showToast(`已删除歌单《${playlist.name}》`);
+            showToast(t("已删除歌单《{p0}》", { p0: (playlist.name) }));
             onClose();
         } catch (error) {
             showToast(error?.status === 409 ? '歌单已在其他页面更新，请重试' : (error?.message || '删除失败'));

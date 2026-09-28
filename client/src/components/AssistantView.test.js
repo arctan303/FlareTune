@@ -11,7 +11,7 @@ test('AssistantView provides a full-page conversation without a fixed header', (
 
   // 页面化容器和无障碍标题；导航与操作使用现有侧边栏。
   assert.match(xiaoa, /app-page xiaoa-page/);
-  assert.match(xiaoa, /<h1 className="sr-only">助手<\/h1>/);
+  assert.match(xiaoa, /<h1 className="sr-only">\{t\("助手"\)\}<\/h1>/);
   assert.doesNotMatch(xiaoa, /assistant-header app-page-heading/);
   assert.match(sidebar, /activePage === 'assistant' \? <>/);
   assert.match(sidebar, /requestAssistantClear\(\)/);

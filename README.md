@@ -1,8 +1,10 @@
 # <img src="client/public/favicon.svg" alt="" width="44" height="44"> FlareTune
 
+[简体中文](README.md) · [English](README.en.md)
+
 **把自己的音乐，放进随时可听的私人曲库。**
 
-FlareTune 是一款可自行部署的音乐应用，适合个人、家庭和小型私有群体。管理员导入自己的音频文件后，成员可以在电脑或手机上找歌、播放、收藏和整理歌单。曲库数据与媒体文件分别保存在部署者自己的 Cloudflare D1 和私有 R2 中。
+FlareTune 是一款面向个人和家庭的自建音频流媒体应用。管理员导入自己的音频文件后，成员可以在电脑或手机上找歌、播放、收藏和整理歌单。曲库数据与媒体文件分别保存在部署者自己的 Cloudflare D1 和私有 R2 中。
 
 [界面预览](#界面预览) · [功能](#功能) · [部署](#部署到-cloudflare) · [使用指南](guide/using-flaretune.md) · [参与贡献](CONTRIBUTING.md)
 

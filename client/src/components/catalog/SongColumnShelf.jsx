@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import HorizontalScrollButtons from './HorizontalScrollButtons.jsx';
 import { horizontalScrollState, moveHorizontalScroll } from './horizontalScroll.js';
@@ -76,7 +77,7 @@ export default function SongColumnShelf({ label = '歌曲', children, onOverflow
 
   return <div ref={containerRef} className="song-column-shelf">
     <div ref={viewportRef} className="song-column-shelf__viewport" onScroll={updateScrollState}
-      tabIndex={0} role="region" aria-label={`${label}预览，横向滚动查看更多`}>
+      tabIndex={0} role="region" aria-label={t("{p0}预览，横向滚动查看更多", { p0: (label) })}>
       <div className="song-column-shelf__columns" style={{
         '--song-column-width': `${layout.columnWidth}px`,
         '--song-column-end-space': `${NEXT_COLUMN_REVEAL}px`,

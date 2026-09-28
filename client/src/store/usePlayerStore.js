@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useUIStore, showToast } from './useUIStore.js';
@@ -345,7 +346,7 @@ export const usePlayerStore = create(
                       resumeWhenAppended: false,
                   },
               });
-              showToast('本轮已漫游完整个曲库');
+              showToast(t("本轮已漫游完整个曲库"));
               return true;
           }
           set({ playlist: nextPlaylist, randomRoam: nextRandomRoam });
@@ -580,7 +581,7 @@ export const usePlayerStore = create(
           }).catch(e => {
               console.error("Play error:", e);
               set({ isPlaying: false });
-              showToast('准备就绪，请点击播放键开始播放');
+              showToast(t("准备就绪，请点击播放键开始播放"));
           });
       },
 
@@ -672,7 +673,7 @@ export const usePlayerStore = create(
                   : {}),
           });
           const modeName = PLAYBACK_MODE_NAMES[nextMode];
-          showToast(`已切换为：${modeName}`);
+          showToast(t("已切换为：{p0}", { p0: (modeName) }));
       },
 
       playNext: (e = null) => {
@@ -723,7 +724,7 @@ export const usePlayerStore = create(
                           },
                       });
                       if (audioRef?.current) audioRef.current.currentTime = 0;
-                      showToast('本轮已漫游完整个曲库');
+                      showToast(t("本轮已漫游完整个曲库"));
                       return;
                   }
                   set({

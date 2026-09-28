@@ -23,7 +23,7 @@ import { handleLocalCatalogAdminRoute } from '../routes/localCatalogAdmin.js';
 import { handleLocalCatalogMediaRoute } from '../routes/localCatalogMedia.js';
 import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
 import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
-import { updateOwnDisplayName } from '../auth/local/profile.js';
+import { getOwnUiLanguage, updateOwnDisplayName, updateOwnUiLanguage } from '../auth/local/profile.js';
 import {
   AuthError,
   claimInstance,
@@ -124,7 +124,7 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     return json(session ? {
       authenticated: true,
       mustChangePassword: session.mode === 'must_change_password',
-      user: session.account,
+      user: { ...session.account, uiLanguage: await getOwnUiLanguage(env.DB, session.account.accountId) },
       csrfToken: session.csrfToken,
     } : { authenticated: false, mustChangePassword: false });
   }
@@ -232,6 +232,13 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
         return json({ error: 'invalid_input' }, 400);
       }
       return json({ user: await updateOwnDisplayName(env.DB, actorAccountId, body.displayName) });
+    }
+    if (path === '/api/account/ui-language' && request.method === 'PATCH') {
+      const body = await readBoundedJson(request);
+      if (!body || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'uiLanguage')) {
+        return json({ error: 'invalid_input' }, 400);
+      }
+      return json(await updateOwnUiLanguage(env.DB, actorAccountId, body.uiLanguage));
     }
     if (path === '/api/admin/accounts' && request.method === 'GET') {
       return json(await listAccounts({ db: env.DB, actorAccountId }));

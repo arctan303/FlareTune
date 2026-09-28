@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { invalidateLyricsCacheForSong } from './useLyricsFetcher.js';
 import { lyricsWorkspaceApi } from '../services/localLyricsWorkspaceApi.js';
@@ -187,7 +188,7 @@ export function useManagedLyricsAsset({ songId, enabled }) {
             const response = await action();
             if (refreshPlayer) refreshPlayback(songId);
             await load({ quiet: true });
-            if (response?.data?.languageUpdateFailed) showToast('歌词已保存，但歌曲语言更新失败；可稍后重新运行 AI 补全');
+            if (response?.data?.languageUpdateFailed) showToast(t("歌词已保存，但歌曲语言更新失败；可稍后重新运行 AI 补全"));
             else if (successMessage) showToast(successMessage);
             return true;
         } catch (error) {

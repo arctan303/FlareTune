@@ -2,6 +2,7 @@ import React from 'react';
 import { resolveCoverUrl } from '../utils.js';
 import { usePrivateMediaSource } from './usePrivateMediaSource.js';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
+import { localizeUnknownArtist, useLocale } from '../i18n/index.js';
 
 const DEFAULT_TITLE = 'FlareTune';
 const DEFAULT_FAVICON = '/favicon.svg';
@@ -41,13 +42,14 @@ function updateFavicon(iconUrl) {
 }
 
 export function usePlaybackPresentation(currentSong, isPlaying) {
+  const locale = useLocale();
   const lastFaviconRef = React.useRef(DEFAULT_FAVICON);
   const coverUrl = resolveCoverUrl(currentSong?.cover_url || '');
   const resolvedCoverUrl = usePrivateMediaSource(coverUrl);
 
   React.useEffect(() => {
     const nextTitle = currentSong && isPlaying
-      ? `${currentSong.title} - ${currentSong.artist}`
+      ? `${currentSong.title} - ${localizeUnknownArtist(currentSong.artist)}`
       : DEFAULT_TITLE;
     if (document.title !== nextTitle) {
       document.title = nextTitle;
@@ -58,7 +60,7 @@ export function usePlaybackPresentation(currentSong, isPlaying) {
       lastFaviconRef.current = nextFavicon;
       updateFavicon(nextFavicon);
     }
-  }, [currentSong, isPlaying, coverUrl, resolvedCoverUrl]);
+  }, [currentSong, isPlaying, coverUrl, resolvedCoverUrl, locale]);
 
   React.useEffect(() => {
     return () => {

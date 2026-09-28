@@ -32,26 +32,26 @@ export async function dispatchAiPlayerAction(playerAction, {
 
   if (playerAction?.type === 'play_now' && action === 'play_song' && song) {
     const applied = await playNow(song);
-    if (applied?.ok) notify(`正在播放《${song.title || '目标歌曲'}》`);
+    if (applied?.ok) notify(t('正在播放《{title}》', { title: song.title || t('目标歌曲') }));
     return applied;
   }
 
   if (playerAction?.type === 'insert_next' && action === 'insert_next' && (song || songs[0])) {
     const targetSong = song || songs[0];
     const applied = await insertNext(targetSong);
-    if (applied?.ok) notify(`已将《${targetSong.title || '目标歌曲'}》插播为下一首`);
+    if (applied?.ok) notify(t('已将《{title}》插播为下一首', { title: targetSong.title || t('目标歌曲') }));
     return applied?.ok ? applied : { ok: false, outcome: applied?.outcome || applied?.error || 'failed' };
   }
 
   if (playerAction?.type === 'replace_queue' && action === 'replace' && songs.length > 0) {
     const applied = await replaceQueue(songs);
-    if (applied?.ok) notify(`已换上包含 ${songs.length} 首歌曲的播放队列`);
+    if (applied?.ok) notify(t('已换上包含 {count} 首歌曲的播放队列', { count: songs.length }));
     return applied;
   }
 
   if (playerAction?.type === 'append' && action === 'append' && songs.length > 0) {
     const applied = await appendQueue(songs);
-    if (applied?.ok) notify(`已向播放队列追加 ${songs.length} 首歌曲`);
+    if (applied?.ok) notify(t('已向播放队列追加 {count} 首歌曲', { count: songs.length }));
     return applied;
   }
 
@@ -61,15 +61,15 @@ export async function dispatchAiPlayerAction(playerAction, {
     const applied = await controlPlayer(playerAction);
     if (applied?.ok) {
       const seekText = playerAction.mode === 'percent'
-        ? `已跳到 ${Math.round(playerAction.position || 0)}%`
-        : `已跳到 ${Math.round(applied.position_seconds ?? playerAction.position ?? 0)} 秒`;
+        ? t('已跳到 {position}%', { position: Math.round(playerAction.position || 0) })
+        : t('已跳到 {position} 秒', { position: Math.round(applied.position_seconds ?? playerAction.position ?? 0) });
       const labels = {
         play: '播放器已播放',
         pause: '播放器已暂停',
         toggle: '播放器状态已切换',
         seek: seekText,
       };
-      notify(labels[action] || seekText);
+      notify(t(labels[action] || seekText));
     }
     return applied;
   }
@@ -81,12 +81,15 @@ export async function dispatchAiPlayerAction(playerAction, {
     if (!applied?.ok) return { ok: false, outcome: applied?.outcome || 'failed' };
     if (enabled) {
       const label = ROAM_LANGUAGE_LABELS[applied.language || playerAction?.language] || '';
-      notify(`已开启${label ? `【${label}】` : ''}随机漫游，将在队尾自动补充歌曲`);
+      notify(label
+        ? t('已开启【{language}】随机漫游，将在队尾自动补充歌曲', { language: t(label) })
+        : t('已开启随机漫游，将在队尾自动补充歌曲'));
     } else {
-      notify('已关闭随机漫游');
+      notify(t('已关闭随机漫游'));
     }
     return { ok: true, outcome: applied.outcome || 'applied' };
   }
 
   return { ok: false, outcome: 'ignored' };
 }
+import { t } from '../i18n/index.js';

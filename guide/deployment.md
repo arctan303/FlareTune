@@ -1,5 +1,7 @@
 # 部署与初始化
 
+[简体中文](deployment.md) · [English](deployment.en.md)
+
 ## 当前状态
 
 维护者已在生产实例测试主要功能，反馈运行正常。公开模板在仓库根目录的 `wrangler.toml` 声明 Worker、静态资源、D1 和 R2；Cloudflare 的部署向导会创建并绑定资源，并依据 `.dev.vars.example` 提示填写 `SETUP_SECRET`。空 D1 的初始化及已知旧版升级已通过本地 Worker/D1 端到端演练。**全新 Cloudflare 账号的实际一键部署尚未验收**。

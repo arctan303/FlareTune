@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { X, User, Play, ListPlus, Music, Loader2, Sparkles, Star, FolderPlus } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
@@ -164,7 +165,7 @@ export default function ArtistDrawer() {
   const handlePlayAll = () => {
     if (resolvedSongs.length > 0) {
       playSong(resolvedSongs[0], resolvedSongs);
-      showToast(`正在播放 ${artistName} 全部歌曲 · 共 ${resolvedSongs.length} 首`);
+      showToast(t("正在播放 {p0} 全部歌曲 · 共 {p1} 首", { p0: (artistName), p1: (resolvedSongs.length) }));
     }
   };
 
@@ -173,14 +174,14 @@ export default function ArtistDrawer() {
       const { playlist, currentSong, setPlaylist, playSong } = usePlayerStore.getState();
       if (!currentSong) {
         playSong(resolvedSongs[0], resolvedSongs);
-        showToast(`已开始播放 ${artistName} 全部歌曲 · 共 ${resolvedSongs.length} 首`);
+        showToast(t("已开始播放 {p0} 全部歌曲 · 共 {p1} 首", { p0: (artistName), p1: (resolvedSongs.length) }));
         return;
       }
       const plan = planQueueEdit(playlist, currentSong, resolvedSongs, 'insert_next');
       if (plan.action === 'update' || plan.playlist) {
         setPlaylist(plan.playlist);
       }
-      showToast(`已将 ${resolvedSongs.length} 首歌曲加入稍后播放`);
+      showToast(t("已将 {p0} 首歌曲加入稍后播放", { p0: (resolvedSongs.length) }));
     }
   };
 
@@ -233,7 +234,7 @@ export default function ArtistDrawer() {
           <button
             ref={closeButtonRef}
             type="button"
-            aria-label="关闭焦点音乐人抽屉"
+            aria-label={t("关闭焦点音乐人抽屉")}
             onClick={handleClose}
             className="theme-drawer__close pointer-events-auto absolute top-3.5 right-3.5 z-30 w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 text-white/80 hover:text-white flex items-center justify-center transition-all backdrop-blur-sm cursor-pointer shadow-md"
           >
@@ -278,11 +279,9 @@ export default function ArtistDrawer() {
                 className="text-xl sm:text-2xl font-bold text-[var(--ink)] truncate mt-0.5 origin-bottom-left will-change-transform"
                 title={artistName}
               >
-                {artistName || '焦点音乐人'}
+                {artistName || t("焦点音乐人")}
               </h3>
-              <p ref={metaRef} className="text-xs text-[var(--muted)] mt-0.5 will-change-transform origin-bottom-left">
-                馆藏收录 <strong className="text-[var(--ink)] font-semibold">{resolvedSongs.length}</strong> 首作品
-              </p>
+              <p ref={metaRef} className="text-xs text-[var(--muted)] mt-0.5 will-change-transform origin-bottom-left">{t("馆藏收录")}<strong className="text-[var(--ink)] font-semibold">{resolvedSongs.length}</strong>{t("首作品")}</p>
             </div>
           </div>
         </div>
@@ -301,9 +300,7 @@ export default function ArtistDrawer() {
             style={{ top: `${ARTIST_HEADER_MIN_HEIGHT}px` }}
             className="sticky z-10 flex items-center justify-between px-5 py-2.5 bg-[var(--surface-raised)]/95 backdrop-blur-md border-b border-[var(--line)] shadow-xs"
           >
-            <span className="text-xs font-medium text-[var(--muted)]">
-              歌曲列表
-            </span>
+            <span className="text-xs font-medium text-[var(--muted)]">{t("歌曲列表")}</span>
             <div className="flex items-center gap-2">
               {resolvedSongs.length > 0 && (
                 <>
@@ -311,21 +308,21 @@ export default function ArtistDrawer() {
                     type="button"
                     onClick={handleQueueAll}
                     className="text-button text-xs flex items-center gap-1 text-[var(--muted)] hover:text-[var(--ink)] px-2 py-1 rounded-lg hover:bg-current/5 transition-colors cursor-pointer"
-                    title="将全部歌曲加入稍后播放"
-                    aria-label="将全部歌曲加入稍后播放"
+                    title={t("将全部歌曲加入稍后播放")}
+                    aria-label={t("将全部歌曲加入稍后播放")}
                   >
                     <ListPlus size={13} />
-                    <span>稍后播放</span>
+                    <span>{t("稍后播放")}</span>
                   </button>
                   <button
                     type="button"
                     onClick={handlePlayAll}
                     className="text-button text-xs flex items-center gap-1 text-[var(--accent)] hover:text-[var(--accent-strong)] font-semibold px-2 py-1 rounded-lg hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] transition-colors cursor-pointer"
-                    title={`播放 ${artistName} 全部作品`}
-                    aria-label="播放全部作品"
+                    title={t("播放 {p0} 全部作品", { p0: (artistName) })}
+                    aria-label={t("播放全部作品")}
                   >
                     <Play size={12} fill="currentColor" />
-                    <span>播放全部</span>
+                    <span>{t("播放全部")}</span>
                   </button>
                 </>
               )}
@@ -337,10 +334,8 @@ export default function ArtistDrawer() {
             {resolvedSongs.length === 0 ? (
               <div className="theme-empty text-center py-20">
                 <Music size={40} className="mx-auto mb-3 opacity-30 text-[var(--muted)]" strokeWidth={1.2} />
-                <p className="text-sm font-medium text-[var(--ink)]">暂无该歌手作品</p>
-                <p className="text-xs text-[var(--muted)] mt-1 max-w-[220px] mx-auto leading-relaxed">
-                  曲库中尚未收录更多关联单曲
-                </p>
+                <p className="text-sm font-medium text-[var(--ink)]">{t("暂无该歌手作品")}</p>
+                <p className="text-xs text-[var(--muted)] mt-1 max-w-[220px] mx-auto leading-relaxed">{t("曲库中尚未收录更多关联单曲")}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
@@ -353,15 +348,15 @@ export default function ArtistDrawer() {
                       key={song.id || index}
                       onClick={() => {
                         playSong(song, resolvedSongs);
-                        showToast(`正在播放《${song.title}》`);
+                        showToast(t("正在播放《{p0}》", { p0: (song.title) }));
                       }}
                       onKeyDown={(event) => handleKeyboardActivation(event, () => {
                         playSong(song, resolvedSongs);
-                        showToast(`正在播放《${song.title}》`);
+                        showToast(t("正在播放《{p0}》", { p0: (song.title) }));
                       })}
                       role="button"
                       tabIndex={0}
-                      aria-label={`播放 ${song.title}`}
+                      aria-label={t("播放 {p0}", { p0: (song.title) })}
                       className={`queue-row group relative flex items-center gap-3 rounded-xl p-2.5 border border-transparent hover:border-[var(--line)] transition-all cursor-pointer ${
                         isCurrentActive ? 'is-active' : ''
                       }`}
@@ -424,8 +419,8 @@ export default function ArtistDrawer() {
                               ? 'text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]'
                               : 'text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/10'
                           }`}
-                          title={isFavorite(song) ? '移出我的收藏' : '加入我的收藏'}
-                          aria-label={`${isFavorite(song) ? '移出' : '加入'}我的收藏：${song.title}`}
+                          title={isFavorite(song) ? t("移出我的收藏") : t("加入我的收藏")}
+                          aria-label={t("{p0}我的收藏：{p1}", { p0: (isFavorite(song) ? '移出' : '加入'), p1: (song.title) })}
                         >
                           <Star size={15} fill={isFavorite(song) ? 'currentColor' : 'none'} />
                         </button>
@@ -436,8 +431,8 @@ export default function ArtistDrawer() {
                             openAddToPlaylist(song);
                           }}
                           className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/10 transition-colors cursor-pointer"
-                          title="加入歌单"
-                          aria-label={`将 ${song.title} 加入歌单`}
+                          title={t("加入歌单")}
+                          aria-label={t("将 {p0} 加入歌单", { p0: (song.title) })}
                         >
                           <FolderPlus size={15} />
                         </button>
@@ -448,8 +443,8 @@ export default function ArtistDrawer() {
                             insertNextWithFeedback(song);
                           }}
                           className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/10 transition-colors cursor-pointer"
-                          title="插播为下一首"
-                          aria-label={`将 ${song.title} 插播为下一首`}
+                          title={t("插播为下一首")}
+                          aria-label={t("将 {p0} 插播为下一首", { p0: (song.title) })}
                         >
                           <ListPlus size={15} />
                         </button>

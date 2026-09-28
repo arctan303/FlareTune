@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { usePlayerStore } from '../store/usePlayerStore.js';
 import { usePrivateMediaSource } from './usePrivateMediaSource.js';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
+import { localizeUnknownArtist, t, useLocale } from '../i18n/index.js';
 
 export function selectMediaSessionArtwork(coverUrl, resolvedCoverUrl, registry = imageLoadRegistry) {
     if (!registry.isPrivateMediaUrl(coverUrl)) return coverUrl || '/favicon.png';
@@ -10,6 +11,7 @@ export function selectMediaSessionArtwork(coverUrl, resolvedCoverUrl, registry =
 }
 
 export function useMediaSession({ currentSong, isPlaying }) {
+    const locale = useLocale();
     const coverUrl = currentSong?.cover_url || '';
     const resolvedCoverUrl = usePrivateMediaSource(coverUrl);
     useEffect(() => {
@@ -19,8 +21,8 @@ export function useMediaSession({ currentSong, isPlaying }) {
             try {
                 const cover = selectMediaSessionArtwork(coverUrl, resolvedCoverUrl);
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: currentSong.title || '未知歌曲',
-                    artist: currentSong.artist || '未知艺术家',
+                    title: currentSong.title || t('未知歌曲'),
+                    artist: localizeUnknownArtist(currentSong.artist),
                     album: currentSong.album || '',
                     artwork: [
                         { src: cover, sizes: '96x96', type: 'image/png' },
@@ -37,7 +39,7 @@ export function useMediaSession({ currentSong, isPlaying }) {
         } else {
             navigator.mediaSession.metadata = null;
         }
-    }, [currentSong?.id, currentSong?.title, currentSong?.artist, currentSong?.album, coverUrl, resolvedCoverUrl]);
+    }, [currentSong?.id, currentSong?.title, currentSong?.artist, currentSong?.album, coverUrl, resolvedCoverUrl, locale]);
 
     useEffect(() => {
         if (!('mediaSession' in navigator)) return;

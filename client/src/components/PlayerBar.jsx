@@ -1,3 +1,4 @@
+import { localizeUnknownArtist, t } from '../i18n/index.js';
 import React from 'react';
 import { Play, Pause, Menu, PanelLeft } from 'lucide-react';
 import { SolidRoundedSkipBack, SolidRoundedSkipForward } from './icons/SolidSkipIcons';
@@ -176,11 +177,11 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
     
     if (!currentSong) return null;
 
-    let pillLine1 = currentSong?.title || '听你想听';
-    let pillLine2 = currentSong?.artist || '探索音乐世界';
+    let pillLine1 = currentSong?.title || t('听你想听');
+    let pillLine2 = localizeUnknownArtist(currentSong?.artist);
 
     if (showBuffering) {
-        pillLine1 = '正在缓冲...';
+        pillLine1 = t('正在缓冲...');
         pillLine2 = currentSong.title;
     }
 
@@ -267,14 +268,14 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                         {/* 中列：播放控制三大键 */}
                         <div className="relative z-20 flex items-center flex-shrink-0 col-span-1 justify-self-center gap-6" onClick={e => e.stopPropagation()}>
                             <button
-                                aria-label="上一首"
+                                aria-label={t("上一首")}
                                 onClick={handlePlayPrev}
                                 className={`skip-btn skip-btn--prev ${isPrevAnimating ? 'is-animating' : ''} p-1.5 transition-colors duration-200 block text-white/70 hover:text-white`}
                             >
                                 <SolidRoundedSkipBack size={22} isAnimating={isPrevAnimating} animKey={prevAnimNonce} />
                             </button>
                             <button
-                                aria-label={isPlaying ? '暂停' : '播放'}
+                                aria-label={isPlaying ? t("暂停") : t("播放")}
                                 onClick={togglePlay}
                                 className="player-console__play relative flex items-center justify-center p-1.5 transition-all duration-300 active:scale-90 text-white/90 hover:text-white hover:scale-115"
                             >
@@ -285,7 +286,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 )}
                             </button>
                             <button
-                                aria-label="下一首"
+                                aria-label={t("下一首")}
                                 onClick={handlePlayNext}
                                 className={`skip-btn skip-btn--next ${isNextAnimating ? 'is-animating' : ''} p-1.5 transition-colors duration-200 block text-white/70 hover:text-white`}
                             >
@@ -300,12 +301,12 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 <button
                                     type="button"
                                     aria-label={translationPending
-                                        ? '歌词翻译补全中'
+                                        ? t("歌词翻译补全中")
                                         : translationReady
-                                            ? '切换歌词翻译'
+                                            ? t("切换歌词翻译")
                                             : translationState === 'failed'
-                                                ? '歌词翻译补全失败，重试'
-                                                : '补全歌词翻译'}
+                                                ? t("歌词翻译补全失败，重试")
+                                                : t("补全歌词翻译")}
                                     aria-busy={translationPending || undefined}
                                     disabled={translationPending}
                                     data-active={translationReady && translationEnabled}
@@ -321,12 +322,12 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                                     : 'border-white/15 text-white/45 hover:text-white/70 hover:border-white/30 bg-black/15'
                                     }`}
                                     title={translationPending
-                                        ? '正在补全歌词翻译'
+                                        ? t("正在补全歌词翻译")
                                         : translationReady
-                                            ? (translationEnabled ? '已显示歌词翻译（点击隐藏）' : '显示歌词翻译')
-                                            : translationState === 'failed' ? '补全失败，点击重试' : '点击补全歌词翻译'}
+                                            ? (translationEnabled ? t("已显示歌词翻译（点击隐藏）") : t("显示歌词翻译"))
+                                            : translationState === 'failed' ? t("补全失败，点击重试") : t("点击补全歌词翻译")}
                                 >
-                                    <span aria-hidden="true">译</span>
+                                    <span aria-hidden="true">{t("译")}</span>
                                     {translationState === 'failed' && (
                                         <span aria-hidden="true" className="lyrics-translation-action__warning">!</span>
                                     )}
@@ -337,7 +338,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             </span>
                             <PlayModeToggle isExpanded={true} />
                             <VolumeControl isExpanded={true} />
-                            <button aria-label="打开播放列表" onClick={() => setIsPlaylistOpen(true)} className={`text-white/70 hover:text-white transition-colors outline-none flex items-center justify-center ${playlistBouncing ? 'animate-playlist-bounce text-white' : ''}`}>
+                            <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`text-white/70 hover:text-white transition-colors outline-none flex items-center justify-center ${playlistBouncing ? 'animate-playlist-bounce text-white' : ''}`}>
                                 <Menu size={20} />
                             </button>
                         </div>
@@ -353,14 +354,14 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             />
                             <div className="hidden sm:flex items-center gap-0.5 sm:gap-1" onClick={e => e.stopPropagation()}>
                                 <button
-                                    aria-label="上一首"
+                                    aria-label={t("上一首")}
                                     onClick={handlePlayPrev}
                                     className={`skip-btn skip-btn--prev ${isPrevAnimating ? 'is-animating' : ''} p-1.5 transition-colors duration-200 player-console__icon player-console__icon--nav`}
                                 >
                                     <SolidRoundedSkipBack size={20} isAnimating={isPrevAnimating} animKey={prevAnimNonce} />
                                 </button>
                                 <button
-                                    aria-label={isPlaying ? '暂停' : '播放'}
+                                    aria-label={isPlaying ? t("暂停") : t("播放")}
                                     onClick={togglePlay}
                                     className="player-console__play relative flex items-center justify-center p-1.5 transition-all duration-300 active:scale-90 text-current"
                                 >
@@ -371,7 +372,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                     )}
                                 </button>
                                 <button
-                                    aria-label="下一首"
+                                    aria-label={t("下一首")}
                                     onClick={handlePlayNext}
                                     className={`skip-btn skip-btn--next ${isNextAnimating ? 'is-animating' : ''} p-1.5 transition-colors duration-200 player-console__icon player-console__icon--nav`}
                                 >
@@ -403,7 +404,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                         <div className="relative z-20 flex items-center flex-shrink-0 gap-0.5 sm:gap-1.5" onClick={e => e.stopPropagation()}>
                             {/* 移动端专属播放/暂停键（与播放列表紧挨着） */}
                             <button
-                                aria-label={isPlaying ? '暂停' : '播放'}
+                                aria-label={isPlaying ? t("暂停") : t("播放")}
                                 onClick={togglePlay}
                                 className="player-console__play relative flex sm:hidden items-center justify-center p-1.5 transition-all duration-300 active:scale-90 text-current"
                             >
@@ -422,8 +423,8 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             {canSwitchPlacement && (
                                 <button
                                     type="button"
-                                    aria-label="切换到侧边播放器"
-                                    title="切换到侧边播放器"
+                                    aria-label={t("切换到侧边播放器")}
+                                    title={t("切换到侧边播放器")}
                                     disabled={Boolean(transition)}
                                     onClick={(event) => {
                                         event.stopPropagation();
@@ -434,7 +435,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                     <PanelLeft size={20} />
                                 </button>
                             )}
-                            <button aria-label="打开播放列表" onClick={() => setIsPlaylistOpen(true)} className={`player-console__icon p-1.5 transition-all duration-300 active:scale-90 ${playlistBouncing ? 'animate-playlist-bounce text-[var(--accent-strong)]' : ''}`}>
+                            <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`player-console__icon p-1.5 transition-all duration-300 active:scale-90 ${playlistBouncing ? 'animate-playlist-bounce text-[var(--accent-strong)]' : ''}`}>
                                 <Menu size={20} />
                             </button>
                         </div>

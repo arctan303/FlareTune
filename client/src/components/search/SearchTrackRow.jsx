@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React, { useRef, useState, useEffect } from 'react';
 import { MoreHorizontal, Check } from 'lucide-react';
 import LazyImage from '../LazyImage';
@@ -51,6 +52,7 @@ export function SearchTrackRow({
 }) {
   const isCurrent = currentSong?.id === song.id;
   const songLang = resolveSongLanguage(song);
+  const artistLabel = song.artist || t('歌手未设置');
   const moreButtonRef = useRef(null);
 
   return (
@@ -63,18 +65,18 @@ export function SearchTrackRow({
           className="track-row__main-action"
           onClick={(event) => (isBulkSelecting ? onToggleBulkSelection(song, event) : onPlay(song, songs))}
           aria-label={isBulkSelecting
-            ? `${isBulkSelected ? '取消选择' : '选择'} ${song.title}`
-            : `播放 ${song.title} - ${song.artist}`}
+            ? `${isBulkSelected ? t("取消选择") : t("选择")} ${song.title}`
+            : t("播放 {p0} - {p1}", { p0: song.title, p1: artistLabel })}
         />
         <div className="track-row__state" aria-hidden="true"></div>
         <div className="track-row__cover relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
           <LazyImage
             src={song.cover_url || '/placeholder-album.svg'}
             className="h-full w-full object-cover"
-            alt={song.title ? `${song.title} - ${song.artist} 专辑封面` : '专辑封面'}
+            alt={song.title ? t("{p0} - {p1} 专辑封面", { p0: song.title, p1: artistLabel }) : t("专辑封面")}
           />
           {isCurrent && isPlaying ? (
-            <div className="playing-bars" aria-label="正在播放">
+            <div className="playing-bars" aria-label={t("正在播放")}>
               <div></div><div></div><div></div>
             </div>
           ) : null}
@@ -102,17 +104,17 @@ export function SearchTrackRow({
             })()}
           </div>
           <p className="track-row__meta mt-1 truncate text-xs">
-            <button
+            {song.artist ? <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onFilterArtist(song.artist);
               }}
               className="hover:text-[var(--accent-strong)] hover:underline transition-colors font-normal"
-              title={`按歌手 ${song.artist} 筛选`}
+              title={t("按歌手 {p0} 筛选", { p0: song.artist })}
             >
               <HighlightText text={song.artist} query={query} />
-            </button>
+            </button> : <span>{artistLabel}</span>}
             {song.album ? (
               <span>
                 {' · '}
@@ -127,7 +129,7 @@ export function SearchTrackRow({
               type="button"
               onClick={(event) => onToggleBulkSelection(song, event)}
               aria-pressed={isBulkSelected}
-              aria-label={`${isBulkSelected ? '取消选择' : '选择'} ${song.title}`}
+              aria-label={`${isBulkSelected ? t("取消选择") : t("选择")} ${song.title}`}
               className={`track-row__action rounded-full border ${isBulkSelected ? 'border-[var(--accent)] bg-[var(--accent)] text-white opacity-100' : 'border-[var(--line)]'}`}
             >
               {isBulkSelected ? <Check size={16} /> : <span className="h-4 w-4" aria-hidden="true" />}
@@ -142,8 +144,8 @@ export function SearchTrackRow({
                 onToggleMenu(song.id);
               }}
               className={`track-row__action ${isMenuOpen ? 'text-[var(--accent-strong)] opacity-100' : ''}`}
-              title="更多操作"
-              aria-label={`更多操作：${song.title}`}
+              title={t("更多操作")}
+              aria-label={t("更多操作：{p0}", { p0: (song.title) })}
               aria-haspopup="menu"
               aria-expanded={isMenuOpen}
             >

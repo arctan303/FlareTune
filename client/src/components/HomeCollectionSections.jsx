@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import HorizontalScrollButtons from './catalog/HorizontalScrollButtons.jsx';
@@ -46,9 +47,9 @@ export function HomeExploreSection({ items = [], langCounts, onOpen }) {
             <div className="collection-section__header mb-5">
                 <p className="collection-section__index whitespace-nowrap">03 / EXPLORE</p>
                 <div className="flex items-center justify-between gap-3">
-                    <h3 id="explore-title">曲库探索</h3>
+                    <h3 id="explore-title">{t("曲库探索")}</h3>
                     {isOverflowing && (
-                        <HorizontalScrollButtons variant="header" label="曲库分类"
+                        <HorizontalScrollButtons variant="header" label={t("曲库分类")}
                             canScroll={{ left: canScrollLeft, right: canScrollRight }} onMove={handleScroll} />
                     )}
                 </div>
@@ -58,19 +59,19 @@ export function HomeExploreSection({ items = [], langCounts, onOpen }) {
                 ref={scrollRef}
                 className="explore-shelf"
                 role="region"
-                aria-label="曲库语种分类列表"
+                aria-label={t("曲库语种分类列表")}
                 tabIndex={0}
             >
                 {items.map((lang) => {
                     const count = langCounts?.[lang.key];
-                    const countLabel = Number.isFinite(count) ? ` (${count} 首)` : '';
+                    const countLabel = Number.isFinite(count) ? t(" ({p0} 首)", { p0: (count) }) : '';
                     return (
                         <button
                             key={lang.key}
                             type="button"
                             onClick={() => onOpen?.(lang)}
                             className={`explore-shelf__item group relative flex flex-col justify-between p-4 sm:p-5 rounded-2xl bg-gradient-to-br ${lang.gradient} text-white border border-white/15 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden aspect-square w-full active:scale-[0.98] text-left shrink-0`}
-                            title={`点击进入${lang.label}曲库${countLabel}`}
+                            title={t("点击进入{p0}曲库{p1}", { p0: (lang.label), p1: (countLabel) })}
                         >
                             <div className="flex items-start justify-between w-full z-10">
                                 <span className="text-xs font-mono tracking-wider text-white/80 leading-none">

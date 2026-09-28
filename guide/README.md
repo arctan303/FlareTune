@@ -1,5 +1,7 @@
 # FlareTune 文档
 
+[简体中文](README.md) · [English](README.en.md)
+
 此目录面向使用者和实例管理员。根目录的 [README](../README.md) 是项目概览。
 
 | 文档 | 内容 |

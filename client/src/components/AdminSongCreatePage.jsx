@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Disc, UploadCloud, X } from 'lucide-react';
@@ -52,7 +53,7 @@ function LocalAudioPreview({ file }) {
     setUrl(next);
     return () => URL.revokeObjectURL(next);
   }, [file]);
-  return url ? <audio controls preload="none" src={url} className="mt-2 w-full" aria-label="试听本次文件" /> : null;
+  return url ? <audio controls preload="none" src={url} className="mt-2 w-full" aria-label={t("试听本次文件")} /> : null;
 }
 
 export default function AdminSongCreatePage() {
@@ -258,14 +259,14 @@ export default function AdminSongCreatePage() {
     for (const file of files) {
       const extension = file.name.split('.').at(-1)?.toLowerCase();
       if (!AUDIO_EXTENSIONS.has(extension) || !file.size) {
-        issues.push(file.name + '：格式不支持或文件为空');
+        issues.push(t('{file}：格式不支持或文件为空', { file: file.name }));
       } else if (file.size > MAX_WORKER_UPLOAD_BYTES) {
-        issues.push(file.name + '：超过单文件 100 MB 限制');
+        issues.push(t('{file}：超过单文件 100 MB 限制', { file: file.name }));
       } else if (known.has(fileKey(file))) {
-        issues.push(file.name + '：已在清单中');
+        issues.push(t('{file}：已在清单中', { file: file.name }));
       } else if (entriesRef.current.filter((entry) => !entry.agent).length + accepted.length >= MAX_BROWSER_QUEUE
         || entriesRef.current.length + accepted.length >= MAX_QUEUE) {
-        issues.push('浏览器文件最多放入 20 首，整个清单最多 500 首，其余文件未加入');
+        issues.push(t('浏览器文件最多放入 20 首，整个清单最多 500 首，其余文件未加入'));
         break;
       } else {
         const draft = emptyDraft();
@@ -293,8 +294,8 @@ export default function AdminSongCreatePage() {
       })();
     }
     setMessage(issues.length
-      ? issues.join('；')
-      : '已加入 ' + accepted.length + ' 首音频。请核对预览，必要时点击“编辑”。');
+      ? issues.join(t('；'))
+      : t('已加入 {count} 首音频。请核对预览，必要时点击“编辑”。', { count: accepted.length }));
   };
 
   const addDeviceFiles = (files, device, folderMappings = {}) => {
@@ -325,12 +326,12 @@ export default function AdminSongCreatePage() {
       });
       known.add(identity);
     }
-    if (!added.length) { setMessage('所选歌曲已在入库清单中，或清单已满。'); return; }
+    if (!added.length) { setMessage(t("所选歌曲已在入库清单中，或清单已满。")); return; }
     commitEntries((current) => [...current, ...added]);
     setPausedKeys((current) => current.length
       ? [...current, ...added.map((entry) => entry.key)] : current);
     showView('queue');
-    setMessage(`已从“${device.name}”加入 ${added.length} 首，请核对并勾选要入库的歌曲。`);
+    setMessage(t("已从“{p0}”加入 {p1} 首，请核对并勾选要入库的歌曲。", { p0: (device.name), p1: (added.length) }));
     void (async () => { for (const entry of added) await checkEntry(entry.key); })();
   };
 
@@ -349,7 +350,7 @@ export default function AdminSongCreatePage() {
         ...current, coverPreviewUrl: job.url,
         uploaded: { ...current.uploaded, cover: { file: current.coverFile, url: job.url } },
       }));
-    } catch (error) { setMessage('读取封面失败：' + error.message); }
+    } catch (error) { setMessage(t('读取封面失败：{reason}', { reason: t(error.message) })); }
     finally { setLoadingCoverId(null); }
   };
 
@@ -405,7 +406,7 @@ export default function AdminSongCreatePage() {
     const selected = reviewChoice.startsWith('replace:')
       ? entry.duplicateMatches.find((match) => match.source === 'catalog' && match.id === reviewChoice.slice(8)) : null;
     if (reviewChoice.startsWith('replace:') && (!selected || !selected.version)) {
-      setMessage('替换目标已变化，请重新核对。');
+      setMessage(t("替换目标已变化，请重新核对。"));
       setReviewingId(null);
       return;
     }
@@ -414,7 +415,8 @@ export default function AdminSongCreatePage() {
       reviewStale: reviewChoice === 'skip' && !current.duplicateMatches.length,
       status: reviewChoice === 'skip' ? 'duplicate' : 'ready',
       message: reviewChoice === 'skip' ? current.duplicateMatches.length ? '疑似重复，默认跳过。' : '替换目标变化，尚未选择处理方式。'
-        : selected ? `将替换曲库歌曲《${selected.title}》。` : '将新增另一版本。',
+        : selected ? '将替换曲库歌曲《{title}》。' : '将新增另一版本。',
+      messageValues: selected ? { title: selected.title } : undefined,
     }));
     setReviewingId(null);
   };
@@ -428,7 +430,7 @@ export default function AdminSongCreatePage() {
       && (!resumeKeys || resumeKeys.has(entry.key)));
     if (!targets.length) return;
     if (targets.some((entry) => ['reading', 'checking'].includes(entry.status))) {
-      setMessage('请等待音频信息读取与查重完成。');
+      setMessage(t("请等待音频信息读取与查重完成。"));
       return;
     }
     savingRef.current = true;
@@ -536,7 +538,7 @@ export default function AdminSongCreatePage() {
             continue;
           }
           updateEntry(current.key, (entry) => ({
-            ...entry, status: 'error', message: '入库未完成：' + error.message + '。可修改后重试。',
+            ...entry, status: 'error', message: t('入库未完成：{reason}。可修改后重试。', { reason: t(error.message) }),
             ...(error.message.includes('替换目标已变化') || current.replaceTarget && error.status === 409
               ? { allowDuplicate: false, replaceTarget: null, reviewStale: true } : {}),
             progress: null,
@@ -546,10 +548,10 @@ export default function AdminSongCreatePage() {
       }
       const remainingTargets = targets.slice(pausedAt);
       if (remainingTargets.length) setPausedKeys(remainingTargets.map((entry) => entry.key));
-      setMessage('本次已入库 ' + completed + ' 首'
-        + (skipped ? '，跳过疑似重复 ' + skipped + ' 首' : '')
-        + (failed ? '，失败 ' + failed + ' 首，可单独重试' : '')
-        + (remainingTargets.length ? '；已暂停，剩余 ' + remainingTargets.length + ' 首未处理' : '') + '。');
+      setMessage(t('本次已入库 {count} 首', { count: completed })
+        + (skipped ? t('，跳过疑似重复 {count} 首', { count: skipped }) : '')
+        + (failed ? t('，失败 {count} 首，可单独重试', { count: failed }) : '')
+        + (remainingTargets.length ? t('；已暂停，剩余 {count} 首未处理', { count: remainingTargets.length }) : '') + t('。'));
     } finally {
       savingRef.current = false;
       pauseRequestedRef.current = false;
@@ -573,44 +575,37 @@ export default function AdminSongCreatePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-24 text-[var(--ink)]">
       <div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">歌曲入库</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">先选歌，再在同一清单中核对与入库。</p>
+        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{t("歌曲入库")}</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">{t("先选歌，再在同一清单中核对与入库。")}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2" aria-label="歌曲入库步骤">
+      <div className="flex flex-wrap items-center gap-2" aria-label={t("歌曲入库步骤")}>
         <button type="button" aria-pressed={view === 'source'} disabled={saving}
           onClick={() => showView('source')}
           className={'rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 ' +
-            (view === 'source' ? 'primary-button' : 'border border-[var(--line)] bg-[var(--surface-raised)]')}>
-          选歌
-        </button>
+            (view === 'source' ? 'primary-button' : 'border border-[var(--line)] bg-[var(--surface-raised)]')}>{t("选歌")}</button>
         <button type="button" aria-pressed={view === 'queue'} disabled={!entries.length}
           onClick={() => showView('queue')}
           className={'rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 ' +
-            (view === 'queue' ? 'primary-button' : 'border border-[var(--line)] bg-[var(--surface-raised)]')}>
-          入库清单（{entries.length}）
+            (view === 'queue' ? 'primary-button' : 'border border-[var(--line)] bg-[var(--surface-raised)]')}>{t('入库清单（{count}）', { count: entries.length })}
         </button>
-        {entries.length > 0 && <span className="ml-auto text-xs text-[var(--muted)]">已入库 {savedCount} / {entries.length}</span>}
+        {entries.length > 0 && <span className="ml-auto text-xs text-[var(--muted)]">{t("已入库")}{' '}{savedCount} / {entries.length}</span>}
       </div>
 
       <div hidden={view !== 'source'}>
       <div className="rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold">选择歌曲来源</h2>
+          <h2 className="text-base font-bold">{t("选择歌曲来源")}</h2>
         </div>
-        <div className="mt-4 flex gap-2" role="tablist" aria-label="歌曲来源">
+        <div className="mt-4 flex gap-2" role="tablist" aria-label={t("歌曲来源")}>
           <button type="button" role="tab" aria-selected={source === 'browser'}
             onClick={() => setSource('browser')}
             className={'rounded-xl px-4 py-2 text-sm font-semibold ' +
-              (source === 'browser' ? 'primary-button' : 'border border-[var(--line)]')}>
-            此设备文件
-          </button>
+              (source === 'browser' ? 'primary-button' : 'border border-[var(--line)]')}>{t("此设备文件")}</button>
           <button type="button" role="tab" aria-selected={source === 'device'}
             onClick={() => setSource('device')}
             className={'rounded-xl px-4 py-2 text-sm font-semibold ' +
-              (source === 'device' ? 'primary-button' : 'border border-[var(--line)]')}>
-            已连接设备目录
-          </button>
+              (source === 'device' ? 'primary-button' : 'border border-[var(--line)]')}>{t("已连接设备目录")}</button>
         </div>
         {source === 'device' ? <div className="mt-4"><IngestDeviceSource disabled={saving} onAdd={addDeviceFiles} /></div> : <div
           className={'mt-3 rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-colors ' +
@@ -624,17 +619,15 @@ export default function AdminSongCreatePage() {
           }}
         >
           <UploadCloud className="mx-auto text-[var(--accent)]" size={28} aria-hidden="true" />
-          <p className="mt-2 text-sm font-semibold">拖入一首或多首音频</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">最多 20 首；MP3、FLAC、WAV、OGG、M4A、AAC、WMA；单文件不超过 100 MB</p>
+          <p className="mt-2 text-sm font-semibold">{t("拖入一首或多首音频")}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{t("最多 20 首；MP3、FLAC、WAV、OGG、M4A、AAC、WMA；单文件不超过 100 MB")}</p>
           <button type="button" disabled={saving} onClick={() => fileInput.current?.click()}
-            className="primary-button mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
-            选择音频文件
-          </button>
+            className="primary-button mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50">{t("选择音频文件")}</button>
           <input ref={fileInput} type="file" multiple accept=".mp3,.flac,.wav,.ogg,.m4a,.aac,.wma" className="sr-only"
             onChange={(event) => { addFiles(event.target.files); event.target.value = ''; }} />
         </div>}
       </div>
-      {message && <p role="status" className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 text-sm">{message}</p>}
+      {message && <p role="status" className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 text-sm">{t(message)}</p>}
       </div>
 
       {entries.length > 0 && <section hidden={view !== 'queue'}
@@ -642,39 +635,36 @@ export default function AdminSongCreatePage() {
         <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold">入库清单</h2>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              语言建议和疑似重复均可核对。{duplicateCount ? duplicateCount + ' 首疑似重复默认跳过。' : ''}
+            <h2 className="text-lg font-bold">{t("入库清单")}</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">{t("语言建议和疑似重复均可核对。")}{duplicateCount ? t('{count} 首疑似重复默认跳过。', { count: duplicateCount }) : ''}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {saving ? batchSaving ? <button type="button" disabled={pauseRequested} onClick={pauseBatch}
               className="rounded-xl border border-[var(--line)] px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
-              {pauseRequested ? '当前歌曲完成后暂停…' : '暂停入库'}
-            </button> : <span className="text-sm text-[var(--muted)]">正在入库…</span>
+              {pauseRequested ? t("当前歌曲完成后暂停…") : t("暂停入库")}
+            </button> : <span className="text-sm text-[var(--muted)]">{t("正在入库…")}</span>
               : <button type="button" disabled={hasChecking || (pausedRemainingCount || eligibleCount) === 0}
               onClick={() => void saveItems(null, pausedRemainingCount > 0)}
               className="primary-button rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
-              {pausedRemainingCount ? '继续入库（' + pausedRemainingCount + '）'
-                : '入库已勾选歌曲（' + eligibleCount + '）'}
+              {pausedRemainingCount ? t('继续入库（{count}）', { count: pausedRemainingCount })
+                : t('入库已勾选歌曲（{count}）', { count: eligibleCount })}
             </button>}
           </div>
         </div>
 
-        {message && <p role="status" className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm">{message}</p>}
-        {pausedRemainingCount > 0 && !saving && <p className="mt-2 text-xs text-[var(--muted)]">
-          已暂停。继续只处理剩余 {pausedRemainingCount} 首；之前失败的歌曲可单独重试。
-        </p>}
+        {message && <p role="status" className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm">{t(message)}</p>}
+        {pausedRemainingCount > 0 && !saving && <p className="mt-2 text-xs text-[var(--muted)]">{t("已暂停。继续只处理剩余")}{pausedRemainingCount}{t("首；之前失败的歌曲可单独重试。")}</p>}
 
         {activeUpload && <div className="mt-3 rounded-xl bg-[var(--surface)] px-4 py-3">
-          <p className="text-sm font-medium">正在处理：{activeUpload.draft.title}</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">{activeUpload.message}</p>
+          <p className="text-sm font-medium">{t("正在处理：")}{activeUpload.draft.title}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{t(activeUpload.message, activeUpload.messageValues)}</p>
           {activeProgress && <div className="mt-2">
             <div className="mb-1 flex justify-between text-xs text-[var(--muted)]">
-              <span>{activeProgress.kind === 'cover' ? '封面上传' : '音频上传'}</span>
+              <span>{activeProgress.kind === 'cover' ? t("封面上传") : t("音频上传")}</span>
               <span>{activePercent}%</span>
             </div>
-            <div role="progressbar" aria-label="当前媒体上传进度" aria-valuemin="0" aria-valuemax="100"
+            <div role="progressbar" aria-label={t("当前媒体上传进度")} aria-valuemin="0" aria-valuemax="100"
               aria-valuenow={activePercent} className="h-2 overflow-hidden rounded-full bg-[var(--line)]">
               <div className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
                 style={{ width: activePercent + '%' }} />
@@ -684,50 +674,52 @@ export default function AdminSongCreatePage() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-          <input aria-label="筛选预览歌曲" placeholder="筛选歌名、歌手、专辑或路径" value={previewQuery}
+          <input aria-label={t("筛选预览歌曲")} placeholder={t("筛选歌名、歌手、专辑或路径")} value={previewQuery}
             onChange={(event) => { setPreviewQuery(event.target.value); setPreviewPage(1); }}
             className={inputClass + ' min-w-48 flex-1'} />
-          <select aria-label="筛选入库状态" value={previewStatus}
+          <select aria-label={t("筛选入库状态")} value={previewStatus}
             onChange={(event) => { setPreviewStatus(event.target.value); setPreviewPage(1); }}
             className={inputClass + ' w-auto'}>
-            <option value="all">全部状态</option><option value="selected">已勾选</option>
-            <option value="pending">待处理</option><option value="duplicate">疑似重复</option>
-            <option value="error">失败</option><option value="saved">已入库</option>
+            <option value="all">{t("全部状态")}</option><option value="selected">{t("已勾选")}</option>
+            <option value="pending">{t("待处理")}</option><option value="duplicate">{t("疑似重复")}</option>
+            <option value="error">{t("失败")}</option><option value="saved">{t("已入库")}</option>
           </select>
-          <select aria-label="筛选歌曲语言" value={previewLanguage}
+          <select aria-label={t("筛选歌曲语言")} value={previewLanguage}
             onChange={(event) => { setPreviewLanguage(event.target.value); setPreviewPage(1); }}
             className={inputClass + ' w-auto'}>
-            <option value="all">全部语言</option>
-            {ALL_LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
+            <option value="all">{t("全部语言")}</option>
+            {ALL_LANGUAGES.map((item) => <option key={item.code} value={item.code}>{t(item.label)}</option>)}
           </select>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-          <span>已勾选 {entries.filter((entry) => entry.selected !== false && entry.status !== 'saved').length} 首
-            · 筛选后 {previewRows.length} / {entries.length} 首</span>
+          <span>{t('已勾选 {selected} 首 · 筛选后 {visible} / {total} 首', {
+            selected: entries.filter((entry) => entry.selected !== false && entry.status !== 'saved').length,
+            visible: previewRows.length, total: entries.length,
+          })}</span>
           <button type="button" disabled={saving || !previewRows.length} onClick={() => {
             const keys = new Set(previewRows.map(({ entry }) => entry.key));
             commitEntries((current) => current.map((entry) => entry.status === 'saved' || !keys.has(entry.key)
               ? entry : { ...entry, selected: true }));
-          }}>勾选筛选结果</button>
+          }}>{t("勾选筛选结果")}</button>
           <button type="button" disabled={saving || !previewRows.length} onClick={() => {
             const keys = new Set(previewRows.map(({ entry }) => entry.key));
             commitEntries((current) => current.map((entry) => entry.status === 'saved' || !keys.has(entry.key)
               ? entry : { ...entry, selected: false }));
-          }}>取消筛选勾选</button>
+          }}>{t("取消筛选勾选")}</button>
         </div>
 
         <div className="mt-4 space-y-2">
           {shownPreviewRows.map(({ entry, index }) => {
-            const source = entry.languageEdited ? '人工修改'
-              : entry.languageGuess?.source === 'tag' ? '标签'
-                : entry.languageGuess?.source === 'text' ? '文字推测'
-                  : entry.languageGuess?.source === 'folder' ? '文件夹' : '待确认';
+            const source = entry.languageEdited ? t("人工修改")
+              : entry.languageGuess?.source === 'tag' ? t("标签")
+                : entry.languageGuess?.source === 'text' ? t("文字推测")
+                  : entry.languageGuess?.source === 'folder' ? t("文件夹") : t("待确认");
             const percent = entry.progress?.total
               ? Math.min(100, Math.round(entry.progress.loaded / entry.progress.total * 100)) : 0;
             return <article key={entry.key}
               className="flex flex-wrap items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 sm:flex-nowrap sm:p-4">
               <label className="shrink-0 pt-3">
-                <input type="checkbox" aria-label={'选择入库 ' + entry.draft.title}
+                <input type="checkbox" aria-label={t('选择入库 {title}', { title: entry.draft.title })}
                   checked={entry.selected !== false} disabled={saving || entry.status === 'saved'}
                   onChange={(event) => updateEntry(entry.key, (current) => ({
                     ...current, selected: event.target.checked,
@@ -739,175 +731,163 @@ export default function AdminSongCreatePage() {
                   {index + 1}. {entry.draft.title}
                 </p>
                 <p className="mt-1 truncate text-xs text-[var(--muted)]">
-                  {entry.draft.artist || '歌手未设置'} · {entry.draft.album || '专辑未设置'}
+                  {entry.draft.artist || t("歌手未设置")} · {entry.draft.album || t("专辑未设置")}
                   {entry.draft.duration ? ' · ' + Math.floor(Number(entry.draft.duration) / 60) + ':' +
                     String(Number(entry.draft.duration) % 60).padStart(2, '0') : ''}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  {entry.agent && <span className="text-[var(--muted)]">来自 {entry.agent.deviceName} · {entry.agent.path}</span>}
+                  {entry.agent && <span className="text-[var(--muted)]">{t("来自")}{' '}{entry.agent.deviceName} · {entry.agent.path}</span>}
                   <span className="rounded-full border border-[var(--line)] px-2 py-0.5">
-                    {getLanguageLabel(entry.draft.language, '语言未设置')} · {source}
+                    {getLanguageLabel(entry.draft.language, t("语言未设置"))} · {source}
                   </span>
                   <span className="text-[var(--muted)]">
                     {entry.status === 'saved' && <Check size={12} className="mr-1 inline text-[var(--accent)]" />}
-                    {statusLabel[entry.status]}{entry.status === 'uploading' && entry.progress ? ' · ' + percent + '%' : ''}
+                    {t(statusLabel[entry.status])}{entry.status === 'uploading' && entry.progress ? ' · ' + percent + '%' : ''}
                   </span>
                 </div>
                 {(entry.status === 'error' || entry.status === 'uploading') &&
-                  <p role="status" className="mt-2 text-xs text-[var(--muted)]">{entry.message}</p>}
+                  <p role="status" className="mt-2 text-xs text-[var(--muted)]">{t(entry.message, entry.messageValues)}</p>}
                 {entry.agent && entry.coverFile && !entry.coverPreviewUrl && entry.status !== 'saved' &&
                   <button type="button" disabled={loadingCoverId === entry.key || saving}
                     onClick={() => void loadDeviceCover(entry)}
                     className="mt-2 text-xs text-[var(--accent)] disabled:opacity-50">
-                    {loadingCoverId === entry.key ? '正在读取封面…' : '查看这首的封面'}
+                    {loadingCoverId === entry.key ? t("正在读取封面…") : t("查看这首的封面")}
                   </button>}
                 {entry.duplicateState === 'error' && !entry.allowDuplicate && !saving && <button type="button"
                   className="mt-2 rounded-lg border border-[var(--line)] px-2.5 py-1 text-xs font-semibold"
                   onClick={() => updateEntry(entry.key, (current) => ({
                     ...current, allowDuplicate: true, replaceTarget: null, reviewStale: false, status: 'ready',
-                    message: '查重未完成，已确认忽略并新增歌曲。',
-                  }))}>
-                  忽略查重并新增
-                </button>}
+                    message: t("查重未完成，已确认忽略并新增歌曲。"),
+                  }))}>{t("忽略查重并新增")}</button>}
                 {entry.duplicateState === 'error' && entry.allowDuplicate &&
-                  <p className="mt-2 text-xs text-[var(--muted)]">查重未完成 · 已人工放行</p>}
+                  <p className="mt-2 text-xs text-[var(--muted)]">{t("查重未完成 · 已人工放行")}</p>}
                 {(entry.duplicateMatches?.length > 0 || entry.reviewStale) && <div role="alert"
                   className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
-                  <p className="font-semibold">{entry.reviewStale ? '匹配结果已变化，请重新核对' : `发现 ${entry.duplicateMatches.length} 项疑似重复`}
-                    {entry.replaceTarget ? ' · 将替换《' + entry.replaceTarget.title + '》'
-                      : entry.allowDuplicate ? ' · 将新增另一版本' : ' · 默认跳过'}</p>
+                  <p className="font-semibold">{entry.reviewStale ? t("匹配结果已变化，请重新核对") : t("发现 {p0} 项疑似重复", { p0: (entry.duplicateMatches.length) })}
+                    {entry.replaceTarget ? t(' · 将替换《{title}》', { title: entry.replaceTarget.title })
+                      : entry.allowDuplicate ? t(" · 将新增另一版本") : t(" · 默认跳过")}</p>
                   {entry.duplicateMatches.slice(0, 3).map((match) =>
                     <p key={match.source + (match.id || match.key)} className="mt-1 truncate" title={match.title}>
-                      {match.source === 'catalog' ? '曲库已有' : '本次清单'}：{match.title}
-                      {' · ' + (match.artist || '歌手未设置')}
-                      {match.duration ? ' · ' + match.duration + ' 秒' : ''}
-                      {match.strength === 'possible' ? ' · 可能不同版本' : ''}
+                      {match.source === 'catalog' ? t("曲库已有") : t("本次清单")}：{match.title}
+                      {' · ' + (match.artist || t('歌手未设置'))}
+                      {match.duration ? t(' · {seconds} 秒', { seconds: match.duration }) : ''}
+                      {match.strength === 'possible' ? t(" · 可能不同版本") : ''}
                     </p>)}
-                  {entry.duplicateMatches.length > 3 && <p className="mt-1">另有 {entry.duplicateMatches.length - 3} 项匹配</p>}
+                  {entry.duplicateMatches.length > 3 && <p className="mt-1">{t("另有")}{' '}{entry.duplicateMatches.length - 3}{' '}{t("项匹配")}</p>}
                   {entry.status !== 'saved' && !saving && <button type="button"
                     className="mt-2 rounded-lg border border-amber-500/50 px-2.5 py-1 font-semibold"
-                    onClick={() => void openReview(entry.key)}>
-                    核对并选择处理方式
-                  </button>}
+                    onClick={() => void openReview(entry.key)}>{t("核对并选择处理方式")}</button>}
                 </div>}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button type="button" disabled={saving || entry.status === 'reading' || entry.status === 'saved'}
                   onClick={() => openEditor(entry.key)}
-                  className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
-                  编辑
-                </button>
+                  className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">{t("编辑")}</button>
                 <button type="button" disabled={saving || ['reading', 'checking', 'saved'].includes(entry.status)
                   || entry.reviewStale || (entry.duplicateMatches?.length > 0 && !entry.allowDuplicate)}
                   onClick={() => void saveItems(entry.key)}
                   className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
-                  {entry.status === 'error' ? '重试' : '入库'}
+                  {entry.status === 'error' ? t("重试") : t("入库")}
                 </button>
                 {!saving && <button type="button" onClick={() => removeEntry(entry.key)}
-                  aria-label={'从清单移除 ' + entry.draft.title}
+                  aria-label={t('从清单移除 {title}', { title: entry.draft.title })}
                   className="rounded-lg p-1.5 text-[var(--muted)] hover:text-[var(--ink)]"><X size={15} /></button>}
               </div>
             </article>;
           })}
-          {!shownPreviewRows.length && <p className="rounded-xl border border-[var(--line)] px-4 py-8 text-center text-sm text-[var(--muted)]">没有符合筛选条件的歌曲。</p>}
+          {!shownPreviewRows.length && <p className="rounded-xl border border-[var(--line)] px-4 py-8 text-center text-sm text-[var(--muted)]">{t("没有符合筛选条件的歌曲。")}</p>}
         </div>
         {previewRows.length > PREVIEW_PAGE_SIZE && <div className="mt-4 flex items-center justify-end gap-3 text-xs">
-          <button type="button" disabled={previewPage === 1} onClick={() => setPreviewPage(previewPage - 1)}>上一页</button>
+          <button type="button" disabled={previewPage === 1} onClick={() => setPreviewPage(previewPage - 1)}>{t("上一页")}</button>
           <span>{previewPage} / {previewPageCount}</span>
-          <button type="button" disabled={previewPage >= previewPageCount} onClick={() => setPreviewPage(previewPage + 1)}>下一页</button>
+          <button type="button" disabled={previewPage >= previewPageCount} onClick={() => setPreviewPage(previewPage + 1)}>{t("下一页")}</button>
         </div>}
       </section>}
 
       {reviewing && createPortal(<>
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xs" onClick={() => setReviewingId(null)} />
-        <section role="dialog" aria-modal="true" aria-label={'核对重复歌曲：' + reviewing.draft.title}
+        <section role="dialog" aria-modal="true" aria-label={t('核对重复歌曲：{title}', { title: reviewing.draft.title })}
           className="fixed left-1/2 top-1/2 z-[101] flex max-h-[88dvh] w-[min(94vw,760px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xl">
-          <div className="border-b border-[var(--line)] px-5 py-4"><h2 className="font-bold">核对疑似重复</h2>
-            <p className="mt-1 text-xs text-[var(--muted)]">按当前歌曲逐首选择；替换保留原歌曲 ID 和歌单引用，旧媒体文件保留。</p></div>
+          <div className="border-b border-[var(--line)] px-5 py-4"><h2 className="font-bold">{t("核对疑似重复")}</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">{t("按当前歌曲逐首选择；替换保留原歌曲 ID 和歌单引用，旧媒体文件保留。")}</p></div>
           <div className="space-y-3 overflow-y-auto p-5 text-sm">
-            <div className="rounded-xl border border-[var(--line)] p-3"><strong>本次文件：{reviewing.draft.title}</strong>
-              <p className="mt-1 text-xs">{reviewing.draft.artist || '歌手未设置'} · {reviewing.draft.album || '专辑未设置'} · {reviewing.draft.duration || '时长未知'} 秒 · {getLanguageLabel(reviewing.draft.language, '语言未设置')}</p>
-              <p className="mt-1 break-all text-xs text-[var(--muted)]">文件：{reviewing.audioFile.name} · 音频将使用本次文件</p>
-              <div className="mt-2 flex items-center gap-2"><CoverThumbnail file={reviewing.coverFile} previewUrl={reviewing.coverPreviewUrl} /><span className="text-xs text-[var(--muted)]">本次封面；无封面时替换会保留旧封面</span></div>
+            <div className="rounded-xl border border-[var(--line)] p-3"><strong>{t("本次文件：")}{reviewing.draft.title}</strong>
+              <p className="mt-1 text-xs">{reviewing.draft.artist || t("歌手未设置")} · {reviewing.draft.album || t("专辑未设置")} · {reviewing.draft.duration || t("时长未知")}{' '}{t("秒 ·")}{' '}{getLanguageLabel(reviewing.draft.language, t("语言未设置"))}</p>
+              <p className="mt-1 break-all text-xs text-[var(--muted)]">{t("文件：")}{reviewing.audioFile.name}{' '}{t("· 音频将使用本次文件")}</p>
+              <div className="mt-2 flex items-center gap-2"><CoverThumbnail file={reviewing.coverFile} previewUrl={reviewing.coverPreviewUrl} /><span className="text-xs text-[var(--muted)]">{t("本次封面；无封面时替换会保留旧封面")}</span></div>
               <LocalAudioPreview file={reviewing.audioFile} /></div>
             <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><input type="radio" name="duplicate-choice" value="skip"
-              checked={reviewChoice === 'skip'} onChange={() => setReviewChoice('skip')} /><span>跳过此首（默认）</span></label>
+              checked={reviewChoice === 'skip'} onChange={() => setReviewChoice('skip')} /><span>{t("跳过此首（默认）")}</span></label>
             <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><input type="radio" name="duplicate-choice" value="add"
-              checked={reviewChoice === 'add'} onChange={() => setReviewChoice('add')} /><span>新增另一版本：创建新的歌曲 ID</span></label>
-            {!reviewing.duplicateMatches.length && <p className="text-xs text-[var(--muted)]">当前已找不到原匹配项。请明确选择新增，或保持跳过。</p>}
+              checked={reviewChoice === 'add'} onChange={() => setReviewChoice('add')} /><span>{t("新增另一版本：创建新的歌曲 ID")}</span></label>
+            {!reviewing.duplicateMatches.length && <p className="text-xs text-[var(--muted)]">{t("当前已找不到原匹配项。请明确选择新增，或保持跳过。")}</p>}
             {reviewing.duplicateMatches.map((match) => <div key={match.source + (match.id || match.key)}
               className="rounded-xl border border-[var(--line)] p-3">
               {match.source === 'catalog' && <label className="flex gap-2 font-semibold"><input type="radio" name="duplicate-choice"
                 checked={reviewChoice === 'replace:' + match.id} onChange={() => setReviewChoice('replace:' + match.id)} />
-                <span>替换这首曲库歌曲</span></label>}
-              {match.source !== 'catalog' && <strong>本次清单匹配（尚不能替换）</strong>}
-              <p className="mt-2">{match.title} · {match.artist || '歌手未设置'} · {match.album || '专辑未设置'}</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">{match.duration || '时长未知'} 秒 · {getLanguageLabel(match.language, '语言未设置')}
-                {' · ' + (match.strength === 'strong' ? '高度相似' : '可能不同版本')}
+                <span>{t("替换这首曲库歌曲")}</span></label>}
+              {match.source !== 'catalog' && <strong>{t("本次清单匹配（尚不能替换）")}</strong>}
+              <p className="mt-2">{match.title} · {match.artist || t("歌手未设置")} · {match.album || t("专辑未设置")}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{match.duration || t("时长未知")}{' '}{t("秒 ·")}{' '}{getLanguageLabel(match.language, t("语言未设置"))}
+                {' · ' + t(match.strength === 'strong' ? '高度相似' : '可能不同版本')}
                 {match.id ? ' · ID ' + match.id : ''}</p>
               {match.source === 'catalog' && <div className="mt-2 flex items-center gap-2">
-                {match.cover_url && <PrivateCoverImage src={hydrateSong(match).cover_url} alt="现有歌曲封面" className="h-12 w-12 rounded-lg object-cover" />}
-                <span className="text-xs text-[var(--muted)]">{match.cover_url ? '现有封面' : '现有歌曲无封面'}</span></div>}
+                {match.cover_url && <PrivateCoverImage src={hydrateSong(match).cover_url} alt={t("现有歌曲封面")} className="h-12 w-12 rounded-lg object-cover" />}
+                <span className="text-xs text-[var(--muted)]">{match.cover_url ? t("现有封面") : t("现有歌曲无封面")}</span></div>}
               {match.source === 'catalog' && match.audio_url && <audio controls preload="none" src={hydrateSong(match).audio_url}
-                className="mt-2 w-full" aria-label={'试听曲库歌曲 ' + match.title} />}
+                className="mt-2 w-full" aria-label={t('试听曲库歌曲 {title}', { title: match.title })} />}
             </div>)}
           </div>
           <div className="flex justify-end gap-2 border-t border-[var(--line)] p-4"><button type="button" onClick={() => setReviewingId(null)}
-            className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm">取消</button>
-            <button type="button" onClick={confirmReview} className="primary-button rounded-lg px-4 py-2 text-sm font-semibold">确认处理方式</button></div>
+            className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm">{t("取消")}</button>
+            <button type="button" onClick={confirmReview} className="primary-button rounded-lg px-4 py-2 text-sm font-semibold">{t("确认处理方式")}</button></div>
         </section>
       </>, document.body)}
 
       {editing && createPortal(<>
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xs"
           onClick={() => { if (!saving) closeEditor(); }} />
-        <section role="dialog" aria-modal="true" aria-label={'编辑 ' + editing.draft.title}
+        <section role="dialog" aria-modal="true" aria-label={t('编辑 {title}', { title: editing.draft.title })}
           className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(88dvh,760px)] w-[min(92vw,620px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xl">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--line)] px-5 py-4">
             <div>
-              <h2 className="text-base font-bold">编辑歌曲信息</h2>
-              <p className="mt-0.5 text-xs text-[var(--muted)]">修改会更新预览，点击入库后才上传。</p>
+              <h2 className="text-base font-bold">{t("编辑歌曲信息")}</h2>
+              <p className="mt-0.5 text-xs text-[var(--muted)]">{t("修改会更新预览，点击入库后才上传。")}</p>
             </div>
-            <button type="button" onClick={closeEditor} aria-label="关闭编辑窗"
+            <button type="button" onClick={closeEditor} aria-label={t("关闭编辑窗")}
               className="rounded-lg p-2 text-[var(--muted)] hover:text-[var(--ink)]"><X size={18} /></button>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-            {editorError && <p role="alert" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm">{editorError}</p>}
+            {editorError && <p role="alert" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm">{t(editorError)}</p>}
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium sm:col-span-2">歌曲标题 <span aria-hidden="true">*</span>
+              <label className="text-sm font-medium sm:col-span-2">{t("歌曲标题")}{' '}<span aria-hidden="true">*</span>
                 <input ref={titleInput} className={inputClass + ' mt-1.5'} value={editing.draft.title}
                   onChange={(event) => setField('title', event.target.value)} /></label>
-              <label className="text-sm font-medium">歌手
-                <input className={inputClass + ' mt-1.5'} value={editing.draft.artist}
+              <label className="text-sm font-medium">{t("歌手")}<input className={inputClass + ' mt-1.5'} value={editing.draft.artist}
                   onChange={(event) => setField('artist', event.target.value)} /></label>
-              <label className="text-sm font-medium">专辑
-                <input className={inputClass + ' mt-1.5'} value={editing.draft.album}
+              <label className="text-sm font-medium">{t("专辑")}<input className={inputClass + ' mt-1.5'} value={editing.draft.album}
                   onChange={(event) => setField('album', event.target.value)} /></label>
-              <label className="text-sm font-medium">时长（秒）
-                <input className={inputClass + ' mt-1.5'} type="number" min="0" max="86400" step="1"
+              <label className="text-sm font-medium">{t("时长（秒）")}<input className={inputClass + ' mt-1.5'} type="number" min="0" max="86400" step="1"
                   value={editing.draft.duration}
                   onChange={(event) => setField('duration', event.target.value)} /></label>
-              <label className="text-sm font-medium">歌曲语言
-                <select className={inputClass + ' mt-1.5'} value={editing.draft.language}
+              <label className="text-sm font-medium">{t("歌曲语言")}<select className={inputClass + ' mt-1.5'} value={editing.draft.language}
                   onChange={(event) => setField('language', event.target.value)}>
-                  <option value="">未设置</option>
-                  {ALL_LANGUAGES.map(({ code, label }) => <option key={code} value={code}>{label}</option>)}
+                  <option value="">{t("未设置")}</option>
+                  {ALL_LANGUAGES.map(({ code, label }) => <option key={code} value={code}>{t(label)}</option>)}
                 </select>
                 <span className="mt-1 block text-xs text-[var(--muted)]">
-                  {editing.languageEdited ? '已人工修改'
-                    : editing.languageGuess?.reason || '未能从音频标签判断语言'}
+                  {editing.languageEdited ? t("已人工修改")
+                    : t(editing.languageGuess?.reason || '未能从音频标签判断语言')}
                 </span>
               </label>
             </div>
             <div className="border-t border-[var(--line)] pt-5">
-              <h3 className="mb-3 text-sm font-bold">封面</h3>
+              <h3 className="mb-3 text-sm font-bold">{t("封面")}</h3>
               <div className="flex items-start gap-4">
                 <CoverThumbnail file={editing.coverFile} />
                 <div className="min-w-0 space-y-2">
-                  <p className="text-xs text-[var(--muted)]">优先读取内嵌封面，也可替换。</p>
-                  <label className="inline-flex cursor-pointer rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold">
-                    选择封面图片
-                    <input type="file" accept=".jpg,.jpeg,.png,.webp" className="sr-only"
+                  <p className="text-xs text-[var(--muted)]">{t("优先读取内嵌封面，也可替换。")}</p>
+                  <label className="inline-flex cursor-pointer rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold">{t("选择封面图片")}<input type="file" accept=".jpg,.jpeg,.png,.webp" className="sr-only"
                       onChange={(event) => {
                         const file = event.target.files?.[0];
                         if (file) setCover(file);
@@ -915,14 +895,14 @@ export default function AdminSongCreatePage() {
                       }} />
                   </label>
                   {editing.coverFile && <button type="button" onClick={() => setCover(null)}
-                    className="block text-xs text-[var(--muted)] hover:text-[var(--ink)]">移除封面</button>}
+                    className="block text-xs text-[var(--muted)] hover:text-[var(--ink)]">{t("移除封面")}</button>}
                 </div>
               </div>
             </div>
           </div>
           <div className="flex shrink-0 justify-end border-t border-[var(--line)] bg-[var(--surface-raised)] px-5 py-4">
             <button type="button" onClick={closeEditor}
-              className="primary-button rounded-xl px-5 py-2.5 text-sm font-semibold">完成编辑</button>
+              className="primary-button rounded-xl px-5 py-2.5 text-sm font-semibold">{t("完成编辑")}</button>
           </div>
         </section>
       </>, document.body)}

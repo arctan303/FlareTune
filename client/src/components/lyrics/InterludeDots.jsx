@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 
 /**
@@ -32,7 +33,7 @@ export default function InterludeDots({
     return (
         <div
             className={`classic-lyrics__interlude-dots flex items-center justify-start gap-1 select-none py-1 animate-[pulse_2.4s_ease-in-out_infinite] ${className}`}
-            aria-label={`间奏进度第 ${stage} 阶段`}
+            aria-label={t("间奏进度第 {p0} 阶段", { p0: (stage) })}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
@@ -41,7 +42,7 @@ export default function InterludeDots({
             {/* 气泡 1 */}
             <button
                 type="button"
-                aria-label="跳转到间奏第 1 阶段（1/3 进度）"
+                aria-label={t("跳转到间奏第 1 阶段（1/3 进度）")}
                 onClick={(e) => handleDotClick(1, dotTimes?.t1, e)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -60,7 +61,7 @@ export default function InterludeDots({
             {/* 气泡 2 */}
             <button
                 type="button"
-                aria-label="跳转到间奏第 2 阶段（2/3 进度）"
+                aria-label={t("跳转到间奏第 2 阶段（2/3 进度）")}
                 onClick={(e) => handleDotClick(2, dotTimes?.t2, e)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -79,7 +80,7 @@ export default function InterludeDots({
             {/* 气泡 3 */}
             <button
                 type="button"
-                aria-label="跳转到间奏冲线阶段（100% 达成）"
+                aria-label={t("跳转到间奏冲线阶段（100% 达成）")}
                 onClick={(e) => handleDotClick(3, dotTimes?.t3, e)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}

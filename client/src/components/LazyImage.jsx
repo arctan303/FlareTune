@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../i18n/index.js';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry';
 import { useImageInView } from '../hooks/useImageInView.js';
 import { usePrivateMediaRouteRevision } from '../hooks/usePrivateMediaRouteRevision.js';
@@ -14,7 +15,7 @@ const getInitialState = (src, fallback) => {
         : { requestedSrc, displaySrc: null, status: 'loading', reveal: false };
 };
 
-export default function LazyImage({ src, alt = '专辑封面', className = '', fallback = '/placeholder-album.svg', style = {}, eager = false }) {
+export default function LazyImage({ src, alt = t('专辑封面'), className = '', fallback = '/placeholder-album.svg', style = {}, eager = false }) {
     const requestedSrc = src || fallback;
     const routeRevision = usePrivateMediaRouteRevision();
     const [imageState, setImageState] = React.useState(() => getInitialState(src, fallback));

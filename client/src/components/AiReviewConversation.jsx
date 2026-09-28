@@ -1,3 +1,4 @@
+import { getLocale, t } from '../i18n/index.js';
 import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { MarkdownContent } from './AssistantMarkdown.jsx';
 import { getAssistantProcessStatus, getAssistantProcessTimeline } from '../../../shared/assistantProcessTrace.js';
@@ -10,7 +11,7 @@ const resolveMessageTime = (createdAt) => {
     const date = new Date(timestamp);
     if (!Number.isFinite(date.getTime())) return null;
     return {
-        label: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date),
+        label: new Intl.DateTimeFormat(getLocale() === 'zh' ? 'zh-CN' : 'en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date),
         dateTime: date.toISOString(),
     };
 };
@@ -86,16 +87,16 @@ export default function AiReviewConversation({
                                             <span role="status" aria-live="polite" className={isGenerating
                                                 ? processStatus.stage === 'thinking' ? 'assistant-process__thinking' : 'assistant-process__active'
                                                 : ''}>
-                                                {processStatus.label}
+                                                {t(processStatus.label)}
                                                 {isGenerating && processStatus.stage === 'processing'
-                                                    && <span aria-hidden="true">（{processStatus.seconds} 秒）</span>}
+                                                    && <span aria-hidden="true"> {t('（{seconds} 秒）', { seconds: processStatus.seconds })}</span>}
                                             </span>
                                             {isDetailsExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                                         </button>
                                         {isDetailsExpanded && (
                                             <div>
                                                 {processTimeline.length > 1 && processTimeline.some((entry) => entry.orderUnknown) && (
-                                                    <p className="assistant-process__legacy-note">旧记录未保存过程顺序</p>
+                                                    <p className="assistant-process__legacy-note">{t("旧记录未保存过程顺序")}</p>
                                                 )}
                                                 <div className="assistant-process__timeline custom-scrollbar" role="list">
                                                     {processTimeline.length > 0 ? processTimeline.map((entry, index) => (
@@ -105,12 +106,12 @@ export default function AiReviewConversation({
                                                                 <>
                                                                     <Wrench size={15} aria-hidden="true" />
                                                                     <span className="min-w-0 break-words">
-                                                                        {`${entry.ok === false ? '未完成：' : ''}${entry.summary || entry.progress || '已调用'}`}
+                                                                        {`${entry.ok === false ? t("未完成：") : ''}${entry.summary || entry.progress || t("已调用")}`}
                                                                     </span>
                                                                 </>
                                                             ) : entry.text}
                                                         </div>
-                                                    )) : <div role="listitem">{isGenerating ? '等待模型响应…' : '本轮没有可展示的过程记录'}</div>}
+                                                    )) : <div role="listitem">{isGenerating ? t("等待模型响应…") : t("本轮没有可展示的过程记录")}</div>}
                                                 </div>
                                             </div>
                                         )}
@@ -124,36 +125,31 @@ export default function AiReviewConversation({
 
                                 {message.isError && (
                                     <div className="text-xs text-[var(--danger)] font-medium">
-                                        {displayContent}
+                                        {t(displayContent)}
                                         {isGenerating && <span className="ai-typing-cursor" aria-hidden="true" />}
                                     </div>
                                 )}
 
                                 {confirmationChoices.map((choice) => (
                                     <div key={choice.id} className="assistant-playlist-confirmation"
-                                        role="group" aria-label={`删除歌单《${choice.confirmation?.name || ''}》`}>
-                                        <p className="assistant-playlist-confirmation__question">
-                                            是否删除歌单《{choice.confirmation?.name}》？
+                                        role="group" aria-label={t("删除歌单《{p0}》", { p0: (choice.confirmation?.name || '') })}>
+                                        <p className="assistant-playlist-confirmation__question">{t('是否删除歌单《{name}》？', { name: choice.confirmation?.name || '' })}
                                         </p>
-                                        <p className="assistant-playlist-confirmation__hint">删除后无法恢复。</p>
+                                        <p className="assistant-playlist-confirmation__hint">{t("删除后无法恢复。")}</p>
                                         {choice.status === 'pending' ? (
                                             <div className="assistant-playlist-confirmation__actions">
                                                 <button type="button" className="assistant-playlist-confirmation__delete"
-                                                    onClick={() => onPlaylistConfirmationDecision(choice.id, 'delete')}>
-                                                    删除歌单
-                                                </button>
+                                                    onClick={() => onPlaylistConfirmationDecision(choice.id, 'delete')}>{t("删除歌单")}</button>
                                                 <button type="button" className="assistant-playlist-confirmation__keep"
-                                                    onClick={() => onPlaylistConfirmationDecision(choice.id, 'keep')}>
-                                                    保留歌单
-                                                </button>
+                                                    onClick={() => onPlaylistConfirmationDecision(choice.id, 'keep')}>{t("保留歌单")}</button>
                                             </div>
                                         ) : (
                                             <p className="assistant-playlist-confirmation__result" role="status">
-                                                {choice.status === 'deleting' ? '正在删除…'
-                                                    : choice.status === 'deleted' ? '歌单已删除'
-                                                    : choice.status === 'kept' ? '已保留歌单'
-                                                    : choice.status === 'account_changed' ? '账号已切换，未删除歌单'
-                                                    : choice.error || '删除失败，歌单仍在。'}
+                                                {choice.status === 'deleting' ? t("正在删除…")
+                                                    : choice.status === 'deleted' ? t("歌单已删除")
+                                                    : choice.status === 'kept' ? t("已保留歌单")
+                                                    : choice.status === 'account_changed' ? t("账号已切换，未删除歌单")
+                                                    : t(choice.error || '删除失败，歌单仍在。')}
                                             </p>
                                         )}
                                     </div>

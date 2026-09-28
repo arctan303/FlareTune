@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { Activity, ChevronDown, Pin, PinOff } from 'lucide-react';
 
@@ -48,7 +49,7 @@ export default function ImmersiveChrome({
                         onClose();
                     }}
                     className="flex h-11 w-11 items-center justify-center rounded-full bg-black/30 text-white/85 backdrop-blur-md transition hover:bg-white/15 hover:text-white focus:outline-none"
-                    title="退出全屏"
+                    title={t("退出全屏")}
                 >
                     <ChevronDown size={28} />
                 </button>
@@ -71,7 +72,7 @@ export default function ImmersiveChrome({
                         onReveal();
                     }}
                     className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md transition focus:outline-none ${controlsPinned ? 'bg-white/18 text-white' : 'bg-black/30 text-white/75 hover:bg-white/15 hover:text-white'}`}
-                    title={controlsPinned ? '控制栏保持显示' : '控制栏自动隐退'}
+                    title={controlsPinned ? t("控制栏保持显示") : t("控制栏自动隐退")}
                     aria-pressed={controlsPinned}
                 >
                     {controlsPinned ? <Pin size={18} /> : <PinOff size={18} />}

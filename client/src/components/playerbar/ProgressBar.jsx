@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -151,7 +152,7 @@ export default function ProgressBar({ isImmersiveBottom = false }) {
                     }}
                     onBlur={flushPendingSeek}
                     className="absolute bottom-0 inset-x-0 z-10 h-3 w-full cursor-pointer opacity-0"
-                    aria-label="播放进度"
+                    aria-label={t("播放进度")}
                 />
             )}
             <div 

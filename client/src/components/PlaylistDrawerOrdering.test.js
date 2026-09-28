@@ -35,7 +35,7 @@ test('PlaylistDrawer integrates pointer drag reordering, grip handles, auto-scro
   assert.match(dragHook, /setPointerCapture/);
   assert.match(dragLifecycle, /releasePointerCapture/);
   assert.match(drawer, /className="queue-row__drag/);
-  assert.match(drawer, /aria-label=\{`按住拖拽调整 \$\{song\.title\} 排序`\}/);
+  assert.match(drawer, /aria-label=\{t\("按住拖拽调整 \{p0\} 排序", \{ p0: \(song\.title\) \}\)\}/);
 
   // 4. 验证边缘自动滚动与边界防溢出
   assert.match(dragHook, /runAutoScroll/);

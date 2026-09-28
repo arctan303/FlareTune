@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { useArtistPhotos } from '../../hooks/useArtistPhotos';
 import { usePrivateMediaSource } from '../../hooks/usePrivateMediaSource.js';
@@ -77,7 +78,7 @@ export default function ImmersiveBackground({
 
             {!showPhotos && isPhotoLoading && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 pointer-events-none">
-                    <span className="text-white/40 text-xs">正在加载歌手写真…</span>
+                    <span className="text-white/40 text-xs">{t("正在加载歌手写真…")}</span>
                 </div>
             )}
 

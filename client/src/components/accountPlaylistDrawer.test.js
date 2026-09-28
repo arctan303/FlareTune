@@ -61,8 +61,8 @@ test('pointer sorting is handle-only, cancellable, scroll-aware and keyboard-equ
   assert.match(dragHook, /getEdgeAutoScrollDelta/);
   assert.match(dragHook, /scrollBy\(\{ top: drag\.autoScrollDelta, behavior: 'auto' \}\)/);
   assert.match(dragHook, /requestAnimationFrame\(runAutoScroll\)/);
-  assert.match(buttons, /aria-label="上移一项"/);
-  assert.match(buttons, /aria-label="下移一项"/);
+  assert.match(buttons, /aria-label=\{t\("上移一项"\)\}/);
+  assert.match(buttons, /aria-label=\{t\("下移一项"\)\}/);
   assert.match(drawer, /aria-live="polite"/);
 });
 

@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { useCallback, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '../store/usePlayerStore.js';
@@ -187,11 +188,11 @@ export function useAudioEngine({
             if (consecutiveAudioErrorsRef.current >= 3) {
                 setAutoPlay(false);
                 setPlaying(false);
-                showToast('连续多首歌曲加载失败，已停止自动跳转', 3000);
+                showToast(t("连续多首歌曲加载失败，已停止自动跳转"), 3000);
                 return;
             }
 
-            showToast('音频加载失败，正在尝试下一首', 2000);
+            showToast(t("音频加载失败，正在尝试下一首"), 2000);
             audioErrorTimerRef.current = setTimeout(() => {
                 audioErrorTimerRef.current = null;
                 playNext({ type: 'error' });

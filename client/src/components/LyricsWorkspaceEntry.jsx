@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { Languages } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
@@ -17,8 +18,8 @@ export default function LyricsWorkspaceEntry({ variant = 'immersive' }) {
   return (
     <button
       type="button"
-      aria-label="歌词工作台"
-      title="歌词工作台"
+      aria-label={t("歌词工作台")}
+      title={t("歌词工作台")}
       onClick={() => openLyricsWorkspace(currentSong)}
       className={VARIANT_CLASS[variant] || VARIANT_CLASS.immersive}
     >

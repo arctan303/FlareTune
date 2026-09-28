@@ -10,13 +10,18 @@ globalThis.localStorage = {
 };
 
 const { usePlayHistoryStore, formatRelativeTime, MAX_HISTORY_COUNT } = await import('./usePlayHistoryStore.js');
+const { setUiLanguage } = await import('../i18n/index.js');
 
 test('formatRelativeTime returns accurate human-readable intervals', () => {
+  setUiLanguage('zh');
   const now = Date.now();
   assert.equal(formatRelativeTime(now - 10 * 1000), '刚刚');
   assert.equal(formatRelativeTime(now - 5 * 60 * 1000), '5分钟前');
   assert.equal(formatRelativeTime(now - 2 * 3600 * 1000), '2小时前');
   assert.equal(formatRelativeTime(now - 24 * 3600 * 1000), '1天前');
+  setUiLanguage('en');
+  assert.equal(formatRelativeTime(now - 10 * 1000), 'just now');
+  assert.equal(formatRelativeTime(now - 5 * 60 * 1000), '5 min ago');
 });
 
 test('usePlayHistoryStore: adds song to history with dedup and top unshift', () => {

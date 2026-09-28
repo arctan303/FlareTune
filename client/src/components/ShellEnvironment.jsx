@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { useWallpaperStore } from '../store/useWallpaperStore';
 import { showToast } from '../store/useUIStore';
@@ -57,7 +58,7 @@ export default function ShellEnvironment() {
             onLoad={() => setImageStatus('ready')}
             onError={() => {
               setImageStatus('error');
-              showToast('背景图片加载失败，已恢复默认背景');
+              showToast(t("背景图片加载失败，已恢复默认背景"));
             }}
           />
           <div className="shell-wallpaper__overlay" />

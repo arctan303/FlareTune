@@ -19,6 +19,7 @@ import {
 } from './index.js';
 import { resolveInstanceState } from '../../instance/state.js';
 import { KNOWN_MIGRATIONS } from '../../instance/schemaManifest.js';
+import { getOwnUiLanguage, updateOwnUiLanguage } from './profile.js';
 
 const baseline = readFileSync(new URL('../../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8');
 const secondMigration = readFileSync(new URL('../../../db/migrations-flaretune/0002_expand_playlist_count.sql', import.meta.url), 'utf8');
@@ -139,6 +140,28 @@ test('claim is atomic, creates defaults, and permanently closes setup', async ()
     assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS total FROM accounts').get().total, 1);
     assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS total FROM account_sessions').get().total, 0);
     assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS total FROM audit_events WHERE action LIKE '%secret%'").get().total, 0);
+  } finally { f.close(); }
+});
+
+test('UI language belongs to the active account and defaults to browser selection', async () => {
+  const f = fixture();
+  try {
+    const { accountId } = await claim(f.db);
+    const otherId = crypto.randomUUID();
+    f.sqlite.prepare(`INSERT INTO accounts
+      (account_id, username, display_name, role, status, created_at, updated_at)
+      VALUES (?, 'other', 'Other', 'member', 'active', ?, ?)`).run(otherId, now, now);
+    assert.equal(await getOwnUiLanguage(f.db, accountId), 'auto');
+    assert.equal(await getOwnUiLanguage(f.db, otherId), 'auto');
+    assert.deepEqual(await updateOwnUiLanguage(f.db, accountId, 'zh', now), { uiLanguage: 'zh' });
+    assert.equal(await getOwnUiLanguage(f.db, accountId), 'zh');
+    assert.equal(await getOwnUiLanguage(f.db, otherId), 'auto');
+    await updateOwnUiLanguage(f.db, otherId, 'en', now);
+    assert.equal(await getOwnUiLanguage(f.db, otherId), 'en');
+    await assert.rejects(updateOwnUiLanguage(f.db, accountId, 'fr', now), { code: 'invalid_ui_language' });
+    f.sqlite.prepare("UPDATE accounts SET status = 'disabled' WHERE account_id = ?").run(otherId);
+    await assert.rejects(updateOwnUiLanguage(f.db, otherId, 'zh', now), { code: 'authentication_required' });
+    assert.equal(await getOwnUiLanguage(f.db, otherId), 'en');
   } finally { f.close(); }
 });
 

@@ -66,6 +66,9 @@ export const changePassword = (body, csrfToken, fetchImpl) => instanceRequest('a
 export const updateOwnProfile = (body, csrfToken, accountId, fetchImpl) => instanceRequest('account/profile', {
   method: 'PATCH', body, csrfToken, expectedAccountId: accountId, fetchImpl,
 });
+export const updateOwnUiLanguage = (uiLanguage, csrfToken, accountId, fetchImpl) => instanceRequest('account/ui-language', {
+  method: 'PATCH', body: { uiLanguage }, csrfToken, expectedAccountId: accountId, fetchImpl,
+});
 
 export function messageForError(error, context = 'request') {
   if (error?.status === 429) return '尝试次数较多，请稍后再试。';

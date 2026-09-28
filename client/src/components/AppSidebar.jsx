@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import {
   Activity,
@@ -78,12 +79,12 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
     try {
       await logout(authSession?.csrfToken);
       window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
-      showToast('已退出登录');
+      showToast(t("已退出登录"));
     } catch (err) {
       if (err?.status === 401) {
         window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
       } else {
-        showToast('退出失败，请稍后重试');
+        showToast(t("退出失败，请稍后重试"));
         setIsLoggingOut(false);
       }
     }
@@ -141,10 +142,10 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
       className={`app-nav-item ${settingsActiveSection === id ? 'is-active' : ''}`}
       onClick={() => selectSettingsSection(id)}
       aria-current={settingsActiveSection === id ? 'page' : undefined}
-      data-tooltip={label}
+      data-tooltip={t(label)}
     >
       <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
-      <span>{label}</span>
+      <span>{t(label)}</span>
     </button>
   );
 
@@ -171,7 +172,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           onClick={() => setIsMobileOpen(true)}
           aria-expanded={isMobileOpen}
           aria-controls="app-primary-sidebar"
-          aria-label="打开导航"
+          aria-label={t("打开导航")}
         >
           <Menu size={21} aria-hidden="true" />
         </button>
@@ -182,7 +183,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           type="button"
           className="app-sidebar-backdrop"
           onClick={() => setIsMobileOpen(false)}
-          aria-label="关闭导航"
+          aria-label={t("关闭导航")}
         />
       )}
 
@@ -191,7 +192,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
         id="app-primary-sidebar"
         className={`app-sidebar ${isMobileOpen ? 'is-mobile-open' : ''}`}
         data-player-placement={placement}
-        aria-label="Tune 主导航"
+        aria-label={t("Tune 主导航")}
       >
         <div className="app-sidebar__topbar">
           <button type="button" className="app-sidebar__brand" onClick={() => navigate('home')} data-tooltip="Tune">
@@ -202,56 +203,56 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
             type="button"
             className="app-sidebar__close"
             onClick={() => setIsMobileOpen(false)}
-            aria-label="关闭导航"
+            aria-label={t("关闭导航")}
           >
             <X size={20} aria-hidden="true" />
           </button>
         </div>
 
-        <nav className="app-sidebar__nav" aria-label={activePage === 'settings' ? '设置分类' : activePage === 'lyrics' ? '歌词工作台分区' : activePage === 'assistant' ? '助手分区' : '主要页面'}>
+        <nav className="app-sidebar__nav" aria-label={activePage === 'settings' ? t("设置分类") : activePage === 'lyrics' ? t("歌词工作台分区") : activePage === 'assistant' ? t("助手分区") : t("主要页面")}>
           {activePage === 'lyrics' ? <>
-            <PageBackButton onClick={returnFromLyrics} label="返回" className="app-nav-item app-sidebar__back" />
-            <div className="app-sidebar__nav-group" aria-label="歌词工作台">
-              <p className="app-sidebar__group-label">歌词工作台</p>
+            <PageBackButton onClick={returnFromLyrics} label={t("返回")} className="app-nav-item app-sidebar__back" />
+            <div className="app-sidebar__nav-group" aria-label={t("歌词工作台")}>
+              <p className="app-sidebar__group-label">{t("歌词工作台")}</p>
               {LYRICS_SECTIONS.map(({ id, label, icon: Icon }) => <button key={id} type="button"
                 className={`app-nav-item ${lyricsActiveSection === id ? 'is-active' : ''}`}
                 aria-current={lyricsActiveSection === id ? 'page' : undefined}
-                onClick={() => navigate('lyrics', id)} data-tooltip={label}>
-                <Icon size={19} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span>
+                onClick={() => navigate('lyrics', id)} data-tooltip={t(label)}>
+                <Icon size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t(label)}</span>
               </button>)}
             </div>
           </> : activePage === 'assistant' ? <>
-            <PageBackButton label="返回" className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
-            <div className="app-sidebar__nav-group" aria-label="助手">
-              <p className="app-sidebar__group-label">助手</p>
+            <PageBackButton label={t("返回")} className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
+            <div className="app-sidebar__nav-group" aria-label={t("助手")}>
+              <p className="app-sidebar__group-label">{t("助手")}</p>
               <button type="button" className={`app-nav-item ${assistantActiveSection === 'conversation' ? 'is-active' : ''}`}
                 aria-current={assistantActiveSection === 'conversation' ? 'page' : undefined}
-                onClick={() => navigate('assistant', 'conversation')} data-tooltip="对话">
-                <MessageCircle size={19} strokeWidth={1.8} aria-hidden="true" /><span>对话</span>
+                onClick={() => navigate('assistant', 'conversation')} data-tooltip={t("对话")}>
+                <MessageCircle size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t("对话")}</span>
               </button>
               <button type="button" className={`app-nav-item ${assistantActiveSection === 'memory' ? 'is-active' : ''}`}
                 aria-current={assistantActiveSection === 'memory' ? 'page' : undefined}
-                onClick={() => navigate('assistant', 'memory')} data-tooltip="记忆">
-                <Brain size={19} strokeWidth={1.8} aria-hidden="true" /><span>记忆</span>
+                onClick={() => navigate('assistant', 'memory')} data-tooltip={t("记忆")}>
+                <Brain size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t("记忆")}</span>
               </button>
               <button type="button" className="app-nav-item app-sidebar__assistant-clear"
                 onClick={() => {
                   setIsMobileOpen(false);
                   useUIStore.getState().requestAssistantClear();
-                }} data-tooltip="清空对话">
-                <Trash2 size={19} strokeWidth={1.8} aria-hidden="true" /><span>清空对话</span>
+                }} data-tooltip={t("清空对话")}>
+                <Trash2 size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t("清空对话")}</span>
               </button>
             </div>
           </> : activePage === 'settings' ? (
             <>
-              <PageBackButton label="返回" className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
-              <div className="app-sidebar__nav-group" aria-label="个人设置">
-                <p className="app-sidebar__group-label">个人设置</p>
+              <PageBackButton label={t("返回")} className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
+              <div className="app-sidebar__nav-group" aria-label={t("个人设置")}>
+                <p className="app-sidebar__group-label">{t("个人设置")}</p>
                 {PERSONAL_SETTINGS.map(renderSettingsItem)}
               </div>
               {isAdmin && (
-                <div className="app-sidebar__nav-group" aria-label="系统管理">
-                  <p className="app-sidebar__group-label">系统管理</p>
+                <div className="app-sidebar__nav-group" aria-label={t("系统管理")}>
+                  <p className="app-sidebar__group-label">{t("系统管理")}</p>
                   {ADMIN_SETTINGS.map(renderSettingsItem)}
                 </div>
               )}
@@ -264,10 +265,10 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
               className={`app-nav-item ${activePage === id || (activePage === 'history' && id === 'home') ? 'is-active' : ''}`}
               onClick={() => navigate(id)}
               aria-current={activePage === id ? 'page' : undefined}
-              data-tooltip={label}
+              data-tooltip={t(label)}
             >
               <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
-              <span>{label}</span>
+              <span>{t(label)}</span>
             </button>
           ))}
           <button
@@ -275,26 +276,26 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
             className={`app-nav-item ${activePage === 'assistant' ? 'is-active' : ''}`}
             onClick={() => navigate('assistant')}
             data-ai-entry="sidebar"
-            data-tooltip="助手"
+            data-tooltip={t("助手")}
             aria-current={activePage === 'assistant' ? 'page' : undefined}
           >
             <MessageCircle size={19} strokeWidth={1.8} aria-hidden="true" />
-            <span>助手</span>
+            <span>{t("助手")}</span>
           </button>
           <button
             type="button"
             className={`app-nav-item ${activePage === 'settings' ? 'is-active' : ''}`}
             onClick={() => navigate('settings')}
-            data-tooltip="设置"
+            data-tooltip={t("设置")}
             aria-current={activePage === 'settings' ? 'page' : undefined}
           >
             <Settings size={19} strokeWidth={1.8} aria-hidden="true" />
-            <span>设置</span>
+            <span>{t("设置")}</span>
           </button>
           </>}
         </nav>
 
-        <div className="app-sidebar__secondary" aria-label="辅助功能">
+        <div className="app-sidebar__secondary" aria-label={t("辅助功能")}>
           {placement === 'sidebar' && (
             <div className={`sidebar-mini-player__motion-slot ${isFullScreen ? 'sidebar-mini-player__motion-slot--fullscreen' : ''}`}
               aria-hidden={isFullScreen || undefined} inert={isFullScreen ? '' : undefined}>
@@ -315,9 +316,9 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
               className="app-sidebar__logout-btn"
               onClick={handleLogout}
               disabled={isLoggingOut}
-              data-tooltip="退出登录"
-              title="退出登录"
-              aria-label="退出登录"
+              data-tooltip={t("退出登录")}
+              title={t("退出登录")}
+              aria-label={t("退出登录")}
             >
               <LogOut size={18} strokeWidth={1.8} aria-hidden="true" />
             </button>

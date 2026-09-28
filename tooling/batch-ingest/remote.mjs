@@ -39,10 +39,10 @@ export class RemoteCatalog {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.authenticated || data.user?.role !== 'admin' || data.mustChangePassword) {
-      throw new Error(data.mustChangePassword ? '请先在播放器网页修改管理员密码。' : '管理员登录失败。');
+      throw new Error(data.mustChangePassword ? 'Change the administrator password in the web app first.' : 'Administrator sign-in failed.');
     }
     const cookie = response.headers.get('set-cookie')?.split(';', 1)[0] || '';
-    if (!/^__Host-ft_session=/.test(cookie) || !data.csrfToken) throw new Error('实例没有返回可用的管理员会话。');
+    if (!/^__Host-ft_session=/.test(cookie) || !data.csrfToken) throw new Error('The instance did not return a usable administrator session.');
     this.cookie = cookie;
     this.csrf = data.csrfToken;
     this.account = data.user;
@@ -53,7 +53,7 @@ export class RemoteCatalog {
     const response = await this.request(path, options);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) {
-      throw upstreamError(response, payload.message || payload.error || `实例请求失败（${response.status}）。`);
+      throw upstreamError(response, payload.message || payload.error || `Instance request failed (${response.status}).`);
     }
     return payload.data ?? payload;
   }
@@ -71,7 +71,7 @@ export class RemoteCatalog {
     const response = await this.request(`/api/admin/catalog/songs/${encodeURIComponent(id)}`);
     if (response.status === 404) return null;
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw upstreamError(response, payload.message || `读取歌曲失败（${response.status}）。`);
+    if (!response.ok) throw upstreamError(response, payload.message || `Could not read the song (${response.status}).`);
     return payload.data?.song || null;
   }
 
@@ -117,7 +117,7 @@ export class RemoteCatalog {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok !== true) throw upstreamError(response,
-      payload.message || `Worker 上传失败（${response.status}）。`);
+      payload.message || `Worker upload failed (${response.status}).`);
     return payload.data;
   }
 
