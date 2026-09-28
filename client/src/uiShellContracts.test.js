@@ -221,6 +221,7 @@ test('page navigation owns scroll restoration, admin priority, and playlist focu
   assert.match(app, /routeScrollPositionsRef/);
   assert.match(app, /routeScrollPositionsRef\.current\[routeEntryRef\.current\] = contentScrollRef\.current\.scrollTop/);
   assert.match(app, /scrollContainerRef=\{contentScrollRef\}/);
+  assert.match(app, /restoreSidebarWorkspaceAfterRejectedBack\(routeKeyRef\.current, routeEntryRef\.current\)/);
   assert.ok(main.indexOf('isViewingAdmin ? (') < main.indexOf("activePage === 'search'"));
   assert.match(home, /data-playlist-id=\{leadPlaylist\?\.id\}/);
   assert.match(home, /openPlaylist\(leadPlaylist, event\)/);

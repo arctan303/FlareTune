@@ -53,6 +53,6 @@ export function screenFor(status, session) {
 
 export function validLocalPassword(value) {
   return typeof value === 'string'
-    && [...value].length >= 15
+    && [...value].length >= 8
     && new TextEncoder().encode(value).length <= 1024;
 }

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { startPreview } from '../dev/preview-worker.mjs';
 
 const setupSecret = 'local-preview-only-claim-secret-not-for-deployment-2026';
-const password = 'a private local test passphrase 2026';
+const password = 'pass2026';
 
 test('real local D1 Worker serves setup, login, settings and CSRF', async () => {
   const preview = await startPreview({ ephemeral: true, seedEmpty: true,
@@ -133,8 +133,8 @@ test('real local D1 Worker serves setup, login, settings and CSRF', async () => 
       { headers: { Cookie: cookie } });
     assert.equal(lyricWorkspace.status, 200);
     assert.equal((await lyricWorkspace.json()).data.status, 'not_needed');
-    const temporaryPassword = 'member temporary passphrase 2026';
-    const memberPassword = 'member regular passphrase 2026';
+    const temporaryPassword = 'temp2026';
+    const memberPassword = 'safe2026';
     assert.equal((await post('/api/admin/accounts', {
       username: 'listener', role: 'member', temporaryPassword,
     }, { Cookie: cookie, 'X-CSRF-Token': csrfToken })).status, 201);

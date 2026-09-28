@@ -29,7 +29,7 @@ import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js
 import { useUIStore, showToast } from '../store/useUIStore.js';
 import { logout } from '../instance/api.js';
 import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
-import { returnToOriginRoute } from '../utils/navigation.js';
+import { returnFromSidebarWorkspace } from '../utils/navigation.js';
 
 const PRIMARY_ITEMS = [
   { id: 'home', label: '主页', icon: Home },
@@ -71,7 +71,6 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
   const sidebarRef = React.useRef(null);
   const closeButtonRef = React.useRef(null);
   const previousFocusRef = React.useRef(null);
-  const previousPageRef = React.useRef('home');
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -89,10 +88,6 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
       }
     }
   };
-
-  React.useEffect(() => {
-    if (activePage !== 'settings' && activePage !== 'lyrics' && activePage !== 'assistant') previousPageRef.current = activePage;
-  }, [activePage]);
 
   React.useEffect(() => {
     if (!isMobileOpen) return undefined;
@@ -155,7 +150,12 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
 
   const returnFromLyrics = () => {
     if (!useUIStore.getState().approveLyricsWorkspaceExit()) return;
-    if (returnToOriginRoute('/home') === 'replace') onNavigate('home');
+    returnFromSidebarWorkspace('/home');
+    setIsMobileOpen(false);
+  };
+
+  const returnFromSecondarySidebar = () => {
+    returnFromSidebarWorkspace('/home');
     setIsMobileOpen(false);
   };
 
@@ -210,7 +210,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
 
         <nav className="app-sidebar__nav" aria-label={activePage === 'settings' ? '设置分类' : activePage === 'lyrics' ? '歌词工作台分区' : activePage === 'assistant' ? '助手分区' : '主要页面'}>
           {activePage === 'lyrics' ? <>
-            <PageBackButton onClick={returnFromLyrics} label="返回音乐" className="app-nav-item app-sidebar__back" />
+            <PageBackButton onClick={returnFromLyrics} label="返回" className="app-nav-item app-sidebar__back" />
             <div className="app-sidebar__nav-group" aria-label="歌词工作台">
               <p className="app-sidebar__group-label">歌词工作台</p>
               {LYRICS_SECTIONS.map(({ id, label, icon: Icon }) => <button key={id} type="button"
@@ -221,10 +221,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
               </button>)}
             </div>
           </> : activePage === 'assistant' ? <>
-            <PageBackButton label="返回音乐" className="app-nav-item app-sidebar__back" onClick={() => {
-              if (returnToOriginRoute(`/${previousPageRef.current}`) === 'replace') onNavigate(previousPageRef.current);
-              setIsMobileOpen(false);
-            }} />
+            <PageBackButton label="返回" className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
             <div className="app-sidebar__nav-group" aria-label="助手">
               <p className="app-sidebar__group-label">助手</p>
               <button type="button" className={`app-nav-item ${assistantActiveSection === 'conversation' ? 'is-active' : ''}`}
@@ -247,10 +244,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
             </div>
           </> : activePage === 'settings' ? (
             <>
-              <PageBackButton label="返回音乐" className="app-nav-item app-sidebar__back" onClick={() => {
-                if (returnToOriginRoute(`/${previousPageRef.current}`) === 'replace') onNavigate(previousPageRef.current);
-                setIsMobileOpen(false);
-              }} />
+              <PageBackButton label="返回" className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
               <div className="app-sidebar__nav-group" aria-label="个人设置">
                 <p className="app-sidebar__group-label">个人设置</p>
                 {PERSONAL_SETTINGS.map(renderSettingsItem)}

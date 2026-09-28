@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshCw, KeyRound, Check, Copy, UserPlus, X, Edit3 } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore.js';
 import { getInstanceStatus, runAdminMigration } from '../instance/api.js';
+import { validLocalPassword } from '../instance/state.js';
 import AdminCatalogSection from './AdminCatalogSection.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
@@ -72,6 +73,10 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
     event.preventDefault();
     const form = event.currentTarget;
     const password = new FormData(form).get('temporaryPassword');
+    if (!validLocalPassword(password)) {
+      onMessage('临时密码至少需要 8 个字符，且不能超过 1024 字节。');
+      return;
+    }
     setBusy(true);
     onMessage('');
     try {
@@ -200,8 +205,8 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
       {resetOpen && (
         <form onSubmit={reset} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] p-3 animate-[fade-in_0.15s_ease-out]">
           <div className="flex-1 min-w-[200px]">
-            <Field label="一次性临时密码" hint="至少 15 个字符；不会保存在浏览器。">
-              <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={15} maxLength={1024} required placeholder="输入新的临时密码" />
+            <Field label="一次性临时密码" hint="至少 8 个字符；不会保存在浏览器。">
+              <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder="输入新的临时密码" />
             </Field>
           </div>
           <div className="flex items-center gap-1.5">
@@ -336,6 +341,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    if (!validLocalPassword(data.get('temporaryPassword'))) {
+      setMessage('临时密码至少需要 8 个字符，且不能超过 1024 字节。');
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
@@ -663,8 +672,8 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                         <option value="admin">系统管理员</option>
                       </select>
                     </Field>
-                    <Field label="一次性临时密码" hint="至少 15 个字符；不会保存在浏览器。">
-                      <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={15} maxLength={1024} required placeholder="初始临时密码" />
+                    <Field label="一次性临时密码" hint="至少 8 个字符；不会保存在浏览器。">
+                      <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder="初始临时密码" />
                     </Field>
                     <div className="sm:col-span-2 pt-2 flex items-center gap-2">
                       <button className={buttonClass} type="submit" disabled={busy}>确认创建账号</button>

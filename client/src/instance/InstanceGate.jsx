@@ -96,7 +96,7 @@ function SetupPage({ onComplete }) {
   const submit = async (event) => {
     event.preventDefault();
     if (!validLocalPassword(password)) {
-      setError('密码至少需要 15 个字符，且不能超过 1024 字节。');
+      setError('密码至少需要 8 个字符，且不能超过 1024 字节。');
       queueMicrotask(() => errorRef.current?.focus());
       return;
     }
@@ -129,7 +129,7 @@ function SetupPage({ onComplete }) {
         <StatusMessage error={error} errorRef={errorRef} />
         {!proof ? <Field id="setup-secret" label="初始化密钥" type="password" autoComplete="off" value={setupSecret} onChange={(event) => setSetupSecret(event.target.value)} /> : <>
           <Field id="setup-username" label="管理员用户名" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} pattern={USERNAME_PATTERN} minLength={3} maxLength={64} hint="3–64 位小写英文字母、数字、下划线、句点或连字符。" />
-          <Field id="setup-password" label="密码" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} hint="至少 15 个字符；请使用独一无二的长密码。" />
+          <Field id="setup-password" label="密码" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} hint="至少 8 个字符；建议使用独一无二的长密码。" />
           <Field id="setup-confirm" label="确认密码" type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
         </>}
         <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{busy ? '请稍候…' : proof ? '初始化并创建管理员' : '验证密钥'}</button>
@@ -264,7 +264,7 @@ function ChangePasswordPage({ csrfToken, onComplete, onLogout }) {
   const submit = async (event) => {
     event.preventDefault();
     if (!validLocalPassword(newPassword)) {
-      setError('新密码至少需要 15 个字符，且不能超过 1024 字节。');
+      setError('新密码至少需要 8 个字符，且不能超过 1024 字节。');
       queueMicrotask(() => errorRef.current?.focus());
       return;
     }
@@ -293,7 +293,7 @@ function ChangePasswordPage({ csrfToken, onComplete, onLogout }) {
       <form onSubmit={submit} className="instance-form">
         <StatusMessage error={error} errorRef={errorRef} />
         <Field id="change-current" label="当前临时密码" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
-        <Field id="change-new" label="新密码" type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} hint="至少 15 个字符。" />
+        <Field id="change-new" label="新密码" type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} hint="至少 8 个字符。" />
         <Field id="change-confirm" label="确认新密码" type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
         <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{busy ? '正在保存…' : '设置新密码'}</button>
       </form>

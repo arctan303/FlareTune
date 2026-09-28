@@ -26,7 +26,7 @@ import { usePlayStatsStore } from './store/usePlayStatsStore.js';
 import { usePlaybackPresentation } from './hooks/usePlaybackPresentation.js';
 import { selectHasRenderableWallpaper, useWallpaperStore } from './store/useWallpaperStore.js';
 import { toShellAuthSession } from './instance/state.js';
-import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, SUPPORTED_PAGES } from './utils/navigation.js';
+import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, restoreSidebarWorkspaceAfterRejectedBack, SUPPORTED_PAGES } from './utils/navigation.js';
 
 const retryDynamicImport = (importer, retries = 2, delayMs = 600) => async () => {
     try {
@@ -415,7 +415,7 @@ export default function App({ validatedSession }) {
                 if (ui.lyricsWorkspaceExitApproved) {
                     useUIStore.setState({ lyricsWorkspaceExitApproved: false });
                 } else if (ui.lyricsWorkspaceBeforeCloseGuard?.() === false) {
-                    window.history.pushState({ url: routeKeyRef.current, from: window.location.pathname + window.location.search }, '', routeKeyRef.current);
+                    restoreSidebarWorkspaceAfterRejectedBack(routeKeyRef.current, routeEntryRef.current);
                     return;
                 }
             }

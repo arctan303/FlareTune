@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, returnToOriginRoute, returnToParentRoute, DEFAULT_PAGE } from './navigation.js';
+import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, returnToOriginRoute, returnToParentRoute, returnFromSidebarWorkspace, restoreSidebarWorkspaceAfterRejectedBack, DEFAULT_PAGE } from './navigation.js';
 
 test('parsePathname resolves root or empty string to default home page', () => {
   assert.deepEqual(parsePathname(''), { type: 'page', page: DEFAULT_PAGE });
@@ -190,6 +190,136 @@ test('direct child URLs replace themselves with their parent and retain entry me
     syncBrowserHistory('/explore/zh?lang=zh', { replace: true });
     assert.equal(history.state.url, '/explore/zh?lang=zh');
     assert.notEqual(history.state.scrollEntryId, firstEntryId);
+  } finally {
+    globalThis.window = previousWindow;
+    globalThis.CustomEvent = previousCustomEvent;
+  }
+});
+
+test('sidebar return goes to the page that opened the workspace after internal section changes', () => {
+  const previousWindow = globalThis.window;
+  const previousCustomEvent = globalThis.CustomEvent;
+  globalThis.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
+  try {
+    for (const [origin, workspace, section] of [
+      ['/roam', '/assistant', '/assistant/memory'],
+      ['/search?q=jazz', '/settings/appearance', '/settings/admin/system'],
+    ]) {
+      const location = { pathname: origin.split('?')[0], search: origin.includes('?') ? `?${origin.split('?')[1]}` : '' };
+      const entries = [{ url: origin, state: null }];
+      const moves = [];
+      const setLocation = (url) => {
+        const [pathname, query] = url.split('?');
+        location.pathname = pathname;
+        location.search = query ? `?${query}` : '';
+      };
+      const history = {
+        state: null,
+        get length() { return entries.length; },
+        replaceState(state, _title, url) {
+          const destination = url || entries[entries.length - 1].url;
+          entries[entries.length - 1] = { url: destination, state };
+          this.state = state;
+          setLocation(destination);
+        },
+        pushState(state, _title, url) {
+          entries.push({ url, state });
+          this.state = state;
+          setLocation(url);
+        },
+        go(delta) {
+          moves.push(delta);
+          const entry = entries[entries.length - 1 + delta];
+          this.state = entry.state;
+          setLocation(entry.url);
+        },
+      };
+      globalThis.window = { location, history, dispatchEvent: () => {} };
+      syncBrowserHistory(workspace);
+      syncBrowserHistory(section);
+      assert.equal(history.state.sidebarOrigin, origin);
+      assert.equal(history.state.sidebarDepth, 2);
+      assert.equal(returnFromSidebarWorkspace('/home'), 'back');
+      assert.deepEqual(moves, [-2]);
+      assert.equal(location.pathname + location.search, origin);
+    }
+  } finally {
+    globalThis.window = previousWindow;
+    globalThis.CustomEvent = previousCustomEvent;
+  }
+});
+
+test('rejected lyrics Back restores sidebar origin so its return reaches search', () => {
+  const previousWindow = globalThis.window;
+  const previousCustomEvent = globalThis.CustomEvent;
+  globalThis.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
+  const location = { pathname: '/search', search: '?q=jazz' };
+  const entries = [{ url: '/search?q=jazz', state: null }];
+  let index = 0;
+  const setLocation = (url) => {
+    const [pathname, query] = url.split('?');
+    location.pathname = pathname;
+    location.search = query ? `?${query}` : '';
+  };
+  const history = {
+    state: null,
+    get length() { return entries.length; },
+    replaceState(state, _title, url) {
+      const destination = url || entries[index].url;
+      entries[index] = { url: destination, state };
+      this.state = state;
+      setLocation(destination);
+    },
+    pushState(state, _title, url) {
+      entries.splice(index + 1, entries.length - index - 1, { url, state });
+      index += 1;
+      this.state = state;
+      setLocation(url);
+    },
+    go(delta) {
+      index += delta;
+      this.state = entries[index].state;
+      setLocation(entries[index].url);
+    },
+  };
+  globalThis.window = { location, history, dispatchEvent: () => {} };
+  try {
+    syncBrowserHistory('/lyrics/song-1');
+    const lyricsScrollEntry = history.state.scrollEntryId;
+    history.go(-1); // Browser Back arrives on search before the guard rejects it.
+    restoreSidebarWorkspaceAfterRejectedBack('/lyrics/song-1', lyricsScrollEntry);
+    assert.equal(history.state.sidebarPage, 'lyrics');
+    assert.equal(history.state.sidebarOrigin, '/search?q=jazz');
+    assert.equal(history.state.sidebarDepth, 1);
+    assert.equal(history.state.scrollEntryId, lyricsScrollEntry);
+    assert.equal(returnFromSidebarWorkspace('/home'), 'back');
+    assert.equal(location.pathname + location.search, '/search?q=jazz');
+  } finally {
+    globalThis.window = previousWindow;
+    globalThis.CustomEvent = previousCustomEvent;
+  }
+});
+
+test('direct workspace links return to home without following unrelated browser history', () => {
+  const previousWindow = globalThis.window;
+  const previousCustomEvent = globalThis.CustomEvent;
+  const location = { pathname: '/assistant/memory', search: '' };
+  let backCalls = 0;
+  globalThis.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
+  globalThis.window = {
+    location,
+    history: {
+      state: null,
+      length: 3,
+      go: () => { backCalls += 1; },
+      replaceState(state, _title, url) { this.state = state; if (url) location.pathname = url; },
+    },
+    dispatchEvent: () => {},
+  };
+  try {
+    assert.equal(returnFromSidebarWorkspace('/home'), 'replace');
+    assert.equal(location.pathname, '/home');
+    assert.equal(backCalls, 0);
   } finally {
     globalThis.window = previousWindow;
     globalThis.CustomEvent = previousCustomEvent;
