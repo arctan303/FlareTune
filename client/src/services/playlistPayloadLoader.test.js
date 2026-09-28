@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPlaylistPayloadLoader } from './playlistPayloadLoader.js';
+import { createExpiringAsyncCache } from '../utils/expiringAsyncCache.js';
 
 const jsonResponse = (data, status = 200) => new Response(JSON.stringify({
   code: status === 200 ? 200 : status,
@@ -128,6 +129,51 @@ test('library and lang playlists keep the login gate, request shape, hydration, 
   assert.equal(languagePayload.playlist.id, 'lang-en');
   assert.equal(languagePayload.playlist.name, '英语歌曲');
   assert.equal(languagePayload.playlist.pagination.sort, 'desc');
+});
+
+test('opening a fresh language playlist does not revalidate; expiry and account change do', async () => {
+  let clock = 0;
+  let accountId = 'account-a';
+  let requests = 0;
+  const cache = createExpiringAsyncCache({ ttlMs: 300_000, now: () => clock });
+  const loadPlaylistPayload = createLoader({
+    cache,
+    getAuthenticated: () => true,
+    getAccountId: () => accountId,
+    fetchImpl: async () => {
+      requests += 1;
+      return jsonResponse({ songs: [{ id: `song-${requests}` }], total: 1, hasMore: false });
+    },
+  });
+  const open = () => loadPlaylistPayload({ id: 'lang-en' }, null,
+    { revalidate: true, staleWhileRevalidate: true });
+
+  assert.equal((await open()).songs[0].id, 'song-1');
+  assert.equal((await open()).songs[0].id, 'song-1');
+  assert.equal(requests, 1);
+  clock = 300_001;
+  assert.equal((await open()).songs[0].id, 'song-2');
+  accountId = 'account-b';
+  assert.equal((await open()).songs[0].id, 'song-3');
+  assert.equal(requests, 3);
+});
+
+test('identity revalidation bypasses a fresh language playlist cache', async () => {
+  let requests = 0;
+  const cache = createExpiringAsyncCache({ ttlMs: 300_000, now: () => 0 });
+  const loadPlaylistPayload = createLoader({
+    cache,
+    getAuthenticated: () => true,
+    getAccountId: () => 'account-a',
+    fetchImpl: async () => {
+      requests += 1;
+      return jsonResponse({ songs: [{ id: `song-${requests}` }], total: 1, hasMore: false });
+    },
+  });
+  assert.equal((await loadPlaylistPayload({ id: 'lang-en' }, null)).songs[0].id, 'song-1');
+  assert.equal((await loadPlaylistPayload({ id: 'lang-en' }, null, { revalidate: true }))
+    .songs[0].id, 'song-2');
+  assert.equal(requests, 2);
 });
 
 test('preloaded and inline song payloads bypass auth, HTTP, hydration, and cache work', async () => {

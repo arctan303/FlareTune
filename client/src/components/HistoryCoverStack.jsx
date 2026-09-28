@@ -1,8 +1,69 @@
 import React from 'react';
 import LazyImage from './LazyImage.jsx';
 import { reconcileHistoryCoverEntries } from './historyCoverEntries.js';
+import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
+import { usePrivateMediaRouteRevision } from '../hooks/usePrivateMediaRouteRevision.js';
+import { visibleImageSource } from '../utils/privateImageVisibility.js';
 
 const LANDING_DURATION_MS = 1050;
+
+function HistoryImage({ src, isStaged, onReady, onError }) {
+  const routeRevision = usePrivateMediaRouteRevision();
+  const onErrorRef = React.useRef(onError);
+  onErrorRef.current = onError;
+  const [source, setSource] = React.useState(() => ({
+    requested: src,
+    display: imageLoadRegistry.shouldLoadPrivately(src)
+      ? imageLoadRegistry.getReadySource(src) : src,
+  }));
+  const display = source.requested === src
+    ? visibleImageSource(src, source.display, '/placeholder-album.svg', imageLoadRegistry) : null;
+
+  React.useEffect(() => {
+    if (imageLoadRegistry.isPrivateMediaUrl(src) && !imageLoadRegistry.shouldLoadPrivately(src)) {
+      setSource({ requested: src, display: null });
+      if (isStaged) onErrorRef.current?.();
+      return undefined;
+    }
+    if (!imageLoadRegistry.shouldLoadPrivately(src)) {
+      setSource({ requested: src, display: src });
+      return undefined;
+    }
+    const cached = imageLoadRegistry.getReadySource(src);
+    if (cached) {
+      setSource({ requested: src, display: cached });
+      return undefined;
+    }
+    let active = true;
+    setSource({ requested: src, display: null });
+    void imageLoadRegistry.load(src).then(({ url }) => {
+      if (active) setSource({ requested: src, display: url });
+    }).catch(() => {
+      if (!active) return;
+      if (isStaged) onErrorRef.current?.();
+      else setSource({ requested: src, display: '/placeholder-album.svg' });
+    });
+    return () => { active = false; };
+  }, [src, isStaged, routeRevision]);
+
+  if (!display) return null;
+  const handleError = () => {
+    if (imageLoadRegistry.shouldLoadPrivately(src)) imageLoadRegistry.markError(src);
+    if (isStaged) onErrorRef.current?.();
+    else if (display !== '/placeholder-album.svg') {
+      setSource({ requested: src, display: '/placeholder-album.svg' });
+    }
+  };
+  return <img
+    src={display}
+    alt=""
+    draggable="false"
+    decoding="sync"
+    ref={isStaged ? (node) => { if (node?.complete) onReady?.(node); } : null}
+    onLoad={isStaged ? (event) => { onReady?.(event.currentTarget); } : undefined}
+    onError={handleError}
+  />;
+}
 
 export default function HistoryCoverStack({ history }) {
   const [visible, setVisible] = React.useState(() => reconcileHistoryCoverEntries(history.slice(0, 3)));
@@ -109,16 +170,9 @@ export default function HistoryCoverStack({ history }) {
   const imageFor = (entry, kind, isStaged) => {
     const src = entry.song.cover_url || '/placeholder-album.svg';
     if (!isStaged && !entry.ready) return <LazyImage src={src} fallback="/placeholder-album.svg" alt="" />;
-    if (!isStaged) return <img src={src} alt="" draggable="false" decoding="sync" />;
-    return <img
-      src={src}
-      alt=""
-      draggable="false"
-      decoding="sync"
-      ref={(node) => { if (node?.complete) void prepareImage(kind, node, staged.version); }}
-      onLoad={(event) => { void prepareImage(kind, event.currentTarget, staged.version); }}
-      onError={() => failStage(staged.version)}
-    />;
+    return <HistoryImage src={src} isStaged={isStaged}
+      onReady={isStaged ? (node) => { void prepareImage(kind, node, staged.version); } : undefined}
+      onError={isStaged ? () => failStage(staged.version) : undefined} />;
   };
 
   const stagedActive = staged?.phase === 'landing';

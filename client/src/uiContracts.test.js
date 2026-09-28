@@ -31,7 +31,7 @@ test('closed lazy drawers and dead visual layers do not perform startup work', (
   assert.equal(existsSync(new URL('../../tooling/diagnostics/artist-photo-test.html', import.meta.url)), true);
 });
 
-test('playlist navigation has immediate feedback, delayed skeleton, prefetch, and stale-request protection', () => {
+test('playlist navigation has immediate feedback, delayed skeleton, no hover fetch, and stale-request protection', () => {
   const main = readSource('./components/MainContent.jsx');
   const shelf = readSource('./components/PlaylistShelfGrid.jsx');
   const card = readSource('./components/catalog/CollectionCard.jsx');
@@ -42,10 +42,8 @@ test('playlist navigation has immediate feedback, delayed skeleton, prefetch, an
   assert.match(main, /status: 'skeleton'/);
   assert.match(main, /}, 100\);/);
   assert.match(card, /record-card__opening/);
-  assert.match(main, /navigator\.connection\?\.saveData/);
-  assert.match(card, /onPointerEnter=/);
-  assert.match(card, /onPointerDown=\{\(\) => onPrefetch/);
-  assert.match(card, /onFocus=\{\(\) => onPrefetch/);
+  assert.doesNotMatch(main, /onPrefetch=\{prefetchPlaylist\}/);
+  assert.doesNotMatch(main, /imageLoadRegistry\.loadGroup/);
   assert.match(main, /createLatestRequestGuard/);
   assert.match(main, /requestGuardRef\.current\.isCurrent/);
   assert.match(detail, /PendingPlaylistDetail/);
@@ -836,7 +834,7 @@ test('Explore library section is gated for authenticated members only on client 
   // Client gates explore section with isAuthenticated
   assert.match(main, /<RoamOverview[\s\S]*isAuthenticated/);
   // Client gates remote language counts fetch
-  assert.match(main, /useSongLanguageCounts\(isAuthenticated\)/);
+  assert.match(main, /useSongLanguageCounts\(isAuthenticated && activePage === 'roam' && activeRoute\?\.type === 'page'\)/);
   assert.match(languageCounts, /if \(!isAuthenticated\) return undefined;[\s\S]*\/api\/songs\?counts=language/);
   // Server applies one session gate before all Tune business routes.
   assert.match(worker, /decideApiAccess\(/);

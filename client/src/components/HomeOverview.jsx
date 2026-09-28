@@ -8,7 +8,6 @@ import SectionHeading from './catalog/SectionHeading.jsx';
 import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import HorizontalScrollButtons from './catalog/HorizontalScrollButtons.jsx';
 import { horizontalScrollState, moveHorizontalScroll } from './catalog/horizontalScroll.js';
-import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
 import { hasPreviewOverflow } from './catalog/previewVisibility.js';
 import { hydrateSong } from '../utils.js';
 import { deriveTopArtists } from '../utils/topArtists.js';
@@ -75,7 +74,6 @@ export default function HomeOverview({
   likedSongs = [],
   randomSongs = [],
   resolvedTopSongs = [],
-  topAlbums = [],
   currentSong,
   isPlaying,
   playSong,
@@ -84,9 +82,7 @@ export default function HomeOverview({
   onNavigateRoam,
   onOpenArtist,
   onOpenTopSongs,
-  onOpenTopAlbums,
   onOpenTopArtists,
-  onOpenAlbum,
   onToggleRoam,
   randomRoam,
   likedSongIdSet = new Set(),
@@ -100,7 +96,6 @@ export default function HomeOverview({
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const history = usePlayHistoryStore((s) => s.history);
   const [artistVisibleCount, setArtistVisibleCount] = React.useState(0);
-  const [albumVisibleCount, setAlbumVisibleCount] = React.useState(0);
   const [songScrollOverflow, setSongScrollOverflow] = React.useState(false);
 
   const displayFootprints = resolvedTopSongs.slice(0, 20);
@@ -490,21 +485,6 @@ export default function HomeOverview({
           </div>
         )}
       </section>
-
-      {topAlbums.length > 0 && (
-        <section className="app-content-section" aria-labelledby="home-albums-title">
-          <div className="app-section-heading">
-            <div>
-              <SectionHeading id="home-albums-title" title="常听专辑"
-                className="text-[clamp(22px,2vw,27px)] font-bold text-[var(--ink)]"
-                onViewAll={hasPreviewOverflow({ renderedCount: Math.min(topAlbums.length, 10),
-                  visibleCount: albumVisibleCount, totalCount: topAlbums.length }) ? onOpenTopAlbums : null} />
-            </div>
-          </div>
-          <AlbumPreviewGrid albums={topAlbums.slice(0, 10)} onOpen={onOpenAlbum}
-            onVisibleCountChange={setAlbumVisibleCount} />
-        </section>
-      )}
 
       {/* 专区二：常听歌手 (Favorite Artists) */}
       {topArtists.length > 0 && (

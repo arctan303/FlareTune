@@ -116,6 +116,22 @@ test('completed v2 with missing business table fails closed', async () => {
   sqlite.close();
 });
 
+test('one schema inventory detects a missing required trigger on the next request', async () => {
+  const { sqlite, d1 } = fixture({ current: true });
+  let inventories = 0;
+  const observed = { prepare(sql) {
+    if (sql.includes('FROM sqlite_master')) inventories += 1;
+    return d1.prepare(sql);
+  } };
+  assert.equal((await resolveInstanceState(observed, now)).state, 'setup_required');
+  assert.equal(inventories, 1);
+  sqlite.exec('DROP TRIGGER ft_member_playlist_songs_insert_count');
+  assert.deepEqual(await resolveInstanceState(observed, now),
+    { state: 'recovery_required', reason: 'schema_structure_invalid', schemaVersion: null });
+  assert.equal(inventories, 2);
+  sqlite.close();
+});
+
 test('legacy playlist tables must remain paired while v1 migration is pending', async () => {
   const { sqlite, d1 } = fixture();
   sqlite.exec('PRAGMA foreign_keys = OFF; DROP TABLE Playlists');

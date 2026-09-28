@@ -4,6 +4,9 @@ import {
   createImageLoadRegistry,
   IMAGE_READY_TTL_MS,
   IMAGE_REGISTRY_MAX_ENTRIES,
+  PRIVATE_COVER_CACHE_TTL_MS,
+  PRIVATE_COVER_CACHE_MAX_ENTRIES,
+  PRIVATE_COVER_MAX_BYTES,
 } from './imageLoadRegistry.js';
 
 const createFakeImage = () => {
@@ -306,4 +309,365 @@ test('a displayed cover result supersedes an older explicit prefetch result', as
   harness.registry.markReady('/placeholder.svg');
   harness.registry.markError('/cover.jpg');
   assert.equal(harness.registry.getReadySource('/cover.jpg', '/placeholder.svg'), '/placeholder.svg');
+});
+
+test('private media covers reuse one authenticated download within a session and never cache external URLs', async () => {
+  const requested = [];
+  let nextObjectId = 0;
+  const registry = createImageLoadRegistry({
+    origin: () => 'https://tune.example',
+    fetchImpl: async (url, init) => {
+      requested.push({ url, init });
+      return new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 });
+    },
+    createObjectURL: () => `blob:cover-${++nextObjectId}`,
+    revokeObjectURL: () => {},
+  });
+  registry.setSessionScope({ authenticated: true, user: { accountId: 'account-a' }, csrfToken: 'session-1' });
+  assert.equal(registry.shouldLoadPrivately('/media/cover/a.png'), true);
+  assert.equal(registry.shouldLoadPrivately('https://tune.example/media/cover/a.png'), true);
+  assert.equal(registry.shouldLoadPrivately('https://other.example/media/cover/a.png'), false);
+
+  const [first, shared] = await Promise.all([
+    registry.load('/media/cover/a.png'),
+    registry.load('/media/cover/a.png'),
+  ]);
+  assert.equal(first.url, shared.url);
+  assert.equal(registry.getReadySource('/media/cover/a.png'), first.url);
+  assert.equal((await registry.load('/media/cover/a.png')).fromCache, true);
+  assert.equal(requested.length, 1);
+  assert.equal(requested[0].init.credentials, 'include');
+  assert.equal(requested[0].init.cache, 'no-store');
+});
+
+test('private cover bytes are revoked on logout, account switch, and session renewal', async () => {
+  const revoked = [];
+  let requests = 0;
+  const registry = createImageLoadRegistry({
+    fetchImpl: async () => { requests += 1; return new Response(new Blob(['image'])); },
+    createObjectURL: () => `blob:cover-${requests}`,
+    revokeObjectURL: (url) => revoked.push(url),
+  });
+  const session = (accountId, csrfToken) => ({ authenticated: true, user: { accountId }, csrfToken });
+  registry.setSessionScope(session('a', 'one'));
+  const first = await registry.load('/media/cover/a.png');
+  registry.setSessionScope(session('a', 'one'));
+  assert.equal(registry.getReadySource('/media/cover/a.png'), first.url);
+
+  registry.setSessionScope(session('a', 'two'));
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  assert.deepEqual(revoked, [first.url]);
+  const second = await registry.load('/media/cover/a.png');
+  registry.setSessionScope(session('b', 'two'));
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  assert.deepEqual(revoked, [first.url, second.url]);
+
+  const third = await registry.load('/media/cover/a.png');
+  registry.setSessionScope(null);
+  assert.equal(registry.shouldLoadPrivately('/media/cover/a.png'), false);
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  assert.deepEqual(revoked, [first.url, second.url, third.url]);
+});
+
+test('late private cover responses cannot repopulate a cleared session', async () => {
+  let finish;
+  const registry = createImageLoadRegistry({
+    fetchImpl: () => new Promise((resolve) => { finish = resolve; }),
+    createObjectURL: () => 'blob:late',
+    revokeObjectURL: () => {},
+  });
+  registry.setSessionScope({ authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' });
+  const pending = registry.load('/media/cover/a.png');
+  registry.setSessionScope(null);
+  finish(new Response(new Blob(['image'])));
+  await assert.rejects(pending, /session changed/);
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+});
+
+test('private cover cache evicts by capacity and expires within the active session', async () => {
+  let clock = 0;
+  const revoked = [];
+  let objectId = 0;
+  const registry = createImageLoadRegistry({
+    now: () => clock,
+    fetchImpl: async () => new Response(new Blob(['image'])),
+    createObjectURL: () => `blob:cover-${++objectId}`,
+    revokeObjectURL: (url) => revoked.push(url),
+  });
+  registry.setSessionScope({ authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' });
+  for (let index = 0; index <= PRIVATE_COVER_CACHE_MAX_ENTRIES; index += 1) {
+    await registry.load(`/media/cover/${index}.png`);
+  }
+  assert.equal(registry.getReadySource('/media/cover/0.png'), null);
+  assert.deepEqual(revoked, ['blob:cover-1']);
+  clock = PRIVATE_COVER_CACHE_TTL_MS + 1;
+  assert.equal(registry.getReadySource('/media/cover/64.png'), null);
+  assert.equal(revoked.length, PRIVATE_COVER_CACHE_MAX_ENTRIES + 1);
+});
+
+test('a new route checks the live session once before showing cached private covers', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let checks = 0;
+  let downloads = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => { checks += 1; return session; },
+    fetchImpl: async () => { downloads += 1; return new Response(new Blob(['image'])); },
+    createObjectURL: () => `blob:cover-${downloads}`,
+    revokeObjectURL: () => {},
+  });
+  registry.setSessionScope(session);
+  await registry.load('/media/cover/one.png');
+  await registry.load('/media/cover/two.png');
+  route = '/library';
+  assert.equal(registry.getReadySource('/media/cover/one.png'), null);
+  const [first, second] = await Promise.all([
+    registry.load('/media/cover/one.png'), registry.load('/media/cover/two.png'),
+  ]);
+  assert.equal(first.fromCache, true);
+  assert.equal(second.fromCache, true);
+  assert.equal(checks, 1);
+  assert.equal(downloads, 2);
+});
+
+test('remote session revocation prevents cached private cover reuse after navigation', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let downloads = 0;
+  const revoked = [];
+  let invalidations = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => ({ authenticated: false }),
+    onSessionRejected: () => { invalidations += 1; },
+    fetchImpl: async () => { downloads += 1; return new Response(new Blob(['image'])); },
+    createObjectURL: () => 'blob:private-cover',
+    revokeObjectURL: (url) => revoked.push(url),
+  });
+  registry.setSessionScope(session);
+  await registry.load('/media/cover/a.png');
+  route = '/library';
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  await assert.rejects(registry.load('/media/cover/a.png'), /invalidated/);
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  assert.equal(downloads, 1);
+  assert.deepEqual(revoked, ['blob:private-cover']);
+  assert.equal(invalidations, 1);
+});
+
+test('returning through a route without covers still checks a silently revoked session', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let downloads = 0;
+  let checks = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => { checks += 1; return { authenticated: false }; },
+    fetchImpl: async () => { downloads += 1; return new Response(new Blob(['image'])); },
+    createObjectURL: () => 'blob:former-session',
+    revokeObjectURL: () => {},
+    onSessionRejected: () => {},
+  });
+  registry.setSessionScope(session);
+  await registry.load('/media/cover/a.png');
+  route = '/settings';
+  registry.invalidateRoute();
+  route = '/home';
+  registry.invalidateRoute();
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  await assert.rejects(registry.load('/media/cover/a.png'), /invalidated/);
+  assert.equal(checks, 1);
+  assert.equal(downloads, 1);
+});
+
+test('a failed route check never leaves an earlier route authorized', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let checks = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => {
+      checks += 1;
+      if (checks === 1) throw new Error('network unavailable');
+      return { authenticated: false };
+    },
+    fetchImpl: async () => new Response(new Blob(['image'])),
+    createObjectURL: () => 'blob:former-session',
+    revokeObjectURL: () => {},
+    onSessionRejected: () => {},
+  });
+  registry.setSessionScope(session);
+  await registry.load('/media/cover/a.png');
+  route = '/library';
+  registry.invalidateRoute();
+  await assert.rejects(registry.load('/media/cover/a.png'), /network unavailable/);
+  route = '/home';
+  registry.invalidateRoute();
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  await assert.rejects(registry.load('/media/cover/a.png'), /invalidated/);
+  assert.equal(checks, 2);
+});
+
+test('a media response from the prior route cannot authorize the new route', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let finish;
+  let checks = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => { checks += 1; return session; },
+    fetchImpl: () => new Promise((resolve) => { finish = resolve; }),
+    createObjectURL: () => 'blob:late-route',
+    revokeObjectURL: () => {},
+  });
+  registry.setSessionScope(session);
+  const pending = registry.load('/media/cover/a.png');
+  route = '/library';
+  registry.invalidateRoute();
+  finish(new Response(new Blob(['image'])));
+  await pending;
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  assert.equal((await registry.load('/media/cover/a.png')).fromCache, true);
+  assert.equal(checks, 1);
+});
+
+test('an old media response cannot reauthorize A after A to B to A navigation', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let finish;
+  let checks = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => { checks += 1; return { authenticated: false }; },
+    fetchImpl: () => new Promise((resolve) => { finish = resolve; }),
+    createObjectURL: () => 'blob:late-route',
+    revokeObjectURL: () => {},
+    onSessionRejected: () => {},
+  });
+  registry.setSessionScope(session);
+  const pending = registry.load('/media/cover/a.png');
+  route = '/settings'; registry.invalidateRoute();
+  route = '/home'; registry.invalidateRoute();
+  finish(new Response(new Blob(['image'])));
+  await pending;
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  await assert.rejects(registry.load('/media/cover/a.png'), /invalidated/);
+  assert.equal(checks, 1);
+});
+
+test('an old session check cannot reauthorize A after A to B to A navigation', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let completeOldCheck;
+  let checks = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: () => {
+      checks += 1;
+      if (checks === 1) return new Promise((resolve) => { completeOldCheck = resolve; });
+      return Promise.resolve({ authenticated: false });
+    },
+    fetchImpl: async () => new Response(new Blob(['image'])),
+    createObjectURL: () => 'blob:old-session',
+    revokeObjectURL: () => {},
+    onSessionRejected: () => {},
+  });
+  registry.setSessionScope(session);
+  await registry.load('/media/cover/a.png');
+  route = '/library'; registry.invalidateRoute();
+  const oldCheck = registry.load('/media/cover/a.png');
+  route = '/settings'; registry.invalidateRoute();
+  route = '/library'; registry.invalidateRoute();
+  completeOldCheck(session);
+  await assert.rejects(oldCheck, /route changed/);
+  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  await assert.rejects(registry.load('/media/cover/a.png'), /invalidated/);
+  assert.equal(checks, 2);
+});
+
+test('oversized private cover probe cancels its body and later displays use one direct request', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let requests = 0;
+  let cancelled = 0;
+  let read = 0;
+  let signal;
+  const registry = createImageLoadRegistry({
+    fetchImpl: async (_url, init) => {
+      requests += 1;
+      signal = init.signal;
+      return {
+        ok: true,
+        headers: new Headers({ 'Content-Length': String(PRIVATE_COVER_MAX_BYTES + 1) }),
+        body: { cancel: async () => { cancelled += 1; } },
+        blob: async () => { read += 1; return new Blob(['unexpected']); },
+      };
+    },
+  });
+  registry.setSessionScope(session);
+  const first = await registry.load('/media/cover/huge.png');
+  assert.equal(first.url, '/media/cover/huge.png');
+  assert.equal(signal.aborted, true);
+  assert.equal(cancelled, 1);
+  assert.equal(read, 0);
+  const again = await registry.load('/media/cover/huge.png');
+  assert.equal(again.url, first.url);
+  assert.equal(again.fromCache, true);
+  assert.equal(requests, 1);
+});
+
+test('oversized marker is route checked and cleared when the session changes', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let checks = 0;
+  let requests = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => { checks += 1; return session; },
+    fetchImpl: async () => {
+      requests += 1;
+      return {
+        ok: true,
+        headers: new Headers({ 'Content-Length': String(PRIVATE_COVER_MAX_BYTES + 1) }),
+        body: { cancel: async () => {} },
+      };
+    },
+  });
+  registry.setSessionScope(session);
+  await registry.load('/media/cover/huge.png');
+  route = '/library';
+  registry.invalidateRoute();
+  assert.equal(registry.getReadySource('/media/cover/huge.png'), null);
+  assert.equal((await registry.load('/media/cover/huge.png')).url, '/media/cover/huge.png');
+  assert.equal(checks, 1);
+  assert.equal(requests, 1);
+  registry.setSessionScope({ ...session, csrfToken: 'two' });
+  await registry.load('/media/cover/huge.png');
+  assert.equal(requests, 2);
+});
+
+test('a revoked session blocks an oversized direct URL after navigation', async () => {
+  const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+  let route = '/home';
+  let requests = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: async () => ({ authenticated: false }),
+    onSessionRejected: () => {},
+    fetchImpl: async () => {
+      requests += 1;
+      return {
+        ok: true,
+        headers: new Headers({ 'Content-Length': String(PRIVATE_COVER_MAX_BYTES + 1) }),
+        body: { cancel: async () => {} },
+      };
+    },
+  });
+  registry.setSessionScope(session);
+  await registry.load('/media/cover/huge.png');
+  route = '/library';
+  registry.invalidateRoute();
+  await assert.rejects(registry.load('/media/cover/huge.png'), /invalidated/);
+  assert.equal(requests, 1);
+  assert.equal(registry.shouldLoadPrivately('/media/cover/huge.png'), false);
 });

@@ -66,7 +66,7 @@ export function parsePathname(pathname = '') {
   }
 
   if (firstSegment === 'library' && rest.length === 1 && rest[0] === 'top-albums') {
-    return { type: 'top-albums' };
+    return { type: 'page', page: 'library' };
   }
 
   if (firstSegment === 'library' && rest.length === 1 && rest[0] === 'top-artists') {
@@ -164,7 +164,6 @@ export function formatPath(route) {
 
   if (route.type === 'album' && route.id) return `/album/${encodeURIComponent(route.id)}`;
   if (route.type === 'top-songs') return '/library/top-songs';
-  if (route.type === 'top-albums') return '/library/top-albums';
   if (route.type === 'top-artists') return '/library/top-artists';
   if (route.type === 'explore' && EXPLORE_LANGUAGES.has(route.language)) {
     const base = `/explore/${route.language}`;

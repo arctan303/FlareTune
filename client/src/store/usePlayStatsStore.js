@@ -5,30 +5,38 @@ import {
   submitAccountPlayStats,
 } from '../services/accountPlayStats.js';
 
-const SYNC_INTERVAL_MS = 600_000;
+const EVENT_MAX_DELAY_MS = 600_000;
+const STATS_REFRESH_INTERVAL_MS = 3_600_000;
+const EVENT_BATCH_THRESHOLD = 10;
 const PENDING_EVENT_PREFIX = 'music-play-stats-pending-v1:';
 const MAX_SYNC_BATCH_SIZE = 25;
 const TOP_SONG_LIMIT = 50;
 const INITIAL_BACKOFF_MS = 30_000;
 const MAX_BACKOFF_MS = 300_000;
-let scheduledSyncTimer = null;
+let scheduledFlushTimer = null;
+let scheduledRefreshTimer = null;
 let flushPromise = null;
 let flushSubject = null;
 let syncPromise = null;
 let syncSubject = null;
 let consecutiveFailures = 0;
 let nextAllowedSyncTime = 0;
-let nextCycleTime = 0;
 let nextRetryTime = 0;
+let consecutiveRefreshFailures = 0;
+let nextRefreshTime = 0;
+let acknowledgedUploadEpoch = 0;
 const volatilePending = new Map();
 
 export function resetSyncBackoff() {
   consecutiveFailures = 0;
   nextAllowedSyncTime = 0;
-  nextCycleTime = 0;
   nextRetryTime = 0;
-  if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
-  scheduledSyncTimer = null;
+  consecutiveRefreshFailures = 0;
+  nextRefreshTime = 0;
+  if (scheduledFlushTimer) clearTimeout(scheduledFlushTimer);
+  if (scheduledRefreshTimer) clearTimeout(scheduledRefreshTimer);
+  scheduledFlushTimer = null;
+  scheduledRefreshTimer = null;
 }
 
 function getLocalStorage() {
@@ -164,7 +172,6 @@ function emptyIdentityState(ownerSubject = null, identityReady = false) {
     legacyMigrationComplete: true,
     songMetaMap: {},
     topSongs: [],
-    topAlbums: [],
     totalPlays: 0,
     totalUniqueSongs: 0,
     isSyncing: false,
@@ -234,7 +241,6 @@ function rebuildFromRemote(data, state) {
     playCounts,
     songMetaMap,
     topSongs: buildTopSongs(playCounts, songMetaMap, data.songs || []),
-    topAlbums: Array.isArray(data.topAlbums) ? data.topAlbums : [],
     totalPlays: Number(data.totalPlays) || 0,
     totalUniqueSongs: Number(data.totalUniqueSongs) || 0,
     pendingQueue: [],
@@ -242,24 +248,45 @@ function rebuildFromRemote(data, state) {
   return applyPendingEvents(remoteState, state.pendingQueue, state.songMetaMap);
 }
 
-function scheduleNextSync() {
-  if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
-  scheduledSyncTimer = null;
+function scheduleNextFlush() {
+  if (scheduledFlushTimer) clearTimeout(scheduledFlushTimer);
+  scheduledFlushTimer = null;
+  const state = usePlayStatsStore.getState();
+  if (!state.identityReady || !state.ownerSubject || !pageIsVisible() || !state.pendingQueue.length) return;
+  const oldest = Number(state.pendingQueue[0].played_at) || Date.now();
+  const due = Math.max(
+    state.pendingQueue.length >= EVENT_BATCH_THRESHOLD ? Date.now() : oldest + EVENT_MAX_DELAY_MS,
+    nextAllowedSyncTime,
+    nextRetryTime,
+  );
+  scheduledFlushTimer = setTimeout(() => {
+    scheduledFlushTimer = null;
+    const store = usePlayStatsStore.getState();
+    if (store.identityReady && store.ownerSubject && pageIsVisible()) {
+      void store.flushQueue();
+    }
+  }, Math.max(0, due - Date.now()));
+  scheduledFlushTimer.unref?.();
+}
+
+function scheduleNextRefresh() {
+  if (scheduledRefreshTimer) clearTimeout(scheduledRefreshTimer);
+  scheduledRefreshTimer = null;
   const state = usePlayStatsStore.getState();
   if (!state.identityReady || !state.ownerSubject || !pageIsVisible()) return;
-  if (!nextCycleTime) nextCycleTime = Date.now() + SYNC_INTERVAL_MS;
-  const due = Math.max(
-    Math.min(nextCycleTime, nextRetryTime || Infinity),
-    nextAllowedSyncTime,
-  );
-  scheduledSyncTimer = setTimeout(() => {
-    scheduledSyncTimer = null;
+  scheduledRefreshTimer = setTimeout(() => {
+    scheduledRefreshTimer = null;
     const store = usePlayStatsStore.getState();
     if (store.identityReady && store.ownerSubject && pageIsVisible()) {
       void store.synchronizeAccountStats();
     }
-  }, Math.max(0, due - Date.now()));
-  scheduledSyncTimer.unref?.();
+  }, Math.max(0, nextRefreshTime - Date.now()));
+  scheduledRefreshTimer.unref?.();
+}
+
+function scheduleNextWork() {
+  scheduleNextFlush();
+  scheduleNextRefresh();
 }
 
 export const usePlayStatsStore = create(
@@ -302,8 +329,10 @@ export const usePlayStatsStore = create(
       },
 
       markIdentityUnconfirmed: () => {
-        if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
-        scheduledSyncTimer = null;
+        if (scheduledFlushTimer) clearTimeout(scheduledFlushTimer);
+        if (scheduledRefreshTimer) clearTimeout(scheduledRefreshTimer);
+        scheduledFlushTimer = null;
+        scheduledRefreshTimer = null;
         set({ identityReady: false, isSyncing: false });
       },
 
@@ -365,6 +394,7 @@ export const usePlayStatsStore = create(
             const next = applyPendingEvents(current, added, current.songMetaMap);
             return { ...next, pendingQueue: stored };
           });
+          scheduleNextFlush();
         }
         return stored;
       },
@@ -383,7 +413,8 @@ export const usePlayStatsStore = create(
           };
         } else {
           resetSyncBackoff();
-          nextCycleTime = nextSubject ? Date.now() + SYNC_INTERVAL_MS : 0;
+          // App starts the first read after confirming the account; this timer handles later reads.
+          nextRefreshTime = nextSubject ? Date.now() + STATS_REFRESH_INTERVAL_MS : 0;
           const restored = nextSubject ? readPendingEvents(nextSubject) : [];
           const legacyPendingBySubject = state.legacyMigrationComplete
             ? {}
@@ -407,7 +438,7 @@ export const usePlayStatsStore = create(
 
         set(nextState);
         if (nextSubject) get().reconcilePending();
-        scheduleNextSync();
+        scheduleNextWork();
         return {
           changed: state.ownerSubject !== nextSubject,
         };
@@ -453,10 +484,15 @@ export const usePlayStatsStore = create(
         });
 
         if (!durable) void get().flushQueue({ force: true });
+        else scheduleNextFlush();
 
       },
 
       flushQueue: ({ keepalive = false, force = false } = {}) => {
+        // A failed local write must attempt its emergency upload immediately.
+        if (syncPromise && !force && !keepalive) {
+          return syncPromise.then(() => get().flushQueue({ keepalive, force }));
+        }
         if (flushPromise) {
           if (flushSubject === get().ownerSubject) return flushPromise;
           return flushPromise.then(() => get().flushQueue({ keepalive, force }));
@@ -474,8 +510,8 @@ export const usePlayStatsStore = create(
         }
 
         flushSubject = get().ownerSubject;
-        if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
-        scheduledSyncTimer = null;
+        if (scheduledFlushTimer) clearTimeout(scheduledFlushTimer);
+        scheduledFlushTimer = null;
         flushPromise = (async () => {
           get().reconcilePending();
           const initial = get();
@@ -510,6 +546,7 @@ export const usePlayStatsStore = create(
               }
 
               removePendingEvents(syncSubject, acceptedIds);
+              acknowledgedUploadEpoch += 1;
 
               set((state) => {
                 const legacyPendingBySubject = { ...state.pendingBySubject };
@@ -555,7 +592,7 @@ export const usePlayStatsStore = create(
             if (current.ownerSubject === syncSubject) {
               set({ isSyncing: false });
             }
-            scheduleNextSync();
+            scheduleNextFlush();
           }
         })();
 
@@ -567,84 +604,82 @@ export const usePlayStatsStore = create(
         return flushPromise;
       },
 
-      refreshRemoteStats: async (limit = 20) => {
-        const initial = get();
-        const syncSubject = initial.ownerSubject;
-        if (!initial.identityReady) return { ok: false, reason: 'identity-unconfirmed' };
-        if (!syncSubject) return { ok: false, reason: 'unauthenticated' };
-        if (!pageIsVisible()) return { ok: false, reason: 'page-hidden' };
-
-        try {
-          const data = await fetchAccountPlayStats({ limit, expectedSubject: syncSubject });
-          if (!data) throw new Error('播放统计服务未返回数据。');
-          if (!get().identityReady || get().ownerSubject !== syncSubject) {
-            return { ok: false, reason: 'identity-changed' };
-          }
-
-          set((state) => {
-            if (state.ownerSubject !== syncSubject) return {};
-            return rebuildFromRemote(data, {
-              ...state,
-              pendingQueue: readPendingEvents(syncSubject),
-            });
-          });
-          return { ok: true, data };
-        } catch (error) {
-          console.warn('拉取云端播放统计失败:', error);
-          return { ok: false, error };
-        }
-      },
-
-      synchronizeAccountStats: (limit = 50, { force = false } = {}) => {
+      refreshRemoteStats: (limit = 20) => {
         if (syncPromise) {
           if (syncSubject === get().ownerSubject) return syncPromise;
-          return syncPromise.then(() => get().synchronizeAccountStats(limit, { force }));
+          return syncPromise.then(() => get().refreshRemoteStats(limit));
         }
-        const cycleSubject = get().ownerSubject;
-        syncSubject = cycleSubject;
-        syncPromise = (async () => {
-          let flushResult = await get().flushQueue({ force });
-          if (!flushResult.ok && flushResult.reason === 'identity-changed' && get().ownerSubject) {
-            flushResult = await get().flushQueue({ force });
+        const initial = get();
+        const subject = initial.ownerSubject;
+        syncSubject = subject;
+        const currentPromise = (async () => {
+          if (!initial.identityReady) return { ok: false, reason: 'identity-unconfirmed' };
+          if (!subject) return { ok: false, reason: 'unauthenticated' };
+          if (!pageIsVisible()) return { ok: false, reason: 'page-hidden' };
+          if (flushPromise) await flushPromise;
+          if (!get().identityReady || get().ownerSubject !== subject) {
+            return { ok: false, reason: 'identity-changed' };
           }
-          if (!flushResult.ok) return { ok: false, stage: 'submit', ...flushResult };
-          const refreshResult = await get().refreshRemoteStats(limit);
-          if (!refreshResult.ok) return { ok: false, stage: 'refresh', flushResult, ...refreshResult };
-          return { ok: true, flushResult, refreshResult };
-        })();
-        const currentPromise = syncPromise;
-        currentPromise.then((result) => {
-          if (get().ownerSubject === cycleSubject) {
-            if (result.ok) {
-              consecutiveFailures = 0;
-              nextAllowedSyncTime = 0;
-              nextCycleTime = Date.now() + SYNC_INTERVAL_MS;
-              nextRetryTime = 0;
-            } else if (result.reason === 'page-hidden') {
-              nextRetryTime = Date.now();
-            } else if (result.stage === 'submit' && result.retryAfterMs) {
-              nextRetryTime = Math.max(Date.now(), nextAllowedSyncTime);
-            } else {
-              consecutiveFailures += 1;
-              nextRetryTime = Date.now() + Math.min(
-                INITIAL_BACKOFF_MS * 2 ** (consecutiveFailures - 1),
+          try {
+            const fetchEpoch = acknowledgedUploadEpoch;
+            let data = await fetchAccountPlayStats({ limit, expectedSubject: subject });
+            if (fetchEpoch !== acknowledgedUploadEpoch) {
+              // An emergency or keepalive upload may finish during the GET. Its older
+              // response must not replace the immediately updated local count.
+              if (flushPromise) await flushPromise;
+              const retryEpoch = acknowledgedUploadEpoch;
+              data = await fetchAccountPlayStats({ limit, expectedSubject: subject });
+              if (retryEpoch !== acknowledgedUploadEpoch) {
+                nextRefreshTime = Date.now() + INITIAL_BACKOFF_MS;
+                scheduleNextRefresh();
+                return { ok: false, reason: 'upload-raced' };
+              }
+            }
+            if (!data) throw new Error('播放统计服务未返回数据。');
+            if (!get().identityReady || get().ownerSubject !== subject) {
+              return { ok: false, reason: 'identity-changed' };
+            }
+
+            set((state) => {
+              if (state.ownerSubject !== subject) return {};
+              return rebuildFromRemote(data, {
+                ...state,
+                pendingQueue: readPendingEvents(subject),
+              });
+            });
+            consecutiveRefreshFailures = 0;
+            nextRefreshTime = Date.now() + STATS_REFRESH_INTERVAL_MS;
+            scheduleNextRefresh();
+            return { ok: true, data };
+          } catch (error) {
+            if (get().ownerSubject === subject) {
+              consecutiveRefreshFailures += 1;
+              nextRefreshTime = Date.now() + Math.min(
+                INITIAL_BACKOFF_MS * 2 ** (consecutiveRefreshFailures - 1),
                 MAX_BACKOFF_MS,
               );
+              scheduleNextRefresh();
             }
-            scheduleNextSync();
+            console.warn('拉取云端播放统计失败:', error);
+            return { ok: false, error };
           }
-          syncPromise = null;
-          syncSubject = null;
+        })();
+        syncPromise = currentPromise;
+        currentPromise.then(() => {
+          if (syncPromise === currentPromise) {
+            syncPromise = null;
+            syncSubject = null;
+          }
         }, () => {
-          if (get().ownerSubject === cycleSubject) {
-            nextRetryTime = Date.now() + INITIAL_BACKOFF_MS;
-            scheduleNextSync();
+          if (syncPromise === currentPromise) {
+            syncPromise = null;
+            syncSubject = null;
           }
-          syncPromise = null;
-          syncSubject = null;
         });
         return currentPromise;
       },
+
+      synchronizeAccountStats: (limit = 50) => get().refreshRemoteStats(limit),
     }),
     {
       name: 'music-play-stats-v2',
@@ -688,16 +723,18 @@ if (
   && typeof window.addEventListener === 'function'
 ) {
   const pauseSyncTimer = () => {
-    if (scheduledSyncTimer) clearTimeout(scheduledSyncTimer);
-    scheduledSyncTimer = null;
+    if (scheduledFlushTimer) clearTimeout(scheduledFlushTimer);
+    if (scheduledRefreshTimer) clearTimeout(scheduledRefreshTimer);
+    scheduledFlushTimer = null;
+    scheduledRefreshTimer = null;
   };
 
   window.addEventListener('pagehide', pauseSyncTimer);
-  window.addEventListener('pageshow', () => scheduleNextSync());
+  window.addEventListener('pageshow', () => scheduleNextWork());
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') pauseSyncTimer();
-      else scheduleNextSync();
+      else scheduleNextWork();
     });
   }
   window.addEventListener('storage', (event) => {
@@ -705,5 +742,5 @@ if (
       usePlayStatsStore.getState().reconcilePending();
     }
   });
-  window.addEventListener('online', () => scheduleNextSync());
+  window.addEventListener('online', () => scheduleNextWork());
 }

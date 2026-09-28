@@ -6,6 +6,7 @@ import {
   verifySetupSecret, verifyMaintenanceSecret, runMaintenanceUpgrade,
 } from './api.js';
 import { AUTH_SESSION_CHECK_FAILED_EVENT, AUTH_SESSION_INVALIDATED_EVENT, AUTH_SESSION_UPDATED_EVENT } from '../authNavigation.js';
+import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 import TuneWordmark from '../components/TuneWordmark.jsx';
 import { useInstanceTheme } from './theme.js';
 import './instance.css';
@@ -308,13 +309,17 @@ export default function InstanceGate({ App }) {
   const [busy, setBusy] = useState(true);
   const [readyShellSession, setReadyShellSession] = useState(null);
   const refresh = useCallback(async () => {
+    imageLoadRegistry.setSessionScope(null);
     setBusy(true);
     try {
       const nextStatus = await getInstanceStatus();
+      const nextSession = nextStatus.state === 'ready' ? await getSession() : null;
+      imageLoadRegistry.setSessionScope(nextSession);
       setStatus(nextStatus);
-      setSession(nextStatus.state === 'ready' ? await getSession() : null);
+      setSession(nextSession);
       setMode(null);
     } catch {
+      imageLoadRegistry.setSessionScope(null);
       setStatus({ state: 'unavailable' });
       setSession(null);
       setMode(null);
@@ -324,7 +329,21 @@ export default function InstanceGate({ App }) {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
+    let active = true;
+    let unsubscribe = null;
+    void import('../store/useUIStore.js').then(({ useUIStore }) => {
+      if (!active) return;
+      unsubscribe = useUIStore.subscribe((next, previous) => {
+        if (next.authSession !== previous.authSession) {
+          imageLoadRegistry.setSessionScope(next.authSession);
+        }
+      });
+    });
+    return () => { active = false; unsubscribe?.(); };
+  }, []);
+  useEffect(() => {
     const invalidate = () => {
+      imageLoadRegistry.setSessionScope(null);
       setSession(normalizeSession(null));
       setMode(null);
       void import('../store/useUIStore.js').then(({ useUIStore }) => {
@@ -336,6 +355,7 @@ export default function InstanceGate({ App }) {
   }, []);
   useEffect(() => {
     const unavailable = () => {
+      imageLoadRegistry.setSessionScope(null);
       setStatus({ state: 'unavailable' });
       setSession(null);
       setMode(null);
@@ -349,6 +369,7 @@ export default function InstanceGate({ App }) {
   useEffect(() => {
     const updated = (event) => {
       const next = normalizeSession(event.detail);
+      imageLoadRegistry.setSessionScope(next);
       setSession(next);
       setMode(null);
       if (!next.authenticated || next.mustChangePassword) {
@@ -377,10 +398,12 @@ export default function InstanceGate({ App }) {
   const handleLogin = async () => {
     const nextSession = await getSession();
     if (!nextSession.authenticated) throw new Error('login_session_missing');
+    imageLoadRegistry.setSessionScope(nextSession);
     setSession(nextSession);
     setMode(null);
   };
   const handleLogout = async () => {
+    imageLoadRegistry.setSessionScope(null);
     try {
       await logout(session?.csrfToken);
       window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
@@ -396,7 +419,7 @@ export default function InstanceGate({ App }) {
   if (current === 'maintenance') return <MaintenancePage onRefresh={refresh} />;
   if (current === 'instance_error') return <Page title="实例需要维护" description="当前实例暂时无法打开，请联系部署者检查实例状态。"><button className="instance-primary" type="button" onClick={refresh}>重新检查</button></Page>;
   if (current === 'login') return <LoginPage onSuccess={handleLogin} />;
-  if (current === 'change_password') return <ChangePasswordPage csrfToken={session?.csrfToken} onComplete={() => { setSession(normalizeSession(null)); setMode('password_changed'); }} onLogout={handleLogout} />;
+  if (current === 'change_password') return <ChangePasswordPage csrfToken={session?.csrfToken} onComplete={() => { imageLoadRegistry.setSessionScope(null); setSession(normalizeSession(null)); setMode('password_changed'); }} onLogout={handleLogout} />;
   if (current === 'password_changed') return <Page title="密码已更新" description="临时会话已失效。请使用新密码重新登录。"><button className="instance-primary" type="button" onClick={() => setMode(null)}>前往登录</button></Page>;
   if (current === 'app') {
     if (readyShellSession !== session) return <Page title="正在打开 Tune" description="正在准备你的音乐空间。" />;

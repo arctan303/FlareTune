@@ -1,8 +1,17 @@
 import React from 'react';
 import { resolveCoverUrl } from '../utils.js';
+import { usePrivateMediaSource } from './usePrivateMediaSource.js';
+import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 
 const DEFAULT_TITLE = 'FlareTune';
 const DEFAULT_FAVICON = '/favicon.svg';
+
+export function selectPlaybackFavicon(coverUrl, resolvedCoverUrl, isPlaying, registry = imageLoadRegistry) {
+  if (!isPlaying || !coverUrl) return DEFAULT_FAVICON;
+  if (!registry.isPrivateMediaUrl(coverUrl)) return coverUrl;
+  return resolvedCoverUrl?.startsWith('blob:') && registry.getReadySource(coverUrl) === resolvedCoverUrl
+    ? resolvedCoverUrl : DEFAULT_FAVICON;
+}
 
 function updateFavicon(iconUrl) {
   const iconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
@@ -33,9 +42,10 @@ function updateFavicon(iconUrl) {
 
 export function usePlaybackPresentation(currentSong, isPlaying) {
   const lastFaviconRef = React.useRef(DEFAULT_FAVICON);
+  const coverUrl = resolveCoverUrl(currentSong?.cover_url || '');
+  const resolvedCoverUrl = usePrivateMediaSource(coverUrl);
 
   React.useEffect(() => {
-    const coverUrl = resolveCoverUrl(currentSong?.cover_url || '');
     const nextTitle = currentSong && isPlaying
       ? `${currentSong.title} - ${currentSong.artist}`
       : DEFAULT_TITLE;
@@ -43,12 +53,12 @@ export function usePlaybackPresentation(currentSong, isPlaying) {
       document.title = nextTitle;
     }
 
-    const nextFavicon = currentSong && isPlaying ? coverUrl : DEFAULT_FAVICON;
+    const nextFavicon = selectPlaybackFavicon(coverUrl, resolvedCoverUrl, Boolean(currentSong && isPlaying));
     if (lastFaviconRef.current !== nextFavicon) {
       lastFaviconRef.current = nextFavicon;
       updateFavicon(nextFavicon);
     }
-  }, [currentSong, isPlaying]);
+  }, [currentSong, isPlaying, coverUrl, resolvedCoverUrl]);
 
   React.useEffect(() => {
     return () => {

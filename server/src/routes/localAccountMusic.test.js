@@ -338,7 +338,127 @@ test('play event receipts and trigger-backed summaries are idempotent per accoun
   assert.equal(invalid.response.status, 400);
 });
 
-test('frequent albums aggregate every song for the current account, beyond the top-song limit', async () => {
+test('quota taken between preflight and batch cannot acknowledge an unrecorded event', async () => {
+  const db = createDb();
+  const now = Date.now();
+  db.database.prepare(`WITH RECURSIVE sequence(value) AS (
+    SELECT 1 UNION ALL SELECT value + 1 FROM sequence WHERE value < ?
+  ) INSERT INTO Member_Play_Events(account_id, event_id, song_id, played_at, received_at)
+    SELECT 'account-a', 'seed-' || value, 'song-1', ?, ? FROM sequence`).run(9_998, now, now);
+  db.beforeBatch = () => {
+    db.beforeBatch = null;
+    db.database.prepare(`INSERT INTO Member_Play_Events
+      (account_id, event_id, song_id, played_at, received_at) VALUES (?, ?, ?, ?, ?)`)
+      .run('account-a', 'competing-event', 'song-1', now, now);
+  };
+  const result = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [
+    { event_id: 'new-1', song_id: 'song-1', played_at: now },
+    { event_id: 'new-2', song_id: 'song-2', played_at: now },
+  ] } });
+  assert.equal(result.response.status, 429, 'the client must retain the batch for retry');
+  assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+    WHERE account_id = 'account-a' AND event_id IN ('new-1', 'new-2')`).get().count, 0,
+  'a failed batch must not consume the last quota slot');
+});
+
+test('a concurrent duplicate can conservatively reject a batch without false acknowledgment', async () => {
+  const db = createDb();
+  const now = Date.now();
+  db.database.prepare(`WITH RECURSIVE sequence(value) AS (
+    SELECT 1 UNION ALL SELECT value + 1 FROM sequence WHERE value < ?
+  ) INSERT INTO Member_Play_Events(account_id, event_id, song_id, played_at, received_at)
+    SELECT 'account-a', 'seed-' || value, 'song-1', ?, ? FROM sequence`).run(9_998, now, now);
+  db.beforeBatch = () => {
+    db.beforeBatch = null;
+    db.database.prepare(`INSERT INTO Member_Play_Events
+      (account_id, event_id, song_id, played_at, received_at) VALUES (?, ?, ?, ?, ?)`)
+      .run('account-a', 'new-1', 'song-1', now, now);
+  };
+  const result = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [
+    { event_id: 'new-1', song_id: 'song-1', played_at: now },
+    { event_id: 'new-2', song_id: 'song-2', played_at: now },
+  ] } });
+  assert.equal(result.response.status, 429);
+  assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+    WHERE account_id = 'account-a' AND event_id = 'new-2'`).get().count, 0);
+  assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+    WHERE account_id = 'account-a' AND event_id = 'new-1'`).get().count, 1);
+});
+
+test('a song deleted after preflight is acknowledged as a no-op', async () => {
+  const db = createDb();
+  const now = Date.now();
+  db.beforeBatch = () => {
+    db.beforeBatch = null;
+    db.database.prepare('DELETE FROM Songs WHERE id = ?').run('song-2');
+  };
+  const result = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [
+    { event_id: 'deleted-song', song_id: 'song-2', played_at: now },
+  ] } });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.recorded, 0);
+  assert.deepEqual(result.body.data.acceptedEventIds, ['deleted-song']);
+  assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+    WHERE account_id = 'account-a'`).get().count, 0);
+});
+
+test('the last quota slot accepts one new event and then rejects another', async () => {
+  const db = createDb();
+  const now = Date.now();
+  db.database.prepare(`WITH RECURSIVE sequence(value) AS (
+    SELECT 1 UNION ALL SELECT value + 1 FROM sequence WHERE value < ?
+  ) INSERT INTO Member_Play_Events(account_id, event_id, song_id, played_at, received_at)
+    SELECT 'account-a', 'seed-' || value, 'song-1', ?, ? FROM sequence`).run(9_999, now, now);
+  const last = { event_id: 'last-slot', song_id: 'song-2', played_at: now };
+  const accepted = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [last] } });
+  assert.equal(accepted.response.status, 200);
+  assert.equal(accepted.body.data.recorded, 1);
+  assert.deepEqual(accepted.body.data.acceptedEventIds, ['last-slot']);
+  const duplicate = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [last] } });
+  assert.equal(duplicate.response.status, 200);
+  assert.equal(duplicate.body.data.recorded, 0);
+  const rejected = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [
+    { event_id: 'overflow', song_id: 'song-2', played_at: now },
+  ] } });
+  assert.equal(rejected.response.status, 429);
+  assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+    WHERE account_id = 'account-a'`).get().count, 10_000);
+});
+
+test('batch acknowledges existing receipts and absent songs without adding extra plays', async () => {
+  const db = createDb();
+  const at = Date.now();
+  const existing = { event_id: 'existing', song_id: 'song-1', played_at: at };
+  await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [existing] } });
+  const events = [existing,
+    { event_id: 'new-1', song_id: 'song-1', played_at: at },
+    { event_id: 'new-2', song_id: 'song-2', played_at: at },
+    { event_id: 'missing-song', song_id: 'removed-song', played_at: at }];
+  const first = await call(db, '/api/account/play-stats', { method: 'POST', body: { events } });
+  assert.equal(first.response.status, 200);
+  assert.equal(first.body.data.recorded, 2);
+  assert.deepEqual(first.body.data.acceptedEventIds, events.map((event) => event.event_id));
+  const repeated = await call(db, '/api/account/play-stats', { method: 'POST', body: { events } });
+  assert.equal(repeated.body.data.recorded, 0);
+  assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+    WHERE account_id = 'account-a'`).get().count, 3);
+  assert.equal(db.database.prepare(`SELECT play_count FROM Member_Song_Plays
+    WHERE account_id = 'account-a' AND song_id = 'song-1'`).get().play_count, 2);
+});
+
+test('an unrelated batch write failure remains a storage error and leaves no plays', async () => {
+  const db = createDb();
+  db.failSql = /^INSERT INTO Member_Play_Events/;
+  const event = { event_id: 'failed-write', song_id: 'song-1', played_at: Date.now() };
+  const failed = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [event] } });
+  assert.equal(failed.response.status, 503);
+  assert.equal(db.database.prepare('SELECT COUNT(*) AS count FROM Member_Play_Events').get().count, 0);
+  db.failSql = null;
+  const retried = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [event] } });
+  assert.equal(retried.body.data.recorded, 1);
+});
+
+test('play statistics retain song counts and return no retired frequent albums', async () => {
   const db = createDb();
   db.database.exec(`UPDATE Songs SET artist = 'Singer', album = 'Record', audio_url = '/media/song-1'
     WHERE id = 'song-1';
@@ -356,25 +476,17 @@ test('frequent albums aggregate every song for the current account, beyond the t
   assert.deepEqual(b.playCounts, { 'song-2': 9 }, 'counts stay account-scoped');
   assert.equal(a.totalPlays, 5);
   assert.equal(a.totalUniqueSongs, 2);
-  assert.deepEqual(a.topAlbums.map((album) => [album.title, album.playCount, album.listenedTrackCount]),
-    [['Record', 5, 2]]);
-  assert.equal(a.topAlbums[0].lastPlayedAt, 200);
-  assert.equal(b.topAlbums[0].playCount, 9);
-  assert.equal(b.topAlbums[0].listenedTrackCount, 1);
-  assert.equal(a.topAlbums[0].id, b.topAlbums[0].id);
+  assert.deepEqual(a.topAlbums, []);
+  assert.deepEqual(b.topAlbums, []);
 });
 
-test('frequent album cover comes from the earliest playable catalog track, including unplayed tracks', async () => {
+test('statistics GET never runs retired album aggregation SQL', async () => {
   const db = createDb();
-  db.database.exec(`UPDATE Songs SET artist = ' Singer ', album = ' Record ', audio_url = '/media/played',
-    cover_url = '/cover-played', created_at = 20 WHERE id = 'song-1';
-    INSERT INTO Songs(id,title,artist,album,audio_url,cover_url,created_at) VALUES
-      ('song-3','Unplayed','Singer','Record','/media/unplayed','/cover-earliest',10),
-      ('song-4','Missing audio','Singer','Record',NULL,'/cover-not-playable',1);
-    INSERT INTO Member_Song_Plays(account_id,song_id,play_count,last_played_at)
-      VALUES ('account-a','song-1',2,100);`);
-  const albums = (await call(db, '/api/account/play-stats')).body.data.topAlbums;
-  assert.equal(albums.length, 1);
-  assert.equal(albums[0].coverUrl, '/cover-earliest');
-  assert.equal(albums[0].playCount, 2);
+  const queries = [];
+  const prepare = db.prepare.bind(db);
+  db.prepare = (sql) => { queries.push(sql); return prepare(sql); };
+  const stats = await call(db, '/api/account/play-stats');
+  assert.equal(stats.response.status, 200);
+  assert.deepEqual(stats.body.data.topAlbums, []);
+  assert.equal(queries.length, 2, 'only top songs and per-song counts are queried');
 });

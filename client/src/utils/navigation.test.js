@@ -86,10 +86,10 @@ test('music browser routes round-trip through direct URLs', () => {
     { type: 'explore', language: 'ja', view: 'songs' },
     { type: 'explore', language: 'en', view: 'artists' },
     { type: 'top-songs' },
-    { type: 'top-albums' },
     { type: 'top-artists' },
   ];
   for (const route of routes) assert.deepEqual(parsePathname(formatPath(route)), route);
+  assert.deepEqual(parsePathname('/library/top-albums'), { type: 'page', page: 'library' });
   assert.deepEqual(parseAppLocation({ pathname: '/search', search: '?q=caixukun&type=albums&lang=zh' }),
     { type: 'page', page: 'search', query: 'caixukun', view: 'albums', language: 'zh' });
   assert.equal(formatPath({ type: 'page', page: 'search', query: '周杰伦', view: 'songs', language: 'zh' }),

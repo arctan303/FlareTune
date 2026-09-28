@@ -42,7 +42,6 @@ function resetStats(overrides = {}) {
     legacyMigrationComplete: true,
     songMetaMap: {},
     topSongs: [],
-    topAlbums: [],
     totalPlays: 0,
     totalUniqueSongs: 0,
     isSyncing: false,
@@ -104,7 +103,6 @@ test('usePlayStatsStore: plays without a confirmed owner are discarded and accou
   assert.deepEqual(accountB.pendingQueue, []);
   assert.deepEqual(accountB.playCounts, {});
   assert.deepEqual(accountB.topSongs, []);
-  assert.deepEqual(accountB.topAlbums, []);
   assert.equal(accountB.totalPlays, 0);
 
   usePlayStatsStore.getState().setSubject(null);
@@ -112,7 +110,7 @@ test('usePlayStatsStore: plays without a confirmed owner are discarded and accou
   assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
 });
 
-test('usePlayStatsStore: visible page submits then refreshes once at ten minutes', async () => {
+test('usePlayStatsStore: first play uploads by ten minutes while stats wait one hour', async () => {
   resetStats();
   mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
   const requests = [];
@@ -120,8 +118,7 @@ test('usePlayStatsStore: visible page submits then refreshes once at ten minutes
     requests.push(init.method);
     if (init.method === 'GET') {
       return new Response(JSON.stringify({ ok: true, data: {
-        songs: [{ id: 'song-1', title: 'Song One', play_count: 1 }],
-        totalPlays: 1, totalUniqueSongs: 1,
+        songs: [], playCounts: {}, totalPlays: 0, totalUniqueSongs: 0,
       } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     const { events } = JSON.parse(init.body);
@@ -133,34 +130,55 @@ test('usePlayStatsStore: visible page submits then refreshes once at ten minutes
   try {
     const store = usePlayStatsStore.getState();
     store.setSubject('account-a');
+    assert.equal((await store.synchronizeAccountStats()).ok, true);
+    assert.deepEqual(requests, ['GET']);
     store.recordQualifiedPlay('song-1');
     assert.equal(usePlayStatsStore.getState().getPlayCount('song-1'), 1);
     mock.timers.tick(590_000);
     store.recordQualifiedPlay('song-2');
     assert.equal(usePlayStatsStore.getState().getPlayCount('song-2'), 1);
     mock.timers.tick(9999);
-    assert.deepEqual(requests, []);
+    assert.deepEqual(requests, ['GET']);
     mock.timers.tick(1);
     await new Promise(setImmediate);
-    assert.deepEqual(requests, ['POST', 'GET']);
+    assert.deepEqual(requests, ['GET', 'POST']);
     assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+    mock.timers.tick(3_000_000);
+    await new Promise(setImmediate);
+    assert.deepEqual(requests, ['GET', 'POST', 'GET']);
   } finally {
     resetSyncBackoff();
     mock.timers.reset();
   }
 });
 
-test('usePlayStatsStore: three plays never trigger an early POST', async () => {
+test('usePlayStatsStore: ten plays upload as one batch without refreshing stats', async () => {
   resetStats();
   mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
-  let requests = 0;
-  globalThis.fetch = async () => { requests += 1; throw new Error('unexpected request'); };
+  const requests = [];
+  globalThis.fetch = async (_url, init) => {
+    requests.push(init.method);
+    if (init.method === 'GET') return new Response(JSON.stringify({ ok: true, data: {
+      songs: [], playCounts: {}, totalPlays: 0, totalUniqueSongs: 0,
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const { events } = JSON.parse(init.body);
+    assert.equal(events.length, 10);
+    return new Response(JSON.stringify({ ok: true, data: {
+      recorded: events.length, acceptedEventIds: events.map((event) => event.event_id),
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
   try {
-    usePlayStatsStore.getState().setSubject('account-a');
-    for (let i = 0; i < 3; i += 1) usePlayStatsStore.getState().recordQualifiedPlay(`song-${i}`);
+    const store = usePlayStatsStore.getState();
+    store.setSubject('account-a');
+    await store.synchronizeAccountStats();
+    for (let i = 0; i < 9; i += 1) store.recordQualifiedPlay(`song-${i}`);
     mock.timers.tick(9000);
-    assert.equal(requests, 0);
-    assert.equal(usePlayStatsStore.getState().pendingQueue.length, 3);
+    assert.deepEqual(requests, ['GET']);
+    store.recordQualifiedPlay('song-9');
+    mock.timers.tick(0);
+    await new Promise(setImmediate);
+    assert.deepEqual(requests, ['GET', 'POST']);
+    assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
   } finally {
     resetSyncBackoff();
     mock.timers.reset();
@@ -320,6 +338,85 @@ test('usePlayStatsStore: another tab acknowledgement is rebased without double c
   assert.equal(usePlayStatsStore.getState().totalPlays, 1);
 });
 
+test('usePlayStatsStore: a stats refresh waits for an in-flight upload before replacing counts', async () => {
+  resetStats({ ownerSubject: 'account-a', identityReady: true });
+  const store = usePlayStatsStore.getState();
+  store.recordQualifiedPlay('song-a');
+  const eventId = usePlayStatsStore.getState().pendingQueue[0].event_id;
+  const methods = [];
+  let acknowledgeUpload;
+  globalThis.fetch = async (_url, init) => {
+    methods.push(init.method);
+    if (init.method === 'POST') return new Promise((resolve) => {
+      acknowledgeUpload = () => resolve(new Response(JSON.stringify({ ok: true, data: {
+        recorded: 1, acceptedEventIds: [eventId],
+      } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    return new Response(JSON.stringify({ ok: true, data: {
+      songs: [{ id: 'song-a', play_count: 1 }], playCounts: { 'song-a': 1 },
+      totalPlays: 1, totalUniqueSongs: 1,
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  const uploading = store.flushQueue();
+  while (!acknowledgeUpload) await Promise.resolve();
+  const refreshing = store.refreshRemoteStats();
+  await Promise.resolve();
+  assert.deepEqual(methods, ['POST']);
+  acknowledgeUpload();
+  assert.equal((await uploading).ok, true);
+  assert.equal((await refreshing).ok, true);
+  assert.deepEqual(methods, ['POST', 'GET']);
+  assert.equal(usePlayStatsStore.getState().getPlayCount('song-a'), 1);
+  assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+  resetSyncBackoff();
+});
+
+test('usePlayStatsStore: forced and keepalive uploads cannot make a concurrent stale GET roll back local plays', async () => {
+  mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
+  try {
+    for (const uploadOptions of [{ force: true }, { keepalive: true }]) {
+      resetStats({ ownerSubject: 'account-a', identityReady: true });
+      const store = usePlayStatsStore.getState();
+      const methods = [];
+      let releaseStaleGet;
+      let getCount = 0;
+      globalThis.fetch = async (_url, init) => {
+        methods.push(init.method);
+        if (init.method === 'GET') {
+          getCount += 1;
+          if (getCount === 1) return new Promise((resolve) => {
+            releaseStaleGet = () => resolve(new Response(JSON.stringify({ ok: true, data: {
+              songs: [], playCounts: {}, totalPlays: 0, totalUniqueSongs: 0,
+            } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          });
+          return new Response(JSON.stringify({ ok: true, data: {
+            songs: [{ id: 'song-a', play_count: 1 }], playCounts: { 'song-a': 1 },
+            totalPlays: 1, totalUniqueSongs: 1,
+          } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        const { events } = JSON.parse(init.body);
+        return new Response(JSON.stringify({ ok: true, data: {
+          recorded: 1, acceptedEventIds: events.map((event) => event.event_id),
+        } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      };
+      const refreshing = store.refreshRemoteStats();
+      while (!releaseStaleGet) await Promise.resolve();
+      store.recordQualifiedPlay('song-a');
+      assert.equal((await store.flushQueue(uploadOptions)).ok, true);
+      assert.equal(usePlayStatsStore.getState().getPlayCount('song-a'), 1);
+      releaseStaleGet();
+      assert.equal((await refreshing).ok, true);
+      assert.deepEqual(methods, ['GET', 'POST', 'GET']);
+      assert.equal(usePlayStatsStore.getState().getPlayCount('song-a'), 1);
+      assert.equal(usePlayStatsStore.getState().totalPlays, 1);
+      assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
+    }
+  } finally {
+    resetSyncBackoff();
+    mock.timers.reset();
+  }
+});
+
 test('usePlayStatsStore: legacy v2 queues migrate idempotently to account/event keys', async () => {
   resetStats();
   const eventA = { event_id: 'play_old_a', song_id: 'song-a', played_at: 1000 };
@@ -414,7 +511,7 @@ test('usePlayStatsStore: failed per-event storage writes trigger immediate best-
   }
 });
 
-test('usePlayStatsStore: hidden page keeps pending locally and runs the due cycle on return', async () => {
+test('usePlayStatsStore: hidden page pauses due upload until visible', async () => {
   resetStats();
   mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date(1_000_000) });
   const requests = [];
@@ -446,7 +543,7 @@ test('usePlayStatsStore: hidden page keeps pending locally and runs the due cycl
     document.dispatch('visibilitychange');
     mock.timers.tick(0);
     await new Promise(setImmediate);
-    assert.deepEqual(requests, ['POST', 'GET']);
+    assert.deepEqual(requests, ['POST']);
   } finally {
     resetSyncBackoff();
     mock.timers.reset();
@@ -558,10 +655,10 @@ test('usePlayStatsStore: remote refresh is subject-bound and returns an honest r
   assert.equal(usePlayStatsStore.getState().getPlayCount('remote-song'), 7);
   assert.equal(usePlayStatsStore.getState().totalPlays, 7);
   assert.equal(usePlayStatsStore.getState().topSongs[0].id, 'remote-song');
-  assert.deepEqual(usePlayStatsStore.getState().topAlbums.map((album) => album.id), ['album-a']);
+  assert.equal(Object.hasOwn(usePlayStatsStore.getState(), 'topAlbums'), false);
 
   usePlayStatsStore.getState().setSubject(null);
-  assert.deepEqual(usePlayStatsStore.getState().topAlbums, []);
+  assert.equal(Object.hasOwn(usePlayStatsStore.getState(), 'topAlbums'), false);
   assert.deepEqual(await usePlayStatsStore.getState().refreshRemoteStats(), {
     ok: false,
     reason: 'unauthenticated',
@@ -680,20 +777,16 @@ test('useUIStore: failed session verification clears identity-bound stats immedi
   assert.deepEqual(usePlayStatsStore.getState().pendingQueue, []);
 });
 
-test('usePlayStatsStore: authoritative refresh removes server-rejected songs but preserves events added in flight', async () => {
+test('usePlayStatsStore: authoritative refresh removes deleted songs and preserves events added in flight', async () => {
   resetStats({ ownerSubject: 'account-a', identityReady: true });
-  usePlayStatsStore.getState().recordQualifiedPlay({ id: 'deleted-song', title: 'Deleted Song' });
-  const submittedId = usePlayStatsStore.getState().pendingQueue[0].event_id;
+  usePlayStatsStore.setState({
+    playCounts: { 'deleted-song': 1 },
+    topSongs: [{ id: 'deleted-song', title: 'Deleted Song', play_count: 1 }],
+    totalPlays: 1,
+    totalUniqueSongs: 1,
+  });
   let resolveRefresh;
-  globalThis.fetch = async (url, init = {}) => {
-    if (init.method === 'POST') {
-      return new Response(JSON.stringify({
-        ok: true,
-        data: { recorded: 0, acceptedEventIds: [submittedId] },
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    }
-    return new Promise((resolve) => { resolveRefresh = resolve; });
-  };
+  globalThis.fetch = async () => new Promise((resolve) => { resolveRefresh = resolve; });
 
   const syncing = usePlayStatsStore.getState().synchronizeAccountStats();
   while (!resolveRefresh) await Promise.resolve();

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useArtistPhotos } from '../../hooks/useArtistPhotos';
+import { usePrivateMediaSource } from '../../hooks/usePrivateMediaSource.js';
 
 export default function ImmersiveBackground({
     theme,
@@ -23,6 +24,7 @@ export default function ImmersiveBackground({
     const isActive = mediaEnabled && active && isPlaying && !isBuffering;
 
     const isPhotoMotionActive = isPlaying && !isBuffering && !suspendEffects && !prefersReducedMotion;
+    const resolvedCoverUrl = usePrivateMediaSource(coverUrl);
 
     const renderArtistPhotoLayer = () => (
         <div className="absolute inset-0 overflow-hidden bg-black select-none pointer-events-none" aria-hidden="true">
@@ -68,7 +70,7 @@ export default function ImmersiveBackground({
         <>
             {/* 写真不可用时只用暗化封面承托歌词，不再载入风景视频。 */}
             <div className="absolute inset-0 overflow-hidden bg-black pointer-events-none" aria-hidden="true">
-                {!showPhotos && coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-[0.35]" />}
+                {!showPhotos && resolvedCoverUrl && <img src={resolvedCoverUrl} alt="" className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-[0.35]" />}
             </div>
 
             {showPhotos && renderArtistPhotoLayer()}

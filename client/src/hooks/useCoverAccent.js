@@ -9,6 +9,19 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useUIStore } from '../store/useUIStore';
 
 import { resolveCoverUrl } from '../utils.js';
+import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
+
+const setCoverImageSource = (image, url, isCancelled) => {
+  if (!imageLoadRegistry.shouldLoadPrivately(url)) {
+    image.src = url;
+    return;
+  }
+  void imageLoadRegistry.load(url).then(({ url: resolved }) => {
+    if (!isCancelled()) image.src = resolved;
+  }).catch(() => {
+    if (!isCancelled()) image.onerror?.();
+  });
+};
 
 export function useCoverAccent() {
   const rawCoverUrl = usePlayerStore((state) => state.currentSong?.cover_url);
@@ -46,7 +59,7 @@ export function useCoverAccent() {
     };
 
     const tinyUrl = coverUrl.includes('size=600') ? coverUrl.replace('size=600', 'size=50') : coverUrl;
-    img.src = tinyUrl;
+    setCoverImageSource(img, imageLoadRegistry.shouldLoadPrivately(coverUrl) ? coverUrl : tinyUrl, () => cancelled);
 
     return () => {
       cancelled = true;
@@ -91,7 +104,7 @@ export function usePlayerBarThemeColors() {
     };
 
     const tinyUrl = coverUrl.includes('size=600') ? coverUrl.replace('size=600', 'size=50') : coverUrl;
-    img.src = tinyUrl;
+    setCoverImageSource(img, imageLoadRegistry.shouldLoadPrivately(coverUrl) ? coverUrl : tinyUrl, () => cancelled);
 
     return () => {
       cancelled = true;

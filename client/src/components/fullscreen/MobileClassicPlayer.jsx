@@ -12,6 +12,7 @@ import { getPrimaryLyricLine } from './mobileLyricPreview';
 import { VISUAL_MOTION_PHASE } from '../../utils/motionPerformance';
 import { useArtistPhotos } from '../../hooks/useArtistPhotos';
 import { resolveCoverUrl } from '../../utils';
+import { imageLoadRegistry } from '../../utils/imageLoadRegistry.js';
 import { songLanguageHasLyrics } from '../../constants/language';
 import { useFullscreenTransition } from '../../hooks/useFullscreenTransition.js';
 import { requestLyricsTranslationCompletion } from '../../hooks/useLyricsFetcher.js';
@@ -255,7 +256,13 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         };
 
         const tinyCoverUrl = coverUrl.replace('size=600', 'size=50');
-        img.src = tinyCoverUrl + (tinyCoverUrl.includes('?') ? '&' : '?') + '_c=1';
+        if (imageLoadRegistry.shouldLoadPrivately(coverUrl)) {
+            void imageLoadRegistry.load(coverUrl).then(({ url }) => {
+                if (!cancelled) img.src = url;
+            }).catch(() => {});
+        } else {
+            img.src = tinyCoverUrl + (tinyCoverUrl.includes('?') ? '&' : '?') + '_c=1';
+        }
         return () => {
             cancelled = true;
             img.onload = null;

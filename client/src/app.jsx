@@ -254,7 +254,7 @@ export default function App({ validatedSession }) {
         const init = initialRouteRef.current;
         if (init?.type === 'explore') return 'roam';
         if (init?.type === 'playlist' && init?.id === 'daily-recommend') return 'home';
-        if (init?.type === 'top-songs' || init?.type === 'top-albums' || init?.type === 'top-artists' || init?.type === 'playlist' || init?.type === 'album') return 'library';
+        if (init?.type === 'top-songs' || init?.type === 'top-artists' || init?.type === 'playlist' || init?.type === 'album') return 'library';
         return (init && init.type === 'page' && SUPPORTED_PAGES.includes(init.page)) ? init.page : 'home';
     });
     const [activeRoute, setActiveRoute] = useState(() => initialRouteRef.current || { type: 'page', page: 'home' });
@@ -399,7 +399,7 @@ export default function App({ validatedSession }) {
             setActiveRoute(nextRoute);
             if (nextRoute.type === 'page') setActivePage(nextRoute.page);
             else if (nextRoute.type === 'explore') setActivePage('roam');
-            else if (nextRoute.type === 'top-songs' || nextRoute.type === 'top-albums' || nextRoute.type === 'top-artists') setActivePage('library');
+            else if (nextRoute.type === 'top-songs' || nextRoute.type === 'top-artists') setActivePage('library');
         };
         window.addEventListener('flaretune:navigate', handleNavigation);
         return () => window.removeEventListener('flaretune:navigate', handleNavigation);
@@ -446,7 +446,7 @@ export default function App({ validatedSession }) {
                 if (ui.isArtistDrawerOpen) ui.setIsArtistDrawerOpen(false);
                 if (route.type !== 'playlist' && ui.isViewingPlaylist) ui.closeViewingPlaylist();
                 if (route.type === 'explore') setActivePage('roam');
-                else if (route.type === 'top-songs' || route.type === 'top-albums' || route.type === 'top-artists') setActivePage('library');
+                else if (route.type === 'top-songs' || route.type === 'top-artists') setActivePage('library');
             }
         };
         window.addEventListener('popstate', handlePopState);

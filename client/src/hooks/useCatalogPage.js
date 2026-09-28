@@ -3,7 +3,7 @@ import { readCatalog } from '../services/catalogRead.js';
 import { getApiBaseUrl } from '../services/apiBase.js';
 import { AUTH_SESSION_INVALIDATED_EVENT, AUTH_SESSION_UPDATED_EVENT } from '../authNavigation.js';
 
-const CACHE_TTL_MS = 30_000;
+const CACHE_TTL_MS = 5 * 60_000;
 const CACHE_LIMIT = 40;
 const pageCache = new Map();
 const emptyPage = (status) => ({ items: [], status, hasMore: false, total: status === 'idle' ? 0 : null });
@@ -24,9 +24,11 @@ if (typeof window !== 'undefined') {
   const clearPageCache = () => pageCache.clear();
   window.addEventListener(AUTH_SESSION_INVALIDATED_EVENT, clearPageCache);
   window.addEventListener(AUTH_SESSION_UPDATED_EVENT, clearPageCache);
+  window.addEventListener('flaretune:catalog-song-updated', clearPageCache);
   import.meta.hot?.dispose(() => {
     window.removeEventListener(AUTH_SESSION_INVALIDATED_EVENT, clearPageCache);
     window.removeEventListener(AUTH_SESSION_UPDATED_EVENT, clearPageCache);
+    window.removeEventListener('flaretune:catalog-song-updated', clearPageCache);
   });
 }
 

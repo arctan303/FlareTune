@@ -17,6 +17,7 @@ import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 import { createLatestRequest } from '../utils/latestRequest.js';
 import { formatDuration, resolveCoverUrl } from '../utils.js';
 import { catalogSongBody } from '../utils/catalogSongDraft.js';
+import PrivateCoverImage from './PrivateCoverImage.jsx';
 import {
   deleteCatalogSong,
   getCatalogSong,
@@ -292,7 +293,7 @@ export default function AdminCatalogSection() {
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className="w-10 h-10 rounded-xl overflow-hidden bg-[var(--surface)] border border-[var(--line)] shrink-0 flex items-center justify-center">
                       {cover ? (
-                        <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <PrivateCoverImage src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <Music size={16} className="text-[var(--muted)]" />
                       )}
@@ -486,7 +487,7 @@ export default function AdminCatalogSection() {
                 <label className="block text-xs font-semibold text-[var(--ink)]">封面图片</label>
                 <div className="flex items-start gap-3">
                   {editor.draft.cover_url ? (
-                    <img
+                    <PrivateCoverImage
                       src={resolveCoverUrl(editor.draft.cover_url)}
                       alt="预览"
                       className="w-14 h-14 rounded-xl object-cover border border-[var(--line)] shrink-0 bg-[var(--surface)]"

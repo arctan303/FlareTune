@@ -115,7 +115,7 @@ test('sidebar account entry revalidates local session and opens account settings
   assert.doesNotMatch(accountMenu, /\/api\/ai\/auth|beginAuthLogin|sso_attempted|yifang_error/);
 });
 
-test('identity-sensitive music data waits for session discovery and always revalidates', () => {
+test('identity-sensitive music data waits for session discovery and forces revalidation', () => {
   const store = readSource('./store/useUIStore.js');
   const musicData = readSource('./hooks/useMusicData.js');
   const main = readSource('./components/MainContent.jsx');
@@ -135,7 +135,8 @@ test('identity-sensitive music data waits for session discovery and always reval
   assert.match(app, /accountPlaylistsStore\.getState\(\)\.refresh\(\)/);
   assert.match(playlistLoader, /apiUrl, \{ credentials: 'include', cache: 'no-store' \}/);
   assert.match(playlistLoader, /revalidateExpiringCache\(cache, cacheKey, loader/);
-  assert.match(playlistLoader, /const cacheKey = `lang::\$\{langKey\}::\$\{sort\}::\$\{page\}::\$\{limit\}::\$\{authTag\}`/);
+  assert.match(playlistLoader, /const cacheKey = JSON\.stringify\(\[apiBase, getAccountId\(\), langKey, sort, page, limit\]\)/);
+  assert.match(playlistLoader, /const fresh = staleWhileRevalidate \? cache\.peek\(cacheKey\) : null/);
   assert.doesNotMatch(playlistLoader, /const cacheKey = `\$\{playlist\.id\}::\$\{authed\}`/);
   assert.match(asyncCache, /const refreshPromise = cache\.refresh\(key, loader\)/);
   assert.match(main, /previousViewerKeyRef\.current === viewerKey/);
@@ -308,16 +309,25 @@ test('retired public information drawers are absent from the application shell',
   assert.doesNotMatch(store, /isAboutOpen|setIsAboutOpen|isDmcaOpen|setIsDmcaOpen/);
 });
 
-test('displayed images own loading while explicit prefetch remains shared', () => {
+test('private displayed media reuses session memory while other images retain direct loading', () => {
   const css = readSource('./index.css');
   const lazyImage = readSource('./components/LazyImage.jsx');
+  const privateMediaSource = readSource('./hooks/usePrivateMediaSource.js');
+  const privateMediaRevision = readSource('./hooks/usePrivateMediaRouteRevision.js');
   const cover = readSource('./components/PlaylistCover.jsx');
   const registry = readSource('./utils/imageLoadRegistry.js');
 
   assert.match(lazyImage, /imageLoadRegistry\.getReadySource/);
   assert.match(lazyImage, /imageLoadRegistry\.markReady/);
   assert.match(lazyImage, /imageLoadRegistry\.markError/);
-  assert.doesNotMatch(lazyImage, /imageLoadRegistry\.loadWithFallback/);
+  assert.match(lazyImage, /usePrivateMediaRouteRevision\(\)/);
+  assert.match(lazyImage, /visibleImageSource\(requestedSrc, imageState\.displaySrc/);
+  assert.match(lazyImage, /fallback, inView, routeRevision/);
+  assert.match(privateMediaSource, /visibleImageSource\(src, resolved\.url/);
+  assert.match(privateMediaRevision, /imageLoadRegistry\.subscribeVisibility/);
+  assert.match(lazyImage, /shouldLoadPrivately\(requestedSrc\)[\s\S]*loadWithFallback\(requestedSrc, fallback\)/);
+  assert.match(registry, /credentials: 'include', cache: 'no-store'/);
+  assert.match(registry, /setSessionScope\(session\)/);
   assert.doesNotMatch(lazyImage, /new Image\(|\.decode\(\)/);
   assert.doesNotMatch(lazyImage, /setTimeout\([^)]*150/);
   assert.match(cover, /getPlaylistCoverUrls\(playlist, songsMap\)\[0\]/);

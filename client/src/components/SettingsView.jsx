@@ -23,6 +23,7 @@ import {
 import { AVAILABLE_PLAYER_MODES, PLAYER_MODE_META } from '../constants/playerModes.js';
 import { resolveCoverUrl } from '../utils.js';
 import AccountSettings from './AccountSettings.jsx';
+import PrivateCoverImage from './PrivateCoverImage.jsx';
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
 const AdminSongCreatePage = React.lazy(() => import('./AdminSongCreatePage.jsx'));
@@ -75,7 +76,7 @@ function PlayerModeMockup({ mode, coverUrl }) {
       <div className="relative z-10 flex items-stretch gap-2.5 flex-1 min-h-0 my-0.5">
         <div className="w-[43%] flex flex-col justify-between shrink-0">
           <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-white/20 shadow-lg bg-black/60 shrink-0">
-            <img
+            <PrivateCoverImage
               src={coverUrl}
               alt=""
               className="w-full h-full object-cover"
