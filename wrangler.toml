@@ -4,12 +4,17 @@ compatibility_date = "2026-09-23"
 workers_dev = true
 preview_urls = true
 
+# Subsonic token/salt parameters are replayable credentials; omit raw URL logs.
+[observability.logs]
+enabled = true
+invocation_logs = false
+
 [assets]
 directory = "dist"
 binding = "ASSETS"
 html_handling = "auto-trailing-slash"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*"]
+run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*", "/rest", "/rest/*"]
 
 [vars]
 MEDIA_PREFIX = "media"
@@ -36,7 +41,7 @@ enabled = true
 head_sampling_rate = 1
 
 [env.dev.observability.logs]
-invocation_logs = true
+invocation_logs = false
 
 [env.dev.vars]
 MEDIA_PREFIX = "dist_music"

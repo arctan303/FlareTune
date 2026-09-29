@@ -231,6 +231,8 @@ const updateShelf = async (db, accountId, input, now) => {
 const createPlaylist = async (db, accountId, input, now) => {
   const name = cleanName(input.name);
   const description = cleanDescription(input.description ?? '');
+  const initialSongs = uniqueIds(input.songIds ?? []);
+  await assertSongs(db, initialSongs);
   await ensureFavorite(db, accountId, now);
   const idempotencyKey = typeof input.idempotencyKey === 'string' ? input.idempotencyKey : '';
   let id = `pl_${crypto.randomUUID()}`;
@@ -241,11 +243,16 @@ const createPlaylist = async (db, accountId, input, now) => {
     const previous = await summary(db, accountId, id);
     if (previous) return { outcome: 'noop', playlist: previous, shelf: await getShelf(db, accountId, now) };
   }
-  const result = await db.prepare(`INSERT OR IGNORE INTO Member_Playlists
+  const insert = db.prepare(`INSERT OR IGNORE INTO Member_Playlists
     (id, account_id, kind, name, description, revision, created_at, updated_at)
     SELECT ?, ?, 'regular', ?, ?, 0, ?, ? WHERE
       (SELECT COUNT(*) FROM Member_Playlists WHERE account_id = ? AND kind = 'regular') < ?`)
-    .bind(id, accountId, name, description, now, now, accountId, MAX_REGULAR_PLAYLISTS).run();
+    .bind(id, accountId, name, description, now, now, accountId, MAX_REGULAR_PLAYLISTS);
+  const statements = [insert, db.prepare(`INSERT INTO Member_Playlist_Songs
+    (playlist_id, song_id, sort_order, added_at) SELECT ?, value, CAST(key AS INTEGER), ? FROM json_each(?) WHERE EXISTS (
+      SELECT 1 FROM Member_Playlists WHERE id = ? AND account_id = ? AND revision = 0)`)
+    .bind(id, now, JSON.stringify(initialSongs), id, accountId)];
+  const result = initialSongs.length ? (await db.batch(statements))[0] : await insert.run();
   if (changed(result) !== 1) {
     if (idempotencyKey) {
       const previous = await summary(db, accountId, id);
@@ -289,6 +296,10 @@ const deletePlaylist = async (db, accountId, id, input, now) => {
 const replaceSongs = async (db, accountId, id, input, now) => {
   const current = await playlistRow(db, accountId, id);
   if (!current) fail('PLAYLIST_NOT_FOUND', '歌单不存在。', 404);
+  const hasMetadata = Object.hasOwn(input, 'name') || Object.hasOwn(input, 'description');
+  if (hasMetadata && current.kind === 'favorite') fail('FAVORITE_METADATA_FORBIDDEN', '收藏歌单不可改名。', 409);
+  const name = Object.hasOwn(input, 'name') ? cleanName(input.name) : current.name;
+  const description = Object.hasOwn(input, 'description') ? cleanDescription(input.description) : current.description;
   if (Array.isArray(input.songIds) && input.songIds.length > MAX_PLAYLIST_SONGS) {
     fail('PLAYLIST_SONG_LIMIT_REACHED', '每个歌单最多保存 500 首歌曲。', 409);
   }
@@ -300,20 +311,21 @@ const replaceSongs = async (db, accountId, id, input, now) => {
     JOIN Member_Playlists p ON p.id = ps.playlist_id
     WHERE p.id = ? AND p.account_id = ? ORDER BY ps.sort_order, ps.song_id`).bind(id, accountId).all();
   const before = rows(existing).map((row) => row.song_id);
-  if (before.length === ids.length && before.every((songId, index) => songId === ids[index])) {
+  if (before.length === ids.length && before.every((songId, index) => songId === ids[index])
+    && name === current.name && description === current.description) {
     return { outcome: 'noop', playlist: await getPlaylist(db, accountId, id) };
   }
   // D1 batch is transactional. A failed compare-and-swap leaves every later
   // statement inert because all writes require the incremented revision.
-  const statements = [db.prepare(`UPDATE Member_Playlists SET revision = revision + 1, updated_at = ?
-    WHERE id = ? AND account_id = ? AND revision = ?`).bind(now, id, accountId, revision)];
+  const statements = [db.prepare(`UPDATE Member_Playlists SET revision = revision + 1, updated_at = ?, name = ?, description = ?
+    WHERE id = ? AND account_id = ? AND revision = ?`).bind(now, name, description, id, accountId, revision)];
   statements.push(db.prepare(`DELETE FROM Member_Playlist_Songs WHERE playlist_id = ? AND EXISTS (
     SELECT 1 FROM Member_Playlists WHERE id = ? AND account_id = ? AND revision = ?
   )`).bind(id, id, accountId, revision + 1));
-  ids.forEach((songId, index) => statements.push(db.prepare(`INSERT INTO Member_Playlist_Songs
-    (playlist_id, song_id, sort_order, added_at) SELECT ?, ?, ?, ? WHERE EXISTS (
+  if (ids.length) statements.push(db.prepare(`INSERT INTO Member_Playlist_Songs
+    (playlist_id, song_id, sort_order, added_at) SELECT ?, value, CAST(key AS INTEGER), ? FROM json_each(?) WHERE EXISTS (
       SELECT 1 FROM Member_Playlists WHERE id = ? AND account_id = ? AND revision = ?
-    )`).bind(id, songId, index, now, id, accountId, revision + 1)));
+    )`).bind(id, now, JSON.stringify(ids), id, accountId, revision + 1));
   const result = await guardedBatch(db, accountId, id, revision, statements);
   if (changed(result[0]) !== 1) await conflict(db, accountId, id);
   return { outcome: 'applied', playlist: await getPlaylist(db, accountId, id) };
@@ -518,6 +530,11 @@ const topPlays = async (db, accountId, input, summaryOnly = false) => {
 };
 
 const ACCOUNT_PATHS = /^\/api\/account\/(?:playlists(?:\/|$)|playlist-songs$|playlist-shelf(?:\/|$)|play-stats$)/;
+
+// Internal adapters must provide a verified account id; never export an HTTP
+// bypass. All writes retain the same quotas, ownership and revision guards.
+export const accountMusic = Object.freeze({ listPlaylists, getPlaylist, createPlaylist,
+  replaceSongs, deletePlaylist });
 
 // Assistant tools call the same account-scoped operations after the outer
 // router has verified the local session and CSRF token.

@@ -49,6 +49,7 @@ FlareTune 是一款面向个人和家庭的自建音频流媒体应用。管理�
 | 文档 | 内容 |
 | --- | --- |
 | [使用指南](guide/using-flaretune.md) | 找歌、播放、歌单、助手和个人设置 |
+| [第三方客户端](guide/subsonic.md) | Subsonic 开关、连接方法、兼容范围与用户验收 |
 | [部署与初始化](guide/deployment.md) | 首次安装、密钥、升级和数据备份 |
 | [管理与维护](guide/administration.md) | 曲库、账号、实例设置和数据维护 |
 | [本地入库设备](tooling/ingest-agent/README.md) | 批量读取本地目录并在网页中挑选歌曲 |
@@ -63,4 +64,4 @@ FlareTune 源自我的个人音乐播放器「乐境」。从乐境 4.0 到 5.0�
 
 ## 许可
 
-代码与文档采用 [MIT 许可证](LICENSE)；图片与品牌素材见[素材说明](ASSETS.md)。
+代码与文档采用 [MIT 许可证](LICENSE)；协议 MD5 实现沿用旧 FlareTune 的 [Apache-2.0 许可证](licenses/legacy-flaretune-Apache-2.0.txt)。图片与品牌素材见[素材说明](ASSETS.md)。

@@ -7,12 +7,17 @@ compatibility_date = "2026-09-23"
 workers_dev = true
 preview_urls = true
 
+# Do not persist Subsonic credentials in request URL logs.
+[observability.logs]
+enabled = true
+invocation_logs = false
+
 [assets]
 directory = "../dist"
 binding = "ASSETS"
 html_handling = "auto-trailing-slash"
 not_found_handling = "404-page"
-run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*"]
+run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*", "/rest", "/rest/*"]
 
 [vars]
 MEDIA_PREFIX = "REQUIRED_EXISTING_R2_PREFIX"

@@ -4,6 +4,7 @@ import { changePassword, logout, messageForError, updateOwnProfile, updateOwnUiL
 import { validLocalPassword } from '../instance/state.js';
 import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
 import SettingsSection from './SettingsSection.jsx';
+import SubsonicSettings from './SubsonicSettings.jsx';
 import { setUiLanguage, t, useLocale } from '../i18n/index.js';
 
 export default function AccountSettings() {
@@ -122,6 +123,8 @@ export default function AccountSettings() {
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-black tracking-tight text-[var(--ink)] sm:text-4xl">{t('个人设置')}</h1>
+
+      {user?.accountId && <SubsonicSettings key={user.accountId} session={authSession} />}
 
       <SettingsSection title={t('账号信息')}>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">

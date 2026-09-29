@@ -50,6 +50,7 @@ FlareTune uses React, Vite, and Cloudflare Workers. D1 stores data, while privat
 | Document | Contents |
 | --- | --- |
 | [User guide](guide/using-flaretune.en.md) | Search, playback, playlists, assistant, and personal settings |
+| [Third-party clients](guide/subsonic.en.md) | Subsonic opt-in, connection, supported features and acceptance checklist |
 | [Deployment and setup](guide/deployment.en.md) | First installation, secrets, upgrades, and backups |
 | [Administration](guide/administration.en.md) | Library, accounts, instance settings, and maintenance |
 | [Local ingest device](tooling/ingest-agent/README.en.md) | Scan local folders and select songs in the web app |
@@ -64,4 +65,4 @@ Contributions to code, design, testing, and documentation are welcome; see [Cont
 
 ## License
 
-Code and documentation use the [MIT License](LICENSE). See [Assets](ASSETS.md) for image and brand asset terms.
+Code and documentation use the [MIT License](LICENSE). The protocol MD5 implementation retains legacy FlareTune's [Apache-2.0 license](licenses/legacy-flaretune-Apache-2.0.txt). See [Assets](ASSETS.md) for image and brand asset terms.

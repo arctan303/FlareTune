@@ -4,6 +4,18 @@ import generated from './en.auto.js';
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
   ...generated,
+  '第三方音乐客户端': 'Third-party music clients',
+  '允许 Subsonic 客户端连接': 'Allow Subsonic clients to connect',
+  '开启后，使用本站地址、用户名和当前密码连接。修改或重置密码后自动关闭。': 'Connect using this server address, your username and current password. Changing or resetting your password turns this off.',
+  '服务器地址': 'Server address',
+  '客户端选择 Subsonic 和令牌认证（token/salt）。': 'Choose Subsonic and token/salt authentication in your client.',
+  '开启客户端连接': 'Enable client connections',
+  '为兼容客户端登录，将加密保存密码副本；关闭此功能或修改密码时删除。': 'An encrypted password copy is stored for client sign-in. Turning this off or changing your password deletes that copy.',
+  '客户端连接设置加载失败，请重试。': 'Could not load client connection settings. Please retry.',
+  '密码验证失败，请重新输入当前密码。': 'Password verification failed. Enter your current password again.',
+  '设置未保存，请刷新后重试。': 'Settings were not saved. Refresh and try again.',
+  '正在验证…': 'Verifying…',
+  '验证并开启': 'Verify and enable',
   '输入歌名、歌手或专辑，按回车或点击搜索。': 'Enter a song, artist or album, then press Enter or click Search.',
   '播放统计加载失败，请刷新重试。': 'Could not load play statistics. Please refresh to try again.',
   '还没有常听单曲': 'No frequently played songs yet',

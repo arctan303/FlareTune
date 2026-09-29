@@ -24,6 +24,7 @@ import { handleLocalCatalogMediaRoute } from '../routes/localCatalogMedia.js';
 import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
 import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
 import { getOwnUiLanguage, updateOwnDisplayName, updateOwnUiLanguage } from '../auth/local/profile.js';
+import { ownStatus as subsonicStatus, setEnabled as setSubsonicEnabled } from '../subsonic/credentials.js';
 import {
   AuthError,
   claimInstance,
@@ -230,6 +231,17 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
     }
     const actorAccountId = session?.account?.accountId;
+    if (path === '/api/account/subsonic' && request.method === 'GET') {
+      return json(await subsonicStatus(env.DB, actorAccountId, env));
+    }
+    if (path === '/api/account/subsonic' && request.method === 'PUT') {
+      const body = await readBoundedJson(request);
+      if (body.enabled === true) {
+        const limit = await consumeAuthAttempt({ db: env.DB, request, kind: 'login', username: session.account.username });
+        if (!limit.allowed) return json({ error: 'rate_limited' }, 429);
+      }
+      return json(await setSubsonicEnabled(env.DB, session, body, env));
+    }
     if (path === '/api/account/profile' && request.method === 'PATCH') {
       const body = await readBoundedJson(request);
       if (!body || Object.keys(body).some((key) => key !== 'displayName')) {

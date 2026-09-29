@@ -39,7 +39,7 @@
         "description": "FlareTune stores audio, artwork, and generated lyric artifacts in this private R2 bucket."
       },
       "SETUP_SECRET": {
-        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI model API keys. Rotating it requires re-entering those keys; it cannot reset an administrator."
+        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI model API keys and opt-in Subsonic password copies. Rotating it requires re-entering model keys and re-enabling Subsonic; it cannot reset an administrator."
       }
     }
   },
