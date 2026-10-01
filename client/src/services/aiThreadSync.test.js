@@ -4,6 +4,7 @@ import {
   AiThreadRequestError,
   fetchCloudThread,
   normalizeCloudThreadMessages,
+  mergeAssistantProcessMessages,
   planCloudThreadSync,
 } from './aiThreadSync.js';
 
@@ -141,4 +142,43 @@ test('reports unchanged and empty cloud thread states explicitly', () => {
     thread: { revision: 2, messages: [] },
     currentMessages: current,
   }).kind, 'empty');
+});
+
+test('a partial history refresh retains tool events already received for the same saved reply', () => {
+  const saved = { id: 'reply', role: 'assistant', content: '已查询', thought: '核对。',
+    processEntries: [{ type: 'thought', start: 0, end: 3 },
+      { type: 'tool', id: 'query', name: '我的歌单', summary: '找到两份歌单', ok: true }],
+    toolSummaries: [{ id: 'query', summary: '找到两份歌单', ok: true }] };
+  const remote = { ...saved, processEntries: [{ type: 'thought', start: 0, end: 3 }] };
+  delete remote.toolSummaries;
+  const plan = planCloudThreadSync({ thread: { revision: 4, messages: [remote] }, currentMessages: [saved] });
+  assert.deepEqual(plan.messages[0].processEntries, saved.processEntries);
+  assert.deepEqual(plan.messages[0].toolSummaries, saved.toolSummaries);
+  assert.equal(planCloudThreadSync({ thread: { revision: 5, messages: [] },
+    currentMessages: plan.messages }).messages.length, 0);
+});
+
+test('changed replies and newly loaded history do not borrow another message process', () => {
+  const old = { id: 'reply', role: 'assistant', content: '旧回答', thought: '旧思考',
+    processEntries: [{ type: 'tool', id: 'old', summary: '旧结果' }] };
+  for (const next of [{ ...old, id: 'other' }, { ...old, content: '已修订' }, { ...old, thought: '新思考' }]) {
+    delete next.processEntries;
+    const plan = planCloudThreadSync({ thread: { revision: 6, messages: [next] }, currentMessages: [old] });
+    assert.equal(plan.messages[0].processEntries, undefined);
+  }
+});
+
+test('fresh history loading preserves full tool data; remote results correct received progress', () => {
+  const recorded = { id: 'reply', role: 'assistant', content: '回答', thought: '先查再答',
+    processEntries: [{ type: 'tool', id: 'one', name: '我的歌单', summary: '已读取', ok: true }],
+    toolSummaries: [{ id: 'one', name: 'my_playlists', summary: '已读取', ok: true }] };
+  assert.deepEqual(normalizeCloudThreadMessages([recorded])[0].processEntries, recorded.processEntries);
+  const known = { ...recorded, processEntries: [...recorded.processEntries,
+    { type: 'tool', id: 'two', name: '记忆', progress: '正在保存' }] };
+  const revised = { ...recorded, processEntries: [{ ...recorded.processEntries[0], summary: '最新查询结果' }] };
+  const merged = mergeAssistantProcessMessages([revised], [known])[0];
+  assert.equal(merged.processEntries[0].summary, '最新查询结果');
+  assert.equal(merged.processEntries[1].id, 'two');
+  assert.deepEqual(mergeAssistantProcessMessages([], [known]), []);
+  assert.equal(mergeAssistantProcessMessages([revised], [])[0], revised);
 });

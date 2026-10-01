@@ -27,6 +27,7 @@ import SidebarMiniPlayer from './SidebarMiniPlayer.jsx';
 import TuneWordmark from './TuneWordmark.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
+import { useSidebarNavigationMotion } from '../hooks/useSidebarNavigationMotion.js';
 import { useUIStore, showToast } from '../store/useUIStore.js';
 import { logout } from '../instance/api.js';
 import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
@@ -49,7 +50,7 @@ const ADMIN_SETTINGS = [
   { id: 'admin-add-song', label: '歌曲入库', icon: Plus },
   { id: 'admin-assistant', label: 'AI 与助手', icon: Bot },
   { id: 'admin-accounts', label: '账号管理', icon: Users },
-  { id: 'admin-system', label: '系统管理', icon: Activity },
+  { id: 'admin-system', label: '实例设置', icon: Activity },
 ];
 const LYRICS_SECTIONS = [
   { id: 'current', label: '当前歌词', icon: Languages },
@@ -70,6 +71,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
   const authSession = useUIStore((state) => state.authSession);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const sidebarRef = React.useRef(null);
+  const navigationRef = useSidebarNavigationMotion(activePage);
   const closeButtonRef = React.useRef(null);
   const previousFocusRef = React.useRef(null);
 
@@ -209,7 +211,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           </button>
         </div>
 
-        <nav className="app-sidebar__nav" aria-label={activePage === 'settings' ? t("设置分类") : activePage === 'lyrics' ? t("歌词工作台分区") : activePage === 'assistant' ? t("助手分区") : t("主要页面")}>
+        <nav ref={navigationRef} className="app-sidebar__nav" aria-label={activePage === 'settings' ? t("设置分类") : activePage === 'lyrics' ? t("歌词工作台分区") : activePage === 'assistant' ? t("助手分区") : t("主要页面")}>
           {activePage === 'lyrics' ? <>
             <PageBackButton onClick={returnFromLyrics} label={t("返回")} className="app-nav-item app-sidebar__back" />
             <div className="app-sidebar__nav-group" aria-label={t("歌词工作台")}>
@@ -251,8 +253,8 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
                 {PERSONAL_SETTINGS.map(renderSettingsItem)}
               </div>
               {isAdmin && (
-                <div className="app-sidebar__nav-group" aria-label={t("系统管理")}>
-                  <p className="app-sidebar__group-label">{t("系统管理")}</p>
+                <div className="app-sidebar__nav-group" aria-label={t("站点管理")}>
+                  <p className="app-sidebar__group-label">{t("站点管理")}</p>
                   {ADMIN_SETTINGS.map(renderSettingsItem)}
                 </div>
               )}

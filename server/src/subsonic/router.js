@@ -7,6 +7,7 @@ import { media } from './media.js';
 
 const MEDIA = new Set(['stream', 'download', 'getCoverArt', 'getCoverArt2', 'getLyrics', 'getLyricsBySongId']);
 const STATE = new Set(['getPlaylists', 'getPlaylist', 'getPlaylist2', 'createPlaylist', 'updatePlaylist', 'deletePlaylist', 'star', 'unstar', 'getStarred', 'getStarred2']);
+const MUTATIONS = new Set(['createPlaylist', 'updatePlaylist', 'deletePlaylist', 'star', 'unstar']);
 const failures = new Map();
 function failureBucket(request) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
@@ -41,7 +42,8 @@ export async function handleSubsonic(request, env) {
     if (!match) reject(70, 'Endpoint was not found');
     const method = match[1];
     if (request.method === 'HEAD' && !['stream', 'download', 'getCoverArt', 'getCoverArt2'].includes(method)) reject(0, 'HEAD is only supported for media');
-    const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: true });
+    // Subsonic mutates through GET: writes must validate the current structure.
+    const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: !MUTATIONS.has(method) });
     if (instance.state !== 'ready') return reply({}, format, { code: 0, message: 'Instance is unavailable' }, 503);
     // The OpenSubsonic specification requires unauthenticated discovery.
     // This advertises code capabilities only, never account opt-in or music.

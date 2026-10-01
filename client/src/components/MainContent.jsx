@@ -112,6 +112,12 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             if (!isAccountPlaylistStaleError(error)) console.warn('账号歌单重试失败:', error);
         });
     }, []);
+    useEffect(() => {
+        if (activePage !== 'library' || !isAuthenticated) return;
+        const { subject, status } = accountPlaylistsStore.getState();
+        // Retry once on entering Library; a failed retry stays visible for manual recovery.
+        if (subject && (status === 'idle' || status === 'error')) retryAccountPlaylists();
+    }, [activePage, isAuthenticated, retryAccountPlaylists]);
     const {
         songs: randomSongs,
         isLoading: isRandomLoading,
@@ -487,6 +493,9 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 playlists={shelfPlaylists}
                 songsMap={songsMap}
                 loadState={playlistLoadState}
+                accountStatus={accountStatus}
+                accountError={accountError}
+                onRetryAccount={retryAccountPlaylists}
                 onOpen={openPlaylist}
                 onBack={() => onNavigate('home')}
                 onManageShelf={() => setIsAccountPlaylistOpen(true)}

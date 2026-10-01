@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
 import { changePassword, logout, messageForError, updateOwnProfile, updateOwnUiLanguage } from '../instance/api.js';
 import { validLocalPassword } from '../instance/state.js';
@@ -30,8 +31,8 @@ export default function AccountSettings() {
 
   React.useEffect(() => { setNickname(user?.displayName || ''); }, [user?.accountId, user?.displayName]);
 
-  const saveLanguage = async (event) => {
-    const nextLanguage = event.target.value;
+  const saveLanguage = async (nextLanguage) => {
+    if (languageBusy || nextLanguage === (user?.uiLanguage || 'auto')) return;
     setLanguageBusy(true);
     setLanguageError('');
     try {
@@ -166,20 +167,18 @@ export default function AccountSettings() {
           <button type="submit" className="primary-button min-h-11 rounded-xl px-5 text-sm font-semibold disabled:opacity-60"
             disabled={nicknameBusy}>{t(nicknameBusy ? '正在保存…' : '保存昵称')}</button>
         </form>
-        <p className="mt-2 text-sm text-[var(--muted)]">{t('仅用于展示和助手称呼。留空后显示用户名，不影响登录。')}</p>
         {nicknameError && <p role="alert" className="mt-2 text-sm text-red-600">{t(nicknameError)}</p>}
       </SettingsSection>
 
       <SettingsSection title={t('界面语言')}>
-        <label className="block max-w-sm text-sm font-medium text-[var(--ink)]">
-          {t('语言')}
-          <select className={`${passwordInputClassName} cursor-pointer`} value={user?.uiLanguage || 'auto'}
-            onChange={saveLanguage} disabled={languageBusy}>
-            <option value="auto">{t('跟随浏览器')}</option>
-            <option value="zh">简体中文</option>
-            <option value="en">English</option>
-          </select>
-        </label>
+        <div className="language-choices" role="group" aria-label={t('界面语言')} aria-busy={languageBusy}>
+          {[['auto', t('跟随浏览器')], ['zh', '简体中文'], ['en', 'English']].map(([value, label]) => (
+            <button type="button" key={value} className="language-choice" disabled={languageBusy}
+              aria-pressed={(user?.uiLanguage || 'auto') === value} onClick={() => void saveLanguage(value)}>
+              {label}{(user?.uiLanguage || 'auto') === value && <Check size={16} aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
         {languageError && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{t(languageError)}</p>}
       </SettingsSection>
 
@@ -197,7 +196,7 @@ export default function AccountSettings() {
             <form className="mt-6 space-y-4" onSubmit={handlePasswordChange}>
               <label className="block text-sm font-medium">{t('当前密码')}<input autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
               <label className="block text-sm font-medium">{t('新密码')}<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
-              <p className="text-sm text-[var(--muted)]">{t('至少 8 个字符，建议使用独一无二的长密码。')}</p>
+              <p className="text-sm text-[var(--muted)]">{t('至少 8 个字符。')}</p>
               <label className="block text-sm font-medium">{t('确认新密码')}<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
               {error && errorContext === 'password' && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(error)}</p>}
               <div className="flex justify-end gap-3 pt-2">

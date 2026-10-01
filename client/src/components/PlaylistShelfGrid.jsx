@@ -17,11 +17,12 @@ export default function PlaylistShelfGrid({
     onPointerDownHandle = null,
     onMoveBy = null,
     gridRef = null,
+    style,
 }) {
     if (playlists.length === 0 && !appendChild) return <div className="theme-empty text-sm py-4">{t("未找到歌单...")}</div>;
 
     return (
-        <div ref={gridRef} className={`record-shelf ${isOrdering ? 'record-shelf--ordering' : ''} ${className}`.trim()}>
+        <div ref={gridRef} style={style} className={`record-shelf ${isOrdering ? 'record-shelf--ordering' : ''} ${className}`.trim()}>
             {playlists.map((playlist, index) => {
                 const isOpening = loadState?.playlist?.id === playlist.id && loadState?.status === 'opening';
                 const isDragging = activeDragIndex === index;

@@ -1,3 +1,4 @@
+import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -576,7 +577,6 @@ export default function AdminSongCreatePage() {
     <div className="mx-auto max-w-6xl space-y-5 pb-24 text-[var(--ink)]">
       <div>
         <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{t("歌曲入库")}</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">{t("先选歌，再在同一清单中核对与入库。")}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2" aria-label={t("歌曲入库步骤")}>
@@ -636,8 +636,7 @@ export default function AdminSongCreatePage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">{t("入库清单")}</h2>
-            <p className="mt-1 text-xs text-[var(--muted)]">{t("语言建议和疑似重复均可核对。")}{duplicateCount ? t('{count} 首疑似重复默认跳过。', { count: duplicateCount }) : ''}
-            </p>
+            {duplicateCount > 0 && <p className="mt-1 text-xs text-[var(--muted)]">{t('{count} 首疑似重复默认跳过。', { count: duplicateCount })}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {saving ? batchSaving ? <button type="button" disabled={pauseRequested} onClick={pauseBatch}
@@ -677,19 +676,19 @@ export default function AdminSongCreatePage() {
           <input aria-label={t("筛选预览歌曲")} placeholder={t("筛选歌名、歌手、专辑或路径")} value={previewQuery}
             onChange={(event) => { setPreviewQuery(event.target.value); setPreviewPage(1); }}
             className={inputClass + ' min-w-48 flex-1'} />
-          <select aria-label={t("筛选入库状态")} value={previewStatus}
+          <SelectControl aria-label={t("筛选入库状态")} value={previewStatus}
             onChange={(event) => { setPreviewStatus(event.target.value); setPreviewPage(1); }}
             className={inputClass + ' w-auto'}>
             <option value="all">{t("全部状态")}</option><option value="selected">{t("已勾选")}</option>
             <option value="pending">{t("待处理")}</option><option value="duplicate">{t("疑似重复")}</option>
             <option value="error">{t("失败")}</option><option value="saved">{t("已入库")}</option>
-          </select>
-          <select aria-label={t("筛选歌曲语言")} value={previewLanguage}
+          </SelectControl>
+          <SelectControl aria-label={t("筛选歌曲语言")} value={previewLanguage}
             onChange={(event) => { setPreviewLanguage(event.target.value); setPreviewPage(1); }}
             className={inputClass + ' w-auto'}>
             <option value="all">{t("全部语言")}</option>
             {ALL_LANGUAGES.map((item) => <option key={item.code} value={item.code}>{t(item.label)}</option>)}
-          </select>
+          </SelectControl>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
           <span>{t('已勾选 {selected} 首 · 筛选后 {visible} / {total} 首', {
@@ -852,7 +851,6 @@ export default function AdminSongCreatePage() {
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--line)] px-5 py-4">
             <div>
               <h2 className="text-base font-bold">{t("编辑歌曲信息")}</h2>
-              <p className="mt-0.5 text-xs text-[var(--muted)]">{t("修改会更新预览，点击入库后才上传。")}</p>
             </div>
             <button type="button" onClick={closeEditor} aria-label={t("关闭编辑窗")}
               className="rounded-lg p-2 text-[var(--muted)] hover:text-[var(--ink)]"><X size={18} /></button>
@@ -870,11 +868,11 @@ export default function AdminSongCreatePage() {
               <label className="text-sm font-medium">{t("时长（秒）")}<input className={inputClass + ' mt-1.5'} type="number" min="0" max="86400" step="1"
                   value={editing.draft.duration}
                   onChange={(event) => setField('duration', event.target.value)} /></label>
-              <label className="text-sm font-medium">{t("歌曲语言")}<select className={inputClass + ' mt-1.5'} value={editing.draft.language}
+              <label className="text-sm font-medium">{t("歌曲语言")}<SelectControl aria-label={t("歌曲语言")} className={inputClass + ' mt-1.5'} value={editing.draft.language}
                   onChange={(event) => setField('language', event.target.value)}>
                   <option value="">{t("未设置")}</option>
                   {ALL_LANGUAGES.map(({ code, label }) => <option key={code} value={code}>{t(label)}</option>)}
-                </select>
+                </SelectControl>
                 <span className="mt-1 block text-xs text-[var(--muted)]">
                   {editing.languageEdited ? t("已人工修改")
                     : t(editing.languageGuess?.reason || '未能从音频标签判断语言')}

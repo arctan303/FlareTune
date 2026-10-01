@@ -2,7 +2,7 @@ import React from 'react';
 import CollectionCard from './CollectionCard.jsx';
 import { albumColumnsForWidth, albumGridLayout } from './albumGridLayout.js';
 
-export default function AlbumPreviewGrid({ albums, onOpen, onVisibleCountChange, maxRows = 2 }) {
+export default function AlbumPreviewGrid({ albums, onOpen, onVisibleCountChange, maxRows = 2, renderCard }) {
   const containerRef = React.useRef(null);
   const [availableColumns, setAvailableColumns] = React.useState(2);
 
@@ -35,7 +35,7 @@ export default function AlbumPreviewGrid({ albums, onOpen, onVisibleCountChange,
       gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`,
       maxWidth,
     }}>
-      {albums.slice(0, visibleCount).map((album) => <CollectionCard key={album.id} kind="album" item={album} onOpen={onOpen} />)}
+      {albums.slice(0, visibleCount).map((album) => renderCard ? renderCard(album) : <CollectionCard key={album.id} kind="album" item={album} onOpen={onOpen} />)}
     </div>
   </div>;
 }

@@ -468,7 +468,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
       {section === 'current' && <section className="lyric-studio__main" aria-label={t("当前歌词")}>
         {managed.loading && <div className="lyric-studio__empty"><Loader2 className="animate-spin" />{t("正在读取歌词…")}</div>}
         {!managed.loading && !hasAsset && !editing && <div className="lyric-studio__empty"><Languages size={28} />
-          <strong>{t("这首歌还没有歌词")}</strong><p>{t("可查找候选，或由管理员导入 LRC。")}</p>
+          <strong>{t("这首歌还没有歌词")}</strong>
           <button type="button" onClick={() => setSection('candidates')}>{t("查找歌词")}</button></div>}
         {!managed.loading && (hasAsset || editing) && <div className={'lyric-studio__preview-frame' + (isAdmin && (hasTimeline || editing && rows.some((row) => row.time)) ? ' has-shift-rail' : '')}>
           <Preview key={song.id} value={managed.lyrics} previewShiftMs={shift}
@@ -502,7 +502,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
               <button type="button" disabled={!hasAsset} onClick={() => exportFile('backup')}><Download size={16} />{t("完整备份")}</button>
             </div></section>
           {isAdmin && <section className="lyric-studio__card"><div><strong>{t("歌词管理")}</strong>
-            <p>{t("译文清理与歌词重置。")}</p></div>
+            </div>
             <div className="lyric-studio__file-actions">
               <button type="button" disabled={!managed.asset?.translation || managed.saving}
                 onClick={() => void managed.clearTranslation()}><Trash2 size={16} />{t("清除译文")}</button>

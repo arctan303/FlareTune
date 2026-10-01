@@ -1,3 +1,4 @@
+import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { assignAiProfile, createAiProfile, deleteAiProfile, getAiProfiles,
@@ -84,23 +85,23 @@ export default function AiProfilesPanel({ csrfToken }) {
     <section className="wallpaper-content-surface space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h2 className="text-base font-bold text-[var(--ink)]">{t("模型方案")}</h2>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{t("密钥保存后不再回显。")}</p></div>
+          </div>
         <button type="button" className={buttonClass} onClick={() => startEdit()} disabled={busy}>{t("创建方案")}</button>
       </div>
-      {data && !data.credentialReady && <p className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">{t("实例尚未配置 SETUP_SECRET，创建方案前需在开发 Worker 中设置它。")}</p>}
+      {data && !data.credentialReady && <p className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">{t("请先配置实例的初始化密钥（SETUP_SECRET）。")}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         {data?.profiles.length ? data.profiles.map((profile) => <div key={profile.id} className="wallpaper-content-surface rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><strong className="block truncate text-sm text-[var(--ink)]">{profile.name}</strong><span className="text-xs text-[var(--muted)]">{providerNames[profile.provider]} · {profile.model}</span></div><span className="shrink-0 text-xs text-[var(--muted)]">{profile.hasKey ? t("密钥已配置") : t("密钥需重新录入")}</span></div>
           {profile.baseUrl && <p className="mt-2 break-all text-xs text-[var(--muted)]">{profile.baseUrl}</p>}
           <div className="mt-3 flex gap-3 text-xs"><button type="button" disabled={busy} onClick={() => startEdit(profile)} className="text-[var(--accent)]">{t("编辑")}</button><button type="button" disabled={busy} onClick={() => void remove(profile)} className="text-[var(--muted)]">{t("删除")}</button></div>
-        </div>) : <p className="text-sm text-[var(--muted)]">{t("暂无方案，当前功能继续使用原有部署配置。")}</p>}
+        </div>) : <p className="text-sm text-[var(--muted)]">{t("暂无模型方案")}</p>}
       </div>
     </section>
 
     <section className="wallpaper-content-surface space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs sm:p-7">
-      <div><h2 className="text-base font-bold text-[var(--ink)]">{t("功能使用方案")}</h2><p className="mt-1 text-xs text-[var(--muted)]">{t("“原有部署配置”沿用当前设置。")}</p></div>
+      <div><h2 className="text-base font-bold text-[var(--ink)]">{t("功能使用方案")}</h2></div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {[['assistant', t("音乐助手")], ['lyrics', t("歌词 AI")]].map(([feature, label]) => <label key={feature} className="space-y-2 text-sm text-[var(--ink)]"><span className="font-semibold">{t(label)}</span><select className={inputClass} disabled={!data || busy} value={data?.assignments[feature]?.profileId || ''} onChange={(event) => void assign(feature, event.target.value)}><option value="">{t("原有部署配置")}</option>{data?.profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.model}</option>)}</select></label>)}
+        {[['assistant', t("音乐助手")], ['lyrics', t("歌词 AI")]].map(([feature, label]) => <label key={feature} className="space-y-2 text-sm text-[var(--ink)]"><span className="font-semibold">{t(label)}</span><SelectControl aria-label={label} className={inputClass} disabled={!data || busy} value={data?.assignments[feature]?.profileId || ''} onChange={(event) => void assign(feature, event.target.value)}><option value="">{t("原有部署配置")}</option>{data?.profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.model}</option>)}</SelectControl></label>)}
       </div>
     </section>
     {message && <p role="status" className="text-sm text-[var(--muted)]">{t(message)}</p>}
@@ -108,7 +109,7 @@ export default function AiProfilesPanel({ csrfToken }) {
       <form onSubmit={save} className="max-h-[85vh] space-y-4 overflow-y-auto p-5 sm:p-6">
         <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">{editing === 'new' ? t("创建模型方案") : t("编辑模型方案")}</h3><button type="button" onClick={() => setEditing(null)} disabled={busy} className="text-sm text-[var(--muted)]">{t("关闭")}</button></div>
         <label className="block space-y-1 text-xs font-semibold">{t("方案名称")}<input className={inputClass} required maxLength={80} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder={t("例如 DeepSeek 主方案")} /></label>
-        <label className="block space-y-1 text-xs font-semibold">{t("服务商")}<select className={inputClass} value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value, baseUrl: '' })}>{Object.entries(providerNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+        <label className="block space-y-1 text-xs font-semibold">{t("服务商")}<SelectControl aria-label={t("服务商")} className={inputClass} value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value, baseUrl: '' })}>{Object.entries(providerNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</SelectControl></label>
         <label className="block space-y-1 text-xs font-semibold">{t("模型名称")}<input className={inputClass} required maxLength={160} value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} placeholder={t("填写服务商提供的模型 ID")} /></label>
         {(draft.provider === 'compatible' || draft.baseUrl) && <label className="block space-y-1 text-xs font-semibold">{t("API 基础地址")}<input className={inputClass} type="url" required={draft.provider === 'compatible'} maxLength={2048} value={draft.baseUrl} onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} placeholder="https://example.com/v1" /><span className="block font-normal text-[var(--muted)]">{t("填写基础地址，不包含 /chat/completions。")}</span></label>}
         {['deepseek', 'openai'].includes(draft.provider) && !draft.baseUrl && <button type="button" className="text-xs text-[var(--accent)]" onClick={() => setDraft({ ...draft, baseUrl: 'https://' })}>{t("使用自定义基础地址")}</button>}

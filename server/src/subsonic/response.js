@@ -1,3 +1,5 @@
+import packageMetadata from '../../../package.json' with { type: 'json' };
+
 const escape = (value) => String(value).replace(/[&<>"']/g,
   (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 const attributes = (value) => Object.entries(value).filter(([, v]) => v != null)
@@ -20,7 +22,7 @@ function element(name, value) {
 
 export function reply(payload = {}, format = 'xml', error = null, httpStatus = 200) {
   const base = { status: error ? 'failed' : 'ok', version: '1.16.1', type: 'FlareTune',
-    serverVersion: '1.1.0', openSubsonic: true };
+    serverVersion: packageMetadata.version, openSubsonic: true };
   const body = error ? { error } : payload;
   const headers = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer', 'Content-Type': format === 'json'

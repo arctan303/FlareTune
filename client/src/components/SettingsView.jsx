@@ -335,9 +335,6 @@ export default function SettingsView({ section, themePreference = 'system', sele
                               )}
                             </div>
 
-                            <p className="text-[11px] text-[var(--muted)] leading-relaxed line-clamp-2">
-                              {t(meta.description)}
-                            </p>
                           </div>
 
                         </div>
@@ -700,9 +697,9 @@ export default function SettingsView({ section, themePreference = 'system', sele
           {activeSection.startsWith('admin-') && activeSection !== 'admin-add-song' && isAdmin && (
             <div className="space-y-8 animate-[fade-in_0.2s_ease-out]">
               <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)]">
-                {{ 'admin-assistant': t("AI 与助手"), 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("系统管理") }[activeSection] || t("系统管理")}
+                {{ 'admin-assistant': t("AI 与助手"), 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("实例设置") }[activeSection] || t("站点管理")}
               </h1>
-              <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">{t("正在打开系统管理…")}</p>}>
+              <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">{t("正在打开站点管理…")}</p>}>
                 <AdminView
                   embeddedTab={activeSection.replace('admin-', '')}
                 />

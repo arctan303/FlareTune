@@ -6,10 +6,10 @@ import { resolveCoverUrl } from '../../utils.js';
 
 export default function ArtistCard({ artist, onOpen }) {
   const subtitle = artist.songCount != null
-    ? `${artist.songCount} 首歌曲`
+    ? t("{p0} 首歌曲", { p0: artist.songCount })
     : artist.songs?.length
-      ? `${artist.songs.length} 首歌曲`
-      : '歌手';
+      ? t("{p0} 首歌曲", { p0: artist.songs.length })
+      : t('歌手');
 
   const cover = artist.photoUrl || artist.coverUrl;
 

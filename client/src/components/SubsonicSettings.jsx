@@ -1,10 +1,12 @@
 import React from 'react';
 import { instanceRequest } from '../instance/api.js';
 import { useUIStore } from '../store/useUIStore.js';
-import { t } from '../i18n/index.js';
+import { t, useLocale } from '../i18n/index.js';
 import SettingsSection from './SettingsSection.jsx';
 
 export default function SubsonicSettings({ session }) {
+  const locale = useLocale();
+  const guideUrl = `https://github.com/arctan303/FlareTune/blob/dev/guide/subsonic${locale === 'en' ? '.en' : ''}.md`;
   const [status, setStatus] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -45,18 +47,21 @@ export default function SubsonicSettings({ session }) {
       try { await refresh(); } catch { /* Keep the error visible. */ }
     } finally { if (current()) setBusy(false); }
   };
-  return <SettingsSection title={t('第三方音乐客户端')}>
+  return <SettingsSection title={<span className="inline-flex items-center gap-2">
+    {t('第三方音乐客户端')}
+    <span className="rounded-md border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[var(--muted)]">Beta</span>
+  </span>}>
     <label className="flex min-h-11 items-center justify-between gap-4 text-sm font-semibold">
       <span>{t('允许 Subsonic 客户端连接')}</span>
       <input type="checkbox" role="switch" checked={Boolean(status?.enabled)} disabled={!status || busy}
         onChange={(event) => { if (event.target.checked) { setError(''); setOpen(true); } else save(false); }}
-        className="h-5 w-5 accent-[var(--accent)]" />
+        className="settings-switch" />
     </label>
-    <p className="mt-2 text-sm text-[var(--muted)]">{t('开启后，使用本站地址、用户名和当前密码连接。修改或重置密码后自动关闭。')}</p>
-    {status?.enabled && <div className="mt-4 space-y-2 break-all text-sm"><dl className="space-y-2">
-      <div><dt className="text-[var(--muted)]">{t('服务器地址')}</dt><dd>{window.location.origin}</dd></div>
-      <div><dt className="text-[var(--muted)]">{t('用户名')}</dt><dd>{session.user.username}</dd></div>
-    </dl><p className="text-[var(--muted)]">{t('客户端选择 Subsonic 和令牌认证（token/salt）。')}</p></div>}
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-relaxed text-[var(--muted)]">
+      <span>{t('修改或重置密码后自动关闭。')}</span>
+      <a href={guideUrl} target="_blank" rel="noopener noreferrer"
+        className="text-[var(--accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">{t('接入说明')}</a>
+    </p>
     {error && !open && <div className="mt-3 text-sm" role="alert"><p className="text-red-600">{t(error)}</p>
       <button type="button" className="mt-2 min-h-11 underline" onClick={() => {
         setError(''); refresh().catch(() => setError('客户端连接设置加载失败，请重试。'));

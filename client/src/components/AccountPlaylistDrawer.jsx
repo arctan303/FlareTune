@@ -283,10 +283,6 @@ export default function AccountPlaylistDrawer() {
 
         {accountStatus === 'ready' && shelfRevision !== null ? (
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-[var(--muted)] px-1">
-              <span>{t("拖拽手柄或使用上下按钮调整在主页及二级页面的展示顺序")}</span>
-            </div>
-
             {shelfDraftItems.map((item, index) => {
               const itemKey = typedPlaylistRefKey(item);
               const title = resolveItemTitle(item);

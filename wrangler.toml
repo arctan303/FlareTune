@@ -39,9 +39,15 @@ preview_urls = false
 [env.dev.observability]
 enabled = true
 head_sampling_rate = 1
+redact_query_string = true
 
 [env.dev.observability.logs]
-invocation_logs = false
+enabled = true
+invocation_logs = true
+persist = true
+
+[env.dev.observability.traces]
+enabled = false
 
 [env.dev.vars]
 MEDIA_PREFIX = "dist_music"

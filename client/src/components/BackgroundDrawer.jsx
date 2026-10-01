@@ -191,7 +191,6 @@ export default function BackgroundDrawer() {
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold text-[var(--ink)] flex items-center gap-1.5">
               <Sparkles size={15} className="text-[var(--accent)]" />{t("启用全站背景")}</span>
-            <span className="text-[11px] text-[var(--muted)]">{t("开启自定义壁纸与卡片玻璃通透质感")}</span>
           </div>
           <button
             type="button"
@@ -218,7 +217,7 @@ export default function BackgroundDrawer() {
         <div className="space-y-2.5 p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
-              <Upload size={14} />{t("本地图片 (IndexedDB 离线保存)")}</span>
+              <Upload size={14} />{t("本地图片")}</span>
             {isLocalActive && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/15 text-[var(--accent)] font-medium">{t("生效中")}</span>
             )}
@@ -375,21 +374,12 @@ export default function BackgroundDrawer() {
           </form>
         </div>
 
-        {/* 未启用壁纸时的友好状态提示 */}
-        {!enabled && (
-          <div className="flex items-center gap-2 p-3 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--line)] text-xs text-[var(--muted)]">
-            <Sparkles size={14} className="text-[var(--accent)] shrink-0" />
-            <span>{t("开启背景壁纸后，画面调节与卡片通透度将实时生效")}</span>
-          </div>
-        )}
-
         {/* 画面与卡片质感统一调节板块 */}
         <div className={`space-y-4 p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] transition-opacity ${!enabled ? 'opacity-65' : 'opacity-100'}`}>
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
                 <Layers size={14} className="text-[var(--accent)]" />{t("画面与卡片质感调节")}</span>
-              <span className="text-[10px] text-[var(--muted)] mt-0.5">{t("一键联动虚化、遮罩与卡片通透度")}</span>
             </div>
             <button
               type="button"

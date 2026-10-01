@@ -8,8 +8,44 @@ import { changePassword } from '../auth/local/index.js';
 import { resetAccountPassword } from '../instanceAdmin/accounts.js';
 import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { parseLrcDocument } from '../utils/lyricDocument.js';
+import packageMetadata from '../../../package.json' with { type: 'json' };
 
 const body = async (response) => (await response.json())['subsonic-response'];
+
+test('protocol reports the package version in JSON and XML', async () => {
+  const f = await fixture();
+  try {
+    await f.enable();
+    assert.equal((await body(await f.rest('ping'))).serverVersion, packageMetadata.version);
+    assert.ok((await (await f.rest('ping', { f: 'xml' })).text()).includes('serverVersion="' + packageMetadata.version + '"'));
+  } finally { await f.close(); }
+});
+
+test('GET mutations reject a damaged schema after read cache warmup without changing data', async () => {
+  for (const method of ['createPlaylist', 'updatePlaylist', 'deletePlaylist', 'star', 'unstar']) {
+    const f = await fixture();
+    try {
+      await f.enable();
+      const created = await body(await f.rest('createPlaylist', { name: 'existing', songId: 's1' }));
+      const playlistId = created.playlist.id;
+      await f.rest('star', { id: 's1' });
+      assert.equal((await body(await f.rest('ping'))).status, 'ok');
+      f.sqlite.exec('DROP TRIGGER ft_member_playlist_songs_insert_count');
+      const snapshot = () => JSON.stringify([
+        f.sqlite.prepare('SELECT * FROM Member_Playlists ORDER BY id').all(),
+        f.sqlite.prepare('SELECT * FROM Member_Playlist_Songs ORDER BY playlist_id, song_id').all(),
+      ]);
+      const before = snapshot();
+      const response = await f.rest(method, {
+        name: 'must-not-write', playlistId, songId: 's2', songIdToAdd: 's2',
+        id: method === 'deletePlaylist' ? playlistId : 's1',
+      });
+      assert.equal(response.status, 503, method);
+      assert.equal((await body(response)).status, 'failed', method);
+      assert.equal(snapshot(), before, method);
+    } finally { await f.close(); }
+  }
+});
 test('legacy MD5 boundary matches independent implementation including Unicode and block boundaries', () => {
   for (const value of ['', 'abc', '密码🔒test-salt', 'x'.repeat(55), 'x'.repeat(56), 'x'.repeat(1024)]) {
     assert.equal(md5(value), createHash('md5').update(value).digest('hex'));

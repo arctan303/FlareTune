@@ -123,14 +123,12 @@ function SetupPage({ onComplete }) {
     }
   };
   return (
-    <Page title={proof ? '创建管理员' : '验证初始化密钥'} description={proof
-      ? '创建第一个管理员账户并初始化数据库。完成后使用新账号登录。'
-      : '先验证部署时设置的初始化密钥。验证过程不会写入数据库。'}>
+    <Page title={proof ? '创建管理员' : '验证初始化密钥'} description={proof ? '将初始化数据库并创建首个管理员。' : undefined}>
       <form onSubmit={proof ? submit : verify} className="instance-form">
         <StatusMessage error={error} errorRef={errorRef} />
         {!proof ? <Field id="setup-secret" label="初始化密钥" type="password" autoComplete="off" value={setupSecret} onChange={(event) => setSetupSecret(event.target.value)} /> : <>
           <Field id="setup-username" label="管理员用户名" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} pattern={USERNAME_PATTERN} minLength={3} maxLength={64} hint="3–64 位小写英文字母、数字、下划线、句点或连字符。" />
-          <Field id="setup-password" label="密码" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} hint="至少 8 个字符；建议使用独一无二的长密码。" />
+          <Field id="setup-password" label="密码" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} hint="至少 8 个字符。" />
           <Field id="setup-confirm" label="确认密码" type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
         </>}
         <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{t(busy ? '请稍候…' : proof ? '初始化并创建管理员' : '验证密钥')}</button>
@@ -424,18 +422,18 @@ export default function InstanceGate({ App }) {
       else setStatus({ state: 'unavailable' });
     }
   };
-  if (current === 'loading') return <Page title="正在连接" description="正在确认实例状态。"><p className="instance-progress" role="status">{t('请稍候…')}</p></Page>;
+  if (current === 'loading') return <Page title="正在连接"><p className="instance-progress" role="status">{t('请稍候…')}</p></Page>;
   if (current === 'unavailable') return <Page title="暂时无法连接" description="实例状态暂时无法确认。为保护数据，应用尚未打开。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
   if (current === 'setup') return <SetupPage onComplete={() => setMode('setup_complete')} />;
-  if (current === 'setup_complete') return <Page title="实例已准备好" description="管理员账户已创建。现在可以登录。"><button className="instance-primary" type="button" onClick={refresh}>{t('前往登录')}</button></Page>;
+  if (current === 'setup_complete') return <Page title="实例已准备好"><button className="instance-primary" type="button" onClick={refresh}>{t('前往登录')}</button></Page>;
   if (current === 'maintenance') return <MaintenancePage onRefresh={refresh} />;
   if (current === 'instance_error') return <Page title="实例需要维护" description="当前实例暂时无法打开，请联系部署者检查实例状态。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
   if (current === 'login') return <LoginPage onSuccess={handleLogin} />;
   if (current === 'change_password') return <ChangePasswordPage csrfToken={session?.csrfToken} onComplete={() => { imageLoadRegistry.setSessionScope(null); setSession(normalizeSession(null)); setMode('password_changed'); }} onLogout={handleLogout} />;
   if (current === 'password_changed') return <Page title="密码已更新" description="临时会话已失效。请使用新密码重新登录。"><button className="instance-primary" type="button" onClick={() => setMode(null)}>{t('前往登录')}</button></Page>;
   if (current === 'app') {
-    if (readyShellSession !== session) return <Page title="正在打开 Tune" description="正在准备你的音乐空间。" />;
-    return <React.Suspense fallback={<Page title="正在打开 Tune" description="正在加载你的音乐空间。" />}><App validatedSession={session} /></React.Suspense>;
+    if (readyShellSession !== session) return <Page title="正在打开 Tune" />;
+    return <React.Suspense fallback={<Page title="正在打开 Tune" />}><App validatedSession={session} /></React.Suspense>;
   }
-  return <Page title="无法打开应用" description="状态暂时无法确认。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
+  return <Page title="无法打开应用"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
 }

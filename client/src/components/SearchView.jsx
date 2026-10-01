@@ -637,7 +637,6 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                   <Search size={20} />
                 </div>
                 <h3 className="text-sm font-bold text-[var(--ink)] mb-1">{t("探索曲库")}</h3>
-                <p className="text-xs text-[var(--muted)] max-w-xs mx-auto leading-relaxed">{t("输入歌名、歌手或专辑，按回车或点击搜索。")}</p>
               </div>
             )}
           </div>

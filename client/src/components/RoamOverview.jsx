@@ -96,7 +96,7 @@ export default function RoamOverview({
     }, [isAllSelected, selectedKeys]);
 
     return (
-        <div className="app-page roam-page space-y-12 pb-16">
+        <div className="app-page roam-page pb-16">
             {/* 页面顶栏 */}
             <header className="app-page-heading">
                 <p className="app-page-heading__eyebrow">DISCOVER</p>
@@ -105,7 +105,7 @@ export default function RoamOverview({
 
             {/* 核心专区 1：随心漫游电台控制台 (精炼画报专属电台) */}
             <section aria-labelledby="roam-console-title" className="roam-radio">
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0c4a6e] via-[#075985] to-[#0f172a] text-white p-6 sm:p-7 shadow-xl border border-white/10">
+                <div className="roam-radio__panel relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0c4a6e] via-[#075985] to-[#0f172a] text-white shadow-xl border border-white/10">
                     {/* 氛围流动背景装饰光晕 */}
                     <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-sky-400/20 blur-3xl pointer-events-none" />
                     <div className="absolute left-1/3 -bottom-24 w-72 h-72 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" />
@@ -113,11 +113,9 @@ export default function RoamOverview({
                     <div className="relative z-10 flex flex-col justify-between gap-5">
                         {/* 上半部：电台身份与大播放按钮（去除非必要长句，直接对齐） */}
                         <div className="roam-radio__header flex items-center justify-between gap-6">
-                            <div className="space-y-1.5">
+                            <div className="roam-radio__identity">
+                                <h2 id="roam-console-title" className="text-2xl font-bold tracking-tight text-white">{t("私人电台")}</h2>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-white/90">
-                                        PERSONAL RADIO
-                                    </span>
                                     <span className="inline-flex items-center gap-1.5 text-xs text-white/80 transition-all duration-300">
                                         {randomRoam.status === 'loading' ? (
                                             <>
@@ -132,7 +130,6 @@ export default function RoamOverview({
                                         )}
                                     </span>
                                 </div>
-                                <h2 id="roam-console-title" className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">{t("随心漫游电台")}</h2>
                             </div>
 
                             {/* 简洁有力的播放主控（文案去啰嗦化，直接“开启”/“暂停”） */}
@@ -157,9 +154,9 @@ export default function RoamOverview({
                         </div>
 
                         {/* 底部：极简调频微调条 (Tuning Bar) */}
-                        <div className="roam-radio__settings pt-3.5 border-t border-white/15 flex flex-wrap items-center justify-between gap-4 text-xs">
+                        <div className="roam-radio__settings pt-3.5 border-t border-white/15 text-xs">
                             {/* 漫游语种范围：精炼为“语种：” */}
-                            <div className="flex items-center gap-2 flex-wrap" title={t("漫游语种范围")}>
+                            <div className="roam-radio__language-setting" title={t("漫游语种范围")}>
                                 <span className="text-white/70 font-semibold">{t("语种：")}</span>
                                 <div className="roam-radio__languages inline-flex p-0.5 rounded-full bg-black/25 backdrop-blur-md">
                                     {ROAM_LANGUAGES.map((item, index) => {
@@ -182,9 +179,9 @@ export default function RoamOverview({
                                 <button
                                     type="button"
                                     onClick={handleSelectAll}
-                                    className="text-[11px] underline opacity-75 hover:opacity-100 ml-1 cursor-pointer"
+                                    className="roam-radio__language-shortcut text-[11px] underline opacity-75 hover:opacity-100 cursor-pointer"
                                 >
-                                    {isAllSelected ? t("全不选") : t("全选")}
+                                    {isAllSelected ? t("仅华语") : t("全选")}
                                 </button>
                             </div>
 
@@ -198,6 +195,7 @@ export default function RoamOverview({
                                                 key={count}
                                                 type="button"
                                                 onClick={() => handleBatchSizeChange(count)}
+                                                aria-pressed={currentBatchSize === count}
                                                 className={`px-2.5 py-0.5 rounded-full text-xs transition-all cursor-pointer ${
                                                     currentBatchSize === count
                                                         ? 'bg-white text-slate-900 font-bold'

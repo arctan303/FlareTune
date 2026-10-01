@@ -9,7 +9,7 @@ function cardWidthFor(containerWidth) {
   return 160;
 }
 
-export default function ArtistPreviewRow({ artists = [], onOpen, onVisibleCountChange }) {
+export default function ArtistPreviewRow({ artists = [], onOpen, onVisibleCountChange, renderCard }) {
   const containerRef = React.useRef(null);
   const [layout, setLayout] = React.useState({ capacity: 1, cardWidth: 120 });
 
@@ -42,7 +42,7 @@ export default function ArtistPreviewRow({ artists = [], onOpen, onVisibleCountC
   return <div ref={containerRef} className="artist-preview-row"
     style={{ '--artist-preview-card-width': `${layout.cardWidth}px` }}>
     {artists.slice(0, visibleCount).map((artist) => (
-      <ArtistCard key={artist.name} artist={artist} onOpen={onOpen} />
+      renderCard ? renderCard(artist) : <ArtistCard key={artist.name} artist={artist} onOpen={onOpen} />
     ))}
   </div>;
 }

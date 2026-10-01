@@ -1,11 +1,21 @@
-import { t } from '../i18n/index.js';
+import { t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import { instanceRequest } from '../instance/api.js';
 import { useUIStore, showToast } from '../store/useUIStore.js';
 
 const sourceLabel = { stated: '对话中提到', inferred: '根据收听推测', user_edited: '由你修改' };
 
+function MemoryTime({ value, label, formatter }) {
+  const date = typeof value === 'number' && Number.isFinite(value) ? new Date(value) : null;
+  return <span className="whitespace-nowrap">{label} {date && !Number.isNaN(date.getTime())
+    ? <time dateTime={date.toISOString()}>{formatter.format(date)}</time> : '—'}</span>;
+}
+
 export default function AssistantMemoryView() {
+  const locale = useLocale();
+  const dateFormatter = React.useMemo(() => new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }), [locale]);
   const session = useUIStore((state) => state.authSession);
   const accountId = session.user?.accountId;
   const [data, setData] = React.useState(null);
@@ -74,7 +84,7 @@ export default function AssistantMemoryView() {
         <label className="flex items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
           <span><strong className="block text-[var(--ink)]">{t("允许助手使用记忆")}</strong>
             <span className="mt-1 block text-sm text-[var(--muted)]">{t("默认关闭。关闭时助手不能读取或改写，已有内容仍由你管理。")}</span></span>
-          <input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--accent)]" checked={data.enabled}
+          <input type="checkbox" role="switch" className="settings-switch" checked={data.enabled}
             disabled={busy} onChange={(event) => run(() => instanceRequest('ai/memory', {
               method: 'PATCH', body: { enabled: event.target.checked }, csrfToken: session.csrfToken,
               expectedAccountId: accountId,
@@ -83,7 +93,7 @@ export default function AssistantMemoryView() {
         <section aria-label={t("已有记忆")} className="space-y-3">
           <div className="flex items-baseline justify-between gap-3"><h2 className="text-lg font-semibold text-[var(--ink)]">{t("已有记忆")}</h2>
             <span className="text-xs text-[var(--muted)]">{data.memories.length} / 30</span></div>
-          {data.memories.length === 0 && <p className="rounded-2xl border border-[var(--line)] p-5 text-sm text-[var(--muted)]">{t("还没有记忆。开启后，助手会在对话中逐步形成。")}</p>}
+          {data.memories.length === 0 && <p className="rounded-2xl border border-[var(--line)] p-5 text-sm text-[var(--muted)]">{t("暂无记忆")}</p>}
           {data.memories.map((item) => <div key={item.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
             {editingId === item.id ? <form onSubmit={(event) => {
               event.preventDefault();
@@ -98,8 +108,12 @@ export default function AssistantMemoryView() {
                 <button type="button" className="text-sm text-[var(--muted)]" disabled={busy} onClick={() => setEditingId(null)}>{t("取消")}</button></div>
             </form> : <>
               <p className="whitespace-pre-wrap break-words text-sm text-[var(--ink)]">{item.content}</p>
-              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
-                <span>{sourceLabel[item.source] || t("记忆")}</span><span className="flex gap-4">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs text-[var(--muted)]">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                  <span>{t(sourceLabel[item.source] || '记忆')}</span>
+                  <MemoryTime value={item.createdAt} label={t('创建于')} formatter={dateFormatter} />
+                  <MemoryTime value={item.updatedAt} label={t('修改于')} formatter={dateFormatter} />
+                </div><span className="ml-auto flex shrink-0 gap-4">
                   <button type="button" disabled={busy} onClick={() => { setEditingId(item.id); setDraft(item.content); }}>{t("修改")}</button>
                   <button type="button" disabled={busy} className="text-red-600 dark:text-red-400" onClick={() => {
                     if (window.confirm(t("确定删除这条记忆吗？"))) void run(() => instanceRequest(`ai/memory/${item.id}`, {

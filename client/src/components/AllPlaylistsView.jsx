@@ -8,11 +8,15 @@ import PageBackButton from './PageBackButton.jsx';
 import { accountPlaylistsStore, useAccountPlaylists } from '../accountPlaylists.js';
 import { showToast } from '../store/useUIStore.js';
 import { nearestPlaylistSlot } from '../playlistGridDrag.js';
+import { albumColumnsForWidth, albumGridLayout } from './catalog/albumGridLayout.js';
 
 export default function AllPlaylistsView({
     playlists,
     songsMap,
     loadState,
+    accountStatus = 'ready',
+    accountError,
+    onRetryAccount,
     onOpen,
     onPrefetch,
     onBack,
@@ -49,6 +53,22 @@ export default function AllPlaylistsView({
     const dragIndexRef = React.useRef(null);
     const floatingElRef = React.useRef(null);
     const shelfGridRef = React.useRef(null);
+    const contentRef = React.useRef(null);
+    const [availableColumns, setAvailableColumns] = React.useState(2);
+    React.useLayoutEffect(() => {
+        const element = contentRef.current;
+        const update = () => {
+            if (element?.clientWidth) setAvailableColumns(albumColumnsForWidth(Math.max(0, element.clientWidth - 4)));
+        };
+        update();
+        const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+        observer?.observe(element);
+        if (!observer) window.addEventListener('resize', update);
+        return () => {
+            observer?.disconnect();
+            if (!observer) window.removeEventListener('resize', update);
+        };
+    }, []);
     const reorderAnimationsRef = React.useRef(new Map());
     const settleTimerRef = React.useRef(null);
 
@@ -333,11 +353,14 @@ export default function AllPlaylistsView({
                 <span className="text-xs font-semibold text-[var(--ink)]">{t("新建歌单")}</span>
             </div>
             <h4 className="record-card__title truncate text-sm font-semibold text-[var(--ink)] group-hover:text-[var(--accent-strong)]">{t("＋ 新建歌单")}</h4>
-            <p className="record-card__meta mt-1 text-xs text-[var(--muted)]">{t("点击快捷创建")}</p>
         </button>
     ) : null;
 
     const displayPlaylists = isOrdering ? draftPlaylists : combinedPlaylists;
+    const hasPlaylists = combinedPlaylists.length > 0;
+    const isLoading = accountStatus === 'idle' || accountStatus === 'loading';
+    const failed = accountStatus === 'error';
+    const gridLayout = albumGridLayout(availableColumns, displayPlaylists.length + (createSkeletonCard ? 1 : 0), Infinity);
 
     return (
         <div className={`all-playlists-view ${isLeaving ? 'is-leaving' : ''}`}>
@@ -351,7 +374,9 @@ export default function AllPlaylistsView({
                         <p className="collection-section__index">YOUR LIBRARY</p>
                         <h2 className="all-playlists-title text-2xl sm:text-3xl font-semibold tracking-tight">{standalone ? t("资料库") : t("全部歌单")}</h2>
                         <p className="all-playlists-meta text-xs sm:text-sm text-[var(--muted)] mt-1">
-                            {isOrdering ? t("按住手柄拖拽或使用箭头调整歌单顺序") : t("共 {p0} 个歌单", { p0: (combinedPlaylists.length) })}
+                            {hasPlaylists || (!isLoading && !failed)
+                                ? t("共 {p0} 个歌单", { p0: combinedPlaylists.length })
+                                : isLoading ? t("正在加载歌单…") : t("歌单加载失败，请重试。")}
                         </p>
                     </div>
 
@@ -379,6 +404,7 @@ export default function AllPlaylistsView({
                                 <button
                                     type="button"
                                     onClick={handleStartOrdering}
+                                    disabled={accountStatus !== 'ready' || !hasPlaylists}
                                     className="text-button text-button--accent inline-flex items-center gap-1.5 min-h-9 px-3.5 py-1.5 text-xs font-medium rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] hover:bg-[var(--surface)] cursor-pointer transition-all shadow-2xs"
                                     aria-label={t("调整歌单展示顺序")}
                                 >
@@ -391,8 +417,18 @@ export default function AllPlaylistsView({
                 </div>
             </header>
 
-            <section className="all-playlists-content" aria-label={t("全量歌单列表")}>
+            <section ref={contentRef} className="all-playlists-content" aria-label={t("全量歌单列表")} aria-busy={isLoading}>
+                {failed && (
+                    <div className="app-inline-notice" role="alert">
+                        <span>{t("个人歌单暂时不可用。")}{accountError?.status > 0 ? ` (HTTP ${accountError.status})` : ''}</span>
+                        <button type="button" className="app-section-link" onClick={onRetryAccount}>{t("重试")}</button>
+                    </div>
+                )}
+                {isLoading && hasPlaylists && <p role="status" className="text-sm text-[var(--muted)] mb-4">{t("正在加载歌单…")}</p>}
+                {(hasPlaylists || (!isLoading && !failed)) && (
                 <PlaylistShelfGrid
+                    className="record-shelf--bounded"
+                    style={{ gridTemplateColumns: `repeat(${gridLayout.columns}, minmax(0, 1fr))`, maxWidth: gridLayout.maxWidth + 4 }}
                     playlists={displayPlaylists}
                     songsMap={songsMap}
                     loadState={loadState}
@@ -405,6 +441,7 @@ export default function AllPlaylistsView({
                     onMoveBy={handleMoveBy}
                     gridRef={shelfGridRef}
                 />
+                )}
             </section>
 
             {isCreateOpen && typeof document !== 'undefined' && createPortal(

@@ -4,9 +4,9 @@
 
 ## Admin entry points
 
-After signing in, administrators can open Library management, Song ingest, AI and assistant, Account management, and System management from the Settings sidebar. System management brings together the instance name, allowed origins, ingest devices, runtime status, and database upgrades. Members cannot access these areas. Administrators import their own music files. The Worker reads media from private R2 and checks session access.
+After signing in, administrators can open Library management, Song ingest, AI and assistant, Account management, and Instance settings from the Settings sidebar. Instance settings brings together the instance name, allowed origins, ingest devices, runtime status, and database upgrades. Members cannot access these areas. Administrators import their own music files. The Worker reads media from private R2 and checks session access.
 
-System management shows the app version, instance status, and current and target database schema versions. Administrators can start a known compatible upgrade when one is available; otherwise the page reports that the database is current. The former `/settings/admin/instance` URL redirects to System management. Interface language is an account choice in Personal settings, not an instance-wide admin setting.
+Instance settings shows the app version, instance status, and current and target database schema versions. Administrators can start a known compatible upgrade when one is available; otherwise the page reports that the database is current. The former `/settings/admin/instance` URL redirects to Instance settings. Interface language is an account choice in Personal settings, not an instance-wide admin setting.
 
 ## Add and remove music
 
@@ -18,7 +18,7 @@ Before deleting a song, review the impact on personal playlists, lyrics, play hi
 
 | Instance state | Action |
 | --- | --- |
-| Known compatible old schema, administrator can sign in | View current and target versions in System management and start the built-in upgrade. |
+| Known compatible old schema, administrator can sign in | View current and target versions in Instance settings and start the built-in upgrade. |
 | Known old version requiring a service pause | On the maintenance page, the deployer verifies `SETUP_SECRET` and continues in batches; sign-in is unavailable during maintenance. |
 | Unknown version, inconsistent ledger, or damaged structure | Keep the service closed. Diagnose outside the app using backups; there is no automatic repair. |
 

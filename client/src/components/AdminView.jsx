@@ -1,3 +1,4 @@
+import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { RefreshCw, KeyRound, Check, Copy, UserPlus, X, Edit3 } from 'lucide-react';
@@ -178,16 +179,16 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
             <input className={inputClass} maxLength={80} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder={t("用户昵称")} />
           </Field>
           <Field label={t("角色")}>
-            <select className={inputClass} value={role} onChange={(event) => setRole(event.target.value)}>
+            <SelectControl aria-label={t("角色")} className={inputClass} value={role} onChange={(event) => setRole(event.target.value)}>
               <option value="member">{t("普通成员")}</option>
               <option value="admin">{t("系统管理员")}</option>
-            </select>
+            </SelectControl>
           </Field>
           <Field label={t("状态")}>
-            <select className={inputClass} value={status} onChange={(event) => setStatus(event.target.value)}>
+            <SelectControl aria-label={t("状态")} className={inputClass} value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="active">{t("启用")}</option>
               <option value="disabled">{t("停用")}</option>
-            </select>
+            </SelectControl>
           </Field>
           <div className="flex items-center gap-1.5">
             <button className={buttonClass} type="submit" disabled={busy}>{t("保存")}</button>
@@ -204,7 +205,7 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
       {resetOpen && (
         <form onSubmit={reset} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] p-3 animate-[fade-in_0.15s_ease-out]">
           <div className="flex-1 min-w-[200px]">
-            <Field label={t("一次性临时密码")} hint={t("至少 8 个字符；不会保存在浏览器。")}>
+            <Field label={t("一次性临时密码")} hint={t("至少 8 个字符。")}>
               <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("输入新的临时密码")} />
             </Field>
           </div>
@@ -523,7 +524,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                     </div>
                   ))}
                   <div className="sm:col-span-2">
-                    <Field label={t("温度（0～2）")} hint={t("数值越低越严谨，数值越高越有创造力。默认推荐 0.7。")}>
+                    <Field label={t("温度（0～2）")} hint={t("越低越严谨，越高越有创造力。")}>
                       <div className="flex items-center gap-3">
                         <input
                           className="flex-1 accent-[var(--accent)] cursor-pointer"
@@ -567,15 +568,14 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                 setLyricAiEditorOpen(false);
               }}>
                 <form onSubmit={(event) => void saveSetting(event, 'lyrics.ai')} className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
-                  <Field label={t("目标译文语言")} hint={t("实例内所有用户共用一份译文；修改后旧译文不会自动变成新语言。")}><select className={inputClass} value={draft['lyrics.ai']?.targetLanguage || 'zh'} onChange={(event) => setLyricTargetLanguage(event.target.value)}>
-                    {ALL_LANGUAGES.filter(({ code }) => !['instrumental', 'other'].includes(code)).map(({ code, label }) => <option key={code} value={code}>{label}</option>)}
-                  </select></Field>
+                  <Field label={t("目标译文语言")} hint={t("实例内所有用户共用一份译文；修改后旧译文不会自动变成新语言。")}><SelectControl aria-label={t("目标译文语言")} className={inputClass} value={draft['lyrics.ai']?.targetLanguage || 'zh'} onChange={(event) => setLyricTargetLanguage(event.target.value)}>
+                    {ALL_LANGUAGES.filter(({ code }) => !['instrumental', 'other'].includes(code)).map(({ code, label }) => <option key={code} value={code}>{t(label)}</option>)}
+                  </SelectControl></Field>
                   <Field label={t("温度（0～2）")}><input className={inputClass} type="number" min="0" max="2" step="0.1" value={draft['lyrics.ai']?.temperature ?? 0.2} onChange={(event) => setLyricAiField('temperature', Number(event.target.value))} /></Field>
                   <div className="min-w-0 space-y-2">
                     <label htmlFor="lyrics-ai-style-rules" className="block text-xs font-semibold text-[var(--ink)]">{t("歌词处理准则")}</label>
                     <textarea id="lyrics-ai-style-rules" className={`${inputClass} min-h-64 resize-y`} maxLength={8000} value={draft['lyrics.ai']?.styleRules || ''} onChange={(event) => setLyricAiField('styleRules', event.target.value)} />
                     <button type="button" className="text-xs font-medium text-[var(--accent)] hover:underline" onClick={() => setLyricAiField('styleRules', overview.defaults?.lyrics?.styleRules || '')}>{t("重置为系统默认准则")}</button>
-                    <p className="text-[11px] leading-relaxed text-[var(--muted)]">{t("补充翻译、清理和语言判断的风格要求；结果格式、时间轴与写入校验由系统固定。")}</p>
                   </div>
                   <fieldset className="min-w-0 space-y-4">
                     <legend className="text-xs font-semibold text-[var(--ink)]">{t("处理功能")}</legend>
@@ -613,7 +613,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       {overview.accounts?.length || 0}
                     </span>
                   </div>
-                  <p className="text-xs text-[var(--muted)] mt-1">{t("不开放公开注册。临时密码仅用于首次登录，成员登录后须立刻修改。最后一位可用管理员不可被停用或降权。")}</p>
+                  <p className="text-xs text-[var(--muted)] mt-1">{t("临时密码需在首次登录后修改；最后一位可用管理员不可停用或降权。")}</p>
                 </div>
 
                 {!isCreatingAccount && (
@@ -659,12 +659,12 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       <input className={inputClass} name="displayName" maxLength={80} autoComplete="off" placeholder={t("用户昵称")} />
                     </Field>
                     <Field label={t("角色")}>
-                      <select className={inputClass} name="role">
+                      <SelectControl aria-label={t("角色")} className={inputClass} name="role">
                         <option value="member">{t("普通成员")}</option>
                         <option value="admin">{t("系统管理员")}</option>
-                      </select>
+                      </SelectControl>
                     </Field>
-                    <Field label={t("一次性临时密码")} hint={t("至少 8 个字符；不会保存在浏览器。")}>
+                    <Field label={t("一次性临时密码")} hint={t("至少 8 个字符。")}>
                       <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("初始临时密码")} />
                     </Field>
                     <div className="sm:col-span-2 pt-2 flex items-center gap-2">
@@ -730,7 +730,6 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                     && status.schemaVersion < status.targetVersion && <button className={`${buttonClass} mt-3`} type="button" disabled={busy} onClick={() => void upgradeDatabase()}>{t("升级数据库")}</button>}
                   {status?.schemaVersion === status?.targetVersion && <p className="mt-2 text-xs text-[var(--muted)]">{t("数据库已是当前版本。")}</p>}
                 </div>
-                <p className="mt-4 text-[11px] text-[var(--muted)] leading-relaxed">{t("此处显示应用迁移账本版本；存储和其他底层健康状态仍需结合实际运行检查。")}</p>
               </Section>
             </div>
           )}

@@ -7,9 +7,10 @@ import { useShallow } from 'zustand/react/shallow';
 import { createAiResponseTypewriter, reconcileAiResponseContent } from '../aiResponseTypewriter';
 import { getApiBaseUrl } from '../services/apiBase.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
-import { fetchCloudThread } from '../services/aiThreadSync.js';
+import { fetchCloudThread, mergeAssistantProcessMessages } from '../services/aiThreadSync.js';
 import { consumeSseJsonStream } from '../services/aiEventStream.js';
 import { localAssistantMutationHeaders } from '../services/localAssistantRequest.js';
+import { assistantFailureMessage, withAssistantFailure } from '../services/assistantFailure.js';
 import { captureAssistantLiveContext } from '../services/localAssistantLiveContext.js';
 import { dispatchLocalAssistantPlayerAction } from '../services/localAssistantPlayer.js';
 import { confirmAssistantPlaylistDeletion, rebindAssistantPlaylistConfirmations } from '../services/assistantPlaylistDeletion.js';
@@ -46,6 +47,9 @@ export default function AssistantView({ section = 'conversation' }) {
     const accountId = authSession?.user?.accountId || null;
 
     const [messages, setMessages] = React.useState([]);
+    const [requestFailure, setRequestFailure] = React.useState(null);
+    const visibleMessages = withAssistantFailure(messages,
+        requestFailure?.accountId === accountId ? requestFailure : null);
     const [inputText, setInputText] = React.useState('');
     const [isLoading, setIsLoading] = React.useState(false);
     const [processClock, setProcessClock] = React.useState(() => Date.now());
@@ -101,6 +105,7 @@ export default function AssistantView({ section = 'conversation' }) {
         executedPlayerActionIdsRef.current.clear();
         pendingPlaylistDecisionIdsRef.current.clear();
         setPlaylistConfirmations({});
+        setRequestFailure(null);
     }, [accountId]);
 
     React.useEffect(() => {
@@ -153,7 +158,7 @@ export default function AssistantView({ section = 'conversation' }) {
 
     React.useEffect(() => {
         checkScrollBottomState();
-    }, [messages, isLoading, checkScrollBottomState]);
+    }, [messages, requestFailure, isLoading, checkScrollBottomState]);
 
     const scheduleScrollToLatest = React.useCallback(() => {
         if (!shouldFollowMessagesRef.current) return;
@@ -176,7 +181,7 @@ export default function AssistantView({ section = 'conversation' }) {
         if (!expectedAccountId || accountIdRef.current !== expectedAccountId) return false;
         if (!thread || !Number.isSafeInteger(thread.revision)) return false;
         threadRevisionRef.current = thread.revision;
-        setMessages(toUiMessages(thread.messages));
+        setMessages((previous) => toUiMessages(mergeAssistantProcessMessages(thread.messages, previous)));
         scheduleScrollToLatest();
         return true;
     }, [scheduleScrollToLatest]);
@@ -193,6 +198,7 @@ export default function AssistantView({ section = 'conversation' }) {
         threadRevisionRef.current = 0;
         setMessages([]);
         setPlaylistConfirmations({});
+        setExpandedDetails({});
         if (!isAuthed) {
             setPhase('ready');
             return undefined;
@@ -249,6 +255,7 @@ export default function AssistantView({ section = 'conversation' }) {
             }
             showToast(t("对话历史已清空"));
             setPlaylistConfirmations({});
+            setRequestFailure(null);
         } catch (error) {
             if (accountIdRef.current === requestAccountId) showToast(t(error.message || '清空失败，请重试。'));
         }
@@ -301,6 +308,7 @@ export default function AssistantView({ section = 'conversation' }) {
         if (!isAuthed || !text || isLoading || phase !== 'ready') return;
 
         setInputText('');
+        setRequestFailure(null);
         const clientMessageId = crypto.randomUUID();
         const userMsgId = `user-${clientMessageId}`;
         const assistantMsgId = `assistant-${clientMessageId}`;
@@ -362,7 +370,7 @@ export default function AssistantView({ section = 'conversation' }) {
                 if (response.status === 401) {
                     setAuthSession({ authenticated: false, user: null, initialized: true });
                 }
-                throw new Error(data.message || t('助手暂时无法回应 ({status})', { status: response.status }));
+                throw Object.assign(new Error(data.message || t('助手暂时无法回应 ({status})', { status: response.status })), { code: data.error });
             }
             await consumeSseJsonStream(response.body, {
                 signal: controller.signal,
@@ -410,8 +418,8 @@ export default function AssistantView({ section = 'conversation' }) {
                             : message));
                     } else if (event.type === 'tool_result') {
                         if (event.name === 'remember_user' && event.data?.ok === true
-                            && event.data.action !== 'unchanged' && event.data.memory?.content) {
-                            showToast(t("助手已{p0}：{p1}", { p0: t(event.data.action === 'created' ? '记住' : '更新记忆'), p1: event.data.memory.content }));
+                            && ['created', 'updated'].includes(event.data.action)) {
+                            showToast(t("记忆已更新"));
                         }
                         liveProcessEntries = finishToolProcessEntry(liveProcessEntries, {
                             id: event.id, summary: event.summary,
@@ -450,8 +458,8 @@ export default function AssistantView({ section = 'conversation' }) {
                         lastPlayerAction = action;
                         pendingPlayerActions.push(action);
                     } else if (event.type === 'error') {
-                        throw new Error(typeof event.message === 'string' && event.message.trim()
-                            ? event.message.trim() : '小A暂时无法回应，请稍后再试。');
+                        throw Object.assign(new Error(typeof event.message === 'string' && event.message.trim()
+                            ? event.message.trim() : '小A暂时无法回应，请稍后再试。'), { code: event.error });
                     } else if (event.type === 'thread_state') {
                         canonicalThread = event.thread;
                     } else if (event.type === 'done') {
@@ -468,15 +476,16 @@ export default function AssistantView({ section = 'conversation' }) {
                 setPlaylistConfirmations((prev) => rebindAssistantPlaylistConfirmations(
                     prev, assistantMsgId, lastMessage.id,
                 ));
+                setExpandedDetails((previous) => {
+                    if (!Object.hasOwn(previous, assistantMsgId)) return previous;
+                    const next = { ...previous, [lastMessage.id]: previous[assistantMsgId] };
+                    if (lastMessage.id !== assistantMsgId) delete next[assistantMsgId];
+                    return next;
+                });
             }
-            const visibleThread = lastMessage?.role === 'assistant'
-                && !Array.isArray(lastMessage.processEntries)
-                && liveProcessEntries.length > 0
-                ? { ...canonicalThread, messages: [
-                    ...canonicalThread.messages.slice(0, -1),
-                    { ...lastMessage, thought: lastMessage.thought || liveThought,
-                        processEntries: liveProcessEntries },
-                ] }
+            const visibleThread = lastMessage?.role === 'assistant' && liveProcessEntries.length > 0
+                ? { ...canonicalThread, messages: mergeAssistantProcessMessages(canonicalThread.messages,
+                    [{ ...lastMessage, thought: liveThought, processEntries: liveProcessEntries }]) }
                 : canonicalThread;
             applyThread(visibleThread, requestAccountId);
             const sentIds = new Set(sentReceipts.map((item) => item.id));
@@ -484,7 +493,11 @@ export default function AssistantView({ section = 'conversation' }) {
         } catch (err) {
             typewriter?.cancel();
             if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
-            if (err.name !== 'AbortError') showToast(t(err.message || '助手连接失败，请稍后重试。'));
+            const failureContent = assistantFailureMessage(err);
+            setRequestFailure({ id: assistantMsgId, role: 'assistant', accountId: requestAccountId,
+                clientMessageId, userMessage: newMessages.at(-2), content: failureContent,
+                thought: liveThought, processEntries: liveProcessEntries, createdAt: Date.now(), isError: true });
+            if (err.name !== 'AbortError') showToast(t(failureContent));
             if (useUIStore.getState().authSession?.authenticated) {
                 await syncThread({ expectedAccountId: requestAccountId }).catch(() => {
                     if (accountIdRef.current !== requestAccountId) return;
@@ -526,7 +539,7 @@ export default function AssistantView({ section = 'conversation' }) {
                 <AiReviewConversation
                     containerRef={chatContainerRef}
                     expandedDetails={expandedDetails}
-                    messages={messages}
+                    messages={visibleMessages}
                     playlistConfirmations={playlistConfirmations}
                     onPlaylistConfirmationDecision={handlePlaylistConfirmationDecision}
                     onScroll={handleScroll}

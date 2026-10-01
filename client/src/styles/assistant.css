@@ -285,6 +285,37 @@
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.assistant-process__toggle > [role="status"],
+.assistant-process__toggle > svg {
+  flex-shrink: 0;
+}
+
+.assistant-process__overview::before {
+  content: '·';
+  margin-right: 2px;
+}
+
+.assistant-process__overview {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-weight: 400;
+}
+
+.assistant-process__overview > svg {
+  flex-shrink: 0;
+}
+
+.assistant-process__tool-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .assistant-process__toggle:hover {

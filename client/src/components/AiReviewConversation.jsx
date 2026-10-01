@@ -1,7 +1,7 @@
 import { getLocale, t } from '../i18n/index.js';
 import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { MarkdownContent } from './AssistantMarkdown.jsx';
-import { getAssistantProcessStatus, getAssistantProcessTimeline } from '../../../shared/assistantProcessTrace.js';
+import { getAssistantProcessStatus, getAssistantProcessTimeline, getAssistantProcessOverview } from '../../../shared/assistantProcessTrace.js';
 
 // 消息时间：线程消息的 createdAt（毫秒）。纯函数，保持本组件无状态、无副作用。
 // Display in the browser's time zone; the Worker provides the same zone to the model.
@@ -53,6 +53,7 @@ export default function AiReviewConversation({
                     && message.role === 'assistant') return null;
                 const processTimeline = getAssistantProcessTimeline(message);
                 const processStatus = getAssistantProcessStatus(message, processClock);
+                const processOverview = getAssistantProcessOverview(message, processTimeline);
                 const isDetailsExpanded = Boolean(expandedDetails[message.id]);
                 const messageTime = resolveMessageTime(message.createdAt);
 
@@ -91,6 +92,15 @@ export default function AiReviewConversation({
                                                 {isGenerating && processStatus.stage === 'processing'
                                                     && <span aria-hidden="true"> {t('（{seconds} 秒）', { seconds: processStatus.seconds })}</span>}
                                             </span>
+                                            {isGenerating && (processOverview.toolName || processOverview.detail)
+                                                && <span className="assistant-process__overview">
+                                                {processOverview.toolName && <Wrench size={13} aria-hidden="true" />}
+                                                <span className="assistant-process__tool-name" title={processOverview.toolName
+                                                    ? t('调用工具：{name}', { name: t(processOverview.toolName) }) : t(processOverview.detail)}>
+                                                    {processOverview.toolName
+                                                        ? t('调用工具：{name}', { name: t(processOverview.toolName) }) : t(processOverview.detail)}
+                                                </span>
+                                            </span>}
                                             {isDetailsExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                                         </button>
                                         {isDetailsExpanded && (
@@ -106,7 +116,7 @@ export default function AiReviewConversation({
                                                                 <>
                                                                     <Wrench size={15} aria-hidden="true" />
                                                                     <span className="min-w-0 break-words">
-                                                                        {`${entry.ok === false ? t("未完成：") : ''}${entry.summary || entry.progress || t("已调用")}`}
+                                                                        {`${entry.ok === false ? t("未完成：") : ''}${t(entry.summary || entry.progress || '已调用')}`}
                                                                     </span>
                                                                 </>
                                                             ) : entry.text}

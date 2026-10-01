@@ -1,3 +1,4 @@
+import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { ALL_LANGUAGES } from '../constants/language.js';
@@ -80,7 +81,6 @@ export default function QuickSongEditDialog({ songId, onClose, onSaved }) {
     <dialog ref={dialogRef} onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }} aria-labelledby="quick-song-edit-title" className="w-[min(92vw,36rem)] max-h-[85vh] rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4"><h2 id="quick-song-edit-title" className="text-lg font-semibold">{t("编辑歌曲信息")}</h2><button type="button" onClick={onClose} disabled={saving} className="text-sm text-[var(--muted)] disabled:opacity-50">{t("关闭")}</button></div>
       <form onSubmit={save} className="max-h-[calc(85vh-4rem)] space-y-5 overflow-y-auto p-5 sm:p-6">
-        <p className="text-xs text-[var(--muted)]">{t("修改这首歌的资料，或上传正确封面。")}</p>
         {loading ? <p role="status" className="py-8 text-center text-sm text-[var(--muted)]">{t("正在读取歌曲…")}</p> : song && draft ? <>
           <div className="flex items-center gap-4 rounded-xl bg-[var(--surface)] p-3">
             {previewUrl || song.cover_url ? <PrivateCoverImage src={previewUrl || resolveCoverUrl(song.cover_url)} alt={t("当前歌曲封面预览")} className="h-20 w-20 shrink-0 rounded-lg object-cover" /> : <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[var(--line)] text-xs text-[var(--muted)]">{t("无封面")}</span>}
@@ -90,7 +90,7 @@ export default function QuickSongEditDialog({ songId, onClose, onSaved }) {
             <label className="sm:col-span-2 text-xs font-semibold">{t("歌曲标题")}<input ref={titleRef} required maxLength={300} value={draft.title} onChange={(event) => setDraft((old) => ({ ...old, title: event.target.value }))} className="mt-1.5 block w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" /></label>
             <label className="text-xs font-semibold">{t("歌手")}<input maxLength={300} value={draft.artist} onChange={(event) => setDraft((old) => ({ ...old, artist: event.target.value }))} className="mt-1.5 block w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" /></label>
             <label className="text-xs font-semibold">{t("专辑")}<input maxLength={300} value={draft.album} onChange={(event) => setDraft((old) => ({ ...old, album: event.target.value }))} className="mt-1.5 block w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" /></label>
-            <label className="sm:col-span-2 text-xs font-semibold">{t("歌曲语言")}<select value={draft.language} onChange={(event) => setDraft((old) => ({ ...old, language: event.target.value }))} className="mt-1.5 block w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"><option value="">{t("未设置")}</option>{ALL_LANGUAGES.map(({ code, label }) => <option key={code} value={code}>{t(label)}</option>)}</select></label>
+            <label className="sm:col-span-2 text-xs font-semibold">{t("歌曲语言")}<SelectControl aria-label={t("歌曲语言")} value={draft.language} onChange={(event) => setDraft((old) => ({ ...old, language: event.target.value }))} className="mt-1.5 block w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"><option value="">{t("未设置")}</option>{ALL_LANGUAGES.map(({ code, label }) => <option key={code} value={code}>{t(label)}</option>)}</SelectControl></label>
           </div>
         </> : null}
         {error && <div role="alert" className="rounded-xl bg-rose-500/10 p-3 text-sm text-rose-600">{t(error)} <button type="button" onClick={() => void reload()} disabled={saving} className="ml-2 underline">{t("重新读取")}</button></div>}

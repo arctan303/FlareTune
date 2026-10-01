@@ -8,7 +8,7 @@ test('RoamOverview embeds console, inline settings, and library categories witho
   const roam = readSource('./RoamOverview.jsx');
 
   // 内嵌漫游控制台与启停主按钮
-  assert.match(roam, /随心漫游电台/);
+  assert.match(roam, /私人电台/);
   assert.match(roam, /onToggleRoam/);
   assert.match(roam, /randomRoam\.enabled/);
   assert.match(roam, /开启漫游电台/);

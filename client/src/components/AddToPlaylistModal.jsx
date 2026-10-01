@@ -139,7 +139,7 @@ export default function AddToPlaylistModal() {
                 <div className="search-playlist-picker__heading">
                     <div>
                         <strong>{t("加入歌单")}</strong>
-                        <small>{songIds.length === 1 && firstSongTitle ? `《${firstSongTitle}》` : t("已选择 {p0} 首，可多选目标歌单", { p0: (songIds.length) })}</small>
+                        <small>{songIds.length === 1 && firstSongTitle ? `《${firstSongTitle}》` : t("已选择 {p0} 首", { p0: (songIds.length) })}</small>
                     </div>
                     <button type="button" onClick={closeAddToPlaylist} aria-label={t("关闭加入歌单选择器")}>
                         <X size={16} />

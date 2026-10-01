@@ -1,3 +1,4 @@
+import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -388,7 +389,6 @@ export default function AdminCatalogSection() {
             <div className="p-5 border-b border-[var(--line)] flex items-center justify-between shrink-0 bg-[var(--surface-raised)]">
               <div>
                 <h3 className="text-base font-bold text-[var(--ink)]">{t("编辑歌曲")}</h3>
-                <p className="text-[11px] text-[var(--muted)] mt-0.5">{t("修改后点击下方「保存到曲库」即可同步。")}</p>
               </div>
               <button
                 type="button"
@@ -456,7 +456,7 @@ export default function AdminCatalogSection() {
                     </div>
                     <div className="space-y-1.5">
                       <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲语言")}</label>
-                      <select
+                      <SelectControl aria-label={t("歌曲语言")}
                         value={editor.draft.language || ''}
                         onChange={(e) => setDraft('language', e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
@@ -465,7 +465,7 @@ export default function AdminCatalogSection() {
                         {ALL_LANGUAGES.map(({ code, label }) => (
                           <option key={code} value={code}>{t(label)}</option>
                         ))}
-                      </select>
+                      </SelectControl>
                     </div>
                   </div>
 

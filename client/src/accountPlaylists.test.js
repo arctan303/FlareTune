@@ -8,6 +8,32 @@ const response = (data, status = 200) => new Response(JSON.stringify(data), {
   headers: { 'Content-Type': 'application/json' },
 });
 
+test('an initially unavailable library recovers favorites and shelf on retry without creating playlists', async () => {
+  let unavailable = true;
+  const calls = [];
+  const favorite = { id: 'fav', kind: 'favorite', name: '我的收藏', songCount: 11 };
+  const store = createAccountPlaylistStore({ apiBase: '', fetchImpl: async (url, init) => {
+    calls.push(init.method || 'GET');
+    if (unavailable) return response({ ok: false }, 502);
+    return url.endsWith('/playlist-shelf')
+      ? response({ ok: true, data: { shelf: { revision: 3, items: [{ kind: 'member', id: 'fav' }] } } })
+      : response({ ok: true, data: { playlists: [favorite, { id: 'p1', kind: 'regular', name: '测试' }] } });
+  } });
+  store.getState().setSubject('user-a');
+  await assert.rejects(store.getState().refresh());
+  assert.equal(store.getState().status, 'error');
+  assert.equal(store.getState().error.status, 502);
+  assert.deepEqual(store.getState().playlists, []);
+  unavailable = false;
+  await store.getState().refresh();
+  assert.equal(store.getState().status, 'ready');
+  assert.equal(store.getState().error, null);
+  assert.equal(store.getState().playlists[0].id, 'fav');
+  assert.equal(store.getState().playlists.length, 2);
+  assert.equal(store.getState().shelf.revision, 3);
+  assert.ok(calls.every(method => method === 'GET'));
+});
+
 test('account playlist requests include credentials and new local-session CSRF', async () => {
   useUIStore.setState((state) => ({ authSession: { ...state.authSession, csrfToken: 'local-csrf-test' } }));
   const calls = [];

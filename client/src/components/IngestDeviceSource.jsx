@@ -1,3 +1,4 @@
+import SelectControl from './SelectControl.jsx';
 import { getLocale, t } from '../i18n/index.js';
 import React from 'react';
 import { Disc } from 'lucide-react';
@@ -86,13 +87,13 @@ export default function IngestDeviceSource({ disabled, onAdd }) {
   const allVisibleSelected = visible.length > 0 && visible.every((file) => selected.has(file.id));
   return <div className="space-y-4">
     <div className="flex flex-wrap items-end gap-3">
-      <label className="min-w-52 flex-1 text-sm font-semibold">{t("本地设备")}<select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}
+      <label className="min-w-52 flex-1 text-sm font-semibold">{t("本地设备")}<SelectControl aria-label={t("本地设备")} value={deviceId} onChange={(event) => setDeviceId(event.target.value)}
           className="mt-1 block w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2">
           {devices.length === 0 && <option value="">{t("没有已连接设备")}</option>}
           {devices.map((device) => <option key={device.id} value={device.id}>
             {device.name} · {device.online ? t("在线") : t("离线")}
           </option>)}
-        </select>
+        </SelectControl>
       </label>
       <button type="button" onClick={() => void refreshDevices()} disabled={busy}
         className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm">{t("刷新设备")}</button>
@@ -107,18 +108,18 @@ export default function IngestDeviceSource({ disabled, onAdd }) {
     {files.length > 0 && <>
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
         <h3 className="text-sm font-bold">{t("文件夹语言映射")}</h3>
-        <p className="mt-1 text-xs text-[var(--muted)]">{t("按目录名映射 zh、en、jp、纯音乐等；也可单独指定某个目录。设置仅应用于随后加入清单的歌曲，仍可逐首编辑。")}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{t("仅应用于随后加入清单的歌曲。")}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {folders.map(([folder, count]) => <label key={folder}
             className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-[var(--line)] px-3 py-2 text-xs">
             <span className="min-w-0 flex-1 truncate font-semibold" title={folder}>{folder} · {count}{' '}{t("首")}</span>
-            <select aria-label={t("{p0} 的语言映射", { p0: (folder) })} value={mappings[folder] || 'folder'}
+            <SelectControl aria-label={t("{p0} 的语言映射", { p0: (folder) })} value={mappings[folder] || 'folder'}
               onChange={(event) => setMappings((current) => ({ ...current, [folder]: event.target.value }))}
               className="rounded-lg border border-[var(--line)] bg-[var(--surface-raised)] px-2 py-1.5">
               <option value="folder">{t("按目录名判断")}</option>
               <option value="auto">{t("按标签和文字判断")}</option>
               {ALL_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{t(language.label)}</option>)}
-            </select>
+            </SelectControl>
           </label>)}
         </div>
       </div>
@@ -126,12 +127,12 @@ export default function IngestDeviceSource({ disabled, onAdd }) {
         <input aria-label={t("筛选设备歌曲")} placeholder={t("筛选歌名、歌手、专辑或路径")} value={query}
           onChange={(event) => { setQuery(event.target.value); setPage(1); }}
           className="min-w-52 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" />
-        <select aria-label={t("筛选设备目录")} value={folderFilter}
+        <SelectControl aria-label={t("筛选设备目录")} value={folderFilter}
           onChange={(event) => { setFolderFilter(event.target.value); setPage(1); }}
           className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm">
           <option value="all">{t("全部目录")}</option>
           {folders.map(([folder]) => <option key={folder} value={folder}>{folder}</option>)}
-        </select>
+        </SelectControl>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <label className="flex items-center gap-2">

@@ -361,7 +361,7 @@ export default function PlaylistDetailView({
                                 <div className="local-playlist-empty__copy">
                                     <p className="state-panel__eyebrow">ACCOUNT PLAYLIST</p>
                                     <h4 id="playlist-empty-title">{t("账号歌单还是空的")}</h4>
-                                    <p>{invalidSongCount > 0 ? t("{p0} 首歌曲暂时无法播放，可以请助手重新整理。", { p0: (invalidSongCount) }) : t("当前歌单还是空的，你可以请助手挑几首想听的。")}</p>
+                                    <p>{invalidSongCount > 0 ? t("{p0} 首歌曲暂时无法播放。", { p0: (invalidSongCount) }) : t("歌单暂无歌曲")}</p>
                                 </div>
                                 <button type="button" className="primary-button local-playlist-empty__action inline-flex min-h-11 items-center gap-2 px-4 text-sm font-semibold" onClick={onOpenAssistant}>
                                     <MessageCircle size={16} aria-hidden="true" />{t("前往助手挑歌")}</button>
