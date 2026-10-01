@@ -3,10 +3,12 @@ import {
   chatGemini,
 } from './aiGemini.js';
 import {
-  askDeepSeek,
-  askOpenAI,
+  askChatCompletions,
   chatOpenAICompatible,
 } from './aiOpenAICompatible.js';
+import { askResponses, chatResponses } from './aiResponses.js';
+import { askAnthropic, chatAnthropic } from './aiAnthropic.js';
+import { AI_PROTOCOLS, AI_SOURCES, legacyProtocol, normalizeGenerationOptions, sourceFromProvider } from '../../../shared/aiProtocols.js';
 
 export {
   AI_STREAM_IDLE_TIMEOUT_MS,
@@ -41,10 +43,14 @@ export function resolveAIConfig(configInput = {}) {
   const provider = String(configInput.provider || '').trim().toLowerCase();
   const model = String(configInput.model || '').trim();
   if (!provider || !model) throw new Error('AI_CONFIG_INVALID');
-  if (!['gemini', 'deepseek', 'openai'].includes(provider)) throw new Error('UNSUPPORTED_PROVIDER');
+  if (!['gemini', 'deepseek', 'openai', 'anthropic'].includes(provider)) throw new Error('UNSUPPORTED_PROVIDER');
+  const source = configInput.source || sourceFromProvider(provider);
+  const protocol = configInput.protocol || (provider === 'anthropic' ? 'anthropic_messages' : legacyProtocol(provider));
+  if (!Object.hasOwn(AI_PROTOCOLS, protocol) || !Object.hasOwn(AI_SOURCES, source)) throw new Error('AI_PROTOCOL_UNSUPPORTED');
+  const generationOptions = normalizeGenerationOptions(configInput.generationOptions, protocol);
   const temperature = typeof configInput.temperature === 'number' ? configInput.temperature : 0.2;
   const enableThinking = configInput.enableThinking !== undefined ? Boolean(configInput.enableThinking) : undefined;
-  return { provider, model, temperature, ...(enableThinking !== undefined ? { enableThinking } : {}),
+  return { provider, source, protocol, generationOptions, model, temperature, ...(enableThinking !== undefined ? { enableThinking } : {}),
     ...(configInput.exactModel === true ? { exactModel: true } : {}) };
 }
 
@@ -89,14 +95,10 @@ const withAiTimeout = async (env, options, execute) => {
 export async function askAI(messages, configInput = {}, env = {}, options = {}) {
   const config = resolveAIConfig(configInput);
   return withAiTimeout(env, options, (signal) => {
-    if (config.provider === 'gemini') {
-      return askGemini(messages, config.model, env.GEMINI_API_KEY, config.temperature, signal);
-    }
-    if (config.provider === 'deepseek') {
-      return askDeepSeek(messages, config.model, env.DEEPSEEK_API_KEY, config.temperature, signal, env,
-        config.enableThinking);
-    }
-    return askOpenAI(messages, config.model, env.OPENAI_API_KEY, config.temperature, signal, env);
+    if (config.protocol === 'gemini_native') return askGemini(messages, config, env, signal);
+    if (config.protocol === 'responses') return askResponses(messages, config, env, signal);
+    if (config.protocol === 'anthropic_messages') return askAnthropic(messages, config, env, signal);
+    return askChatCompletions(messages, config, env, signal);
   });
 }
 
@@ -109,8 +111,10 @@ export async function chatAI(messages, tools = [], configInput = {}, env = {}, o
   const onThoughtDelta = typeof options?.onThoughtDelta === 'function' ? options.onThoughtDelta : null;
 
   return withAiTimeout(env, options, (signal) => {
-    if (config.provider === 'deepseek' || config.provider === 'openai') {
-      return chatOpenAICompatible(
+    if (config.protocol !== 'gemini_native') {
+      const adapter = { chat_completions: chatOpenAICompatible, responses: chatResponses,
+        anthropic_messages: chatAnthropic }[config.protocol];
+      return adapter(
         messages,
         tools,
         config,
@@ -118,6 +122,8 @@ export async function chatAI(messages, tools = [], configInput = {}, env = {}, o
         signal,
         onContentDelta,
         onThoughtDelta,
+        options?.streamIdleTimeoutMs,
+        options?.onStreamEvent,
       );
     }
     return chatGemini(

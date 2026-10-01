@@ -2,6 +2,7 @@ import { t } from '../i18n/index.js';
 import React from 'react';
 import { useUIStore } from '../store/useUIStore.js';
 import { getSession } from '../instance/api.js';
+import AccountAvatar from './AccountAvatar.jsx';
 import { toShellAuthSession } from '../instance/state.js';
 import {
   AUTH_SESSION_CHECK_FAILED_EVENT,
@@ -64,7 +65,7 @@ export default function AccountMenu({ onNavigate }) {
         title={t("我的账号 ({p0})", { p0: (name) })}
         data-tooltip={t("我的账号")}
       >
-        <span className="account-avatar-char" aria-hidden="true">{initial}</span>
+        <AccountAvatar user={user} />
         <span className="app-nav-item__label">{name}</span>
       </button>
     </div>

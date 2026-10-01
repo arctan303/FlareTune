@@ -9,8 +9,10 @@ import { isTrustedMutationRequest, readBoundedJson, RequestBodyError } from './h
 import { InstanceAdminError } from '../instanceAdmin/common.js';
 import { createAccount, listAccounts, resetAccountPassword, updateAccount } from '../instanceAdmin/accounts.js';
 import { getAdminSettings, updateAdminSetting, updateAssistantConfig } from '../instanceAdmin/settings.js';
-import { listAiProfiles, createAiProfile, updateAiProfile, deleteAiProfile,
+import { listAiProfiles, listAiModels, createAiProfile, updateAiProfile, deleteAiProfile,
   assignAiProfile } from '../instanceAdmin/aiProfiles.js';
+import { listAiProviders, createAiProvider, updateAiProvider, deleteAiProvider, listAiProviderModels,
+  saveAiFeatureModel } from '../instanceAdmin/aiProviders.js';
 import { validateSetting } from '../instanceAdmin/settings.js';
 import { handleLocalMusicReadRoute } from '../routes/localMusicRead.js';
 import { handleLocalAccountMusicRoute } from '../routes/localAccountMusic.js';
@@ -24,6 +26,8 @@ import { handleLocalCatalogMediaRoute } from '../routes/localCatalogMedia.js';
 import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
 import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
 import { getOwnUiLanguage, updateOwnDisplayName, updateOwnUiLanguage } from '../auth/local/profile.js';
+import { handleUserImages } from '../routes/userImages.js';
+import { getOwnImageSlot, userImagesReady } from '../services/userImages.js';
 import { ownStatus as subsonicStatus, setEnabled as setSubsonicEnabled } from '../subsonic/credentials.js';
 import {
   AuthError,
@@ -129,7 +133,8 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     return json(session ? {
       authenticated: true,
       mustChangePassword: session.mode === 'must_change_password',
-      user: { ...session.account, uiLanguage: await getOwnUiLanguage(env.DB, session.account.accountId) },
+      user: { ...session.account, uiLanguage: await getOwnUiLanguage(env.DB, session.account.accountId),
+        ...(session.mode === 'normal' ? { avatar: await getOwnImageSlot(env.DB, session.account.accountId, 'avatar', 'avatar') } : {}) },
       csrfToken: session.csrfToken,
     } : { authenticated: false, mustChangePassword: false });
   }
@@ -197,7 +202,10 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     }
     if (access.category === 'admin_migration') {
       if (request.method === 'GET') return json({ schemaVersion: instance.schemaVersion,
-        targetVersion: CURRENT_SCHEMA_VERSION, state: instance.state });
+        targetVersion: CURRENT_SCHEMA_VERSION, state: instance.state,
+        supplementalPending: !await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_profile_protocols'").first()
+          || !await userImagesReady(env.DB)
+          || !await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_feature_models'").first() });
       await readBoundedJson(request);
       let result;
       // Finish a compatible migration while this authenticated request still has
@@ -231,6 +239,8 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
     }
     const actorAccountId = session?.account?.accountId;
+    const imageResponse = await handleUserImages(request, new URL(request.url), env.DB, env.MEDIA_BUCKET, session);
+    if (imageResponse) return imageResponse;
     if (path === '/api/account/subsonic' && request.method === 'GET') {
       return json(await subsonicStatus(env.DB, actorAccountId, env));
     }
@@ -279,6 +289,29 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     if (path === '/api/admin/settings' && request.method === 'GET') {
       return json(await getAdminSettings(env.DB, actorAccountId,
         { aiApiKeyConfigured: Boolean(env.OPENAI_API_KEY || env.GEMINI_API_KEY || env.DEEPSEEK_API_KEY) }));
+    }
+    if (path === '/api/admin/ai/providers' && request.method === 'GET') {
+      return json(await listAiProviders(env.DB, actorAccountId, env));
+    }
+    if (path === '/api/admin/ai/providers' && request.method === 'POST') {
+      return json(await createAiProvider(env.DB, actorAccountId, await readBoundedJson(request), env), 201);
+    }
+    if (path === '/api/admin/ai/provider-models' && request.method === 'POST') {
+      return json(await listAiProviderModels(env.DB, actorAccountId, await readBoundedJson(request), env));
+    }
+    if (path === '/api/admin/ai/feature-models' && request.method === 'PUT') {
+      return json(await saveAiFeatureModel(env.DB, actorAccountId, await readBoundedJson(request), env));
+    }
+    const aiProviderAction = path.match(/^\/api\/admin\/ai\/providers\/([0-9a-f-]{36})$/);
+    if (aiProviderAction && ['PUT', 'DELETE'].includes(request.method)) {
+      const body = await readBoundedJson(request);
+      return json(request.method === 'PUT'
+        ? await updateAiProvider(env.DB, actorAccountId, aiProviderAction[1], body.provider, body.expectedRevision, env)
+        : await deleteAiProvider(env.DB, actorAccountId, aiProviderAction[1], body.expectedRevision));
+    }
+    if (path === '/api/admin/ai/models' && request.method === 'POST') {
+      const body = await readBoundedJson(request);
+      return json(await listAiModels(env.DB, actorAccountId, body, env));
     }
     if (path === '/api/admin/ai/profiles' && request.method === 'GET') {
       return json(await listAiProfiles(env.DB, actorAccountId, env));

@@ -1,4 +1,5 @@
 import { createJsonEventStreamParser } from './aiJsonEventStream.js';
+import { aiConnection, aiHeaders, fetchAi } from './aiTransport.js';
 
 export const AI_STREAM_IDLE_TIMEOUT_MS = 12_000;
 
@@ -34,6 +35,10 @@ export function buildGeminiContents(messages) {
   const contents = [];
   for (const message of messages) {
     if (message.role === 'system') continue;
+    if (message.nativeContext?.protocol === 'gemini_native') {
+      contents.push(message.nativeContext.payload);
+      continue;
+    }
     if (message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
       contents.push({
         role: 'model',
@@ -77,10 +82,44 @@ export function buildGeminiContents(messages) {
     }
     contents.push({
       role: message.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: typeof message.content === 'string' ? message.content : JSON.stringify(message.content) }],
+      parts: geminiContentParts(message.content),
     });
   }
   return contents;
+}
+
+function geminiContentParts(content) {
+  if (typeof content === 'string') return [{ text: content }];
+  if (!Array.isArray(content)) throw new Error('AI_CONTENT_UNSUPPORTED');
+  return content.map((part) => {
+    if (part.type === 'text') return { text: part.text };
+    if (part.type === 'image_url') {
+      const match = /^data:(image\/[\w.+-]+);base64,(.+)$/s.exec(part.image_url.url);
+      if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
+    }
+    throw new Error('AI_CONTENT_UNSUPPORTED');
+  });
+}
+
+export function geminiGenerationConfig(config) {
+  const options = config.generationOptions || {};
+  const result = { temperature: options.temperature ?? config.temperature ?? 0.2,
+    ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}) };
+  const modern = /^gemini-3(?:\.|-)/i.test(config.model);
+  if (modern) {
+    const effort = options.reasoningEffort;
+    const minimalSupported = /^gemini-3(?:(?:\.(?:1|5|6))?-flash)(?:-|$)/i.test(config.model);
+    const level = config.enableThinking === false || effort === 'none'
+      ? (minimalSupported ? 'minimal' : 'low') : effort;
+    if (level || config.enableThinking === true) result.thinkingConfig = {
+      ...(level ? { thinkingLevel: level } : {}), ...(config.enableThinking === true ? { includeThoughts: true } : {}) };
+  } else if (config.enableThinking === false) {
+    result.thinkingConfig = { thinkingBudget: /^gemini-2\.5-pro/i.test(config.model) ? 128 : 0 };
+  } else if (options.thinkingBudget !== undefined || config.enableThinking === true) {
+    result.thinkingConfig = { ...(options.thinkingBudget !== undefined ? { thinkingBudget: options.thinkingBudget } : {}),
+      ...(config.enableThinking === true ? { includeThoughts: true } : {}) };
+  }
+  return result;
 }
 
 export function parseGeminiCandidateParts(parts = [], fallbackScope = crypto.randomUUID()) {
@@ -94,7 +133,7 @@ export function parseGeminiCandidateParts(parts = [], fallbackScope = crypto.ran
         args: part.functionCall.args || {},
         thoughtSignature: part.thoughtSignature,
       });
-    } else if (part.text) {
+    } else if (part.text && !part.thought) {
       textContent += part.text;
     }
   }
@@ -103,14 +142,14 @@ export function parseGeminiCandidateParts(parts = [], fallbackScope = crypto.ran
     : { type: 'content', content: textContent };
 }
 
-export async function askGemini(messages, model, apiKey, temperature, signal) {
-  if (!apiKey) throw new Error('AI_MISSING_KEY');
+export async function askGemini(messages, config, env, signal) {
+  const { apiKey, baseUrl } = aiConnection(config, env);
   const systemMessage = messages.find(({ role }) => role === 'system');
   const contents = messages
     .filter(({ role }) => role !== 'system')
     .map(({ role, content }) => ({
       role: role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: typeof content === 'string' ? content : JSON.stringify(content) }],
+      parts: geminiContentParts(content),
     }));
   const isJsonSchema = messages.some((message) => (
     typeof message.content === 'string' && (message.content.includes('unitId')
@@ -120,7 +159,7 @@ export async function askGemini(messages, model, apiKey, temperature, signal) {
     .map(({ content }) => String(content || '')).join('\n');
   const payload = {
     contents,
-    generationConfig: { temperature: temperature ?? 0.2 },
+    generationConfig: geminiGenerationConfig(config),
   };
   if (isJsonSchema) {
     payload.generationConfig.responseMimeType = 'application/json';
@@ -147,16 +186,18 @@ export async function askGemini(messages, model, apiKey, temperature, signal) {
   }
   if (systemMessage) payload.systemInstruction = { parts: [{ text: systemMessage.content }] };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const response = await fetch(url, {
+  const url = `${baseUrl}/models/${encodeURIComponent(config.model)}:generateContent`;
+  const response = await fetchAi(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: aiHeaders('gemini_native', apiKey),
     body: JSON.stringify(payload),
     signal,
   });
   if (!response.ok) throw new Error(`AI_UPSTREAM_${response.status}`);
   const data = await response.json();
-  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = data.candidates?.[0];
+  if (data.error || (candidate?.finishReason && candidate.finishReason !== 'STOP')) throw new Error('AI_RESPONSE_INCOMPLETE');
+  const content = candidate?.content?.parts?.filter((part) => !part.thought).map((part) => part.text || '').join('');
   if (typeof content !== 'string' || !content.trim()) throw new Error('AI_EMPTY_RESPONSE');
   return content;
 }
@@ -172,8 +213,7 @@ export async function chatGemini(
   streamIdleTimeoutMs = AI_STREAM_IDLE_TIMEOUT_MS,
   onThoughtDelta,
 ) {
-  const apiKey = env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('AI_MISSING_KEY');
+  const { apiKey, baseUrl } = aiConnection(config, env);
 
   const systemContent = messages
     .filter(({ role }) => role === 'system')
@@ -182,9 +222,8 @@ export async function chatGemini(
     .join('\n\n');
   const payload = {
     contents: buildGeminiContents(messages),
-    generationConfig: { temperature: config.temperature ?? 0.7 },
+    generationConfig: geminiGenerationConfig(config),
   };
-  if (config.enableThinking === false) payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
   if (systemContent) payload.systemInstruction = { parts: [{ text: systemContent }] };
   if (Array.isArray(tools) && tools.length > 0) {
     payload.tools = [{
@@ -200,24 +239,24 @@ export async function chatGemini(
   }
 
   const model = config.model || 'gemini-3.1-flash-lite';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
+  const url = `${baseUrl}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
   let response;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (signal?.aborted) throw new Error('AI_TIMEOUT');
     response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: aiHeaders('gemini_native', apiKey),
+      redirect: 'manual', // Workers-compatible; the status check below rejects redirects.
       body: JSON.stringify(payload),
       signal,
     });
     if (response.ok) break;
 
-    const errText = await response.text();
     if ((response.status === 503 || response.status === 429) && attempt === 0 && !signal?.aborted) {
       await new Promise((resolve) => setTimeout(resolve, 1200));
       continue;
     }
-    throw new Error(`AI_UPSTREAM_${response.status}: ${errText}`);
+    throw new Error(`AI_UPSTREAM_${response.status}`);
   }
   if (!response?.body) throw new Error('AI_EMPTY_RESPONSE');
 
@@ -229,8 +268,10 @@ export async function chatGemini(
   let streamReachedEof = false;
 
   const processChunk = async (raw) => {
-    try {
-      const parsed = JSON.parse(raw);
+      if (terminalFinishReason) return;
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch { throw new Error('AI_STREAM_INVALID'); }
+      if (parsed.error || parsed.promptFeedback?.blockReason) throw new Error('AI_UPSTREAM_FAILURE');
       const candidate = parsed.candidates?.[0];
       const parts = candidate?.content?.parts || [];
       for (const part of parts) {
@@ -247,7 +288,6 @@ export async function chatGemini(
         terminalFinishReason = finishReason;
         onStreamEvent?.({ type: 'finish_reason', finishReason });
       }
-    } catch {}
   };
   const streamParser = createJsonEventStreamParser(processChunk);
 
@@ -289,9 +329,15 @@ export async function chatGemini(
   }
 
   const parsedParts = parseGeminiCandidateParts(candidateParts);
+  if (terminalFinishReason !== 'STOP') throw new Error('AI_RESPONSE_INCOMPLETE');
+  let callIndex = 0;
+  for (const part of candidateParts) if (part.functionCall) {
+    part.functionCall.id = parsedParts.functionCalls?.[callIndex++]?.id;
+  }
   return {
     ...parsedParts,
     content: accumulatedText || parsedParts.content || '',
     rawMessage: { role: 'model', parts: candidateParts },
+    nativeContext: { protocol: 'gemini_native', payload: { role: 'model', parts: candidateParts } },
   };
 }

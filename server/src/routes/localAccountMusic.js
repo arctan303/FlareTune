@@ -2,6 +2,7 @@
 // after instance-state, authentication and CSRF checks. Request data never
 // determines the account used in a query.
 import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
+import { imageUrl, userImagesReady } from '../services/userImages.js';
 
 const MAX_REGULAR_PLAYLISTS = 50;
 const MAX_PLAYLIST_SONGS = 500;
@@ -92,7 +93,15 @@ const mapSummary = (row) => ({
 });
 const summary = async (db, accountId, playlistId) => {
   const row = await db.prepare(`${SUMMARY} WHERE p.account_id = ? AND p.id = ?`).bind(accountId, playlistId).first();
-  return row ? mapSummary(row) : null;
+  return row ? (await withOwnCovers(db, accountId, [mapSummary(row)]))[0] : null;
+};
+const withOwnCovers = async (db, accountId, playlists) => {
+  if (!await userImagesReady(db)) return playlists;
+  const refs = rows(await db.prepare("SELECT target_id, image_id, revision FROM user_image_refs WHERE account_id = ? AND purpose = 'playlist'")
+    .bind(accountId).all());
+  const byId = new Map(refs.map(r => [r.target_id, r]));
+  return playlists.map(p => ({ ...p, customCoverUrl: p.kind === 'favorite' ? null : imageUrl(byId.get(p.id)?.image_id),
+    coverRevision: Number(byId.get(p.id)?.revision ?? 0) }));
 };
 const playlistRow = (db, accountId, playlistId) => db.prepare(
   'SELECT * FROM Member_Playlists WHERE account_id = ? AND id = ?',
@@ -149,7 +158,7 @@ const listPlaylists = async (db, accountId, now) => {
   await ensureFavorite(db, accountId, now);
   const result = await db.prepare(`${SUMMARY} WHERE p.account_id = ?
     ORDER BY CASE p.kind WHEN 'favorite' THEN 0 ELSE 1 END, p.created_at, p.id`).bind(accountId).all();
-  return { playlists: rows(result).map(mapSummary) };
+  return { playlists: await withOwnCovers(db, accountId, rows(result).map(mapSummary)) };
 };
 
 const shelfSources = async (db, accountId) => {

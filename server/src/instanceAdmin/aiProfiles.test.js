@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { assignAiProfile, createAiProfile, deleteAiProfile, listAiProfiles,
-  resolveAiFeature, updateAiProfile } from './aiProfiles.js';
+  listAiModels, resolveAiFeature, updateAiProfile } from './aiProfiles.js';
 import { KNOWN_MIGRATIONS } from '../instance/schemaManifest.js';
 
 function fixture() {
@@ -11,7 +11,7 @@ function fixture() {
   for (const name of ['0001_baseline.sql', '0002_expand_playlist_count.sql',
     '0003_upgrade_assistant_model.sql', '0004_remove_system_playlists.sql',
     '0005_collection_identity.sql', '0006_ai_model_profiles.sql',
-    '0007_default_ai_guidance.sql', '0008_assistant_memory.sql']) {
+    '0007_default_ai_guidance.sql', '0008_assistant_memory.sql', '0009_ai_protocols.sql', '0011_ai_feature_models.sql']) {
     sqlite.exec(readFileSync(new URL(`../../db/migrations-flaretune/${name}`, import.meta.url), 'utf8'));
   }
   const migration = KNOWN_MIGRATIONS.find(({ version }) => version === 2);
@@ -126,5 +126,104 @@ test('invalid endpoint and unavailable encryption root fail closed', async () =>
     await updateAiProfile(db, 'admin', created.id, { ...profile, apiKey: 'reentered' }, 1, rotated);
     assert.equal((await listAiProfiles(db, 'admin', rotated)).profiles[0].hasKey, true);
     assert.equal((await resolveAiFeature(db, 'lyrics', rotated, {})).env.DEEPSEEK_API_KEY, 'reentered');
+  } finally { close(); }
+});
+
+test('new source presets are independent from legacy protocols and retain stable IDs/keys', async () => {
+  const { db, sqlite, close } = fixture();
+  try {
+    const legacy = await createAiProfile(db, 'admin', { ...profile, provider: 'openai' }, env);
+    const modern = await createAiProfile(db, 'admin', { ...profile, provider: undefined, source: 'openai' }, env);
+    assert.equal(legacy.protocol, 'chat_completions');
+    assert.equal(modern.protocol, 'responses');
+    const encrypted = sqlite.prepare('SELECT encrypted_key FROM ai_model_profiles WHERE id = ?').get(legacy.id).encrypted_key;
+    sqlite.prepare('DELETE FROM ai_profile_protocols WHERE profile_id = ?').run(legacy.id);
+    const listed = await listAiProfiles(db, 'admin', env);
+    assert.equal(listed.profiles.find((item) => item.id === legacy.id).protocol, 'chat_completions');
+    await updateAiProfile(db, 'admin', legacy.id, { ...profile, source: 'openai', protocol: 'chat_completions',
+      baseUrl: 'https://api.openai.com/v1/', apiKey: '' }, 1, env);
+    assert.equal(sqlite.prepare('SELECT encrypted_key FROM ai_model_profiles WHERE id = ?').get(legacy.id).encrypted_key, encrypted);
+    assert.equal((await listAiProfiles(db, 'admin', env)).profiles.length, 2);
+  } finally { close(); }
+});
+
+test('protocol changes require re-entering keys; stale updates cannot alter protocol metadata', async () => {
+  const { db, sqlite, close } = fixture();
+  try {
+    const created = await createAiProfile(db, 'admin', { ...profile, source: 'openai', protocol: 'responses' }, env);
+    await assert.rejects(updateAiProfile(db, 'admin', created.id, { ...profile, source: 'openai',
+      protocol: 'anthropic_messages', baseUrl: 'https://api.example/v1', apiKey: '' }, 1, env), { code: 'ai_profile_key_required' });
+    await assert.rejects(updateAiProfile(db, 'admin', created.id, { ...profile, source: 'openai',
+      protocol: 'anthropic_messages', baseUrl: 'https://api.example/v1' }, 2, env), { code: 'revision_conflict' });
+    assert.equal(sqlite.prepare('SELECT protocol FROM ai_profile_protocols WHERE profile_id = ?').get(created.id).protocol, 'responses');
+    for (const generationOptions of [{ tools: [] }, { temperature: '1' }, { maxOutputTokens: 0 }]) {
+      await assert.rejects(createAiProfile(db, 'admin', { ...profile, generationOptions }, env), { code: 'invalid_ai_profile' });
+    }
+  } finally { close(); }
+});
+
+test('deployment-bound legacy configuration works before both profile tables exist, but partial schema fails closed', async () => {
+  const { db, sqlite, close } = fixture();
+  try {
+    sqlite.exec('DROP TABLE ai_profile_protocols; DROP TABLE ai_feature_assignments');
+    await assert.rejects(resolveAiFeature(db, 'assistant', env, { provider: 'deepseek', model: 'fixture' }));
+    sqlite.exec('DROP TABLE ai_model_profiles');
+    assert.equal(await resolveAiFeature(db, 'assistant', env, { provider: 'deepseek', model: 'fixture' }), null);
+  } finally { close(); }
+});
+
+test('Anthropic and custom Gemini sources resolve their own bound credentials/options', async () => {
+  const { db, close } = fixture();
+  try {
+    for (const [source, protocol, baseUrl] of [['anthropic', 'anthropic_messages', ''],
+      ['custom', 'gemini_native', 'https://proxy.example/v1beta']]) {
+      const created = await createAiProfile(db, 'admin', { ...profile, source, protocol, baseUrl,
+        generationOptions: { maxOutputTokens: 8192, reasoningEffort: 'low' } }, env);
+      await assignAiProfile(db, 'admin', 'assistant', created.id, source === 'anthropic' ? 0 : 1);
+      const resolved = await resolveAiFeature(db, 'assistant', env, { temperature: 0.8 });
+      assert.equal(resolved.config.source, source);
+      assert.equal(resolved.config.protocol, protocol);
+      assert.equal(resolved.config.generationOptions.maxOutputTokens, 8192);
+      assert.equal(resolved.env.AI_PROFILE_API_KEY, profile.apiKey);
+      assert.equal(resolved.env.AI_PROFILE_BASE_URL, baseUrl || 'https://api.anthropic.com/v1');
+      assert.doesNotMatch(JSON.stringify(await listAiProfiles(db, 'admin', env)), /new-private-key|encrypted_key|key_iv/);
+    }
+  } finally { close(); }
+});
+
+test('model discovery denies members and cannot forward a stored key to changed routes', async (t) => {
+  const { db, close } = fixture();
+  let fetched = 0;
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    fetched += 1;
+    assert.equal(url, 'https://api.deepseek.com/models');
+    assert.equal(init.redirect, 'manual');
+    assert.equal(init.headers.Authorization, `Bearer ${profile.apiKey}`);
+    return Response.json({ data: [{ id: 'deepseek-flash' }, { id: 'deepseek-flash' }, { id: 'invalid\nmodel' }] });
+  });
+  try {
+    const created = await createAiProfile(db, 'admin', profile, env);
+    const input = { ...profile, apiKey: '', profileId: created.id, expectedRevision: 1 };
+    await assert.rejects(listAiModels(db, 'member', input, env), { code: 'forbidden' });
+    await assert.rejects(listAiModels(db, 'admin', { ...input, expectedRevision: 2 }, env), { code: 'revision_conflict' });
+    for (const patch of [{ baseUrl: 'https://other.example/v1' }, { protocol: 'responses' }, { source: 'openai' }]) {
+      await assert.rejects(listAiModels(db, 'admin', { ...input, ...patch }, env), { code: 'ai_profile_key_required' });
+    }
+    assert.equal(fetched, 0);
+    assert.deepEqual(await listAiModels(db, 'admin', input, env), { models: ['deepseek-flash'], hasMore: false, verifiedCapabilities: false });
+  } finally { close(); }
+});
+
+test('legacy profiles continue working before protocol migration; new writes roll back', async () => {
+  const { db, sqlite, close } = fixture();
+  try {
+    const created = await createAiProfile(db, 'admin', profile, env);
+    await assignAiProfile(db, 'admin', 'assistant', created.id, 0);
+    sqlite.exec('DROP TABLE ai_profile_protocols');
+    const resolved = await resolveAiFeature(db, 'assistant', env, {});
+    assert.equal(resolved.config.protocol, 'chat_completions');
+    assert.equal(resolved.env.AI_PROFILE_API_KEY, profile.apiKey);
+    await assert.rejects(createAiProfile(db, 'admin', { ...profile, source: 'openai' }, env));
+    assert.equal((await listAiProfiles(db, 'admin', env)).profiles.length, 1);
   } finally { close(); }
 });

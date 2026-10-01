@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  adminErrorMessage, assignAiProfile, createAiProfile, createManagedAccount, getAdminOverview, parseExactHttpsOrigins,
+  adminErrorMessage, assignAiProfile, createAiProfile, createManagedAccount, getAiModels, getAdminOverview, parseExactHttpsOrigins,
   patchManagedAccount, putAdminSetting, putAssistant, resetManagedPassword,
 } from './adminApi.js';
 
@@ -51,6 +51,19 @@ test('AI profile credential stays in request body and feature assignment uses CS
   assert.equal(JSON.parse(calls[0][1].body).apiKey, 'private-key');
   assert.equal(calls[0][1].headers['X-CSRF-Token'], 'csrf');
   assert.doesNotMatch(calls[0][0], /private-key/);
+});
+
+test('model discovery sends secrets only in same-origin POST with CSRF', async () => {
+  const result = await getAiModels({ source: 'openai', protocol: 'responses', apiKey: 'fixture-key' },
+    'csrf', async (url, init) => {
+      assert.equal(url, '/api/admin/ai/models');
+      assert.equal(init.method, 'POST');
+      assert.equal(init.credentials, 'same-origin');
+      assert.equal(init.headers['X-CSRF-Token'], 'csrf');
+      assert.equal(JSON.parse(init.body).apiKey, 'fixture-key');
+      return respond({ models: ['example-model'] });
+    });
+  assert.deepEqual(result.models, ['example-model']);
 });
 
 test('additional origins accept exact HTTPS only', () => {

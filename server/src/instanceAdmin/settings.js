@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   'cors.allowed_origins': [],
   'ai.compatible_api_url': '',
   'lyrics.ai': DEFAULT_LYRIC_AI_CONFIG,
+  'assistant.images_enabled': false,
 });
 
 const knownKeys = new Set(Object.keys(DEFAULT_SETTINGS));
@@ -34,6 +35,7 @@ function exactHttpsOrigin(value) {
 
 export function validateSetting(key, value) {
   if (!knownKeys.has(key)) throw new InstanceAdminError('unknown_setting', 400);
+  if (key === 'assistant.images_enabled' && typeof value === 'boolean') return value;
   if (key === 'lyrics.ai') {
     try { return normalizeLyricAiConfig(value); }
     catch { throw new InstanceAdminError('invalid_setting', 400); }
@@ -69,7 +71,7 @@ export function validateAssistantConfig(config) {
 export async function getAdminSettings(db, actorAccountId, { aiApiKeyConfigured = null } = {}) {
   await requireActiveAdmin(db, actorAccountId);
   const rows = await db.prepare(`SELECT key, value_json, revision FROM instance_settings
-    WHERE key IN ('instance.name', 'cors.allowed_origins', 'ai.compatible_api_url', 'lyrics.ai')`).all();
+    WHERE key IN ('instance.name', 'cors.allowed_origins', 'ai.compatible_api_url', 'lyrics.ai', 'assistant.images_enabled')`).all();
   const settings = {};
   for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) settings[key] = { value: fallback, revision: 0 };
   for (const row of rows?.results ?? []) {

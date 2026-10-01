@@ -3,10 +3,11 @@ import { hydrateSong, resolveCoverUrl } from '../utils.js';
 export const PLAYLIST_COVER_FALLBACK = '/placeholder-album.svg';
 export const COLLECTION_COVER = '/collection-star.svg';
 
-// A playlist is represented by one of its songs. Custom playlist art is a later feature.
+// Favorites keep their fixed artwork; ordinary personal art has priority.
 export const getPlaylistCoverUrls = (playlist, songsMap) => {
     if (!playlist) return [PLAYLIST_COVER_FALLBACK];
     if (playlist.kind === 'favorite' || playlist.type === 'favorite') return [COLLECTION_COVER];
+    if (playlist.customCoverUrl?.startsWith('/api/account/images/')) return [playlist.customCoverUrl];
     const preview = playlist.previewCovers || playlist.preview_covers;
     const entries = [
         ...(Array.isArray(preview) ? preview : []),

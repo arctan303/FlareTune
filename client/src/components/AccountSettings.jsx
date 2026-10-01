@@ -5,6 +5,8 @@ import { changePassword, logout, messageForError, updateOwnProfile, updateOwnUiL
 import { validLocalPassword } from '../instance/state.js';
 import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
 import SettingsSection from './SettingsSection.jsx';
+import AccountAvatar from './AccountAvatar.jsx';
+import UserImageEditor from './UserImageEditor.jsx';
 import SubsonicSettings from './SubsonicSettings.jsx';
 import { setUiLanguage, t, useLocale } from '../i18n/index.js';
 
@@ -130,7 +132,7 @@ export default function AccountSettings() {
       <SettingsSection title={t('账号信息')}>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <span className="account-avatar-char !h-14 !w-14 !text-xl" aria-hidden="true">{name.trim().slice(0, 1).toUpperCase()}</span>
+            <AccountAvatar user={user} className="!h-14 !w-14 !text-xl" />
             <div className="min-w-0">
               <p className="truncate text-lg font-semibold text-[var(--ink)]">{name}</p>
               {user?.username && user.username !== name && <p className="truncate text-sm text-[var(--muted)]">{user.username}</p>}
@@ -156,6 +158,11 @@ export default function AccountSettings() {
           </div>
         </div>
         {error && errorContext === 'logout' && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{t(error)}</p>}
+      </SettingsSection>
+
+      <SettingsSection title={t('头像')}>
+        <UserImageEditor purpose="avatar" targetId="avatar" slot={user?.avatar} onSaved={avatar =>
+          setAuthSession(current => current.user?.accountId === user.accountId ? { ...current, user: { ...current.user, avatar } } : current)} />
       </SettingsSection>
 
       <SettingsSection title={t('展示昵称')}>

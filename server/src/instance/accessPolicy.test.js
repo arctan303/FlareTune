@@ -37,6 +37,9 @@ test('anonymous and restricted sessions cannot enter business or admin routes', 
 });
 
 test('member and admin roles get distinct management access', () => {
+  assert.equal(request('/api/admin/ai/models', 'POST', 'ready', member).allowed, false);
+  assert.equal(request('/api/admin/ai/models', 'POST', 'ready', admin).allowed, true);
+  assert.equal(request('/api/admin/system/migration', 'GET', 'ready', member).allowed, false);
   assert.equal(request('/api/songs/search', 'GET', 'ready', member).allowed, true);
   assert.equal(request('/api/admin/accounts', 'GET', 'ready', member).allowed, false);
   assert.equal(request('/api/admin/accounts', 'GET', 'ready', admin).allowed, true);

@@ -319,7 +319,7 @@ test('assistant visitor template is retired in favor of the standalone instance 
   assert.match(page, /setMessages\(\[\]\);/);
   assert.match(page, /if \(!isAuthed\) \{\s*setPhase\('ready'\);/);
   assert.match(page, /abortControllerRef\.current\?\.abort\(\)/);
-  assert.match(page, /if \(!isAuthed \|\| !text \|\| isLoading \|\| phase !== 'ready'\) return;/);
+  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| phase !== 'ready'\) return;/);
   assert.doesNotMatch(page, /localStorage|Turnstile|turnstile|captcha/i);
 });
 
@@ -431,7 +431,7 @@ test('Xiaoa chat and bootstrap are authenticated-only and no longer ship visitor
   const assistantRoute = readSource('../../server/src/routes/localAssistant.js');
 
   assert.match(page, /if \(!isAuthed\) return undefined;[\s\S]*?\/api\/ai\/bootstrap/);
-  assert.match(page, /if \(!isAuthed \|\| !text \|\| isLoading \|\| phase !== 'ready'\) return;/);
+  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| phase !== 'ready'\) return;/);
   assert.doesNotMatch(page, /Turnstile|turnstile|captcha|cf_turnstile_response|PUBLIC_TURNSTILE_SITEKEY/i);
   assert.match(worker, /decideApiAccess\(\{ path, method: request\.method, instanceState: instance\.state, session \}\)/);
   assert.match(worker, /if \(!session && access\.category !== 'setup'/);

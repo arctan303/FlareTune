@@ -3,7 +3,7 @@ import { t } from '../i18n/index.js';
 import React from 'react';
 import { RefreshCw, KeyRound, Check, Copy, UserPlus, X, Edit3 } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore.js';
-import { getInstanceStatus, runAdminMigration } from '../instance/api.js';
+import { getAdminMigrationStatus, runAdminMigration } from '../instance/api.js';
 import { validLocalPassword } from '../instance/state.js';
 import AdminCatalogSection from './AdminCatalogSection.jsx';
 import PageBackButton from './PageBackButton.jsx';
@@ -256,7 +256,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     setLoading(true);
     setMessage('');
     try {
-      const [next, nextStatus] = await Promise.all([getAdminOverview(csrfToken), getInstanceStatus()]);
+      const [next, nextStatus] = await Promise.all([getAdminOverview(csrfToken), getAdminMigrationStatus(csrfToken)]);
       setOverview(next);
       setDraft(Object.fromEntries(Object.entries(next.settings).map(([key, item]) =>
         [key, key === 'cors.allowed_origins' ? item.value.join('\n') : item.value])));
@@ -277,7 +277,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
         window.location.reload();
         return;
       }
-      setStatus(await getInstanceStatus());
+      setStatus(await getAdminMigrationStatus(csrfToken));
       setMessage(t("数据库已升级到当前版本。"));
     } catch (error) {
       setMessage(error?.code === 'backup_required'
@@ -286,12 +286,12 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     } finally { setBusy(false); }
   }
 
-  async function saveSetting(event, key) {
+  async function saveSetting(event, key, override) {
     event.preventDefault();
     setBusy(true);
     setMessage('');
     try {
-      const value = key === 'cors.allowed_origins' ? parseExactHttpsOrigins(draft[key] || '') : draft[key];
+      const value = override !== undefined ? override : key === 'cors.allowed_origins' ? parseExactHttpsOrigins(draft[key] || '') : draft[key];
       const result = await putAdminSetting(key, value, overview.settings[key].revision, csrfToken);
       setOverview((current) => ({ ...current, settings: { ...current.settings, [key]: result } }));
       setMessage(t("设置已成功保存。"));
@@ -482,6 +482,13 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {tab === 'assistant' && (
             <div className="space-y-6">
               <AiProfilesPanel csrfToken={csrfToken} />
+              <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-5">
+                <label className="flex min-h-11 w-full items-center justify-between gap-3 text-sm font-semibold">
+                  <span>{t('允许助手图片输入')}</span>
+                  <input type="checkbox" role="switch" className="settings-switch" disabled={busy} checked={overview.settings['assistant.images_enabled']?.value === true}
+                    onChange={event => void saveSetting(event, 'assistant.images_enabled', event.target.checked)} />
+                </label><p className="mt-2 text-xs text-[var(--muted)]">{t('关闭后不再向模型发送新图或历史图片，已有图片仍仅本人可查看。')}</p>
+              </section>
 
               <Section title={t("助手资料")}>
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -727,8 +734,9 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                   <p className="text-xs text-[var(--muted)]">{t("数据库版本")}</p>
                   <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{status?.schemaVersion ?? t("未知")} / {status?.targetVersion ?? t("未知")}</p>
                   {Number.isSafeInteger(status?.schemaVersion) && Number.isSafeInteger(status?.targetVersion)
-                    && status.schemaVersion < status.targetVersion && <button className={`${buttonClass} mt-3`} type="button" disabled={busy} onClick={() => void upgradeDatabase()}>{t("升级数据库")}</button>}
-                  {status?.schemaVersion === status?.targetVersion && <p className="mt-2 text-xs text-[var(--muted)]">{t("数据库已是当前版本。")}</p>}
+                    && (status.schemaVersion < status.targetVersion || status.supplementalPending) && <button className={`${buttonClass} mt-3`} type="button" disabled={busy} onClick={() => void upgradeDatabase()}>{t("升级数据库")}</button>}
+                  {status?.schemaVersion === status?.targetVersion && !status?.supplementalPending && <p className="mt-2 text-xs text-[var(--muted)]">{t("数据库已是当前版本。")}</p>}
+                  {status?.supplementalPending && <p className="mt-2 text-xs text-[var(--muted)]">{t("有可用的 AI 接入配置迁移。")}</p>}
                 </div>
               </Section>
             </div>

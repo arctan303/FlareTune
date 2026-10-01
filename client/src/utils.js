@@ -4,7 +4,7 @@ export const getBaseUrl = () => {
 
 const mediaUrl = (value) => {
     if (!value) return '';
-    if (/^https?:\/\//i.test(value) || value.startsWith('/media/')) return value;
+    if (/^https?:\/\//i.test(value) || value.startsWith('/media/') || value.startsWith('/api/account/images/')) return value;
     return `${getBaseUrl()}${value.replace(/^\/+/, '')}`;
 };
 

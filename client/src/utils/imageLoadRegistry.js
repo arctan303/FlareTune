@@ -51,12 +51,12 @@ export const createImageLoadRegistry = ({
 
   const isPrivateMediaUrl = (url) => {
     if (typeof url !== 'string' || !url) return false;
-    if (url.startsWith('/media/') && !url.startsWith('//')) return true;
+    if (url.startsWith('/media/') || url.startsWith('/api/account/images/')) return true;
     const currentOrigin = origin();
     if (!currentOrigin) return false;
     try {
       const parsed = new URL(url);
-      return parsed.origin === currentOrigin && parsed.pathname.startsWith('/media/');
+      return parsed.origin === currentOrigin && (parsed.pathname.startsWith('/media/') || parsed.pathname.startsWith('/api/account/images/'));
     } catch {
       return false;
     }

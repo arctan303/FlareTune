@@ -5,6 +5,8 @@ import { serveMediaObject, resolveMediaObjectKey } from './media.js';
 test('media route maps deployment-local URLs into the configured R2 prefix', () => {
   assert.equal(resolveMediaObjectKey('/media/audio/song.mp3', { MEDIA_PREFIX: 'media' }), 'media/audio/song.mp3');
   assert.equal(resolveMediaObjectKey('/media/%E6%AD%8C%E6%9B%B2/cover.jpg', { MEDIA_PREFIX: 'library' }), 'library/歌曲/cover.jpg');
+  assert.equal(resolveMediaObjectKey('/media/account-A/avatars/private.webp', { MEDIA_PREFIX: 'users' }), null);
+  assert.equal(resolveMediaObjectKey('/media/avatars/private.webp', { MEDIA_PREFIX: 'users/account-A' }), null);
   for (const path of ['/media/', '/media//song.mp3', '/media/../secret', '/media/%2e%2e/secret', '/media/audio%2Fsong.mp3']) {
     assert.equal(resolveMediaObjectKey(path, { MEDIA_PREFIX: 'media' }), null, path);
   }

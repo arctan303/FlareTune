@@ -9,7 +9,7 @@ export function fixture() {
   sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0002_expand_playlist_count.sql', import.meta.url), 'utf8'));
   for (const file of ['0003_upgrade_assistant_model.sql', '0004_remove_system_playlists.sql',
     '0005_collection_identity.sql', '0006_ai_model_profiles.sql',
-    '0007_default_ai_guidance.sql', '0008_assistant_memory.sql']) {
+    '0007_default_ai_guidance.sql', '0008_assistant_memory.sql', '0009_ai_protocols.sql']) {
     sqlite.exec(readFileSync(new URL(`../../db/migrations-flaretune/${file}`, import.meta.url), 'utf8'));
   }
   const db = {

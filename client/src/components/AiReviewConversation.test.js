@@ -11,6 +11,10 @@ test('AiReviewConversation remains a prop-driven presentational boundary on the 
   assert.match(page, /<AiReviewConversation/);
   assert.match(page, /containerRef=\{chatContainerRef\}/);
   assert.match(page, /onToggleDetails=\{toggleExpandDetails\}/);
+  assert.match(page, /onPreviewImage=\{/);
+  assert.match(page, /<ImagePreviewDialog/);
+  assert.match(conversation, /onPreviewImage\?\.\(message\.id, image\.id\)/);
+  assert.doesNotMatch(conversation, /<ImagePreviewDialog/);
   assert.match(conversation, /messages\.map\(\(message\) =>/);
   assert.doesNotMatch(conversation, /AssistantMusicCard|XiaoaMessageMusicCards|displaySongs/);
   assert.doesNotMatch(conversation, /use(?:Effect|LayoutEffect|State|Store)|fetch\(|window\.|localStorage|sessionStorage/);
