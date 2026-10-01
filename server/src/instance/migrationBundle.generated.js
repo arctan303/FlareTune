@@ -139,5 +139,20 @@ export const MIGRATION_BUNDLE = Object.freeze([
       "-- Separate reusable credential connections from each feature's model settings.\n-- Preserve profile IDs, encrypted credentials, assignment revisions and old rows.\nCREATE TABLE ai_feature_models (\n  feature TEXT PRIMARY KEY REFERENCES ai_feature_assignments(feature) ON DELETE CASCADE,\n  provider_id TEXT NOT NULL REFERENCES ai_model_profiles(id) ON DELETE RESTRICT,\n  model TEXT NOT NULL,\n  supports_images INTEGER NOT NULL DEFAULT 0 CHECK (supports_images IN (0, 1)),\n  options_json TEXT NOT NULL DEFAULT '{}'\n);",
       "INSERT INTO ai_feature_models (feature, provider_id, model, supports_images, options_json)\nSELECT a.feature, p.id, p.model,\n  CASE WHEN v.value_json = 'true' THEN 1 ELSE 0 END, COALESCE(c.options_json, '{}')\nFROM ai_feature_assignments a JOIN ai_model_profiles p ON p.id = a.profile_id\nLEFT JOIN ai_profile_protocols c ON c.profile_id = p.id\nLEFT JOIN instance_settings v ON v.key = 'ai.images.' || p.id;"
     ]
+  },
+  {
+    "name": "0012_google_login.sql",
+    "sha256": "3c6f975f30f636373fc4d22869feaea245fc6ac23d08a252475adce20d61e7c6",
+    "statements": [
+      "-- Optional Google login. Existing local credentials and account IDs stay intact.\nCREATE TABLE google_login_config (\n  id INTEGER PRIMARY KEY CHECK (id = 1),\n  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),\n  client_id TEXT NOT NULL DEFAULT '',\n  callback_origin TEXT NOT NULL DEFAULT '',\n  encrypted_secret TEXT NOT NULL DEFAULT '',\n  secret_iv TEXT NOT NULL DEFAULT '',\n  revision INTEGER NOT NULL DEFAULT 0,\n  auth_epoch INTEGER NOT NULL DEFAULT 0\n);",
+      "INSERT INTO google_login_config (id) VALUES (1);",
+      "CREATE TABLE account_google_bindings (\n  account_id TEXT PRIMARY KEY REFERENCES accounts(account_id) ON DELETE CASCADE,\n  binding_id TEXT NOT NULL UNIQUE,\n  google_sub TEXT NOT NULL UNIQUE,\n  email TEXT NOT NULL DEFAULT '',\n  created_at INTEGER NOT NULL\n);",
+      "CREATE TABLE google_login_transactions (\n  state_hash TEXT PRIMARY KEY,\n  browser_hash TEXT NOT NULL,\n  nonce TEXT NOT NULL,\n  verifier TEXT NOT NULL,\n  purpose TEXT NOT NULL CHECK (purpose IN ('login', 'bind')),\n  config_revision INTEGER NOT NULL,\n  auth_epoch INTEGER NOT NULL,\n  account_id TEXT REFERENCES accounts(account_id) ON DELETE CASCADE,\n  session_hash TEXT,\n  password_hash TEXT,\n  salt TEXT,\n  expires_at INTEGER NOT NULL,\n  used_at INTEGER\n);",
+      "CREATE INDEX idx_google_transactions_expiry ON google_login_transactions(expires_at);",
+      "-- The Google identity is unknown at login start. Any credential/binding change\n-- invalidates pending Google logins instance-wide, without revoking other users'\n-- established sessions. This also covers disable/re-enable and unlink/relink.\nCREATE TRIGGER google_credentials_changed AFTER UPDATE OF password_hash, salt, must_change_password ON account_credentials\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;",
+      "CREATE TRIGGER google_account_changed AFTER UPDATE OF status ON accounts\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;",
+      "CREATE TRIGGER google_binding_added AFTER INSERT ON account_google_bindings\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;",
+      "CREATE TRIGGER google_binding_removed AFTER DELETE ON account_google_bindings\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;"
+    ]
   }
 ]);

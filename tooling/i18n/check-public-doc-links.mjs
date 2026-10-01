@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 
 const files = [
   'README.md', 'README.en.md', 'CONTRIBUTING.md', 'CONTRIBUTING.en.md',
-  ...['README', 'using-flaretune', 'deployment', 'administration', 'local-development']
+  ...['README', 'using-flaretune', 'deployment', 'administration', 'local-development', 'google-login']
     .flatMap((name) => [`guide/${name}.md`, `guide/${name}.en.md`]),
   'tooling/ingest-agent/README.md', 'tooling/ingest-agent/README.en.md',
 ];

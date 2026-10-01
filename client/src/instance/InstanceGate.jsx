@@ -8,6 +8,7 @@ import {
 import { AUTH_SESSION_CHECK_FAILED_EVENT, AUTH_SESSION_INVALIDATED_EVENT, AUTH_SESSION_UPDATED_EVENT } from '../authNavigation.js';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 import TuneWordmark from '../components/TuneWordmark.jsx';
+import { GoogleSignInButton } from '../components/GoogleLogin.jsx';
 import { useInstanceTheme } from './theme.js';
 import { getUiLanguage, setUiLanguage, t, useLocale } from '../i18n/index.js';
 import './instance.css';
@@ -247,6 +248,7 @@ function LoginPage({ onSuccess }) {
               <span>{t(busy ? '正在登录…' : '登录')}</span>
             </button>
           </form>
+          <GoogleSignInButton />
         </div>
       </section>
     </main>

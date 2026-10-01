@@ -10,6 +10,7 @@ import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
 import Section from './SettingsSection.jsx';
 import IngestDevicesPanel from './IngestDevicesPanel.jsx';
+import { GoogleAdminSettings } from './GoogleLogin.jsx';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 import {
   adminErrorMessage, createManagedAccount, getAdminOverview, parseExactHttpsOrigins,
@@ -713,6 +714,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {/* 系统 */}
           {tab === 'system' && (
             <div className="space-y-6">
+              <GoogleAdminSettings key={authSession.user.accountId} session={authSession} />
               <IngestDevicesPanel />
               <Section title={t("运行概况")}>
                 <dl className="grid gap-4 sm:grid-cols-2">

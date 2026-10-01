@@ -8,6 +8,7 @@ import SettingsSection from './SettingsSection.jsx';
 import AccountAvatar from './AccountAvatar.jsx';
 import UserImageEditor from './UserImageEditor.jsx';
 import SubsonicSettings from './SubsonicSettings.jsx';
+import { GoogleAccountSettings } from './GoogleLogin.jsx';
 import { setUiLanguage, t, useLocale } from '../i18n/index.js';
 
 export default function AccountSettings() {
@@ -128,6 +129,7 @@ export default function AccountSettings() {
       <h1 className="text-3xl font-black tracking-tight text-[var(--ink)] sm:text-4xl">{t('个人设置')}</h1>
 
       {user?.accountId && <SubsonicSettings key={user.accountId} session={authSession} />}
+      {user?.accountId && <GoogleAccountSettings key={`google-${user.accountId}`} session={authSession} />}
 
       <SettingsSection title={t('账号信息')}>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">

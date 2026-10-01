@@ -21,7 +21,7 @@ export async function initializeEmptyDatabase(db) {
     throw new BootstrapError('invalid_state', 409);
   }
   const migration = KNOWN_MIGRATIONS.find((item) => item.version === CURRENT_SCHEMA_VERSION);
-  if (!migration || MIGRATION_BUNDLE.length !== 11
+  if (!migration || MIGRATION_BUNDLE.length !== 12
     || MIGRATION_BUNDLE[0].name !== KNOWN_MIGRATIONS[0].name
     || MIGRATION_BUNDLE[1].sha256 !== migration.checksum) {
     throw new BootstrapError('migration_bundle_invalid');
