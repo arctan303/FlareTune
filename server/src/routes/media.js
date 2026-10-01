@@ -32,7 +32,8 @@ export function resolveMediaObjectKey(pathname, env) {
   } catch {
     return null;
   }
-  return `${prefix}/${segments.join('/')}`;
+  const key = `${prefix}/${segments.join('/')}`;
+  return key.startsWith('users/') ? null : key;
 }
 
 function applyObjectHeaders(object, headers, { partialRequested = false } = {}) {

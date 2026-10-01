@@ -15,7 +15,9 @@ const readSource = (path) => {
   return content;
 };
 
-test('playlist cover uses only one song image and ignores custom playlist art', () => {
+test('playlist cover prefers own custom artwork but keeps favorite artwork fixed', () => {
+  assert.deepEqual(getPlaylistCoverUrls({ customCoverUrl: '/api/account/images/own', songs: [] }), ['/api/account/images/own']);
+  assert.deepEqual(getPlaylistCoverUrls({ kind: 'favorite', customCoverUrl: '/api/account/images/own' }), [COLLECTION_COVER]);
   // 0 首或空歌单：返回 fallback
   assert.deepEqual(getPlaylistCoverUrls(null), [PLAYLIST_COVER_FALLBACK]);
   assert.deepEqual(getPlaylistCoverUrls({ songs: [] }), [PLAYLIST_COVER_FALLBACK]);

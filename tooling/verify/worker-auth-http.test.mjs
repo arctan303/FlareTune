@@ -34,6 +34,57 @@ test('real local D1 Worker serves setup, login, settings and CSRF', async () => 
     const { csrfToken, user } = await session.json();
     assert.equal(user.username, 'owner');
     assert.ok(csrfToken);
+    const avatarBytes = new Uint8Array(26); const avatarView = new DataView(avatarBytes.buffer);
+    avatarBytes.set(new TextEncoder().encode('RIFF')); avatarView.setUint32(4,18,true);
+    avatarBytes.set(new TextEncoder().encode('WEBPVP8L'),8); avatarView.setUint32(16,5,true);
+    avatarBytes[20]=47; avatarView.setUint32(21,511|(511<<14),true);
+    const uploadAvatar = extraHeaders => api('/api/account/images/upload/avatar', { method:'POST', body:avatarBytes,
+      headers:{ 'Content-Type':'image/webp', Origin:preview.origin, 'X-Requested-With':'FlareTune', ...extraHeaders } });
+    assert.equal((await uploadAvatar({})).status,401);
+    assert.equal((await uploadAvatar({Cookie:cookie})).status,403);
+    assert.equal((await uploadAvatar({Cookie:cookie,'X-CSRF-Token':csrfToken,'X-FlareTune-Expected-Account':'wrong-account'})).status,409);
+    const avatarUpload = await uploadAvatar({Cookie:cookie,'X-CSRF-Token':csrfToken,'X-FlareTune-Expected-Account':user.accountId});
+    assert.equal(avatarUpload.status,201,await avatarUpload.clone().text());
+    const ownAvatar = await avatarUpload.json();
+    const savedAvatar = await post('/api/account/images/slots/avatar/avatar',{imageId:ownAvatar.id,revision:0},
+      {Cookie:cookie,'X-CSRF-Token':csrfToken},'PUT');
+    assert.equal(savedAvatar.status,200,await savedAvatar.clone().text());
+    const avatarRead = await api(ownAvatar.url,{headers:{Cookie:cookie}});
+    assert.equal(avatarRead.status,200); assert.equal(avatarRead.headers.get('Cache-Control'),'private, no-store');
+    assert.equal(avatarRead.headers.get('X-Content-Type-Options'),'nosniff');
+    assert.deepEqual(new Uint8Array(await avatarRead.arrayBuffer()),avatarBytes);
+    assert.equal((await api(ownAvatar.url)).status,401);
+    assert.equal((await (await api('/api/auth/session',{headers:{Cookie:cookie}})).json()).user.avatar.url,ownAvatar.url);
+    const migrationStatus = await api('/api/admin/system/migration', { headers: { Cookie: cookie } });
+    assert.equal((await migrationStatus.json()).supplementalPending, false);
+    assert.equal((await post('/api/admin/ai/models', { source: 'openai', apiKey: 'fake-only' },
+      { Cookie: cookie })).status, 403);
+    for (const [source, protocol, model] of [['deepseek', 'chat_completions', 'fixture-deepseek'],
+      ['openai', 'responses', 'fixture-openai'], ['anthropic', 'anthropic_messages', 'fixture-claude'],
+      ['gemini', 'gemini_native', 'fixture-gemini']]) {
+      const saved = await post('/api/admin/ai/profiles', { name: source, source, protocol, model,
+        apiKey: 'fake-local-profile-key' }, { Cookie: cookie, 'X-CSRF-Token': csrfToken });
+      assert.equal(saved.status, 201);
+    }
+    const profileList = await api('/api/admin/ai/profiles', { headers: { Cookie: cookie } });
+    const profiles = await profileList.json();
+    assert.equal(profiles.protocolReady, true);
+    assert.deepEqual(profiles.profiles.map(({ protocol }) => protocol).sort(),
+      ['chat_completions', 'responses', 'anthropic_messages', 'gemini_native'].sort());
+    assert.ok(!JSON.stringify(profiles).includes('fake-local-profile-key'));
+    const providerResponse = await api('/api/admin/ai/providers', { headers: { Cookie: cookie } });
+    const providerData = await providerResponse.json();
+    assert.equal(providerData.ready, true); assert.equal(providerData.providers.length, 4);
+    assert.ok(providerData.providers.every(item => item.model === undefined && item.protocol === undefined));
+    assert.equal((await api('/api/admin/ai/providers')).status, 401);
+    const featureBody = { feature: 'assistant', providerId: providerData.providers[0].id,
+      providerRevision: providerData.providers[0].revision, expectedRevision: 0, model: 'fixture-feature', supportsImages: true };
+    assert.equal((await post('/api/admin/ai/feature-models', featureBody, { Cookie: cookie }, 'PUT')).status, 403);
+    const configured = await post('/api/admin/ai/feature-models', featureBody, { Cookie: cookie, 'X-CSRF-Token': csrfToken }, 'PUT');
+    assert.equal(configured.status, 200);
+    const reread = await (await api('/api/admin/ai/providers', { headers: { Cookie: cookie } })).json();
+    assert.equal(reread.features.assistant.model, 'fixture-feature'); assert.equal(reread.features.assistant.supportsImages, true);
+    assert.equal((await post('/api/admin/ai/feature-models', featureBody, { Cookie: cookie, 'X-CSRF-Token': csrfToken }, 'PUT')).status, 409);
     const anonymousLibrary = await api('/api/init');
     assert.equal(anonymousLibrary.status, 401);
     const emptyLibrary = await api('/api/init', { headers: { Cookie: cookie } });
@@ -142,6 +193,7 @@ test('real local D1 Worker serves setup, login, settings and CSRF', async () => 
     assert.equal(temporaryLogin.status, 200);
     const temporarySession = await temporaryLogin.json();
     assert.equal(temporarySession.mustChangePassword, true);
+    assert.equal((await api(ownAvatar.url,{headers:{Cookie:temporaryLogin.headers.get('Set-Cookie')}})).status,403);
     assert.equal((await post('/api/auth/change-password', {
       currentPassword: temporaryPassword, newPassword: memberPassword,
     }, { Cookie: temporaryLogin.headers.get('Set-Cookie'), 'X-CSRF-Token': temporarySession.csrfToken })).status, 200);
@@ -149,6 +201,9 @@ test('real local D1 Worker serves setup, login, settings and CSRF', async () => 
     assert.equal(memberLogin.status, 200);
     const memberCookie = memberLogin.headers.get('Set-Cookie');
     const memberCsrf = (await memberLogin.json()).csrfToken;
+    assert.equal((await api(ownAvatar.url,{headers:{Cookie:memberCookie}})).status,404);
+    assert.equal((await post('/api/account/images/slots/avatar/avatar',{imageId:ownAvatar.id,revision:0},
+      {Cookie:memberCookie,'X-CSRF-Token':memberCsrf},'PUT')).status,404);
     assert.equal((await api(`/api/account/playlists/${createdPersonal.id}`,
       { headers: { Cookie: memberCookie } })).status, 404);
     assert.equal((await api('/api/admin/catalog/songs', { headers: { Cookie: memberCookie } })).status, 403);

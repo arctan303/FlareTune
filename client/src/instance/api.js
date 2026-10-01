@@ -43,6 +43,7 @@ export async function instanceRequest(path, { method = 'GET', body, csrfToken, e
 }
 
 export const getInstanceStatus = (fetchImpl) => instanceRequest('instance/status', { fetchImpl }).then(normalizeInstanceStatus);
+export const getAdminMigrationStatus = (csrfToken, fetchImpl) => instanceRequest('admin/system/migration', { csrfToken, fetchImpl });
 
 export async function getSession(fetchImpl) {
   try {

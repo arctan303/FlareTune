@@ -14,7 +14,7 @@ const optionsOf = (children) => React.Children.toArray(children).flatMap((child)
 
 // Keeps the existing select callers and form values while sharing the visible UI.
 export default function SelectControl({ children, value, defaultValue, onChange, disabled,
-  className = '', name, id, form, 'aria-label': label, 'aria-labelledby': labelledBy }) {
+  className = '', name, id, form, menuAnchorRef, 'aria-label': label, 'aria-labelledby': labelledBy }) {
   const options = optionsOf(children);
   const [localValue, setLocalValue] = React.useState(defaultValue ?? options[0]?.value ?? '');
   const selectedValue = String(value ?? localValue);
@@ -32,7 +32,7 @@ export default function SelectControl({ children, value, defaultValue, onChange,
   React.useLayoutEffect(() => {
     if (!open) return undefined;
     const anchor = trigger.current;
-    const rect = anchor.getBoundingClientRect();
+    const rect = (menuAnchorRef?.current || anchor).getBoundingClientRect();
     const height = Math.min(280, Math.max(100, window.innerHeight - 24));
     const below = window.innerHeight - rect.bottom - 12;
     const above = rect.top - 12;
@@ -54,7 +54,7 @@ export default function SelectControl({ children, value, defaultValue, onChange,
       document.removeEventListener('scroll', scroll, true);
       window.removeEventListener('resize', close);
     };
-  }, [open, options.length]);
+  }, [open, options.length, menuAnchorRef]);
   React.useEffect(() => {
     if (open) menu.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [open, active]);

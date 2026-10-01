@@ -9,6 +9,33 @@ import { KNOWN_MIGRATIONS } from './schemaManifest.js';
 
 const baseline = readFileSync(new URL('../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8');
 
+test('v2 protocol addon preserves profile secrets and assignment, and retries safely', async () => {
+  const { sqlite, db } = fixture();
+  try {
+    for (let step = 0; step < 8; step += 1) {
+      if ((await runKnownDatabaseUpgrade(db)).status === 'completed') break;
+    }
+    sqlite.exec(`DROP TABLE ai_profile_protocols;
+      INSERT INTO ai_model_profiles (id,name,provider,model,encrypted_key,key_iv,created_at,updated_at,updated_by)
+        VALUES ('legacy','Old','openai','gpt-fixture','ciphertext','iv',1,1,'admin');
+      INSERT INTO ai_feature_assignments (feature,profile_id,updated_at,updated_by)
+        VALUES ('assistant','legacy',1,'admin');`);
+    const before = sqlite.prepare('SELECT * FROM ai_model_profiles').get();
+    await runKnownDatabaseUpgrade(db);
+    assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'ai_profile_protocols'").get());
+    assert.deepEqual(sqlite.prepare('SELECT * FROM ai_model_profiles').get(), before);
+    assert.equal(sqlite.prepare('SELECT profile_id FROM ai_feature_assignments').get().profile_id, 'legacy');
+    assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM ai_profile_protocols').get().count, 0);
+    assert.equal((await runKnownDatabaseUpgrade(db)).status, 'current');
+    sqlite.exec('DROP TABLE ai_profile_protocols');
+    const failing = { ...db, batch: async () => { throw new Error('fixture batch unavailable'); } };
+    await assert.rejects(runKnownDatabaseUpgrade(failing), { code: 'migration_supplemental_failed' });
+    assert.deepEqual(sqlite.prepare('SELECT * FROM ai_model_profiles').get(), before);
+    await runKnownDatabaseUpgrade(db);
+    assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'ai_profile_protocols'").get());
+  } finally { sqlite.close(); }
+});
+
 function fixture() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');

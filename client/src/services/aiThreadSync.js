@@ -6,6 +6,9 @@ const normalizeThought = (value) => (
 );
 
 const processFields = (message) => ({
+  ...(Array.isArray(message?.images) ? { images: message.images
+    .filter(image => typeof image?.id === 'string' && typeof image?.url === 'string')
+    .map(({ id, url }) => ({ id, url })) } : {}),
   ...(typeof message?.clientMessageId === 'string' ? { clientMessageId: message.clientMessageId } : {}),
   ...(Array.isArray(message?.processEntries) ? { processEntries: message.processEntries } : {}),
   ...(Array.isArray(message?.toolSummaries) ? { toolSummaries: message.toolSummaries } : {}),

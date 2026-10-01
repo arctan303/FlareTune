@@ -19,6 +19,30 @@ const response = (data, status = 200) => ({
   json: async () => data,
 });
 
+test('refresh retains only server image references and includes them in the thread fingerprint', async () => {
+  const images = [{ id: 'image-1', url: '/api/account/images/image-1' }];
+  const result = await fetchCloudThread({ fetchImpl: async () => response({ thread: {
+    revision: 1, messages: [{ id: 'user-1', role: 'user', content: '',
+      images: [{ ...images[0], bytes: 'not-a-message-field' }, null, { id: 2, url: null }] }],
+  } }) });
+  assert.deepEqual(result.thread.messages[0].images, images);
+  assert.equal(result.thread.messages[0].content, '');
+  assert.match(result.fingerprint, /image-1/);
+  assert.doesNotMatch(result.fingerprint, /not-a-message-field/);
+});
+
+test('image changes or removal replace matching text instead of retaining old thumbnail references', () => {
+  const current = [{ id: 'user-1', role: 'user', content: 'caption', images: [{ id: 'old', url: '/api/account/images/old' }] }];
+  for (const images of [[{ id: 'new', url: '/api/account/images/new' }], []]) {
+    const result = planCloudThreadSync({ currentMessages: current, thread: { revision: 2, messages: [
+      { id: 'user-1', role: 'user', content: 'caption', images },
+      { id: 'assistant-2', role: 'assistant', content: 'reply' },
+    ] } });
+    assert.equal(result.kind, 'replace');
+    assert.deepEqual(result.messages[0].images, images);
+  }
+});
+
 test('loads and normalizes the current cloud thread through one request boundary', async () => {
   const controller = new AbortController();
   const calls = [];

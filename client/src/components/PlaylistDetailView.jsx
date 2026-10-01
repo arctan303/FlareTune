@@ -24,6 +24,8 @@ import {
     PlaylistDescriptionDrawer,
 } from './PlaylistDetailSupport.jsx';
 import TrackRow from './TrackRow';
+import UserImageEditor from './UserImageEditor.jsx';
+import { accountPlaylistsStore } from '../accountPlaylists.js';
 
 export default function PlaylistDetailView({
     isViewingPlaylist,
@@ -121,8 +123,17 @@ export default function PlaylistDetailView({
                             </div>
                         )}
                         <div className="playlist-masthead relative mb-10 flex flex-col items-center gap-6 md:flex-row md:items-start md:gap-8">
-                            <div className="playlist-masthead__cover group h-[184px] w-[184px] flex-shrink-0 overflow-visible md:h-60 md:w-60">
-                                <PlaylistCover playlist={playlist} songsMap={songsMap} />
+                            <div className="group w-[184px] flex-shrink-0 md:w-60">
+                                <div className="playlist-masthead__cover">
+                                    <PlaylistCover playlist={playlist} songsMap={songsMap} />
+                                </div>
+                                {isPersonalPlaylist && playlist.source === 'member' && playlist.kind === 'regular' && !isEditing &&
+                                  <UserImageEditor purpose="playlist" targetId={playlist.id}
+                                    slot={{ url: playlist.customCoverUrl, revision: playlist.coverRevision ?? 0 }}
+                                    onSaved={slot => accountPlaylistsStore.setState(state => ({
+                                      playlists: state.playlists.map(p => p.id === playlist.id ? { ...p, customCoverUrl: slot.url, coverRevision: slot.revision } : p),
+                                      details: { ...state.details, ...(state.details[playlist.id] ? { [playlist.id]: { ...state.details[playlist.id], customCoverUrl: slot.url, coverRevision: slot.revision } } : {}) },
+                                    }))} />}
                             </div>
                             <div className="playlist-masthead__copy flex min-w-0 flex-1 flex-col justify-start">
                                 <p className="playlist-eyebrow mb-2 text-xs md:text-sm">

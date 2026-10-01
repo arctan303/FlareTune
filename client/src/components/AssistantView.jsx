@@ -9,7 +9,7 @@ import { getApiBaseUrl } from '../services/apiBase.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
 import { fetchCloudThread, mergeAssistantProcessMessages } from '../services/aiThreadSync.js';
 import { consumeSseJsonStream } from '../services/aiEventStream.js';
-import { localAssistantMutationHeaders } from '../services/localAssistantRequest.js';
+import { localAssistantMutationHeaders, optimisticAssistantUserMessage } from '../services/localAssistantRequest.js';
 import { assistantFailureMessage, withAssistantFailure } from '../services/assistantFailure.js';
 import { captureAssistantLiveContext } from '../services/localAssistantLiveContext.js';
 import { dispatchLocalAssistantPlayerAction } from '../services/localAssistantPlayer.js';
@@ -17,6 +17,9 @@ import { confirmAssistantPlaylistDeletion, rebindAssistantPlaylistConfirmations 
 import { accountPlaylistsStore } from '../accountPlaylists.js';
 import AiReviewConversation from './AiReviewConversation.jsx';
 import AssistantMemoryView from './AssistantMemoryView.jsx';
+import AssistantAttachments from './AssistantAttachments.jsx';
+import ImagePreviewDialog from './ImagePreviewDialog.jsx';
+import { resolveAssistantImagePreview } from '../services/assistantImagePreview.js';
 import { AiReviewComposer } from './AiReviewChrome.jsx';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { appendThoughtProcessEntry, appendToolProcessEntry, finishToolProcessEntry } from '../../../shared/assistantProcessTrace.js';
@@ -50,7 +53,16 @@ export default function AssistantView({ section = 'conversation' }) {
     const [requestFailure, setRequestFailure] = React.useState(null);
     const visibleMessages = withAssistantFailure(messages,
         requestFailure?.accountId === accountId ? requestFailure : null);
+    const [imageSelection, setImageSelection] = React.useState(null);
+    const imagePreview = resolveAssistantImagePreview(visibleMessages, imageSelection, accountId);
+    React.useEffect(() => {
+        if (imageSelection && (!imagePreview || section !== 'conversation')) setImageSelection(null);
+    }, [imageSelection, imagePreview, section]);
     const [inputText, setInputText] = React.useState('');
+    const [attachments, setAttachments] = React.useState([]);
+    const [attachmentsBusy, setAttachmentsBusy] = React.useState(false);
+    const [imageInput, setImageInput] = React.useState(false);
+    const [imageNotice, setImageNotice] = React.useState('');
     const [isLoading, setIsLoading] = React.useState(false);
     const [processClock, setProcessClock] = React.useState(() => Date.now());
     const [showScrollBottom, setShowScrollBottom] = React.useState(false);
@@ -74,6 +86,7 @@ export default function AssistantView({ section = 'conversation' }) {
 
     const chatContainerRef = React.useRef(null);
     const textareaRef = React.useRef(null);
+    const attachmentsRef = React.useRef(null);
     const abortControllerRef = React.useRef(null);
     const shouldFollowMessagesRef = React.useRef(true);
     const pendingAutoScrollRef = React.useRef(false);
@@ -106,6 +119,7 @@ export default function AssistantView({ section = 'conversation' }) {
         pendingPlaylistDecisionIdsRef.current.clear();
         setPlaylistConfirmations({});
         setRequestFailure(null);
+        setAttachments([]); setAttachmentsBusy(false); setImageInput(false); setImageNotice('');
     }, [accountId]);
 
     React.useEffect(() => {
@@ -117,6 +131,7 @@ export default function AssistantView({ section = 'conversation' }) {
             .then((data) => {
                 if (controller.signal.aborted) return;
                 const assistant = data?.assistant;
+                setImageInput(data?.imageInput?.enabled === true);
                 setWelcomeConfig({ accountId, text: typeof assistant?.welcomeMessage === 'string' && assistant.welcomeMessage.trim()
                     ? assistant.welcomeMessage.trim() : FALLBACK_WELCOME, ready: true });
             })
@@ -305,17 +320,20 @@ export default function AssistantView({ section = 'conversation' }) {
 
     const handleSend = React.useCallback(async (overrideText) => {
         const text = (typeof overrideText === 'string' ? overrideText : inputText).trim();
-        if (!isAuthed || !text || isLoading || phase !== 'ready') return;
+        if (!isAuthed || (!text && !attachments.length) || attachmentsBusy || isLoading || phase !== 'ready') return;
 
         setInputText('');
         setRequestFailure(null);
+        setImageNotice('');
         const clientMessageId = crypto.randomUUID();
         const userMsgId = `user-${clientMessageId}`;
         const assistantMsgId = `assistant-${clientMessageId}`;
+        const userMessage = optimisticAssistantUserMessage(userMsgId, text, attachments);
+        const sentImages = userMessage.images;
 
         const newMessages = [
             ...messages,
-            { id: userMsgId, role: 'user', content: text, createdAt: Date.now() },
+            userMessage,
             { id: assistantMsgId, role: 'assistant', content: '', createdAt: Date.now() + 1, isGenerating: true },
         ];
         setMessages(newMessages);
@@ -351,7 +369,7 @@ export default function AssistantView({ section = 'conversation' }) {
 
             const response = await authenticatedFetch(`${getApiBaseUrl()}/api/ai/chat`, {
                 method: 'POST',
-                headers: localAssistantMutationHeaders(authSession?.csrfToken),
+                headers: { ...localAssistantMutationHeaders(authSession?.csrfToken), 'X-FlareTune-Expected-Account': requestAccountId },
                 credentials: 'include',
                 signal: controller.signal,
                 body: JSON.stringify({
@@ -359,6 +377,7 @@ export default function AssistantView({ section = 'conversation' }) {
                     client_message_id: clientMessageId,
                     revision: threadRevisionRef.current,
                     enable_thinking: enableThinking,
+                    ...(sentImages.length ? { image_ids: sentImages.map(image => image.id) } : {}),
                     context: captureAssistantLiveContext(usePlayerStore.getState(),
                         recentPlaybackRef.current, sentReceipts),
                 }),
@@ -367,16 +386,20 @@ export default function AssistantView({ section = 'conversation' }) {
                 const data = await response.json().catch(() => ({}));
                 if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
                 if (response.status === 409) applyThread(data.thread, requestAccountId);
+                if (data.error === 'assistant_images_disabled') { setImageInput(false); setAttachments([]); setInputText(text); }
                 if (response.status === 401) {
                     setAuthSession({ authenticated: false, user: null, initialized: true });
                 }
                 throw Object.assign(new Error(data.message || t('助手暂时无法回应 ({status})', { status: response.status })), { code: data.error });
             }
+            setAttachments([]);
             await consumeSseJsonStream(response.body, {
                 signal: controller.signal,
                 onEvent: async (event) => {
                     if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
-                    if (event.type === 'content_delta' && typeof event.content === 'string') {
+                    if (event.type === 'image_notice' && typeof event.message === 'string') {
+                        setImageNotice(event.message);
+                    } else if (event.type === 'content_delta' && typeof event.content === 'string') {
                         const respondedAt = Date.now();
                         setMessages((prev) => prev.map((message) => message.id === assistantMsgId
                             ? { ...message, processingStartedAt: message.processingStartedAt || respondedAt }
@@ -511,7 +534,7 @@ export default function AssistantView({ section = 'conversation' }) {
             if (abortControllerRef.current === controller) abortControllerRef.current = null;
             if (accountIdRef.current === requestAccountId) scheduleScrollToLatest();
         }
-    }, [applyThread, authSession?.csrfToken, enableThinking, inputText, isAuthed, isLoading, messages, phase, scheduleScrollToLatest, setAuthSession, syncThread]);
+    }, [applyThread, authSession, attachments, attachmentsBusy, enableThinking, inputText, isAuthed, isLoading, messages, phase, scheduleScrollToLatest, setAuthSession, syncThread]);
 
     const handleFormSubmit = React.useCallback((e) => {
         if (e && typeof e.preventDefault === 'function') e.preventDefault();
@@ -542,6 +565,7 @@ export default function AssistantView({ section = 'conversation' }) {
                     messages={visibleMessages}
                     playlistConfirmations={playlistConfirmations}
                     onPlaylistConfirmationDecision={handlePlaylistConfirmationDecision}
+                    onPreviewImage={(messageId, imageId) => setImageSelection({ accountId, messageId, imageId })}
                     onScroll={handleScroll}
                     onToggleDetails={toggleExpandDetails}
                     phase={phase}
@@ -565,6 +589,12 @@ export default function AssistantView({ section = 'conversation' }) {
                     </button>
 
                     <AiReviewComposer
+                        hasAttachments={attachments.length > 0}
+                        attachmentsBusy={attachmentsBusy}
+                        attachments={imageInput ? <AssistantAttachments ref={attachmentsRef} key={accountId} session={authSession} attachments={attachments} onChange={setAttachments} onBusy={setAttachmentsBusy} disabled={isLoading || phase !== 'ready'} /> : null}
+                        onAttachImage={imageInput ? () => attachmentsRef.current?.pick() : undefined}
+                        onImageFiles={imageInput ? files => attachmentsRef.current?.addFiles(files) : undefined}
+                        attachmentLimitReached={attachments.length >= 4}
                         authenticated={isAuthed}
                         enableThinking={enableThinking}
                         onToggleThinking={() => setEnableThinking(!enableThinking)}
@@ -578,8 +608,10 @@ export default function AssistantView({ section = 'conversation' }) {
                         onStop={handleStopGeneration}
                         onHeightChange={handleComposerHeightChange}
                     />
+                    {imageNotice && <p role="status" className="mx-auto max-w-3xl px-4 py-1 text-xs text-[var(--muted)]">{t(imageNotice)}</p>}
                 </div>
             </div>
+            {imagePreview && <ImagePreviewDialog key={imagePreview.url} image={imagePreview} onClose={() => setImageSelection(null)} />}
         </div>
     );
 }

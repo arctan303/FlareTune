@@ -341,7 +341,7 @@ test('Gemini streams thought deltas separately and sends thinkingBudget: 0 when 
   assert.equal(result.content, '推荐这首《晴天》。');
   assert.deepEqual(thoughts, ['让我想想...']);
   assert.deepEqual(contents, ['推荐这首《晴天》。']);
-  assert.equal(capturedRequestBody.generationConfig.thinkingConfig, undefined);
+  assert.deepEqual(capturedRequestBody.generationConfig.thinkingConfig, { includeThoughts: true });
 
   // 测试禁用思考时注入 thinkingBudget: 0
   await chatAI(

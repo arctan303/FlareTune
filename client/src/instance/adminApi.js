@@ -18,6 +18,22 @@ export const putAssistant = (patch, expectedRevision, csrfToken, fetchImpl) =>
 export const getAiProfiles = (csrfToken, fetchImpl) =>
   instanceRequest('admin/ai/profiles', { csrfToken, fetchImpl });
 
+export const getAiProviders = (csrfToken, fetchImpl) =>
+  instanceRequest('admin/ai/providers', { csrfToken, fetchImpl });
+export const createAiProvider = (provider, csrfToken, fetchImpl) =>
+  instanceRequest('admin/ai/providers', { method: 'POST', body: provider, csrfToken, fetchImpl });
+export const updateAiProvider = (id, provider, expectedRevision, csrfToken, fetchImpl) =>
+  instanceRequest(`admin/ai/providers/${encodeURIComponent(id)}`, { method: 'PUT', body: { provider, expectedRevision }, csrfToken, fetchImpl });
+export const deleteAiProvider = (id, expectedRevision, csrfToken, fetchImpl) =>
+  instanceRequest(`admin/ai/providers/${encodeURIComponent(id)}`, { method: 'DELETE', body: { expectedRevision }, csrfToken, fetchImpl });
+export const getAiProviderModels = (providerId, expectedRevision, csrfToken, fetchImpl) =>
+  instanceRequest('admin/ai/provider-models', { method: 'POST', body: { providerId, expectedRevision }, csrfToken, fetchImpl });
+export const saveAiFeatureModel = (configuration, csrfToken, fetchImpl) =>
+  instanceRequest('admin/ai/feature-models', { method: 'PUT', body: configuration, csrfToken, fetchImpl });
+
+export const getAiModels = (configuration, csrfToken, fetchImpl) =>
+  instanceRequest('admin/ai/models', { method: 'POST', body: configuration, csrfToken, fetchImpl });
+
 export const createAiProfile = (profile, csrfToken, fetchImpl) =>
   instanceRequest('admin/ai/profiles', { method: 'POST', body: profile, csrfToken, fetchImpl });
 

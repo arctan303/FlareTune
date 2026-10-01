@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { getInstanceStatus, getSession, instanceRequest, InstanceApiError, login, messageForError, setupInstance, verifySetupSecret } from './api.js';
+import { getAdminMigrationStatus, getInstanceStatus, getSession, instanceRequest, InstanceApiError, login, messageForError, setupInstance, verifySetupSecret } from './api.js';
 
 const respond = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
@@ -36,6 +36,15 @@ test('status and session responses fail closed', async () => {
   assert.equal((await getSession(async () => respond({ authenticated: false }))).authenticated, false);
   assert.equal((await getSession(async () => respond({ error: 'not_authenticated' }, 401))).authenticated, false);
   await assert.rejects(() => getSession(async () => respond({ error: 'database_unavailable' }, 503)), InstanceApiError);
+});
+
+test('private migration status preserves same-version supplemental upgrades', async () => {
+  const status = await getAdminMigrationStatus('csrf', async (url, init) => {
+    assert.equal(url, '/api/admin/system/migration');
+    assert.equal(init.credentials, 'same-origin');
+    return respond({ schemaVersion: 2, targetVersion: 2, state: 'ready', supplementalPending: true });
+  });
+  assert.equal(status.supplementalPending, true);
 });
 
 test('error copy avoids exposing server details or credential existence', () => {

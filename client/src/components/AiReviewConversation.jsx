@@ -1,9 +1,11 @@
 import { getLocale, t } from '../i18n/index.js';
+import React from 'react';
 import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { MarkdownContent } from './AssistantMarkdown.jsx';
+import PrivateCoverImage from './PrivateCoverImage.jsx';
 import { getAssistantProcessStatus, getAssistantProcessTimeline, getAssistantProcessOverview } from '../../../shared/assistantProcessTrace.js';
 
-// 消息时间：线程消息的 createdAt（毫秒）。纯函数，保持本组件无状态、无副作用。
+// 消息时间：线程消息的 createdAt（毫秒）。纯函数。
 // Display in the browser's time zone; the Worker provides the same zone to the model.
 const resolveMessageTime = (createdAt) => {
     const timestamp = Number(createdAt);
@@ -22,6 +24,7 @@ export default function AiReviewConversation({
     messages,
     playlistConfirmations = {},
     onPlaylistConfirmationDecision,
+    onPreviewImage,
     onScroll,
     onToggleDetails,
     phase,
@@ -64,9 +67,16 @@ export default function AiReviewConversation({
                     >
                         {message.role === 'user' ? (
                             <div className="max-w-[85%] sm:max-w-[70%] min-w-0 flex flex-col items-end gap-1">
-                                <div className="px-4 py-2.5 rounded-2xl text-sm sm:text-[14.5px] leading-relaxed bg-[var(--ink)] text-[var(--surface-raised)] rounded-tr-xs whitespace-pre-wrap break-words shadow-sm">
+                                {message.images?.length > 0 && <div className="assistant-message-images">
+                                    {message.images.map((image, index) => <button key={image.id} type="button"
+                                        className="assistant-message-images__thumbnail" aria-label={t('查看第 {position} 张图片', { position: index + 1 })}
+                                        onClick={() => onPreviewImage?.(message.id, image.id)}>
+                                        <PrivateCoverImage src={image.url} alt={t('聊天图片')} />
+                                    </button>)}
+                                </div>}
+                                {hasContent && <div className="assistant-user-message__text px-4 py-2.5 rounded-2xl text-sm sm:text-[14.5px] leading-relaxed bg-[var(--ink)] text-[var(--surface-raised)] rounded-tr-xs whitespace-pre-wrap break-words shadow-sm">
                                     {message.content}
-                                </div>
+                                </div>}
                                 {messageTime && (
                                     <time
                                         dateTime={messageTime.dateTime}

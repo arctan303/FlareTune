@@ -50,6 +50,7 @@ FlareTune 是一款面向个人和家庭的自建音频流媒体应用。管理�
 | --- | --- |
 | [使用指南](guide/using-flaretune.md) | 找歌、播放、歌单、助手和个人设置 |
 | [第三方客户端](guide/subsonic.md) | Subsonic 开关、连接方法、兼容范围与用户验收 |
+| [Google 登录](guide/google-login.md) | 管理员配置、已有账号绑定、免输本站密码登录 |
 | [部署与初始化](guide/deployment.md) | 首次安装、密钥、升级和数据备份 |
 | [管理与维护](guide/administration.md) | 曲库、账号、实例设置和数据维护 |
 | [本地入库设备](tooling/ingest-agent/README.md) | 批量读取本地目录并在网页中挑选歌曲 |

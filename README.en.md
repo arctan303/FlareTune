@@ -51,6 +51,7 @@ FlareTune uses React, Vite, and Cloudflare Workers. D1 stores data, while privat
 | --- | --- |
 | [User guide](guide/using-flaretune.en.md) | Search, playback, playlists, assistant, and personal settings |
 | [Third-party clients](guide/subsonic.en.md) | Subsonic opt-in, connection, supported features and acceptance checklist |
+| [Google sign-in](guide/google-login.en.md) | Configuration, account linking and sign-in without the local password |
 | [Deployment and setup](guide/deployment.en.md) | First installation, secrets, upgrades, and backups |
 | [Administration](guide/administration.en.md) | Library, accounts, instance settings, and maintenance |
 | [Local ingest device](tooling/ingest-agent/README.en.md) | Scan local folders and select songs in the web app |

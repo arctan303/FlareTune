@@ -25,6 +25,12 @@ async function pairStatus(db, first, second) {
   return left;
 }
 
+async function googleAddonReady(db) {
+  const tables = await Promise.all(['google_login_config', 'account_google_bindings', 'google_login_transactions'].map(name => objectExists(db, name)));
+  if (tables.some(Boolean) && !tables.every(Boolean)) throw new DatabaseUpgradeError('migration_schema_inconsistent');
+  return tables.every(Boolean);
+}
+
 async function ensureExpanded(db) {
   const columns = resultRows(await db.prepare('PRAGMA table_info(Member_Playlists)').all());
   if (!columns.length) throw new DatabaseUpgradeError('migration_schema_inconsistent');
@@ -61,6 +67,10 @@ async function ensureSupplemental(db, allowDestructive) {
   const scripts = [3, 4, 5, 7];
   if (!hasProfiles) scripts.push(6);
   if (!hasMemory) scripts.push(8);
+  if (!await objectExists(db, 'ai_profile_protocols')) scripts.push(9);
+  if (!await pairStatus(db, 'user_images', 'user_image_refs')) scripts.push(10);
+  if (!await objectExists(db, 'ai_feature_models')) scripts.push(11);
+  if (!await googleAddonReady(db)) scripts.push(12);
   scripts.sort((a, b) => a - b);
   try {
     await db.batch(scripts.flatMap((number) => bundled(number - 1).map((sql) => db.prepare(sql))));
@@ -88,6 +98,22 @@ export async function runKnownDatabaseUpgrade(db, { allowDestructive = false } =
     before = await resolveInstanceState(db);
   }
   if (before.schemaVersion === 2 && ['ready', 'setup_required'].includes(before.state)) {
+    if (!await googleAddonReady(db)) {
+      try { await db.batch(bundled(11).map((sql) => db.prepare(sql))); }
+      catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
+    }
+    if (!await objectExists(db, 'ai_profile_protocols')) {
+      try { await db.batch(bundled(8).map((sql) => db.prepare(sql))); }
+      catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
+    }
+    if (!await pairStatus(db, 'user_images', 'user_image_refs')) {
+      try { await db.batch(bundled(9).map((sql) => db.prepare(sql))); }
+      catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
+    }
+    if (!await objectExists(db, 'ai_feature_models')) {
+      try { await db.batch(bundled(10).map((sql) => db.prepare(sql))); }
+      catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
+    }
     return { status: 'current', schemaVersion: 2 };
   }
   const eligible = (before.state === 'ready' && before.reason === 'migration_available')

@@ -12,6 +12,10 @@ const names = [
   '0006_ai_model_profiles.sql',
   '0007_default_ai_guidance.sql',
   '0008_assistant_memory.sql',
+  '0009_ai_protocols.sql',
+  '0010_user_images.sql',
+  '0011_ai_feature_models.sql',
+  '0012_google_login.sql',
 ];
 
 // Split checked-in SQL once at build time. A trigger body contains semicolons;

@@ -111,5 +111,48 @@ export const MIGRATION_BUNDLE = Object.freeze([
       "CREATE TABLE assistant_memories (\n  id TEXT PRIMARY KEY,\n  account_id TEXT NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,\n  content TEXT NOT NULL CHECK (length(content) BETWEEN 1 AND 240),\n  source TEXT NOT NULL CHECK (source IN ('stated', 'inferred', 'user_edited')),\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n);",
       "CREATE INDEX idx_assistant_memories_account ON assistant_memories(account_id, updated_at DESC);"
     ]
+  },
+  {
+    "name": "0009_ai_protocols.sql",
+    "sha256": "ca643a0f17abb0ab6897358404afd1b198c36fde414441291282599666935048",
+    "statements": [
+      "-- Additive metadata: preserve profile IDs, encrypted keys and assignments.\n-- A missing metadata row means the original protocol, never a new default.\nCREATE TABLE ai_profile_protocols (\n  profile_id TEXT PRIMARY KEY REFERENCES ai_model_profiles(id) ON DELETE CASCADE,\n  source TEXT NOT NULL CHECK (source IN ('deepseek', 'openai', 'anthropic', 'gemini', 'custom')),\n  protocol TEXT NOT NULL CHECK (protocol IN ('chat_completions', 'responses', 'anthropic_messages', 'gemini_native')),\n  options_json TEXT NOT NULL DEFAULT '{}'\n);"
+    ]
+  },
+  {
+    "name": "0010_user_images.sql",
+    "sha256": "2863eed6902925fddf4c855c2919148196214726fef40c1430fcd6ac7666f210",
+    "statements": [
+      "CREATE TABLE user_images (\n  id TEXT PRIMARY KEY,\n  account_id TEXT NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,\n  purpose TEXT NOT NULL CHECK (purpose IN ('avatar','playlist','chat')),\n  object_key TEXT NOT NULL UNIQUE,\n  byte_size INTEGER NOT NULL CHECK (byte_size BETWEEN 1 AND 5242880),\n  width INTEGER NOT NULL CHECK (width BETWEEN 1 AND 2048),\n  height INTEGER NOT NULL CHECK (height BETWEEN 1 AND 2048),\n  status TEXT NOT NULL CHECK (status IN ('pending','ready','deleting')),\n  created_at INTEGER NOT NULL,\n  UNIQUE (id, account_id, purpose)\n);",
+      "CREATE INDEX idx_user_images_owner ON user_images(account_id, status, created_at);",
+      "CREATE TABLE user_image_refs (\n  account_id TEXT NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,\n  purpose TEXT NOT NULL CHECK (purpose IN ('avatar','playlist','chat')),\n  target_id TEXT NOT NULL,\n  image_id TEXT,\n  revision INTEGER NOT NULL DEFAULT 0,\n  playlist_id TEXT REFERENCES Member_Playlists(id) ON DELETE CASCADE,\n  message_id TEXT REFERENCES music_chat_thread_messages(id) ON DELETE CASCADE,\n  PRIMARY KEY (account_id, purpose, target_id),\n  FOREIGN KEY (image_id, account_id, purpose) REFERENCES user_images(id, account_id, purpose),\n  CHECK ((purpose = 'avatar' AND target_id = 'avatar' AND playlist_id IS NULL AND message_id IS NULL)\n    OR (purpose = 'playlist' AND target_id = playlist_id AND message_id IS NULL)\n    OR (purpose = 'chat' AND message_id IS NOT NULL AND playlist_id IS NULL))\n);",
+      "CREATE INDEX idx_user_image_refs_image ON user_image_refs(image_id);",
+      "CREATE TRIGGER user_image_refs_owner BEFORE INSERT ON user_image_refs\nWHEN (NEW.purpose = 'playlist' AND NOT EXISTS\n  (SELECT 1 FROM Member_Playlists WHERE id = NEW.playlist_id AND account_id = NEW.account_id AND kind = 'regular'))\n  OR (NEW.purpose = 'chat' AND NOT EXISTS\n  (SELECT 1 FROM music_chat_thread_messages WHERE id = NEW.message_id AND account_id = NEW.account_id AND role = 'user'))\nBEGIN SELECT RAISE(ABORT, 'image_owner_mismatch'); END;",
+      "CREATE TRIGGER user_image_refs_insert BEFORE INSERT ON user_image_refs\nWHEN NEW.image_id IS NOT NULL AND NOT EXISTS\n  (SELECT 1 FROM user_images WHERE id = NEW.image_id AND account_id = NEW.account_id\n    AND purpose = NEW.purpose AND status = 'ready')\nBEGIN SELECT RAISE(ABORT, 'image_unavailable'); END;",
+      "CREATE TRIGGER user_image_refs_update BEFORE UPDATE OF image_id ON user_image_refs\nWHEN NEW.image_id IS NOT NULL AND NOT EXISTS\n  (SELECT 1 FROM user_images WHERE id = NEW.image_id AND account_id = NEW.account_id\n    AND purpose = NEW.purpose AND status = 'ready')\nBEGIN SELECT RAISE(ABORT, 'image_unavailable'); END;"
+    ]
+  },
+  {
+    "name": "0011_ai_feature_models.sql",
+    "sha256": "714c976864792f2fb1723ac22f25623febe5c42aaf5c472c9227df35b690f428",
+    "statements": [
+      "-- Separate reusable credential connections from each feature's model settings.\n-- Preserve profile IDs, encrypted credentials, assignment revisions and old rows.\nCREATE TABLE ai_feature_models (\n  feature TEXT PRIMARY KEY REFERENCES ai_feature_assignments(feature) ON DELETE CASCADE,\n  provider_id TEXT NOT NULL REFERENCES ai_model_profiles(id) ON DELETE RESTRICT,\n  model TEXT NOT NULL,\n  supports_images INTEGER NOT NULL DEFAULT 0 CHECK (supports_images IN (0, 1)),\n  options_json TEXT NOT NULL DEFAULT '{}'\n);",
+      "INSERT INTO ai_feature_models (feature, provider_id, model, supports_images, options_json)\nSELECT a.feature, p.id, p.model,\n  CASE WHEN v.value_json = 'true' THEN 1 ELSE 0 END, COALESCE(c.options_json, '{}')\nFROM ai_feature_assignments a JOIN ai_model_profiles p ON p.id = a.profile_id\nLEFT JOIN ai_profile_protocols c ON c.profile_id = p.id\nLEFT JOIN instance_settings v ON v.key = 'ai.images.' || p.id;"
+    ]
+  },
+  {
+    "name": "0012_google_login.sql",
+    "sha256": "3c6f975f30f636373fc4d22869feaea245fc6ac23d08a252475adce20d61e7c6",
+    "statements": [
+      "-- Optional Google login. Existing local credentials and account IDs stay intact.\nCREATE TABLE google_login_config (\n  id INTEGER PRIMARY KEY CHECK (id = 1),\n  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),\n  client_id TEXT NOT NULL DEFAULT '',\n  callback_origin TEXT NOT NULL DEFAULT '',\n  encrypted_secret TEXT NOT NULL DEFAULT '',\n  secret_iv TEXT NOT NULL DEFAULT '',\n  revision INTEGER NOT NULL DEFAULT 0,\n  auth_epoch INTEGER NOT NULL DEFAULT 0\n);",
+      "INSERT INTO google_login_config (id) VALUES (1);",
+      "CREATE TABLE account_google_bindings (\n  account_id TEXT PRIMARY KEY REFERENCES accounts(account_id) ON DELETE CASCADE,\n  binding_id TEXT NOT NULL UNIQUE,\n  google_sub TEXT NOT NULL UNIQUE,\n  email TEXT NOT NULL DEFAULT '',\n  created_at INTEGER NOT NULL\n);",
+      "CREATE TABLE google_login_transactions (\n  state_hash TEXT PRIMARY KEY,\n  browser_hash TEXT NOT NULL,\n  nonce TEXT NOT NULL,\n  verifier TEXT NOT NULL,\n  purpose TEXT NOT NULL CHECK (purpose IN ('login', 'bind')),\n  config_revision INTEGER NOT NULL,\n  auth_epoch INTEGER NOT NULL,\n  account_id TEXT REFERENCES accounts(account_id) ON DELETE CASCADE,\n  session_hash TEXT,\n  password_hash TEXT,\n  salt TEXT,\n  expires_at INTEGER NOT NULL,\n  used_at INTEGER\n);",
+      "CREATE INDEX idx_google_transactions_expiry ON google_login_transactions(expires_at);",
+      "-- The Google identity is unknown at login start. Any credential/binding change\n-- invalidates pending Google logins instance-wide, without revoking other users'\n-- established sessions. This also covers disable/re-enable and unlink/relink.\nCREATE TRIGGER google_credentials_changed AFTER UPDATE OF password_hash, salt, must_change_password ON account_credentials\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;",
+      "CREATE TRIGGER google_account_changed AFTER UPDATE OF status ON accounts\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;",
+      "CREATE TRIGGER google_binding_added AFTER INSERT ON account_google_bindings\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;",
+      "CREATE TRIGGER google_binding_removed AFTER DELETE ON account_google_bindings\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;"
+    ]
   }
 ]);

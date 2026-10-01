@@ -1,16 +1,29 @@
-export function createJsonEventStreamParser(processJson) {
+export function createJsonEventStreamParser(processJson, { onDone } = {}) {
   const decoder = new TextDecoder();
   let buffer = '';
+  let data = [];
+  let event = '';
+
+  const dispatch = async () => {
+    const raw = data.join('\n');
+    const type = event;
+    data = [];
+    event = '';
+    if (!raw) return;
+    if (raw.trim() === '[DONE]') { await onDone?.(); return; }
+    await processJson(raw, type);
+  };
 
   const processLine = async (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    if (trimmed.startsWith('data: ')) {
-      const data = trimmed.slice(6).trim();
-      if (data && data !== '[DONE]') await processJson(data);
+    const trimmed = line.replace(/\r$/, '');
+    if (!trimmed) { await dispatch(); return; }
+    if (trimmed.startsWith('data:')) {
+      data.push(trimmed.slice(5).replace(/^ /, ''));
       return;
     }
-    if (trimmed.startsWith('{')) await processJson(trimmed);
+    if (trimmed.startsWith('event:')) { event = trimmed.slice(6).trim(); return; }
+    // Retain the original NDJSON compatibility without treating SSE fields as JSON.
+    if (trimmed.trimStart().startsWith('{')) await processJson(trimmed);
   };
 
   return {
@@ -21,9 +34,10 @@ export function createJsonEventStreamParser(processJson) {
       for (const line of lines) await processLine(line);
     },
     async flushJsonTail() {
-      const tail = buffer.trim();
+      const tail = (buffer + decoder.decode()).trim();
       buffer = '';
-      if (tail.startsWith('{')) await processJson(tail);
+      if (tail) await processLine(tail);
+      await dispatch();
     },
   };
 }

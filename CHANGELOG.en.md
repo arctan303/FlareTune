@@ -2,6 +2,46 @@
 
 [简体中文](CHANGELOG.md)
 
+## 1.1.2 — 2026-10-02
+
+This release adds optional Google sign-in, four AI protocols with separate provider connections, private images, and updated settings dialogs.
+
+### Google sign-in
+
+- Add an opt-in Google sign-in button. Users link an existing account after local password sign-in; no registration, email-based merging, role changes, or ownership changes occur.
+- Administrators configure Client ID, Client Secret, a fixed callback origin, and an enable switch. The edit button and switch share one row; configuration opens in a centered dialog. Disabling preserves credentials and account links for re-enabling.
+- Personal settings show the linked account on the left and link/unlink action on the right. Both require the current local password. Unlinking revokes all account sessions without deleting data; password sign-in remains available.
+- Bind short-lived, single-use state to the browser, use nonce and PKCE, and validate Google's signature, issuer, audience, expiry, and stable subject. Reject replay, wrong-browser, expired, and invalidated transactions. Credential, account-status, and link changes cancel pending instance-wide Google sign-ins without revoking other accounts' established sessions.
+- Encrypt the Google Secret with a separate SETUP_SECRET-derived key and never return it. Blank input retains the current Secret; changing Client ID requires its matching Secret. Commit configuration and redacted audit records atomically. Fix session issuance from a flow started before a password change and missing configuration audit records.
+- Add [English and Chinese setup guides](guide/google-login.en.md) covering exact redirects, separate environments, test users, and troubleshooting.
+
+### AI providers, models, and protocols
+
+- Support explicit OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, and native Gemini protocols, with DeepSeek, OpenAI, Anthropic, Gemini, and custom presets.
+- Manage provider connections separately from feature models. List only added connections and add/edit names and keys in dialogs; multiple independent connections of the same type are supported. Official presets use fixed endpoints, while custom connections select a protocol and HTTPS address.
+- Assign separate connections and model/generation settings to assistant and lyrics features. Use one model-ID field with on-demand model lists and manual entry fallback. Preserve applicable settings when switching providers without automatic protocol switching or capability probing.
+- Map generation and thinking options per protocol, request Responses reasoning summaries and encrypted continuation data, and retain native thinking/signatures only within one request's tool rounds. Reject unsupported options; truncation, errors, and missing terminal markers prevent playlist mutations.
+- Keep keys encrypted server-side and bound to source, protocol, and effective endpoint; destination changes require a new key. Bound model-list time and size, retain manual fallback, and preserve administrator, CSRF, and fixed official endpoint checks.
+
+### Private images and assistant attachments
+
+- Upload, crop, remove, and replace personal avatars and private playlist artwork. Images remain in private storage, are read with account permissions, and have no public image URL.
+- Administrators opt in to assistant image input with a right-aligned switch; the selected model must also support images. Place the attachment icon beside Send and accept image paste, file selection, and drop while retaining ordinary text input.
+- Validate, decode, and compress images to WebP, with limits of four images, 5MiB each, JPEG/PNG/WebP, and 20 megapixels. Show removable thumbnails and full-proportion previews; empty attachments reserve no extra space.
+- Preserve sent-image previews in conversation history and return focus after closing or Escape. Remove affected images on account changes, sign-out, or reference removal. Drafts, replacement, and removal follow private reference and cleanup rules without exposing another account's images.
+
+### Settings and deployment fixes
+
+- Align personal Google account and action horizontally, remove redundant success copy, hide administrator fields until editing, and keep the edit button and sliding switch on one row.
+- Portal shared settings editors to the page root and center them explicitly, fixing parent spacing that displaced instance-name and related dialogs. Preserve keyboard dismissal, canceled drafts, and narrow-screen scrolling.
+- Fix production builds restoring stale private routing without /rest. Synchronize backend routes from the current template while retaining instance-specific D1/R2, variables, and secret bindings.
+
+### Upgrade notes and acceptance limits
+
+- Upgrade frontend and Worker together. Existing instances use **Instance settings → Runtime overview** to install missing supplemental structures from migrations0009–0012. New installations include them automatically.
+- Preserve accounts, catalog, AI connections, and assignments. Google defaults off and requires credentials and the exact callback for one Web OAuth client. Rotating SETUP_SECRET requires re-entering AI/Google secrets and re-enabling Subsonic with password verification.
+- Real Google authorization requires deployment-specific configuration. All real AI providers/models, physical mobile interaction and OS file drop, third-party audio clients, and first-time Cloudflare installation still require target-environment acceptance; automated and isolated browser checks do not replace it.
+
 ## 1.1.1 — 2026-10-01
 
 This release improves the bilingual interface, third-party client access, assistant recovery, and everyday browsing and settings.

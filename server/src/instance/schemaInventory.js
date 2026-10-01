@@ -24,7 +24,9 @@ export async function readSchemaInventory(db, now, reuse = false) {
       },
     };
   })();
-  if (reuse) inventories.set(db, entry);
+  // A fresh read never reuses an old entry, but can serve later metadata-only
+  // checks in the same request. Instance validation removes non-ready entries.
+  inventories.set(db, entry);
   try { return await entry.promise; }
   catch (error) {
     if (inventories.get(db) === entry) inventories.delete(db);

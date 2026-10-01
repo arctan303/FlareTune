@@ -1,6 +1,7 @@
 import { t } from '../i18n/index.js';
 import React from 'react';
-import { ArrowUp, Brain, Square } from 'lucide-react';
+import { ArrowUp, Brain, ImagePlus, Loader2, Square } from 'lucide-react';
+import { dropAttachmentFiles, isFileTransfer, pasteAttachmentImages } from '../services/assistantAttachmentInput.js';
 
 export function AiReviewComposer({
   authenticated,
@@ -15,7 +16,17 @@ export function AiReviewComposer({
   onSubmit,
   onStop,
   onHeightChange,
+  attachments,
+  hasAttachments = false,
+  attachmentsBusy = false,
+  onAttachImage,
+  onImageFiles,
+  attachmentLimitReached = false,
 }) {
+  const [draggingFiles, setDraggingFiles] = React.useState(false);
+  const dragDepth = React.useRef(0);
+  const canAddImages = Boolean(onImageFiles) && !isLoading && !attachmentsBusy && phase === 'ready';
+  React.useEffect(() => { if (!canAddImages) { dragDepth.current = 0; setDraggingFiles(false); } }, [canAddImages]);
   const resizePageInput = React.useCallback(() => {
     if (!textareaRef?.current) return;
     const textarea = textareaRef.current;
@@ -44,7 +55,14 @@ export function AiReviewComposer({
 
   return (
       <div className="assistant-composer-wrap w-full max-w-3xl lg:max-w-4xl mx-auto shrink-0 z-10">
-        <form onSubmit={onSubmit} className="assistant-composer">
+        <form onSubmit={onSubmit} className={`assistant-composer${draggingFiles ? ' is-dragging-files' : ''}`}
+          onPaste={event => pasteAttachmentImages(event, canAddImages ? onImageFiles : null)}
+          onDragEnter={event => { if (isFileTransfer(event.dataTransfer)) { event.preventDefault(); if (canAddImages) { dragDepth.current += 1; setDraggingFiles(true); } } }}
+          onDragOver={event => { if (isFileTransfer(event.dataTransfer)) { event.preventDefault(); event.dataTransfer.dropEffect = canAddImages ? 'copy' : 'none'; } }}
+          onDragLeave={event => { if (isFileTransfer(event.dataTransfer)) { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDraggingFiles(false); } }}
+          onDrop={event => { dropAttachmentFiles(event, canAddImages ? onImageFiles : null); dragDepth.current = 0; setDraggingFiles(false); }}>
+          {attachments}
+          {draggingFiles && <p role="status" className="px-4 pt-2 text-xs text-[var(--accent)]">{t('松开即可添加图片')}</p>}
           <div className="assistant-composer__field">
             <textarea
               ref={textareaRef}
@@ -64,15 +82,21 @@ export function AiReviewComposer({
                 <Brain size={16} aria-hidden="true" /><span>{t("思考模式")}</span>
               </button>
             </div>
+            <div className="flex shrink-0 items-center gap-2">
+            {onAttachImage && <button type="button" onClick={onAttachImage} disabled={!canAddImages || attachmentLimitReached}
+              title={t(attachmentsBusy ? '正在处理图片…' : '附加图片')} aria-label={t('附加图片')} className="assistant-composer__attach">
+              {attachmentsBusy ? <Loader2 size={20} className="animate-spin" aria-hidden="true" /> : <ImagePlus size={20} aria-hidden="true" />}
+            </button>}
             {isLoading ? (
               <button type="button" onClick={onStop} title={t("停止生成")} className="assistant-composer__action" aria-label={t("停止生成")}>
                 <Square size={15} fill="currentColor" />
               </button>
             ) : (
-              <button type="submit" disabled={!inputText.trim() || phase !== 'ready'} title={t("发送")} className="assistant-composer__action" aria-label={t("发送问题")}>
+              <button type="submit" disabled={(!inputText.trim() && !hasAttachments) || attachmentsBusy || phase !== 'ready'} title={t("发送")} className="assistant-composer__action" aria-label={t("发送问题")}>
                 <ArrowUp size={21} strokeWidth={2.6} />
               </button>
             )}
+            </div>
           </div>
         </form>
       </div>

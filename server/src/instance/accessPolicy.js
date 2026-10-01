@@ -6,11 +6,14 @@ const AUTH_WRITES = new Map([
   ['/api/auth/verify-setup', 'setup_required'],
   ['/api/auth/setup', 'setup_required'],
   ['/api/auth/login', 'ready'],
+  ['/api/auth/google/start', 'ready'],
   ['/api/auth/logout', 'ready'],
   ['/api/auth/change-password', 'ready'],
 ]);
 
 export function classifyApiRequest(path, method) {
+  if (path === '/api/auth/google/status' && method === 'GET') return 'google_status';
+  if (path === '/auth/google/callback' && method === 'GET') return 'google_callback';
   if (method === 'GET' && PUBLIC_READS.has(path)) return 'public_read';
   if (method === 'GET' && AUTH_READS.has(path)) return 'session_read';
   if (method === 'POST' && AUTH_WRITES.has(path)) return path.slice('/api/auth/'.length);
@@ -32,6 +35,7 @@ export function decideApiAccess({ path, method, instanceState, session = null })
   }
   if (category === 'removed') return { allowed: false, category };
   if (instanceState !== 'ready') return { allowed: false, category };
+  if (['google_status', 'google_callback', 'google/start'].includes(category)) return { allowed: true, category };
   if (category === 'login') return { allowed: true, category };
   if (category === 'logout') return { allowed: true, category };
   if (!session) return { allowed: false, category };
