@@ -53,6 +53,7 @@ music-ingest.json
 /docs/
 # 部署者个人的生产资源绑定只保留在本地，不进入公开仓库。
 server/wrangler.production.toml
+server/wrangler.production-ci.toml
 AGENTS.md
 CLAUDE.md
 EVOLUTION.md
