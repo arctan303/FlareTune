@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
@@ -104,12 +105,12 @@ export default function VolumeControl({ isExpanded = false }) {
             <button 
                 ref={buttonRef}
                 onClick={handleButtonClick} 
-                aria-label={isMuted || volume === 0 ? '取消静音' : '静音'} 
+                aria-label={isMuted || volume === 0 ? t("取消静音") : t("静音")}
                 className={isExpanded
                     ? 'transition-all hover:scale-110 active:scale-95 outline-none p-1 flex items-center justify-center cursor-pointer'
                     : 'player-console__icon p-1.5 transition-all duration-300 active:scale-90 text-[var(--muted)] hover:text-[var(--ink)]'
                 }
-                title={isVolumePanelOpen ? (volume === 0 ? '点击恢复音量' : '点击静音') : `当前音量 ${Math.round(volume * 100)}%（点击或悬停展开）`}
+                title={isVolumePanelOpen ? (volume === 0 ? t("点击恢复音量") : t("点击静音")) : t("当前音量 {p0}%（点击或悬停展开）", { p0: (Math.round(volume * 100)) })}
             >
                 {isMuted || volume === 0 ? <VolumeX size={isExpanded ? 18 : 20} /> : <Volume2 size={isExpanded ? 18 : 20} />}
             </button>
@@ -160,7 +161,7 @@ export default function VolumeControl({ isExpanded = false }) {
                             onTouchStart={cancelCloseVolumePanel}
                             onTouchEnd={() => scheduleCloseVolumePanel(2500)}
                             onChange={handleVolumeChange}
-                            aria-label="音量"
+                            aria-label={t("音量")}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
                         />

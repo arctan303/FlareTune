@@ -14,7 +14,7 @@ const isTransportFailure = (error) => error instanceof TypeError && error.messag
 const connectionError = (error) => {
   const causes = [error?.cause, ...(error?.cause?.errors || [])];
   const codes = [...new Set(causes.map((cause) => cause?.code).filter(Boolean))];
-  return `${error.message}${codes.length ? `（${codes.join('、')}）` : ''}`;
+  return `${error.message}${codes.length ? ` (${codes.join(', ')})` : ''}`;
 };
 export function defaultAgentPath() {
   if (process.platform === 'win32') return join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'),
@@ -26,7 +26,7 @@ export async function readAgentConfig(path = defaultAgentPath()) {
   const config = JSON.parse(await readFile(path, 'utf8'));
   if (!/^[a-f0-9]{32}$/.test(config.deviceId || '') || !Array.isArray(config.roots)
     || !config.roots.length || !config.name || !config.username || !config.password) {
-    throw new Error('入库设备配置无效，请重新运行配置命令。');
+    throw new Error('Invalid ingest device configuration. Run the configure command again.');
   }
   config.baseUrl = targetUrl(config.baseUrl);
   return config;
@@ -44,15 +44,15 @@ export async function configureAgent({ path = defaultAgentPath(), ask, print = c
     ask = (prompt) => input.question(prompt);
   }
   try {
-    const name = (await ask('当前设备名称：')).trim().slice(0, 80);
-    const baseUrl = targetUrl((await ask('实例地址：')).trim());
-    const username = (await ask('管理员用户名：')).trim();
-    const password = await ask('管理员密码：');
-    const roots = (await ask('本地音乐目录（多个用 ; 分隔）：')).split(';').map((part) => part.trim()).filter(Boolean);
-    if (!name || !username || !password || !roots.length || roots.length > 16) throw new Error('请填写设备名称、账号、密码和 1～16 个音乐目录。');
+    const name = (await ask('Device name: ')).trim().slice(0, 80);
+    const baseUrl = targetUrl((await ask('Instance URL: ')).trim());
+    const username = (await ask('Administrator username: ')).trim();
+    const password = await ask('Administrator password: ');
+    const roots = (await ask('Local music folders (separate multiple paths with ;): ')).split(';').map((part) => part.trim()).filter(Boolean);
+    if (!name || !username || !password || !roots.length || roots.length > 16) throw new Error('Enter a device name, account, password, and 1–16 music folders.');
     const resolvedRoots = [];
     for (const root of roots) {
-      if (!isAbsolute(root) || !(await stat(root)).isDirectory()) throw new Error(`音乐目录无效：${root}`);
+      if (!isAbsolute(root) || !(await stat(root)).isDirectory()) throw new Error(`Invalid music folder: ${root}`);
       resolvedRoots.push(resolve(root));
     }
     const remote = new RemoteCatalog(baseUrl);
@@ -62,7 +62,7 @@ export async function configureAgent({ path = defaultAgentPath(), ask, print = c
     const config = { deviceId: old?.deviceId || randomBytes(16).toString('hex'), name,
       baseUrl, username, password, roots: [...new Set(resolvedRoots)] };
     await writeConfig(path, config);
-    print(`配置完成：${name} · ${baseUrl} · ${config.roots.length} 个目录。运行 npm run ingest 启动。`);
+    print(`Configured ${name} · ${baseUrl} · ${config.roots.length} folders. Run npm run ingest to start.`);
     return config;
   } finally { input?.close(); }
 }
@@ -97,29 +97,29 @@ export class IngestAgent {
     await this.remote.json(this.path('/manifest'), { method: 'PUT',
       body: JSON.stringify({ files }), headers: { 'Content-Type': 'application/json' } });
     this.fileFolders = fileFolders;
-    this.log(`已扫描 ${files.length} 首音频。`);
+    this.log(`Scanned ${files.length} audio files.`);
     return files;
   }
   async upload(job) {
     const folder = this.fileFolders.get(job.fileId);
-    if (!folder) throw new Error('文件引用已失效，请在后台刷新扫描。');
+    if (!folder) throw new Error('The file reference has expired. Refresh the scan in the admin page.');
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const media = await folder.media(job.fileId, job.kind);
       if (!Number.isSafeInteger(media.size) || media.size < 1) {
         media.body.destroy?.();
-        throw new Error('读取到的媒体文件大小无效，请重新扫描。');
+        throw new Error('The media file has an invalid size. Scan again.');
       }
-      let stage = '媒体检查';
+      let stage = 'media check';
       let progressWrites = Promise.resolve();
       let progressBody = media.body;
       try {
         const existing = await this.remote.mediaHead(job.kind, job.mediaId, media.extension);
         if (existing.status === 200) {
-          if (Number(existing.headers.get('Content-Length')) !== media.size) throw new Error('远端媒体 ID 已被不同大小的文件占用。');
+          if (Number(existing.headers.get('Content-Length')) !== media.size) throw new Error('The remote media ID belongs to a file with a different size.');
           return `/media/${job.kind}/${job.mediaId}.${media.extension}`;
         }
-        if (existing.status !== 404) throw new Error(`媒体读回失败（${existing.status}）。`);
-        stage = '媒体上传';
+        if (existing.status !== 404) throw new Error(`Media verification failed (${existing.status}).`);
+        stage = 'media upload';
         if (typeof media.body.pipe === 'function') {
           let loaded = 0;
           let lastReported = 0;
@@ -134,7 +134,7 @@ export class IngestAgent {
                   method: 'PUT', body: JSON.stringify({ loaded: reportLoaded, total: media.size }),
                   headers: { 'Content-Type': 'application/json' },
                 })).catch((error) => {
-                  if (!progressErrorLogged) this.log(`传输进度暂不可用：${error.message}`);
+                  if (!progressErrorLogged) this.log(`Transfer progress is temporarily unavailable: ${error.message}`);
                   progressErrorLogged = true;
                 });
               }
@@ -147,7 +147,7 @@ export class IngestAgent {
         await progressWrites;
         return uploaded.url;
       } catch (error) {
-        this.log(`${job.kind} ${stage}失败（第 ${attempt + 1} 次，${media.size} 字节）：${error.cause?.message || error.message}`);
+        this.log(`${job.kind} ${stage} failed (attempt ${attempt + 1}, ${media.size} bytes): ${error.cause?.message || error.message}`);
         const confirmed = await this.remote.mediaHead(job.kind, job.mediaId, media.extension).catch(() => null);
         if (confirmed?.status === 200 && Number(confirmed.headers.get('Content-Length')) === media.size) {
           return `/media/${job.kind}/${job.mediaId}.${media.extension}`;
@@ -170,11 +170,11 @@ export class IngestAgent {
       else url = await this.upload(job);
     } catch (error) {
       status = 'error';
-      message = error.cause?.message || error.message || '设备操作失败。';
+      message = error.cause?.message || error.message || 'Device operation failed.';
     }
     await this.remote.json(this.path(`/jobs/${job.id}`), { method: 'PUT',
       body: JSON.stringify({ status, url, message }), headers: { 'Content-Type': 'application/json' } });
-    if (status === 'error') this.log(`任务 ${job.id} 失败：${message}`);
+    if (status === 'error') this.log(`Job ${job.id} failed: ${message}`);
   }
   async start() {
     await this.heartbeat();
@@ -184,18 +184,18 @@ export class IngestAgent {
     catch (error) {
       if (!isTransportFailure(error)) throw error;
       heartbeatUnavailable = true;
-      this.log(`扫描后的设备心跳暂时失败：${connectionError(error)}；定时心跳会继续重试。`);
+      this.log(`Device heartbeat failed after the scan: ${connectionError(error)}. Scheduled heartbeats will retry.`);
     }
-    if (!heartbeatUnavailable) this.log(`设备“${this.config.name}”已连接；后台可以选择目录歌曲。`);
+    if (!heartbeatUnavailable) this.log(`Device "${this.config.name}" is connected. Folder songs are available in the admin page.`);
     let heartbeatBusy = false;
     const heartbeatTimer = setInterval(() => {
       if (this.stopped || heartbeatBusy) return;
       heartbeatBusy = true;
       void this.heartbeat().then(() => {
-        if (heartbeatUnavailable) this.log(`设备“${this.config.name}”心跳已恢复。`);
+        if (heartbeatUnavailable) this.log(`Device "${this.config.name}" heartbeat recovered.`);
         heartbeatUnavailable = false;
       }).catch((error) => {
-        if (!heartbeatUnavailable) this.log(`设备心跳失败：${connectionError(error)}`);
+        if (!heartbeatUnavailable) this.log(`Device heartbeat failed: ${connectionError(error)}`);
         heartbeatUnavailable = true;
       })
         .finally(() => { heartbeatBusy = false; });
@@ -207,12 +207,12 @@ export class IngestAgent {
         try { ({ jobs = [] } = await this.remote.json(this.path('/poll'))); }
         catch (error) {
           if (!isTransportFailure(error)) throw error;
-          if (!pollUnavailable) this.log(`任务轮询暂时失败：${connectionError(error)}；10 秒后重试，不重新扫描。`);
+          if (!pollUnavailable) this.log(`Job polling failed: ${connectionError(error)}. Retrying in 10 seconds without rescanning.`);
           pollUnavailable = true;
           await this.delay(10_000);
           continue;
         }
-        if (pollUnavailable) this.log('任务轮询已恢复。');
+        if (pollUnavailable) this.log('Job polling recovered.');
         pollUnavailable = false;
         for (const job of jobs) {
           if (this.stopped) break;
@@ -241,7 +241,7 @@ export async function startConfiguredAgent({ path = defaultAgentPath() } = {}) {
     }
     catch (error) {
       if (agent.stopped) break;
-      console.error('设备连接失败：' + connectionError(error) + '；10 秒后重试。');
+      console.error('Device connection failed: ' + connectionError(error) + '. Retrying in 10 seconds.');
       await wait(10_000);
     }
   }

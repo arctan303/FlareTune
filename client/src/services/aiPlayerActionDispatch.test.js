@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dispatchAiPlayerAction } from './aiPlayerActionDispatch.js';
+import { setUiLanguage } from '../i18n/index.js';
+
+setUiLanguage('zh');
 
 const createDependencies = () => {
   const calls = [];
@@ -103,6 +106,17 @@ test('roam failures report a failed outcome without a success toast', async () =
 
   assert.deepEqual(result, { ok: false, outcome: 'failed' });
   assert.deepEqual(calls, [['setRoam', { action: 'enable', language: 'zh' }]]);
+});
+
+test('player action feedback follows the English interface language', async () => {
+  setUiLanguage('en');
+  try {
+    const { calls, dependencies } = createDependencies();
+    await dispatchAiPlayerAction({ type: 'roam', action: 'enable', language: 'ja' }, dependencies);
+    assert.deepEqual(calls.at(-1), ['notify', 'Started Japanese roam; songs will be added to the queue automatically']);
+  } finally {
+    setUiLanguage('zh');
+  }
 });
 
 test('the retired daily_recommend action type is ignored and no longer wired', async () => {

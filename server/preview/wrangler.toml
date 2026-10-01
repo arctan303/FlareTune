@@ -2,10 +2,15 @@ name = "flaretune-preview"
 main = "../src/flaretune.js"
 compatibility_date = "2026-09-23"
 
+# Do not persist Subsonic credentials in request URL logs.
+[observability.logs]
+enabled = true
+invocation_logs = false
+
 [assets]
 directory = "../../dist"
 binding = "ASSETS"
-run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*"]
+run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*", "/rest", "/rest/*"]
 html_handling = "auto-trailing-slash"
 not_found_handling = "404-page"
 

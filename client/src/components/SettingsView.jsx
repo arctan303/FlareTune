@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun,
@@ -45,7 +46,7 @@ function PlayerModeMockup({ mode, coverUrl }) {
           <div className="w-1.5 h-1 border-b-2 border-l-2 border-white -rotate-45" />
           <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/50 backdrop-blur-sm text-white/90 border border-white/10 font-medium flex items-center gap-1">
             <User size={9} strokeWidth={2.4} />
-            <span>写真</span>
+            <span>{t("写真")}</span>
           </span>
         </div>
         <div className="relative z-10 flex flex-col items-center gap-1.5 my-auto">
@@ -194,7 +195,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
       resetDefaults();
       resetCardGlassDefaults();
     }
-    showToast('已恢复默认质感参数');
+    showToast(t("已恢复默认质感参数"));
   };
 
   const handleApplyCustomUrl = (e) => {
@@ -210,14 +211,14 @@ export default function SettingsView({ section, themePreference = 'system', sele
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast('请选择有效的图片文件（支持 JPG / PNG / WebP / AVIF）');
+      showToast(t("请选择有效的图片文件（支持 JPG / PNG / WebP / AVIF）"));
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     const sizeMb = file.size / (1024 * 1024);
     if (sizeMb > 20) {
-      showToast(`图片体积为 ${sizeMb.toFixed(1)}MB，请选择 20MB 以内的壁纸图片`);
+      showToast(t("图片体积为 {p0}MB，请选择 20MB 以内的壁纸图片", { p0: (sizeMb.toFixed(1)) }));
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -230,7 +231,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
         ? '本地图片已保存，正在加载背景'
         : '本地图片已载入，正在加载背景（仅本次会话有效）');
     } catch (err) {
-      showToast('本地壁纸加载失败，请重试');
+      showToast(t("本地壁纸加载失败，请重试"));
     } finally {
       setIsProcessingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -249,20 +250,20 @@ export default function SettingsView({ section, themePreference = 'system', sele
           {activeSection === 'appearance' && (
             <div className="space-y-6 sm:space-y-7 animate-[fade-in_0.2s_ease-out]">
               <header className="border-b border-[var(--line)] pb-4">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)]">外观与样式</h1>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)]">{t("外观与样式")}</h1>
               </header>
 
               {/* 模块 1：外观与色彩模式 */}
               <section aria-labelledby="settings-theme-title" className="space-y-2.5">
                 <div>
-                  <h2 id="settings-theme-title" className="text-sm font-bold text-[var(--ink)]">外观模式</h2>
+                  <h2 id="settings-theme-title" className="text-sm font-bold text-[var(--ink)]">{t("外观模式")}</h2>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl" role="group" aria-label="外观模式">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl" role="group" aria-label={t("外观模式")}>
                   {[
-                    { id: 'system', label: '跟随系统', detail: '随设备自动切换', icon: Monitor },
-                    { id: 'light', label: '浅色模式', icon: Sun },
-                    { id: 'dark', label: '深色模式', icon: Moon },
+                    { id: 'system', label: t("跟随系统"), detail: t("随设备自动切换"), icon: Monitor },
+                    { id: 'light', label: t("浅色模式"), icon: Sun },
+                    { id: 'dark', label: t("深色模式"), icon: Moon },
                   ].map(({ id, label, detail, icon: Icon }) => (
                     <button
                       key={id}
@@ -275,7 +276,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span className="w-7 h-7 rounded-lg bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] flex items-center justify-center shrink-0"><Icon size={15} strokeWidth={2} /></span>
-                        <span className="min-w-0"><strong className="block text-xs font-semibold">{label}</strong>{detail && <span className="block text-[10px] opacity-70">{detail}</span>}</span>
+                        <span className="min-w-0"><strong className="block text-xs font-semibold">{t(label)}</strong>{detail && <span className="block text-[10px] opacity-70">{t(detail)}</span>}</span>
                       </div>
                       {themePreference === id && <Check size={15} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />}
                     </button>
@@ -286,7 +287,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
               {/* 模块 2：播放器外观 */}
               <section aria-labelledby="settings-player-skin-title" className="space-y-2.5">
                 <div>
-                  <h2 id="settings-player-skin-title" className="text-sm font-bold text-[var(--ink)]">播放器外观</h2>
+                  <h2 id="settings-player-skin-title" className="text-sm font-bold text-[var(--ink)]">{t("播放器外观")}</h2>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-3.5">
@@ -323,7 +324,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                                   <Icon size={12} strokeWidth={2} />
                                 </span>
                                 <strong className="text-xs font-semibold text-[var(--ink)] truncate">
-                                  {meta.name}
+                                  {t(meta.name)}
                                 </strong>
                               </div>
 
@@ -334,9 +335,6 @@ export default function SettingsView({ section, themePreference = 'system', sele
                               )}
                             </div>
 
-                            <p className="text-[11px] text-[var(--muted)] leading-relaxed line-clamp-2">
-                              {meta.description}
-                            </p>
                           </div>
 
                         </div>
@@ -350,17 +348,17 @@ export default function SettingsView({ section, themePreference = 'system', sele
               <section aria-labelledby="settings-wallpaper-title" className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 id="settings-wallpaper-title" className="text-sm font-bold text-[var(--ink)]">全站壁纸与质感</h2>
+                    <h2 id="settings-wallpaper-title" className="text-sm font-bold text-[var(--ink)]">{t("全站壁纸与质感")}</h2>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-[var(--muted)]">
-                      {enabled ? '已开启' : '已关闭'}
+                      {enabled ? t("已开启") : t("已关闭")}
                     </span>
                     <button
                       type="button"
                       role="switch"
-                      aria-label="启用全站壁纸"
+                      aria-label={t("启用全站壁纸")}
                       aria-checked={enabled}
                       onClick={toggleEnabled}
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none ${
@@ -377,15 +375,15 @@ export default function SettingsView({ section, themePreference = 'system', sele
                 </div>
 
                 {enabled && imageStatus === 'loading' && (
-                  <p role="status" className="text-xs text-[var(--muted)]">正在加载背景图片…</p>
+                  <p role="status" className="text-xs text-[var(--muted)]">{t("正在加载背景图片…")}</p>
                 )}
                 {enabled && imageStatus === 'ready' && (
-                  <p role="status" className="text-xs text-[var(--muted)]">背景已应用</p>
+                  <p role="status" className="text-xs text-[var(--muted)]">{t("背景已应用")}</p>
                 )}
                 {enabled && imageStatus === 'error' && (
                   <div role="alert" className="flex items-center gap-3 text-xs text-red-600 dark:text-red-400">
-                    <span>背景图片加载失败，请检查图片地址或选择其他图片。</span>
-                    <button type="button" className="underline" onClick={() => setImageStatus('loading')}>重试</button>
+                    <span>{t("背景图片加载失败，请检查图片地址或选择其他图片。")}</span>
+                    <button type="button" className="underline" onClick={() => setImageStatus('loading')}>{t("重试")}</button>
                   </div>
                 )}
 
@@ -402,9 +400,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                             ? 'bg-[var(--surface)] text-[var(--ink)] shadow-2xs'
                             : 'text-[var(--muted)] hover:text-[var(--ink)]'
                         }`}
-                      >
-                        精选壁纸
-                      </button>
+                      >{t("精选壁纸")}</button>
                       <button
                         type="button"
                         onClick={() => setWallpaperTab('custom')}
@@ -413,9 +409,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                             ? 'bg-[var(--surface)] text-[var(--ink)] shadow-2xs'
                             : 'text-[var(--muted)] hover:text-[var(--ink)]'
                         }`}
-                      >
-                        网络链接
-                      </button>
+                      >{t("网络链接")}</button>
                       <button
                         type="button"
                         onClick={() => setWallpaperTab('upload')}
@@ -424,9 +418,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                             ? 'bg-[var(--surface)] text-[var(--ink)] shadow-2xs'
                             : 'text-[var(--muted)] hover:text-[var(--ink)]'
                         }`}
-                      >
-                        本地上传
-                      </button>
+                      >{t("本地上传")}</button>
                     </div>
 
                     {/* Tab 1: 精选壁纸网格 (6 列紧凑排布) */}
@@ -489,9 +481,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                           <button
                             type="submit"
                             className="primary-button py-1.5 px-3.5 rounded-lg text-xs font-semibold shrink-0"
-                          >
-                            应用链接
-                          </button>
+                          >{t("应用链接")}</button>
                         </div>
                       </form>
                     )}
@@ -513,30 +503,30 @@ export default function SettingsView({ section, themePreference = 'system', sele
                               {localImageUrl && (
                                 <img
                                   src={localImageUrl}
-                                  alt="本地壁纸预览"
+                                  alt={t("本地壁纸预览")}
                                   className="w-10 h-10 rounded-lg object-cover border border-[var(--line)] shrink-0"
                                 />
                               )}
                               <div className="min-w-0 space-y-0.5">
                                 <span className="block text-xs font-semibold text-[var(--ink)] truncate">
-                                  {localImageName || '本地已上传壁纸'}
+                                  {localImageName || t("本地已上传壁纸")}
                                 </span>
                                 <span className="block text-[10px] text-[var(--accent)]">
-                                  {localImagePersistence === 'durable' ? '已离线保存在本地浏览器' : '临时会话有效'}
+                                  {localImagePersistence === 'durable' ? t("已离线保存在本地浏览器") : t("临时会话有效")}
                                 </span>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-1.5">
                               {activeSource !== 'local' && localImageUrl && (
-                                <button type="button" onClick={() => setActiveSource('local')} className="text-xs font-semibold text-[var(--accent)] px-2 py-1">使用</button>
+                                <button type="button" onClick={() => setActiveSource('local')} className="text-xs font-semibold text-[var(--accent)] px-2 py-1">{t("使用")}</button>
                               )}
                               <button
                                 type="button"
                                 onClick={() => void handleRemoveLocalImage()}
                                 className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                                title="清除本地壁纸"
-                                aria-label="清除本地壁纸"
+                                title={t("清除本地壁纸")}
+                                aria-label={t("清除本地壁纸")}
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -554,11 +544,9 @@ export default function SettingsView({ section, themePreference = 'system', sele
                             </div>
                             <div className="text-center">
                               <span className="block text-xs font-semibold text-[var(--ink)]">
-                                {isProcessingFile ? '正在处理图片...' : '点击上传本地壁纸图片'}
+                                {isProcessingFile ? t("正在处理图片...") : t("点击上传本地壁纸图片")}
                               </span>
-                              <span className="block text-[10px] text-[var(--muted)] mt-0.5">
-                                支持 JPG / PNG / WebP / AVIF，最大 20MB
-                              </span>
+                              <span className="block text-[10px] text-[var(--muted)] mt-0.5">{t("支持 JPG / PNG / WebP / AVIF，最大 20MB")}</span>
                             </div>
                           </button>
                         )}
@@ -569,9 +557,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                     <div className="pt-4 border-t border-[var(--line)] space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xs font-bold text-[var(--ink)]">
-                            画面与卡片质感调节
-                          </h3>
+                          <h3 className="text-xs font-bold text-[var(--ink)]">{t("画面与卡片质感调节")}</h3>
                         </div>
                         <button
                           type="button"
@@ -579,7 +565,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                           className="inline-flex items-center gap-1 text-[11px] text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-colors"
                         >
                           <RotateCcw size={11} />
-                          <span>重置默认</span>
+                          <span>{t("重置默认")}</span>
                         </button>
                       </div>
 
@@ -587,7 +573,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 模糊度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-blur">背景模糊度 (Blur)</label>
+                            <label htmlFor="wallpaper-blur">{t("背景模糊度 (Blur)")}</label>
                             <span className="font-mono text-[var(--ink)]">{blur}px</span>
                           </div>
                           <input
@@ -605,7 +591,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 遮罩强度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-overlay">背景遮罩强度 (Overlay)</label>
+                            <label htmlFor="wallpaper-overlay">{t("背景遮罩强度 (Overlay)")}</label>
                             <span className="font-mono text-[var(--ink)]">{opacity}%</span>
                           </div>
                           <input
@@ -623,7 +609,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 亮度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-brightness">背景亮度 (Brightness)</label>
+                            <label htmlFor="wallpaper-brightness">{t("背景亮度 (Brightness)")}</label>
                             <span className="font-mono text-[var(--ink)]">{brightness}%</span>
                           </div>
                           <input
@@ -641,7 +627,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 卡片毛玻璃模糊 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-card-blur">卡片毛玻璃 (Card Blur)</label>
+                            <label htmlFor="wallpaper-card-blur">{t("卡片毛玻璃 (Card Blur)")}</label>
                             <span className="font-mono text-[var(--ink)]">{cardBlur}px</span>
                           </div>
                           <input
@@ -659,7 +645,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 卡片通透度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-card-opacity">卡片通透度 (Opacity)</label>
+                            <label htmlFor="wallpaper-card-opacity">{t("卡片通透度 (Opacity)")}</label>
                             <span className="font-mono text-[var(--ink)]">{cardOpacity}%</span>
                           </div>
                           <input
@@ -677,7 +663,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 卡片饱和度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-card-saturate">卡片饱和度 (Saturate)</label>
+                            <label htmlFor="wallpaper-card-saturate">{t("卡片饱和度 (Saturate)")}</label>
                             <span className="font-mono text-[var(--ink)]">{cardSaturate}%</span>
                           </div>
                           <input
@@ -703,7 +689,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
 
           {/* 分支 3：系统管理各个子页面 */}
           {activeSection === 'admin-add-song' && isAdmin && (
-            <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">正在打开歌曲入库…</p>}>
+            <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">{t("正在打开歌曲入库…")}</p>}>
               <AdminSongCreatePage />
             </React.Suspense>
           )}
@@ -711,9 +697,9 @@ export default function SettingsView({ section, themePreference = 'system', sele
           {activeSection.startsWith('admin-') && activeSection !== 'admin-add-song' && isAdmin && (
             <div className="space-y-8 animate-[fade-in_0.2s_ease-out]">
               <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)]">
-                {{ 'admin-assistant': 'AI 与助手', 'admin-catalog': '曲库管理', 'admin-accounts': '账号管理', 'admin-system': '系统管理' }[activeSection] || '系统管理'}
+                {{ 'admin-assistant': t("AI 与助手"), 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("实例设置") }[activeSection] || t("站点管理")}
               </h1>
-              <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">正在打开系统管理…</p>}>
+              <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">{t("正在打开站点管理…")}</p>}>
                 <AdminView
                   embeddedTab={activeSection.replace('admin-', '')}
                 />

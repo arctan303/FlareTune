@@ -5,7 +5,7 @@ import { visibleImageSource } from './privateImageVisibility.js';
 
 const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
 
-test('persistent sidebar hides its Blob immediately after navigation and revoked session cannot restore it', async () => {
+test('a new consumer cannot display a cached Blob before route verification or after rejection', async () => {
   let route = '/home';
   let checks = 0;
   const registry = createImageLoadRegistry({
@@ -103,3 +103,53 @@ test('same-path account switch clears oversized marker and invalidates its raw U
   assert.equal(downloads, 2);
   unsubscribe();
 });
+
+test('mounted Blob stays visible during a route check, while new mounts must wait', async () => {
+  let route = '/home';
+  let finish;
+  let downloads = 0;
+  const registry = createImageLoadRegistry({
+    routeKey: () => route,
+    verifySession: () => new Promise((resolve) => { finish = resolve; }),
+    fetchImpl: async () => { downloads++; return new Response(new Blob(['cover'])); },
+    createObjectURL: () => 'blob:mounted', revokeObjectURL: () => {},
+  });
+  registry.setSessionScope(session);
+  const src = '/media/cover/sidebar.png';
+  const { url } = await registry.load(src);
+  route = '/search'; registry.invalidateRoute();
+  const pending = registry.load(src);
+  assert.equal(registry.getReadySource(src), null);
+  assert.equal(visibleImageSource(src, null, '', registry, true), null);
+  assert.equal(visibleImageSource(src, url, '', registry, true), url);
+  finish(session);
+  assert.equal((await pending).url, url);
+  assert.equal(downloads, 1);
+  registry.setSessionScope(null);
+  assert.equal(visibleImageSource(src, url, '', registry, true), null);
+});
+
+for (const failure of ['rejected', 'network']) {
+  test(`mounted Blob is hidden when route verification fails: ${failure}`, async () => {
+    let route = '/home';
+    const revoked = [];
+    const registry = createImageLoadRegistry({
+      routeKey: () => route,
+      verifySession: async () => {
+        if (failure === 'network') throw new Error('offline');
+        return { authenticated: false };
+      },
+      fetchImpl: async () => new Response(new Blob(['cover'])),
+      createObjectURL: () => 'blob:mounted', revokeObjectURL: (url) => revoked.push(url), onSessionRejected: () => {},
+    });
+    registry.setSessionScope(session);
+    const src = '/media/cover/sidebar.png';
+    const { url } = await registry.load(src);
+    route = '/library'; registry.invalidateRoute();
+    await assert.rejects(registry.load(src));
+    assert.equal(visibleImageSource(src, url, '', registry, true), null);
+    assert.deepEqual(revoked, [url]);
+    route = '/settings'; registry.invalidateRoute();
+    assert.equal(visibleImageSource(src, url, '', registry, true), null);
+  });
+}

@@ -4,10 +4,12 @@ import { reconcileHistoryCoverEntries } from './historyCoverEntries.js';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 import { usePrivateMediaRouteRevision } from '../hooks/usePrivateMediaRouteRevision.js';
 import { visibleImageSource } from '../utils/privateImageVisibility.js';
+import { usePageActivity } from '../hooks/usePageActivity.js';
 
 const LANDING_DURATION_MS = 1050;
 
 function HistoryImage({ src, isStaged, onReady, onError }) {
+  const visible = usePageActivity();
   const routeRevision = usePrivateMediaRouteRevision();
   const onErrorRef = React.useRef(onError);
   onErrorRef.current = onError;
@@ -17,9 +19,10 @@ function HistoryImage({ src, isStaged, onReady, onError }) {
       ? imageLoadRegistry.getReadySource(src) : src,
   }));
   const display = source.requested === src
-    ? visibleImageSource(src, source.display, '/placeholder-album.svg', imageLoadRegistry) : null;
+    ? visibleImageSource(src, source.display, '/placeholder-album.svg', imageLoadRegistry, !isStaged) : null;
 
   React.useEffect(() => {
+    if (!visible) return undefined;
     if (imageLoadRegistry.isPrivateMediaUrl(src) && !imageLoadRegistry.shouldLoadPrivately(src)) {
       setSource({ requested: src, display: null });
       if (isStaged) onErrorRef.current?.();
@@ -35,7 +38,8 @@ function HistoryImage({ src, isStaged, onReady, onError }) {
       return undefined;
     }
     let active = true;
-    setSource({ requested: src, display: null });
+    setSource((current) => !isStaged && current.requested === src && imageLoadRegistry.canRetainSource(src, current.display)
+      ? current : { requested: src, display: null });
     void imageLoadRegistry.load(src).then(({ url }) => {
       if (active) setSource({ requested: src, display: url });
     }).catch(() => {
@@ -44,7 +48,7 @@ function HistoryImage({ src, isStaged, onReady, onError }) {
       else setSource({ requested: src, display: '/placeholder-album.svg' });
     });
     return () => { active = false; };
-  }, [src, isStaged, routeRevision]);
+  }, [src, isStaged, routeRevision, visible]);
 
   if (!display) return null;
   const handleError = () => {

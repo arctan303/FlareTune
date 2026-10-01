@@ -5,6 +5,14 @@ const normalizeThought = (value) => (
   typeof value === 'string' && value ? value : undefined
 );
 
+const processFields = (message) => ({
+  ...(typeof message?.clientMessageId === 'string' ? { clientMessageId: message.clientMessageId } : {}),
+  ...(Array.isArray(message?.processEntries) ? { processEntries: message.processEntries } : {}),
+  ...(Array.isArray(message?.toolSummaries) ? { toolSummaries: message.toolSummaries } : {}),
+  ...(message?.thinkingRequested === true ? { thinkingRequested: true } : {}),
+  ...(message?.isError === true ? { isError: true, errorCode: message.errorCode } : {}),
+});
+
 export function normalizeCloudThreadMessages(messages) {
   if (!Array.isArray(messages)) return [];
   return messages.map((message, index) => ({
@@ -13,6 +21,7 @@ export function normalizeCloudThreadMessages(messages) {
     content: typeof message?.content === 'string' ? message.content : '',
     createdAt: Number.isFinite(Number(message?.createdAt)) ? Number(message.createdAt) : undefined,
     thought: normalizeThought(message?.thought),
+    ...processFields(message),
   }));
 }
 
@@ -69,11 +78,48 @@ const comparableMessage = (message) => ({
   content: typeof message?.content === 'string' ? message.content : '',
   createdAt: Number.isFinite(Number(message?.createdAt)) ? Number(message.createdAt) : undefined,
   thought: normalizeThought(message?.thought),
+  ...processFields(message),
 });
 
 const messagesMatch = (left, right) => (
   JSON.stringify(comparableMessage(left)) === JSON.stringify(comparableMessage(right))
 );
+
+// Called only inside the current account's thread. Keep received process data
+// when an older/partial history DTO omits it; never carry removed or edited replies.
+export function mergeAssistantProcessMessages(incoming, received = []) {
+  const previous = new Map(received.map((message) => [message.id, message]));
+  return (Array.isArray(incoming) ? incoming : []).map((message) => {
+    const known = previous.get(message.id);
+    if (message.role !== 'assistant' || known?.role !== 'assistant'
+      || message.content !== known.content
+      || (message.thought && known.thought && message.thought !== known.thought)) return message;
+    const result = { ...message };
+    if (!result.thought && known.thought) result.thought = known.thought;
+    const remoteEntries = Array.isArray(message.processEntries) ? message.processEntries : [];
+    const knownEntries = Array.isArray(known.processEntries) ? known.processEntries : [];
+    const remoteTools = new Map(remoteEntries.filter((entry) => entry?.type === 'tool' && entry.id)
+      .map((entry) => [entry.id, entry]));
+    if (knownEntries.length && (!remoteEntries.length || knownEntries.some((entry) => (
+      entry?.type === 'tool' && entry.id && !remoteTools.has(entry.id)
+    )))) {
+      const knownIds = new Set(knownEntries.filter((entry) => entry?.type === 'tool').map((entry) => entry.id));
+      result.processEntries = [
+        ...knownEntries.map((entry) => entry?.type === 'tool' && remoteTools.has(entry.id)
+          ? { ...entry, ...remoteTools.get(entry.id) } : entry),
+        ...remoteEntries.filter((entry) => entry?.type === 'tool' && !knownIds.has(entry.id)),
+      ];
+    }
+    const summaries = Array.isArray(message.toolSummaries) ? [...message.toolSummaries] : [];
+    for (const item of known.toolSummaries || []) {
+      if (!summaries.some((remote) => item.id ? remote.id === item.id : remote.summary === item.summary)) {
+        summaries.push(item);
+      }
+    }
+    if (summaries.length) result.toolSummaries = summaries;
+    return result;
+  });
+}
 
 export function planCloudThreadSync({
   thread,
@@ -82,7 +128,7 @@ export function planCloudThreadSync({
 }) {
   const current = Array.isArray(currentMessages) ? currentMessages : [];
   const normalizedThread = normalizeCloudThread(thread);
-  const remote = normalizedThread.messages;
+  const remote = mergeAssistantProcessMessages(normalizedThread.messages, current);
   const fingerprint = fingerprintNormalizedThread(normalizedThread);
   const hasCurrent = current.length > 0;
 

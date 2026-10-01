@@ -83,7 +83,7 @@ test('application sidebar uses labeled desktop navigation and a focus-managed mo
   assert.match(sidebar, /event\.key !== 'Tab'/);
   assert.match(sidebar, /mainContent\?\.setAttribute\('inert', ''\)/);
   assert.match(sidebar, /mainContent\?\.removeAttribute\('inert'\)/);
-  assert.match(sidebar, /data-tooltip=\{label\}/);
+  assert.match(sidebar, /data-tooltip=\{t\(label\)\}/);
   assert.match(sidebar, /<TuneWordmark \/>/);
   assert.match(wordmark, /<span className=\{`tune-wordmark/);
   assert.match(css, /\.app-nav-item \{[\s\S]*min-height: 44px/);
@@ -93,7 +93,7 @@ test('application sidebar uses labeled desktop navigation and a focus-managed mo
   assert.match(css, /\.app-sidebar\.is-mobile-open \{[\s\S]*visibility: visible/);
   assert.match(css, /\.player-console__icon\s*\{[\s\S]*?min-width:\s*36px;[\s\S]*?min-height:\s*36px/);
   assert.match(queue, /className="queue-row__action/);
-  assert.match(queue, /aria-label=\{`从播放列表移出/);
+  assert.match(queue, /aria-label=\{t\("从播放列表移出 \{p0\}"/);
   assert.match(queue, /theme-drawer__close/);
 });
 
@@ -184,7 +184,7 @@ test('assistant page retains stream and composer without reply song cards or ret
   assert.match(page, /event\.type === 'thread_state'/);
   assert.match(page, /event\.type === 'content'/);
   assert.match(page, /event\.type === 'done'/);
-  assert.match(chrome, /placeholder="聊聊音乐…"/);
+  assert.match(chrome, /placeholder=\{t\("聊聊音乐…"\)\}/);
   assert.equal(existsSync(new URL('./components/AssistantMusicCard.jsx', import.meta.url)), false);
   assert.doesNotMatch(conversation, /XiaoaMessageMusicCards|displaySongs|message\.songs/);
   assert.doesNotMatch(page, /displaySongs/);

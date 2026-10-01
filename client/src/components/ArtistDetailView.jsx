@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Play, Pause, ListPlus } from 'lucide-react';
 import LazyImage from './LazyImage.jsx';
@@ -169,7 +170,7 @@ export default function ArtistDetailView({
   const handlePlayAll = () => {
     if (songs.length > 0 && onPlaySong) {
       onPlaySong(songs[0], songs);
-      showToast(`已开始播放 ${artistName} 的全部歌曲`);
+      showToast(t("已开始播放 {p0} 的全部歌曲", { p0: (artistName) }));
     }
   };
 
@@ -214,9 +215,7 @@ export default function ArtistDetailView({
           {/* 页面主标题与快捷控制栏 */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 mb-6 border-b border-[var(--line)]">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--ink)] tracking-tight">
-                歌曲
-              </h1>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--ink)] tracking-tight">{t("歌曲")}</h1>
             </div>
 
             <div className="flex items-center gap-3">
@@ -227,7 +226,7 @@ export default function ArtistDetailView({
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] hover:bg-[var(--accent-strong)] text-white text-sm font-semibold shadow-sm hover:scale-103 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
               >
                 {isCurrentArtistPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
-                <span>{isCurrentArtistPlaying ? '暂停' : '播放全部'}</span>
+                <span>{isCurrentArtistPlaying ? t("暂停") : t("播放全部")}</span>
               </button>
 
               <button
@@ -235,10 +234,10 @@ export default function ArtistDetailView({
                 onClick={handleQueueAll}
                 disabled={songs.length === 0}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-[var(--line)] bg-[var(--surface)] hover:bg-[color-mix(in_srgb,var(--ink)_6%,var(--surface))] text-[var(--ink)] text-sm font-semibold transition-all cursor-pointer disabled:opacity-30 active:scale-95"
-                title="添加至队尾"
+                title={t("添加至队尾")}
               >
                 <ListPlus size={16} />
-                <span>加到队尾</span>
+                <span>{t("加到队尾")}</span>
               </button>
             </div>
           </div>
@@ -260,15 +259,15 @@ export default function ArtistDetailView({
                   onAddToPlaylist={onAddToPlaylist}
                 />
               ))}
-              {artistPage.hasMore && <button type="button" className="secondary-button col-span-full mx-auto mt-6 px-4 py-2" onClick={loadMoreArtistSongs} disabled={artistPage.loadingMore}>{artistPage.loadingMore ? '加载中…' : '加载更多'}</button>}
+              {artistPage.hasMore && <button type="button" className="secondary-button col-span-full mx-auto mt-6 px-4 py-2" onClick={loadMoreArtistSongs} disabled={artistPage.loadingMore}>{artistPage.loadingMore ? t("加载中…") : t("加载更多")}</button>}
             </div>
           ) : songsStatus === 'loading' ? (
-            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">正在加载歌曲…</p>
+            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">{t("正在加载歌曲…")}</p>
           ) : songsStatus === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">歌曲加载失败</p>
+            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
           ) : (
             <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
-              <span>该歌手暂无可播放歌曲</span>
+              <span>{t("该歌手暂无可播放歌曲")}</span>
             </div>
           )}
         </div>
@@ -290,24 +289,22 @@ export default function ArtistDetailView({
 
           {/* 页面主标题 */}
           <div className="pb-8 mb-6 border-b border-[var(--line)]">
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--ink)] tracking-tight">
-              专辑
-            </h1>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--ink)] tracking-tight">{t("专辑")}</h1>
           </div>
 
           {/* 全量专辑网格 */}
           {albums.length > 0 ? (
             <>
               <AlbumPreviewGrid albums={albums} maxRows={Infinity} onOpen={openAlbum} />
-              {albumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={albumResults.loadMore} disabled={albumResults.loadingMore}>{albumResults.loadingMore ? '加载中…' : '加载更多'}</button>}
+              {albumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={albumResults.loadMore} disabled={albumResults.loadingMore}>{albumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
             </>
           ) : albumResults.status === 'loading' ? (
-            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">正在加载专辑…</p>
+            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">{t("正在加载专辑…")}</p>
           ) : albumResults.status === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">专辑加载失败</p>
+            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("专辑加载失败")}</p>
           ) : (
             <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
-              <span>该歌手暂无收录专辑</span>
+              <span>{t("该歌手暂无收录专辑")}</span>
             </div>
           )}
         </div>
@@ -326,7 +323,7 @@ export default function ArtistDetailView({
       {/* 1. 顶部 Apple Music 风格吸顶毛玻璃导航条 (滚动超过 240px 时展开呈现 mini 控制台) */}
       <header
         className={`artist-sticky-bar ${isScrolled ? 'artist-sticky-bar--scrolled' : ''}`}
-        aria-label="歌手页面导航"
+        aria-label={t("歌手页面导航")}
       >
         <PageBackButton onClick={onBack} onHero className="pointer-events-auto" />
 
@@ -336,7 +333,7 @@ export default function ArtistDetailView({
           className={`pointer-events-auto flex items-center gap-2.5 transition-all duration-300 cursor-pointer select-none ${
             isScrolled ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
           }`}
-          title="点击返回顶部"
+          title={t("点击返回顶部")}
         >
           {resolvedAvatar && (
             <img
@@ -361,8 +358,8 @@ export default function ArtistDetailView({
             onClick={isCurrentArtistPlaying ? () => usePlayerStore.getState().togglePlay() : handlePlayAll}
             disabled={songs.length === 0}
             className="w-8 h-8 rounded-full bg-[var(--accent)] hover:bg-[var(--accent-strong)] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer disabled:opacity-40"
-            title={isCurrentArtistPlaying ? '暂停' : '播放全部'}
-            aria-label={isCurrentArtistPlaying ? '暂停' : '播放全部'}
+            title={isCurrentArtistPlaying ? t("暂停") : t("播放全部")}
+            aria-label={isCurrentArtistPlaying ? t("暂停") : t("播放全部")}
           >
             {isCurrentArtistPlaying ? (
               <Pause size={14} fill="currentColor" />
@@ -375,7 +372,7 @@ export default function ArtistDetailView({
 
       {/* 2. Apple Music 全宽沉浸式写真巨幕 (顶格无白缝、微视差下沉、平滑消融底) */}
       <section
-        aria-label="歌手视觉大图"
+        aria-label={t("歌手视觉大图")}
         className="relative w-full h-[460px] sm:h-[520px] md:h-[560px] -mt-[58px] overflow-hidden select-none z-0"
       >
         {resolvedAvatar ? (
@@ -427,8 +424,8 @@ export default function ArtistDetailView({
               onClick={isCurrentArtistPlaying ? () => usePlayerStore.getState().togglePlay() : handlePlayAll}
               disabled={songs.length === 0}
               className="w-[60px] h-[60px] sm:w-16 sm:h-16 shrink-0 rounded-full bg-white text-neutral-950 flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:scale-[1.08] active:scale-95 transition-transform cursor-pointer disabled:opacity-40"
-              title={isCurrentArtistPlaying ? '暂停' : '播放全部'}
-              aria-label={isCurrentArtistPlaying ? '暂停' : '播放全部'}
+              title={isCurrentArtistPlaying ? t("暂停") : t("播放全部")}
+              aria-label={isCurrentArtistPlaying ? t("暂停") : t("播放全部")}
             >
               {isCurrentArtistPlaying ? (
                 <Pause size={24} fill="currentColor" />
@@ -443,8 +440,8 @@ export default function ArtistDetailView({
               onClick={handleQueueAll}
               disabled={songs.length === 0}
               className="w-11 h-11 rounded-full bg-white/20 hover:bg-white/35 text-white backdrop-blur-xl border border-white/25 flex items-center justify-center shadow-lg hover:scale-[1.08] active:scale-95 transition-all cursor-pointer disabled:opacity-30"
-              title="添加至队尾"
-              aria-label="添加至队尾"
+              title={t("添加至队尾")}
+              aria-label={t("添加至队尾")}
             >
               <ListPlus size={18} />
             </button>
@@ -457,7 +454,7 @@ export default function ArtistDetailView({
         {/* 歌曲预览按列排列，超过 20 首可进入完整列表。 */}
         <section aria-labelledby="artist-tracks-title" className="space-y-4">
           <div className="flex items-center justify-between pb-1">
-            <SectionHeading id="artist-tracks-title" title="歌曲"
+            <SectionHeading id="artist-tracks-title" title={t("歌曲")}
               className="text-xl sm:text-2xl font-bold text-[var(--ink)] tracking-tight"
               onViewAll={hasPreviewOverflow({ renderedCount: visibleSongs.length,
                 visibleCount: visibleSongs.length, totalCount: artistPage.total || songs.length,
@@ -466,7 +463,7 @@ export default function ArtistDetailView({
           </div>
 
           {visibleSongs.length > 0 ? (
-            <SongColumnShelf key={artistName} label="歌曲" onOverflowChange={setSongScrollOverflow}>
+            <SongColumnShelf key={artistName} label={t("歌曲")} onOverflowChange={setSongScrollOverflow}>
               {visibleSongs.map((song) => (
                 <TrackRow
                   key={song.id}
@@ -483,12 +480,12 @@ export default function ArtistDetailView({
               ))}
             </SongColumnShelf>
           ) : songsStatus === 'loading' ? (
-            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">正在加载歌曲…</p>
+            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">{t("正在加载歌曲…")}</p>
           ) : songsStatus === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">歌曲加载失败</p>
+            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
           ) : (
             <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
-              <span>该歌手暂无可播放歌曲</span>
+              <span>{t("该歌手暂无可播放歌曲")}</span>
             </div>
           )}
         </section>
@@ -497,7 +494,7 @@ export default function ArtistDetailView({
         {albums.length > 0 && (
           <section aria-labelledby="artist-albums-title" className="space-y-4 pt-2">
             <div className="flex items-center justify-between pb-1">
-              <SectionHeading id="artist-albums-title" title="专辑"
+              <SectionHeading id="artist-albums-title" title={t("专辑")}
                 className="text-xl sm:text-2xl font-bold text-[var(--ink)] tracking-tight"
                 onViewAll={hasPreviewOverflow({ renderedCount: visibleAlbums.length,
                   visibleCount: albumVisibleCount, totalCount: albumResults.total ?? albums.length,

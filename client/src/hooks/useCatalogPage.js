@@ -4,6 +4,7 @@ import { getApiBaseUrl } from '../services/apiBase.js';
 import { AUTH_SESSION_INVALIDATED_EVENT, AUTH_SESSION_UPDATED_EVENT } from '../authNavigation.js';
 
 const CACHE_TTL_MS = 5 * 60_000;
+const SEARCH_CACHE_TTL_MS = 15 * 60_000;
 const CACHE_LIMIT = 40;
 const pageCache = new Map();
 const emptyPage = (status) => ({ items: [], status, hasMore: false, total: status === 'idle' ? 0 : null });
@@ -11,7 +12,15 @@ const emptyPage = (status) => ({ items: [], status, hasMore: false, total: statu
 function cachedPage(key) {
   const entry = pageCache.get(key);
   if (!entry) return null;
-  return { page: entry.page, fresh: Date.now() - entry.savedAt < CACHE_TTL_MS };
+  const ttl = JSON.parse(key)[2] ? SEARCH_CACHE_TTL_MS : CACHE_TTL_MS;
+  return { page: entry.page, fresh: Date.now() - entry.savedAt < ttl };
+}
+
+export function invalidateCatalogSearch(query, language) {
+  for (const key of pageCache.keys()) {
+    const [base, , cachedQuery, cachedLanguage] = JSON.parse(key);
+    if (base === getApiBaseUrl() && cachedQuery === query.trim() && cachedLanguage === language) pageCache.delete(key);
+  }
 }
 
 function rememberPage(key, page) {
@@ -32,13 +41,13 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export function useCatalogPage(type, { query = '', language = '', artist = '', limit = 20, enabled = true } = {}) {
+export function useCatalogPage(type, { query = '', language = '', artist = '', limit = 20, enabled = true, retainWhileDisabled = false, refreshKey = 0 } = {}) {
   const key = JSON.stringify([getApiBaseUrl(), type, query.trim(), language, artist.trim(), limit]);
   const [state, setState] = React.useState(() => ({ key, ...(cachedPage(key)?.page || emptyPage('loading')) }));
   const [loadingMore, setLoadingMore] = React.useState(false);
   const generationRef = React.useRef(0);
   const canLoad = enabled && (query.trim() || artist.trim() || (language && language !== 'all'));
-  const current = !canLoad ? { key, ...emptyPage('idle') }
+  const current = !canLoad && !retainWhileDisabled ? { key, ...emptyPage('idle') }
     : state.key === key && state.status !== 'idle' ? state
       : { key, ...(cachedPage(key)?.page || emptyPage('loading')) };
 
@@ -46,7 +55,7 @@ export function useCatalogPage(type, { query = '', language = '', artist = '', l
     const generation = ++generationRef.current;
     const controller = new AbortController();
     if (!canLoad) {
-      setState({ key, ...emptyPage('idle') });
+      if (!retainWhileDisabled) setState({ key, ...emptyPage('idle') });
       return () => controller.abort();
     }
     const cached = cachedPage(key);
@@ -67,7 +76,7 @@ export function useCatalogPage(type, { query = '', language = '', artist = '', l
         if (error.name !== 'AbortError' && generation === generationRef.current && !cached) setState({ key, ...emptyPage('error') });
       });
     return () => controller.abort();
-  }, [type, query, language, artist, limit, canLoad, key]);
+  }, [type, query, language, artist, limit, canLoad, key, retainWhileDisabled, refreshKey]);
 
   const loadMore = React.useCallback(async () => {
     if (loadingMore || current.status !== 'ready' || !current.hasMore) return;

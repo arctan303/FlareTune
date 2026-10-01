@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { activateInlineAssistantSong, playAssistantInlineSong } from './assistantInlinePlayback.js';
+import { setUiLanguage } from '../i18n/index.js';
+
+setUiLanguage('zh');
 
 const song = { id: 'song-1', title: '星河', audio_url: '/media/audio/song-1.mp3', language: 'zh' };
 const fixture = (overrides = {}) => {

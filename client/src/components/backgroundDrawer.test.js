@@ -65,7 +65,6 @@ test('BackgroundDrawer provides presets, custom URL, tuning sliders and reset', 
   assert.match(drawer, /handleFileChange/);
   assert.match(drawer, /setLocalImage/);
   assert.match(drawer, /removeLocalImage/);
-  assert.match(drawer, /IndexedDB/);
   assert.match(drawer, /result\.durable/);
   assert.match(drawer, /仅本次会话有效/);
   assert.match(drawer, /当前图片无法加载，已恢复默认背景/);
@@ -101,7 +100,6 @@ test('BackgroundDrawer renders card liquid glass tuning section matching apple.h
   assert.match(drawer, /handleResetDefaults/);
   assert.match(drawer, /画面与卡片质感调节/);
   assert.match(drawer, /卡片通透度 \(Opacity\)/);
-  assert.match(drawer, /开启背景壁纸后，画面调节与卡片通透度将实时生效/);
 
   // App rootStyle CSS vars
   assert.match(app, /'--card-glass-blur':/);

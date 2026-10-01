@@ -1,8 +1,8 @@
+import { t } from '../i18n/index.js';
 import React, { useMemo, useCallback } from 'react';
 import {
     Play,
     Pause,
-    RotateCcw,
 } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { showToast } from '../store/useUIStore';
@@ -31,7 +31,6 @@ export default function RoamOverview({
 }) {
     const setRandomRoamLanguage = usePlayerStore((s) => s.setRandomRoamLanguage);
     const setRandomRoamBatchSize = usePlayerStore((s) => s.setRandomRoamBatchSize);
-    const resetRandomRoamHistory = usePlayerStore((s) => s.resetRandomRoamHistory);
 
     // 解析当前语种多选
     const selectedKeys = useMemo(() => {
@@ -43,7 +42,6 @@ export default function RoamOverview({
 
     const isAllSelected = selectedKeys.length === ALL_KEYS.length;
     const currentBatchSize = randomRoam?.batchSize || 10;
-    const seenCount = randomRoam?.seenSongIds?.length || 0;
 
     // 语种切换
     const handleToggleKey = useCallback((key) => {
@@ -55,7 +53,7 @@ export default function RoamOverview({
         }
 
         if (newKeys.length === 0) {
-            showToast('请至少保留一个漫游语种');
+            showToast(t("请至少保留一个漫游语种"));
             return;
         }
 
@@ -64,55 +62,50 @@ export default function RoamOverview({
             : ALL_KEYS.filter((k) => newKeys.includes(k)).join(',');
 
         setRandomRoamLanguage(finalLang);
-        showToast('已更新漫游语种偏好');
+        showToast(t("已更新漫游语种偏好"));
     }, [selectedKeys, setRandomRoamLanguage]);
 
     const handleSelectAll = useCallback(() => {
         if (isAllSelected) {
             // 如果已经是全选，切换为仅华语
             setRandomRoamLanguage('zh');
-            showToast('已切换为仅华语漫游');
+            showToast(t("已切换为仅华语漫游"));
         } else {
             setRandomRoamLanguage('all');
-            showToast('已选择全部语种漫游');
+            showToast(t("已选择全部语种漫游"));
         }
     }, [isAllSelected, setRandomRoamLanguage]);
 
     const handleSelectOnlyZh = useCallback(() => {
         setRandomRoamLanguage('zh');
-        showToast('已切换为仅华语漫游');
+        showToast(t("已切换为仅华语漫游"));
     }, [setRandomRoamLanguage]);
 
     const handleBatchSizeChange = useCallback((size) => {
         setRandomRoamBatchSize(size);
-        showToast(`已设置每次补充 ${size} 首歌曲`);
+        showToast(t("已设置每次补充 {p0} 首歌曲", { p0: (size) }));
     }, [setRandomRoamBatchSize]);
-
-    const handleResetHistory = useCallback(() => {
-        resetRandomRoamHistory();
-        showToast('已重置漫游去重记录，歌曲可再次被推荐');
-    }, [resetRandomRoamHistory]);
 
     // 当前语种文案摘要
     const languageSummary = useMemo(() => {
         if (isAllSelected) return '全曲库';
         if (selectedKeys.length === 1) {
-            return ROAM_LANGUAGES.find((item) => item.key === selectedKeys[0])?.label || '单语种';
+            return t(ROAM_LANGUAGES.find((item) => item.key === selectedKeys[0])?.label || '单语种');
         }
         return `${selectedKeys.length} 个语种`;
     }, [isAllSelected, selectedKeys]);
 
     return (
-        <div className="app-page roam-page space-y-12 pb-16">
+        <div className="app-page roam-page pb-16">
             {/* 页面顶栏 */}
             <header className="app-page-heading">
                 <p className="app-page-heading__eyebrow">DISCOVER</p>
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)] mt-1">漫游</h1>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)] mt-1">{t("漫游")}</h1>
             </header>
 
             {/* 核心专区 1：随心漫游电台控制台 (精炼画报专属电台) */}
             <section aria-labelledby="roam-console-title" className="roam-radio">
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0c4a6e] via-[#075985] to-[#0f172a] text-white p-6 sm:p-7 shadow-xl border border-white/10">
+                <div className="roam-radio__panel relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0c4a6e] via-[#075985] to-[#0f172a] text-white shadow-xl border border-white/10">
                     {/* 氛围流动背景装饰光晕 */}
                     <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-sky-400/20 blur-3xl pointer-events-none" />
                     <div className="absolute left-1/3 -bottom-24 w-72 h-72 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" />
@@ -120,28 +113,23 @@ export default function RoamOverview({
                     <div className="relative z-10 flex flex-col justify-between gap-5">
                         {/* 上半部：电台身份与大播放按钮（去除非必要长句，直接对齐） */}
                         <div className="roam-radio__header flex items-center justify-between gap-6">
-                            <div className="space-y-1.5">
+                            <div className="roam-radio__identity">
+                                <h2 id="roam-console-title" className="text-2xl font-bold tracking-tight text-white">{t("私人电台")}</h2>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-white/90">
-                                        PERSONAL RADIO
-                                    </span>
                                     <span className="inline-flex items-center gap-1.5 text-xs text-white/80 transition-all duration-300">
                                         {randomRoam.status === 'loading' ? (
                                             <>
                                                 <span className="w-2 h-2 rounded-full bg-sky-300 animate-ping shrink-0" />
-                                                <span className="text-sky-200 font-semibold animate-pulse">正在补充歌曲…</span>
+                                                <span className="text-sky-200 font-semibold animate-pulse">{t("正在补充歌曲…")}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <span className={`w-2 h-2 rounded-full ${randomRoam.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'}`} />
-                                                <span>{randomRoam.enabled ? '运行中' : '已就绪'}</span>
+                                                <span>{randomRoam.enabled ? t("运行中") : t("已就绪")}</span>
                                             </>
                                         )}
                                     </span>
                                 </div>
-                                <h2 id="roam-console-title" className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
-                                    随心漫游电台
-                                </h2>
                             </div>
 
                             {/* 简洁有力的播放主控（文案去啰嗦化，直接“开启”/“暂停”） */}
@@ -149,27 +137,27 @@ export default function RoamOverview({
                                 type="button"
                                 onClick={onToggleRoam}
                                 className="shrink-0 inline-flex items-center justify-center gap-2 px-7 py-3 rounded-full bg-white text-slate-900 font-bold text-sm shadow-xl hover:bg-white/95 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-                                aria-label={randomRoam.enabled ? '暂停漫游' : '开启漫游电台'}
+                                aria-label={randomRoam.enabled ? t("暂停漫游") : t("开启漫游电台")}
                             >
                                 {randomRoam.enabled ? (
                                     <>
                                         <Pause size={17} fill="currentColor" />
-                                        <span>暂停</span>
+                                        <span>{t("暂停")}</span>
                                     </>
                                 ) : (
                                     <>
                                         <Play size={17} fill="currentColor" />
-                                        <span>开启</span>
+                                        <span>{t("开启")}</span>
                                     </>
                                 )}
                             </button>
                         </div>
 
                         {/* 底部：极简调频微调条 (Tuning Bar) */}
-                        <div className="roam-radio__settings pt-3.5 border-t border-white/15 flex flex-wrap items-center justify-between gap-4 text-xs">
+                        <div className="roam-radio__settings pt-3.5 border-t border-white/15 text-xs">
                             {/* 漫游语种范围：精炼为“语种：” */}
-                            <div className="flex items-center gap-2 flex-wrap" title="漫游语种范围">
-                                <span className="text-white/70 font-semibold">语种：</span>
+                            <div className="roam-radio__language-setting" title={t("漫游语种范围")}>
+                                <span className="text-white/70 font-semibold">{t("语种：")}</span>
                                 <div className="roam-radio__languages inline-flex p-0.5 rounded-full bg-black/25 backdrop-blur-md">
                                     {ROAM_LANGUAGES.map((item, index) => {
                                         const isSelected = selectedKeys.includes(item.key);
@@ -183,7 +171,7 @@ export default function RoamOverview({
                                                 aria-pressed={isSelected}
                                                 className={`roam-radio__language${isSelected ? ' is-selected' : ''}${isSelected && nextSelected ? ' is-connected' : ''}`}
                                             >
-                                                <span>{item.label}</span>
+                                                <span>{t(item.label)}</span>
                                             </button>
                                         );
                                     })}
@@ -191,22 +179,23 @@ export default function RoamOverview({
                                 <button
                                     type="button"
                                     onClick={handleSelectAll}
-                                    className="text-[11px] underline opacity-75 hover:opacity-100 ml-1 cursor-pointer"
+                                    className="roam-radio__language-shortcut text-[11px] underline opacity-75 hover:opacity-100 cursor-pointer"
                                 >
-                                    {isAllSelected ? '全不选' : '全选'}
+                                    {isAllSelected ? t("仅华语") : t("全选")}
                                 </button>
                             </div>
 
                             {/* 数量与去重：单次补充数量精炼为“数量：”，已去重曲目精炼为“已去重：” */}
-                            <div className="flex items-center gap-4 text-white/80">
-                                <div className="flex items-center gap-1.5" title="单次补充数量">
-                                    <span className="font-semibold text-white/70">数量：</span>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white/80">
+                                <div className="flex items-center gap-1.5" title={t("单次补充数量")}>
+                                    <span className="font-semibold text-white/70">{t("数量：")}</span>
                                     <div className="inline-flex p-0.5 rounded-full bg-black/25 backdrop-blur-md">
                                         {ROAM_BATCH_SIZE_OPTIONS.map((count) => (
                                             <button
                                                 key={count}
                                                 type="button"
                                                 onClick={() => handleBatchSizeChange(count)}
+                                                aria-pressed={currentBatchSize === count}
                                                 className={`px-2.5 py-0.5 rounded-full text-xs transition-all cursor-pointer ${
                                                     currentBatchSize === count
                                                         ? 'bg-white text-slate-900 font-bold'
@@ -218,16 +207,7 @@ export default function RoamOverview({
                                         ))}
                                     </div>
                                 </div>
-                                <span className="text-white/70" title="已去重曲目">已去重：{seenCount} 首</span>
-                                {seenCount > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={handleResetHistory}
-                                        className="underline text-sky-200 hover:text-white cursor-pointer"
-                                    >
-                                        重置
-                                    </button>
-                                )}
+                                <span className="text-white/70 whitespace-nowrap">{t("近期去重：20%")}</span>
                             </div>
                         </div>
                     </div>
@@ -237,13 +217,13 @@ export default function RoamOverview({
             {/* 核心专区 2：曲库分类探索 (Apple Music "Browse Categories" 经典横向大色块矩阵) */}
             <section aria-labelledby="roam-explore-title" className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 id="roam-explore-title" className="text-lg font-bold text-[var(--ink)] tracking-tight">曲库探索</h2>
+                    <h2 id="roam-explore-title" className="text-lg font-bold text-[var(--ink)] tracking-tight">{t("曲库探索")}</h2>
                 </div>
 
                 {/* 16:9 纯正 Apple Music "Browse Categories" 风格画报卡片矩阵 */}
                 <div className="roam-explore-grid">
                     {items.map((lang) => {
-                        const title = lang.subtitle || lang.label;
+                        const title = t(lang.subtitle || lang.label);
                         const imageUrl = lang.image || `/categories/${lang.key}.jpg`;
 
                         return (
@@ -252,7 +232,7 @@ export default function RoamOverview({
                                 type="button"
                                 onClick={() => onOpenLanguage?.(lang)}
                                 className={`group relative flex flex-col justify-end p-5 rounded-2xl bg-gradient-to-br ${lang.gradient} overflow-hidden aspect-[16/10] sm:aspect-[16/9] w-full text-left shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer active:scale-[0.98] border border-black/5`}
-                                title={`点击进入${title}曲库`}
+                                title={t("点击进入{p0}曲库", { p0: (title) })}
                             >
                                 {/* Apple Music 双色调摄影写真背景 */}
                                 <img

@@ -14,14 +14,14 @@ export function targetUrl(value) {
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if ((url.protocol !== 'https:' && !(local && url.protocol === 'http:'))
     || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
-    throw new Error('实例地址须为 HTTPS 根地址（本机测试可用 HTTP）。');
+    throw new Error('The instance URL must be an HTTPS base URL (HTTP is allowed for local testing).');
   }
   return url.origin;
 }
 
 export function mediaType(kind, extension) {
   const type = (kind === 'audio' ? AUDIO_TYPES : kind === 'cover' ? COVER_TYPES : {})[extension];
-  if (!type) throw new Error('媒体类型不受支持。');
+  if (!type) throw new Error('Unsupported media type.');
   return type;
 }
 

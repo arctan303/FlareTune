@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { ArrowUp, Brain, Square } from 'lucide-react';
 
@@ -51,7 +52,7 @@ export function AiReviewComposer({
               value={inputText}
               onChange={(event) => onInputChange(event.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="聊聊音乐…"
+              placeholder={t("聊聊音乐…")}
               disabled={isLoading || phase !== 'ready'}
               className="assistant-composer__input"
             />
@@ -60,15 +61,15 @@ export function AiReviewComposer({
             <div className="assistant-composer__options">
               <button type="button" className={`assistant-composer__thinking${enableThinking ? ' is-active' : ''}`}
                 onClick={onToggleThinking} aria-pressed={Boolean(enableThinking)}>
-                <Brain size={16} aria-hidden="true" /><span>思考模式</span>
+                <Brain size={16} aria-hidden="true" /><span>{t("思考模式")}</span>
               </button>
             </div>
             {isLoading ? (
-              <button type="button" onClick={onStop} title="停止生成" className="assistant-composer__action" aria-label="停止生成">
+              <button type="button" onClick={onStop} title={t("停止生成")} className="assistant-composer__action" aria-label={t("停止生成")}>
                 <Square size={15} fill="currentColor" />
               </button>
             ) : (
-              <button type="submit" disabled={!inputText.trim() || phase !== 'ready'} title="发送" className="assistant-composer__action" aria-label="发送问题">
+              <button type="submit" disabled={!inputText.trim() || phase !== 'ready'} title={t("发送")} className="assistant-composer__action" aria-label={t("发送问题")}>
                 <ArrowUp size={21} strokeWidth={2.6} />
               </button>
             )}

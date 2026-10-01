@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { useEffect } from 'react';
 import { isInteractiveKeyboardTarget } from '../utils/keyboardActivation.js';
 
@@ -35,24 +36,24 @@ export function useGlobalKeyboardShortcuts({ togglePlay, isPlaying, playPrev, pl
                 case 'ArrowLeft':
                     e.preventDefault();
                     playPrev();
-                    showToast('⏮ 上一首', 1500);
+                    showToast(t("⏮ 上一首"), 1500);
                     break;
                 case 'ArrowRight':
                     e.preventDefault();
                     playNext();
-                    showToast('⏭ 下一首', 1500);
+                    showToast(t("⏭ 下一首"), 1500);
                     break;
                 case 'ArrowUp':
                     e.preventDefault();
                     const vUp = Math.min(1, Math.round((volume + 0.1) * 10) / 10);
                     setVolume(vUp);
-                    showToast(`🔊 音量: ${Math.round(vUp * 100)}%`, 1500);
+                    showToast(t("🔊 音量: {p0}%", { p0: (Math.round(vUp * 100)) }), 1500);
                     break;
                 case 'ArrowDown':
                     e.preventDefault();
                     const vDown = Math.max(0, Math.round((volume - 0.1) * 10) / 10);
                     setVolume(vDown);
-                    showToast(`🔉 音量: ${Math.round(vDown * 100)}%`, 1500);
+                    showToast(t("🔉 音量: {p0}%", { p0: (Math.round(vDown * 100)) }), 1500);
                     break;
             }
         };

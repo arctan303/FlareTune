@@ -1,9 +1,13 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { VolumeX, Volume2, Loader2 } from 'lucide-react';
 import InterludeHost from './lyrics/InterludeHost';
 import SyncedLyricText from './lyrics/SyncedLyricText';
+
 import { useLyricSurfacePresentation } from './lyrics/lyricSurfacePresentation.js';
 import { useMediaQuery } from './fullscreen/useMediaQuery';
+
+const LYRIC_STATUS_LINES = new Set(['纯音乐，请欣赏', '暂无歌词', '歌词加载失败']);
 
 export default function LyricsScroller({
     lyrics, currentLyricIndex, audioRef, 
@@ -312,7 +316,9 @@ export default function LyricsScroller({
                                 const isActive = index === displayedLyricIndex;
                                 const diff = index - displayedLyricIndex;
                                 const isIntroRow = lyricPresentation.kind === 'intro' && index === 0;
-                                const displayLine = isIntroRow ? lyricPresentation.line : lrc;
+                                const sourceLine = isIntroRow ? lyricPresentation.line : lrc;
+                                const displayLine = LYRIC_STATUS_LINES.has(sourceLine?.text)
+                                    ? { ...sourceLine, text: t(sourceLine.text) } : sourceLine;
                                 const lines = String(displayLine?.text || '').split('\n');
                                 const canSeek = Number.isFinite(lrc.time);
                                 let lineStyle = {};
@@ -425,7 +431,7 @@ export default function LyricsScroller({
                     {canTranslate && (
                         <button
                             type="button"
-                            aria-label={translationPending ? '歌词翻译补全中' : translationReady ? '切换歌词翻译' : '补全歌词翻译'}
+                            aria-label={translationPending ? t("歌词翻译补全中") : translationReady ? t("切换歌词翻译") : t("补全歌词翻译")}
                             aria-busy={translationPending || undefined}
                             disabled={translationPending}
                             data-active={translationReady && translationEnabled}
@@ -444,13 +450,11 @@ export default function LyricsScroller({
                                             : 'text-white/45 hover:text-white/70 bg-white/5 hover:bg-white/10'
                             }`}
                             title={translationPending
-                                ? '正在补全歌词翻译'
+                                ? t("正在补全歌词翻译")
                                 : translationReady
-                                    ? (translationEnabled ? '已显示歌词翻译（点击隐藏）' : '显示歌词翻译')
-                                    : resolvedTranslationState === 'failed' ? '补全失败，点击重试' : '点击补全歌词翻译'}
-                        >
-                            译
-                        </button>
+                                    ? (translationEnabled ? t("已显示歌词翻译（点击隐藏）") : t("显示歌词翻译"))
+                                    : resolvedTranslationState === 'failed' ? t("补全失败，点击重试") : t("点击补全歌词翻译")}
+                        >{t("译")}</button>
                     )}
                     <div 
                         className="classic-lyrics__volume relative flex items-center justify-center"
@@ -467,13 +471,13 @@ export default function LyricsScroller({
                         }}
                     >
                         <button
-                            aria-label={volume === 0 ? '恢复音量' : '静音'}
+                            aria-label={volume === 0 ? t("恢复音量") : t("静音")}
                             onClick={(e) => {
                                 e?.stopPropagation?.();
                                 handleVolumeButtonClick(e);
                             }}
                             className="classic-lyrics__tool hover:text-white hover:scale-110 transition-all focus:outline-none flex items-center justify-center p-1 cursor-pointer active:scale-95"
-                            title={isVolumePanelOpen ? (volume === 0 ? '点击恢复音量' : '点击静音') : `当前音量 ${Math.round(volume * 100)}%（点击展开滑块）`}
+                            title={isVolumePanelOpen ? (volume === 0 ? t("点击恢复音量") : t("点击静音")) : t("当前音量 {p0}%（点击展开滑块）", { p0: (Math.round(volume * 100)) })}
                         >
                             {volume === 0 ? <VolumeX size={20} strokeWidth={iconStrokeWidth} /> : <Volume2 size={20} strokeWidth={iconStrokeWidth} />}
                         </button>
@@ -511,7 +515,7 @@ export default function LyricsScroller({
                                         if (audioRef?.current) audioRef.current.volume = newVol;
                                         openVolumePanel();
                                     }}
-                                    aria-label="音量"
+                                    aria-label={t("音量")}
                                     className="absolute inset-0 opacity-0 cursor-pointer"
                                 />
 

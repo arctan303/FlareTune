@@ -228,13 +228,16 @@ test('stats arguments reject identity injection and invalid limits before any st
       { limit: 0 }, { limit: 51 }, { limit: '1' }, { limit: 1.5 },
     ];
     for (const [index, args] of badArgs.entries()) {
-      const response = await route('/api/ai/chat', 'POST', chatBody(index, `turn-${index}`),
+      const response = await route('/api/ai/chat', 'POST', chatBody(index * 2, `turn-${index}`),
         'account-A', { chat: async () => statsCall(args) });
       assert.equal(response.status, 200);
       assert.equal((await streamEvents(response)).at(-1).type, 'error');
     }
     assert.equal(statsQueries, 0);
-    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM music_chat_thread_messages WHERE role='assistant'").get().count, 0);
+    const failureRecords = (await (await route('/api/ai/thread', 'GET')).json()).thread.messages
+      .filter((message) => message.role === 'assistant');
+    assert.equal(failureRecords.length, badArgs.length);
+    assert.ok(failureRecords.every((message) => message.isError));
   } finally { sqlite.close(); }
 });
 
@@ -354,7 +357,7 @@ test('personal playlist lookup never reveals another account and rejects identit
       { action: 'read', playlist_id: '' },
     ];
     for (const [index, args] of invalid.entries()) {
-      const answer = await route('/api/ai/chat', 'POST', chatBody(index + 2, `invalid-${index}`),
+      const answer = await route('/api/ai/chat', 'POST', chatBody(index * 2 + 2, `invalid-${index}`),
         'account-A', { chat: async () => playlistCall(args) });
       assert.equal(answer.status, 200, `invalid args index ${index}`);
       assert.equal((await streamEvents(answer)).at(-1).type, 'error');
@@ -488,8 +491,12 @@ test('failure after live tool progress sends error without done and leaves a rec
     assert.equal(events.at(-1).error, 'upstream_unavailable');
     assert.equal(sqlite.prepare("SELECT status FROM music_chat_turns WHERE account_id='account-A'").get().status, 'failed');
     const thread = (await (await route('/api/ai/thread', 'GET')).json()).thread;
-    assert.deepEqual(thread.messages.map((message) => message.role), ['user']);
-    assert.equal(thread.revision, 1);
+    assert.deepEqual(thread.messages.map((message) => message.role), ['user', 'assistant']);
+    assert.equal(thread.messages[1].isError, true);
+    assert.equal(thread.messages[1].errorCode, 'upstream_unavailable');
+    assert.equal(thread.messages[1].processEntries[0].type, 'tool');
+    assert.equal(thread.messages[1].processEntries[0].ok, true);
+    assert.equal(thread.revision, 2);
   } finally { sqlite.close(); }
 });
 
@@ -512,18 +519,21 @@ test('unknown or malformed tools are rejected without executing mutations or fin
     assert.equal(callCount, 1);
     assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM Member_Playlists').get().count, 0);
     assert.equal(sqlite.prepare("SELECT status FROM music_chat_turns WHERE account_id='account-A'").get().status, 'failed');
-    const malformed = await route('/api/ai/chat', 'POST', chatBody(1, 'turn-2'), 'account-A', {
+    const malformed = await route('/api/ai/chat', 'POST', chatBody(2, 'turn-2'), 'account-A', {
       chat: async () => musicCall({ action: 'search', keyword: 'x', extra: 'not allowed' }),
     });
     assert.equal(malformed.status, 200);
     assert.equal((await streamEvents(malformed)).at(-1).type, 'error');
-    const malformedJson = await route('/api/ai/chat', 'POST', chatBody(2, 'turn-3'), 'account-A', {
+    const malformedJson = await route('/api/ai/chat', 'POST', chatBody(4, 'turn-3'), 'account-A', {
       chat: async () => musicCall('{"action":"search",'),
     });
     assert.equal(malformedJson.status, 200);
     assert.equal((await streamEvents(malformedJson)).at(-1).type, 'error');
     assert.equal(catalogQueries, 0);
-    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM music_chat_thread_messages WHERE role='assistant'").get().count, 0);
+    const failureRecords = (await (await route('/api/ai/thread', 'GET')).json()).thread.messages
+      .filter((message) => message.role === 'assistant');
+    assert.equal(failureRecords.length, 3);
+    assert.ok(failureRecords.every((message) => message.isError));
   } finally { sqlite.close(); }
 });
 
@@ -567,7 +577,9 @@ test('oversized tool batches fail before any catalog query runs', async () => {
     assert.equal(response.status, 200);
     assert.equal((await streamEvents(response)).at(-1).type, 'error');
     assert.equal(catalogQueries, 0);
-    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM music_chat_thread_messages WHERE role='assistant'").get().count, 0);
+    const thread = (await (await route('/api/ai/thread', 'GET')).json()).thread;
+    assert.equal(thread.messages.at(-1).isError, true);
+    assert.equal(thread.messages.at(-1).errorCode, 'tool_call_limit');
   } finally { sqlite.close(); }
 });
 
@@ -610,7 +622,7 @@ test('invalid requests and missing key fail closed without reserving a turn', as
   } finally { sqlite.close(); }
 });
 
-test('upstream failure marks turn failed; no fabricated assistant message is stored', async () => {
+test('upstream failure stores a system failure record without fabricating a model answer', async () => {
   const { sqlite, route } = fixture();
   try {
     const failed = await route('/api/ai/chat', 'POST', chatBody(), 'account-A', {
@@ -620,9 +632,10 @@ test('upstream failure marks turn failed; no fabricated assistant message is sto
     assert.equal((await streamEvents(failed)).at(-1).error, 'upstream_unavailable');
     assert.equal(sqlite.prepare("SELECT status FROM music_chat_turns WHERE account_id='account-A'").get().status, 'failed');
     const thread = (await (await route('/api/ai/thread', 'GET')).json()).thread;
-    assert.deepEqual(thread.messages.map((message) => message.role), ['user']);
-    assert.equal(thread.revision, 1);
-    const recovered = await route('/api/ai/chat', 'POST', chatBody(1, 'turn-2'), 'account-A', {
+    assert.deepEqual(thread.messages.map((message) => message.role), ['user', 'assistant']);
+    assert.equal(thread.messages[1].isError, true);
+    assert.equal(thread.revision, 2);
+    const recovered = await route('/api/ai/chat', 'POST', chatBody(2, 'turn-2'), 'account-A', {
       chat: async () => ({ type: 'content', content: '现在可以回答了' }),
     });
     assert.equal(recovered.status, 200);

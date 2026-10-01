@@ -1,3 +1,5 @@
+import { appendRollingRoam } from '../rollingRoam.js';
+import { t } from '../i18n/index.js';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useUIStore, showToast } from './useUIStore.js';
@@ -183,6 +185,7 @@ export const usePlayerStore = create(
               randomRoam: {
                   ...current,
                   language: nextLang,
+                  saturatedAtSongId: null,
                   seenSongIds: normalizeRandomRoamSongIds(nextPlaylist.map((s) => s.id)),
                   totalPlayable: null,
                   remainingPlayable: null,
@@ -284,19 +287,21 @@ export const usePlayerStore = create(
       },
       appendRandomRoamBatch: (songs, batchState = {}) => {
           const { randomRoam, playlist } = get();
+          const rolling = batchState.strategy === 'recent'
+              ? appendRollingRoam(playlist, get().currentSong, randomRoam, sanitizePlayableQueue(songs)) : null;
           const seenSongIds = normalizeRandomRoamSongIds([
               ...randomRoam.seenSongIds,
               ...playlist.map((song) => song.id),
           ]);
           const seen = new Set(seenSongIds);
-          const additions = sanitizePlayableQueue(songs).filter((song) => {
+          const additions = rolling?.additions || sanitizePlayableQueue(songs).filter((song) => {
               const id = String(song.id);
               if (seen.has(id)) return false;
               seen.add(id);
               seenSongIds.push(id);
               return true;
           });
-          const nextPlaylist = [...playlist, ...additions];
+          const nextPlaylist = rolling?.playlist || [...playlist, ...additions];
           const normalizedTotal = Number.isInteger(batchState.totalPlayable) && batchState.totalPlayable >= 0
               ? batchState.totalPlayable
               : randomRoam.totalPlayable;
@@ -307,6 +312,12 @@ export const usePlayerStore = create(
           const nextRandomRoam = {
               ...randomRoam,
               seenSongIds: normalizeRandomRoamSongIds(seenSongIds),
+              ...(rolling ? { recentSongIds: rolling.recentSongIds, recentWindow: batchState.recentWindow,
+                  saturatedAtSongId: normalizedRemaining === 0
+                      ? (batchState.requestedForSongId ?? additions[0]?.id ?? null) : null,
+                  saturatedQueueKey: nextPlaylist.slice(Math.max(0, nextPlaylist.findIndex(song =>
+                      String(song.id) === String(get().currentSong?.id ?? additions[0]?.id))))
+                      .map(song => String(song.id)).join(',') } : {}),
               totalPlayable: normalizedTotal,
               remainingPlayable: normalizedRemaining,
               exhausted,
@@ -345,7 +356,7 @@ export const usePlayerStore = create(
                       resumeWhenAppended: false,
                   },
               });
-              showToast('本轮已漫游完整个曲库');
+              showToast(t("当前范围暂无可补充的歌曲"));
               return true;
           }
           set({ playlist: nextPlaylist, randomRoam: nextRandomRoam });
@@ -386,6 +397,7 @@ export const usePlayerStore = create(
               randomRoam: {
                   ...current,
                   seenSongIds: [],
+                  recentSongIds: [],
                   totalPlayable: null,
                   remainingPlayable: null,
                   exhausted: false,
@@ -580,7 +592,7 @@ export const usePlayerStore = create(
           }).catch(e => {
               console.error("Play error:", e);
               set({ isPlaying: false });
-              showToast('准备就绪，请点击播放键开始播放');
+              showToast(t("准备就绪，请点击播放键开始播放"));
           });
       },
 
@@ -672,7 +684,7 @@ export const usePlayerStore = create(
                   : {}),
           });
           const modeName = PLAYBACK_MODE_NAMES[nextMode];
-          showToast(`已切换为：${modeName}`);
+          showToast(t("已切换为：{p0}", { p0: (modeName) }));
       },
 
       playNext: (e = null) => {
@@ -723,7 +735,7 @@ export const usePlayerStore = create(
                           },
                       });
                       if (audioRef?.current) audioRef.current.currentTime = 0;
-                      showToast('本轮已漫游完整个曲库');
+                      showToast(t("当前范围暂无可补充的歌曲"));
                       return;
                   }
                   set({

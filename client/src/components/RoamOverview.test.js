@@ -8,7 +8,7 @@ test('RoamOverview embeds console, inline settings, and library categories witho
   const roam = readSource('./RoamOverview.jsx');
 
   // 内嵌漫游控制台与启停主按钮
-  assert.match(roam, /随心漫游电台/);
+  assert.match(roam, /私人电台/);
   assert.match(roam, /onToggleRoam/);
   assert.match(roam, /randomRoam\.enabled/);
   assert.match(roam, /开启漫游电台/);
@@ -29,9 +29,8 @@ test('RoamOverview embeds console, inline settings, and library categories witho
   assert.match(roam, /setRandomRoamBatchSize/);
 
   // 内嵌去重记录管理
-  assert.match(roam, /已去重曲目/);
-  assert.match(roam, /handleResetHistory/);
-  assert.match(roam, /resetRandomRoamHistory/);
+  assert.match(roam, /近期去重：20%/);
+  assert.doesNotMatch(roam, /handleResetHistory/);
 
   // 内嵌曲库分类探索
   assert.match(roam, /曲库探索/);

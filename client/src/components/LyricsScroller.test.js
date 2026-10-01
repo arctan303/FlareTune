@@ -105,7 +105,8 @@ test('classic lyrics uses the shared renderer only for original text and leaves 
 
 test('classic lyrics presents intro in canonical row zero without inserting or shifting lyrics', () => {
   assert.match(source, /lyricPresentation\.kind === 'intro' && index === 0/);
-  assert.match(source, /const displayLine = isIntroRow \? lyricPresentation\.line : lrc/);
+  assert.match(source, /const sourceLine = isIntroRow \? lyricPresentation\.line : lrc/);
+  assert.match(source, /const displayLine = LYRIC_STATUS_LINES\.has\(sourceLine\?\.text\)/);
   assert.match(source, /const canSeek = Number\.isFinite\(lrc\.time\)/);
   assert.doesNotMatch(source, /unshift|\[lyricIntro,\s*\.\.\.lyrics\]|lyrics\.splice/);
 });

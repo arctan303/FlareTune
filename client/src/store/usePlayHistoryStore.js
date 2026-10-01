@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { getLocale } from '../i18n/index.js';
 
 export const MAX_HISTORY_COUNT = 100;
 
@@ -12,6 +13,16 @@ export function formatRelativeTime(timestamp) {
   if (!timestamp || !Number.isFinite(timestamp)) return '';
   const now = Date.now();
   const diffSec = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (getLocale() === 'en') {
+    if (diffSec < 60) return 'just now';
+    const diffMinEn = Math.floor(diffSec / 60);
+    if (diffMinEn < 60) return `${diffMinEn} min ago`;
+    const diffHourEn = Math.floor(diffMinEn / 60);
+    if (diffHourEn < 24) return `${diffHourEn} hr ago`;
+    const diffDayEn = Math.floor(diffHourEn / 24);
+    if (diffDayEn < 7) return `${diffDayEn} d ago`;
+    return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(timestamp));
+  }
   if (diffSec < 60) return '刚刚';
   const diffMin = Math.floor(diffSec / 60);
   if (diffMin < 60) return `${diffMin}分钟前`;

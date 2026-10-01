@@ -79,7 +79,7 @@ test('shared fields retain hairline and focus states while login stacks labels a
 test('login uses an open split layout without a form card, image, or new entry', () => {
   assert.match(login, /<main className="instance-page instance-page--login">/);
   assert.match(login, /className="instance-login__identity"[\s\S]*<TuneWordmark className="instance-wordmark" \/>[\s\S]*id="instance-title"/);
-  assert.match(login, /<h1 id="instance-title">欢迎回来<\/h1>/);
+  assert.match(login, /<h1 id="instance-title">\{t\('欢迎回来'\)\}<\/h1>/);
   assert.match(login, /className="instance-login__access"[\s\S]*id="instance-login-title"/);
   assert.match(css, /\.instance-login \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(340px, 420px\)/);
   assert.match(css, /\.instance-login__headline \{ margin-block: auto; \}/);
@@ -107,12 +107,12 @@ test('login feedback, busy and keyboard states keep their accessible contracts',
   assert.match(login, /aria-busy=\{busy \|\| undefined\}/);
   assert.match(login, /busyRef\.current\) return;/);
   assert.match(login, /大写锁定已开启/);
-  assert.match(gate, /role="status">\{status\}<\/p>/);
+  assert.match(gate, /role="status">\{t\(status\)\}<\/p>/);
 });
 
 test('the password reveal is an accessible 44px icon control', () => {
   assert.match(gate, /className="instance-reveal"[\s\S]{0,120}aria-pressed=\{visible\}/);
-  assert.match(gate, /aria-label=\{`\$\{visible \? '隐藏' : '显示'\}\$\{label\}`\}/);
+  assert.match(gate, /aria-label=\{`\$\{t\(visible \? '隐藏' : '显示'\)\} \$\{t\(label\)\}`\}/);
   assert.match(gate, /<EyeOff size=\{17\}/);
   assert.match(css, /\.instance-reveal \{[\s\S]*width: 44px;[\s\S]*height: 44px/);
   assert.match(css, /\.instance-reveal:hover \{ color: var\(--ink[^}]*var\(--hover-tint/);

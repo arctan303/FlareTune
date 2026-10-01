@@ -1,8 +1,10 @@
+import { localizeUnknownArtist, t } from '../i18n/index.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal, Loader2 } from 'lucide-react';
 import LazyImage from './LazyImage';
 import SongActionsMenu from './catalog/SongActionsMenu.jsx';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { usePageActivity } from '../hooks/usePageActivity.js';
 
 const LazyItem = ({ children, height = 80 }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -40,12 +42,16 @@ export default function TrackRow({
     onAddToPlaylist,
 }) {
     const isDetail = variant === 'detail';
+    const active = usePageActivity();
     const isCurrent = currentSong?.id === song.id;
     const isBuffering = usePlayerStore((state) => state.isBuffering);
     const [isMoreOpen, setIsMoreOpen] = useState(false);
     const moreButtonRef = useRef(null);
     const [isPendingLiked, setIsPendingLiked] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
+    useEffect(() => {
+        if (!active) setIsMoreOpen(false);
+    }, [active]);
 
     const handleRemove = () => {
         setIsMoreOpen(false);
@@ -71,22 +77,22 @@ export default function TrackRow({
                 type="button"
                 className="track-row__main-action"
                 onClick={() => playSong(song, songs)}
-                aria-label={`播放 ${song.title} - ${song.artist}`}
+                aria-label={t("播放 {p0} - {p1}", { p0: (song.title), p1: (song.artist) })}
             />
             <div className="track-row__state" aria-hidden="true"></div>
             {isDetail && <span className="track-row__number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>}
             <div className={`track-row__cover relative ${isDetail ? 'h-[52px] w-[52px]' : 'h-14 w-14'} flex-shrink-0 overflow-hidden`}>
                 <LazyImage
                     src={song.cover_url || '/placeholder-album.svg'}
-                    alt={song.title ? `${song.title} - ${song.artist} 专辑封面` : '专辑封面'}
+                    alt={song.title ? t("{p0} - {p1} 专辑封面", { p0: song.title, p1: localizeUnknownArtist(song.artist) }) : t("专辑封面")}
                     className="h-full w-full object-cover"
                 />
                 {isCurrent && isBuffering ? (
-                    <div className="absolute inset-0 z-[3] flex items-center justify-center bg-black/40 backdrop-blur-[1px]" aria-label="正在缓冲">
+                    <div className="absolute inset-0 z-[3] flex items-center justify-center bg-black/40 backdrop-blur-[1px]" aria-label={t("正在缓冲")}>
                         <Loader2 size={18} className="animate-spin text-white drop-shadow-sm" />
                     </div>
                 ) : isCurrent && isPlaying ? (
-                    <div className="playing-bars" aria-label="正在播放">
+                    <div className="playing-bars" aria-label={t("正在播放")}>
                         <div></div><div></div><div></div>
                     </div>
                 ) : null}
@@ -106,8 +112,7 @@ export default function TrackRow({
                             <>
                                 <span className="mx-2 opacity-50 text-[10px]">•</span>
                                 <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
-                                    {song.play_count}次
-                                </span>
+                                    {song.play_count}{t("次")}</span>
                             </>
                         )}
                     </div>
@@ -116,8 +121,7 @@ export default function TrackRow({
                         <p className="track-row__meta truncate text-xs">{song.artist}</p>
                         {showPlayCount && song.play_count != null && song.play_count > 0 && (
                             <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
-                                {song.play_count}次
-                            </span>
+                                {song.play_count}{t("次")}</span>
                         )}
                     </div>
                 )}
@@ -134,17 +138,17 @@ export default function TrackRow({
                         aria-haspopup="menu"
                         aria-expanded={isMoreOpen}
                         className={`track-row__action opacity-40 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isMoreOpen ? 'text-[var(--accent-strong)] !opacity-100' : ''}`}
-                        title="歌曲选项"
-                        aria-label={`歌曲选项：${song.title}`}
+                        title={t("歌曲选项")}
+                        aria-label={t("歌曲选项：{p0}", { p0: (song.title) })}
                     >
                         <MoreHorizontal size={18} />
                     </button>
-                    {isMoreOpen && (
+                    {isMoreOpen && active && (
                         <SongActionsMenu song={song} anchorRef={moreButtonRef} onClose={() => setIsMoreOpen(false)}
                             isLiked={isLiked} isLikePending={isPendingLiked} onToggleLiked={onToggleLiked ? toggleLiked : undefined}
                             onInsertNext={onInsertNext}
                             onAddToPlaylist={onAddToPlaylist} onRemove={onRemove ? handleRemove : undefined}
-                            removeLabel="从歌单删除" />
+                            removeLabel={t("从歌单删除")} />
                     )}
                 </div>
             </div>

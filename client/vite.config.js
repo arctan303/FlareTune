@@ -43,6 +43,7 @@ export default defineConfig({
     proxy: {
       '/api': localApiProxy(),
       '/auth': localApiProxy(),
+      '/rest': localApiProxy(),
       '/media': {
         target: workerProxyTarget,
         changeOrigin: true,

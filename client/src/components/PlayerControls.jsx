@@ -1,3 +1,4 @@
+import { localizeUnknownArtist, t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import QualityBadge from './QualityBadge';
 import { Play, Pause, ListMusic, Loader2, Star } from 'lucide-react';
@@ -87,6 +88,7 @@ export default React.memo(function PlayerControls({
     hideMetadata = false,
     showPlayerModes = false,
 }) {
+    useLocale();
     const { progress, duration, setProgress, isBuffering } = usePlayerStore(useShallow((state) => ({
         progress: state.progress,
         duration: state.duration,
@@ -128,7 +130,7 @@ export default React.memo(function PlayerControls({
                         <div className="flex flex-1 min-w-0 items-center gap-2 opacity-0 animate-[fade-in_0.3s_ease_forwards]">
                             <ScrollText 
                                 key={currentSong?.id + '-title'}
-                                text={currentSong?.title || '未知歌曲'} 
+                                text={currentSong?.title || t("未知歌曲")}
                                 className="classic-controls__title text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight"
                                 containerClassName="flex-1 min-w-0"
                             />
@@ -139,8 +141,8 @@ export default React.memo(function PlayerControls({
                         <div className="classic-controls__metadata-actions flex items-center gap-2 shrink-0 relative">
                             <button
                                 type="button"
-                                aria-label={isInFavorite ? '移出我的收藏' : '加入我的收藏'}
-                                title={isInFavorite ? '移出我的收藏' : '加入我的收藏'}
+                                aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
+                                title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                                 onClick={(event) => toggleFavorite(currentSong, event)}
                                 aria-busy={isPendingFavorite}
                                 className={`h-6 w-6 inline-flex items-center justify-center transition-all hover:scale-110 active:scale-90 focus:outline-none cursor-pointer shrink-0 ${
@@ -164,8 +166,8 @@ export default React.memo(function PlayerControls({
                         key={currentSong?.id + '-meta'}
                         text={
                             currentSong?.artist && currentSong?.album
-                                ? `${currentSong.artist} — ${currentSong.album}`
-                                : (currentSong?.artist || currentSong?.album || '未知艺术家')
+                                ? `${localizeUnknownArtist(currentSong.artist)} — ${currentSong.album}`
+                                : (currentSong?.artist ? localizeUnknownArtist(currentSong.artist) : currentSong?.album || t("未知艺术家"))
                         }
                         className="classic-controls__artist text-xs sm:text-sm text-gray-400 font-medium"
                         containerClassName="opacity-0 animate-[fade-in_0.3s_ease_forwards]"
@@ -212,7 +214,7 @@ export default React.memo(function PlayerControls({
 
             <div className="classic-controls__transport flex items-center justify-between px-2 text-gray-400">
                 <div className="relative">
-                    <button data-active={playMode !== 'sequence'} aria-label="选择播放模式" onClick={() => setShowModeMenu(!showModeMenu)} className={`classic-controls__icon transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${playMode !== 'sequence' ? 'text-blue-500 hover:text-blue-400' : 'hover:text-white'}`} title="选择播放模式">
+                    <button data-active={playMode !== 'sequence'} aria-label={t("选择播放模式")} onClick={() => setShowModeMenu(!showModeMenu)} className={`classic-controls__icon transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${playMode !== 'sequence' ? 'text-blue-500 hover:text-blue-400' : 'hover:text-white'}`} title={t("选择播放模式")}>
                         <PlaybackModeIcon mode={playMode} size={22} strokeWidth={iconStrokeWidth} />
                     </button>
                     
@@ -222,10 +224,10 @@ export default React.memo(function PlayerControls({
                             <div className="fixed inset-0 z-40" onClick={() => setShowModeMenu(false)}></div>
                             <div className="classic-controls__menu absolute bottom-full left-0 mb-4 glass-panel !rounded-2xl p-2 flex flex-col gap-1 w-36 shadow-2xl z-50">
                                 {[
-                                    { id: 'sequence', label: '顺序播放' },
-                                    { id: 'loop', label: '列表循环' },
-                                    { id: 'single', label: '单曲循环' },
-                                    { id: 'random', label: '随机播放' }
+                                    { id: 'sequence', label: t("顺序播放") },
+                                    { id: 'loop', label: t("列表循环") },
+                                    { id: 'single', label: t("单曲循环") },
+                                    { id: 'random', label: t("随机播放") }
                                 ].map(mode => (
                                     <button 
                                         key={mode.id}
@@ -245,14 +247,14 @@ export default React.memo(function PlayerControls({
                 </div>
                 <div className="flex items-center gap-6 md:gap-8">
                     <button
-                        aria-label="上一首"
+                        aria-label={t("上一首")}
                         onClick={handlePlayPrev}
                         className={`skip-btn skip-btn--prev ${isPrevAnimating ? 'is-animating' : ''} classic-controls__icon classic-controls__skip text-white hover:text-gray-300 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white`}
                     >
                         <SolidRoundedSkipBack size={30} isAnimating={isPrevAnimating} animKey={prevAnimNonce} />
                     </button>
                     <button
-                        aria-label={isPlaying ? '暂停' : '播放'}
+                        aria-label={isPlaying ? t("暂停") : t("播放")}
                         onClick={togglePlay}
                         className="classic-controls__icon classic-controls__play flex items-center justify-center text-white hover:text-gray-200 transition-all hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
                     >
@@ -265,7 +267,7 @@ export default React.memo(function PlayerControls({
                         )}
                     </button>
                     <button
-                        aria-label="下一首"
+                        aria-label={t("下一首")}
                         onClick={handlePlayNext}
                         className={`skip-btn skip-btn--next ${isNextAnimating ? 'is-animating' : ''} classic-controls__icon classic-controls__skip text-white hover:text-gray-300 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white`}
                     >
@@ -273,7 +275,7 @@ export default React.memo(function PlayerControls({
                     </button>
                 </div>
 
-                <button aria-label="打开播放列表" onClick={() => setIsPlaylistOpen(true)} className="classic-controls__icon hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ListMusic size={22} strokeWidth={iconStrokeWidth} /></button>
+                <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className="classic-controls__icon hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ListMusic size={22} strokeWidth={iconStrokeWidth} /></button>
             </div>
         </div>
     );

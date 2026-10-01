@@ -167,6 +167,11 @@ export async function resetAccountPassword({ db, actorAccountId, accountId, temp
     statement(db, `UPDATE account_sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL
       AND EXISTS (SELECT 1 FROM accounts WHERE account_id = ? AND role = 'admin' AND status = 'active')`,
     now, accountId, actor.account_id),
+    statement(db, `UPDATE instance_settings SET value_json = '{"enabled":false}',
+      revision = revision + 1, updated_at = ? WHERE key = ?
+      AND EXISTS (SELECT 1 FROM account_credentials WHERE account_id = ? AND salt = ?)
+      AND EXISTS (SELECT 1 FROM accounts WHERE account_id = ? AND role = 'admin' AND status = 'active')`,
+    now, `account.subsonic.${accountId}`, accountId, credential.salt, actor.account_id),
   ]); } catch {
     throw new InstanceAdminError('storage_unavailable', 503);
   }

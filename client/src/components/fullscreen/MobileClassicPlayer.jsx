@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useUIStore, showToast } from '../../store/useUIStore';
@@ -402,7 +403,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
     return (
         <div
             ref={contentRef}
-            aria-label={isArtistMode ? '歌手写真播放器画面' : '经典播放器画面'}
+            aria-label={isArtistMode ? t("歌手写真播放器画面") : t("经典播放器画面")}
             tabIndex={-1}
             data-player-theme={isArtistMode ? 'artist' : 'classic'}
             className={`fixed inset-0 z-50 text-white paper-classic-player ${(hasMounted && isFullScreen && !isClosing) ? 'translate-y-0' : 'translate-y-full'} ${instantEnter ? 'player-mode-fade-in' : ''}`}
@@ -421,7 +422,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
             </span>
             <div className={`classic-player__buffering absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-black/60 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 text-sm text-white/90 shadow-lg pointer-events-none transition-all duration-300 ${isBuffering && isPlaying ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
                 <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>正在缓冲...</span>
+                <span>{t("正在缓冲...")}</span>
             </div>
 
             <MobileClassicBackground

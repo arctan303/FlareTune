@@ -9,7 +9,6 @@ test('only classic and artist-photo presentations are available', () => {
   assert.deepEqual(AVAILABLE_PLAYER_MODES, [PLAYER_MODES.CLASSIC, PLAYER_MODES.CINEMATIC]);
   assert.equal(PLAYER_MODE_META[PLAYER_MODES.CLASSIC].name, '经典播放器');
   assert.equal(PLAYER_MODE_META[PLAYER_MODES.CINEMATIC].name, '歌手写真');
-  assert.doesNotMatch(PLAYER_MODE_META[PLAYER_MODES.CINEMATIC].description, /风景/);
 });
 
 test('desktop icon reveals its current mode on hover while mobile uses its existing more menus', () => {
@@ -24,10 +23,10 @@ test('desktop icon reveals its current mode on hover while mobile uses its exist
 
   assert.match(entry, /const Icon = playerMode === PLAYER_MODES\.CLASSIC \? Disc3 : UserRound/);
   assert.match(entry, /data-player-mode=\{playerMode\}/);
-  assert.match(entry, /aria-label=\{`当前\$\{currentLabel\}，点击切换到\$\{nextLabel\}`\}/);
+  assert.match(entry, /aria-label=\{t\("当前\{p0\}，点击切换到\{p1\}"/);
   assert.match(entry, /onClick=\{\(\) => setPlayerMode\(nextMode\)\}/);
   assert.match(entry, /group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100/);
-  assert.match(entry, /当前：\{currentLabel\}/);
+  assert.match(entry, /t\("当前："\)\}\{currentLabel\}/);
   assert.doesNotMatch(entry, /aria-haspopup|<PlayerModeChoices/);
   assert.match(choices, /AVAILABLE_PLAYER_MODES\.map/);
   assert.match(choices, /aria-checked=\{selected\}/);

@@ -2,6 +2,46 @@
    Shared UI Components & Notice Panels
    ========================================================================== */
 
+.select-control { position: relative; display: inline-flex; min-width: 0; padding: 0 !important; vertical-align: middle; }
+.select-control__trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 9px 13px; border: 0; border-radius: inherit; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color 150ms ease; }
+.select-control__trigger:hover:not(:disabled) { background: var(--hover-tint); }
+.select-control__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.select-control__trigger:disabled { opacity: .5; cursor: default; }
+.select-control__trigger > svg { flex-shrink: 0; color: var(--muted); transition: transform 150ms ease; }
+.select-control__trigger[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.select-control__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-control__menu { position: fixed; z-index: 250; overflow-y: auto; overscroll-behavior: contain; padding: 5px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface-raised); box-shadow: 0 12px 36px color-mix(in srgb, var(--ink) 15%, transparent); font-size: 14px; font-weight: 400; animation: select-control-enter 150ms cubic-bezier(0.2, 0.75, 0.2, 1); }
+@keyframes select-control-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.select-control__option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 9px 11px; border-radius: 9px; cursor: pointer; overflow-wrap: anywhere; }
+.select-control__option[aria-selected="true"] { color: var(--accent); font-weight: 600; }
+.select-control__option[data-active="true"] { background: var(--hover-tint); }
+.select-control__option[aria-disabled="true"] { opacity: .4; cursor: default; }
+.select-control__option > svg { flex-shrink: 0; }
+
+.language-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.language-choice { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: var(--surface); font-size: 14px; cursor: pointer; transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease; }
+.language-choice:hover:not(:disabled) { background: var(--hover-tint); }
+.language-choice[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); font-weight: 600; }
+.language-choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.language-choice:disabled { opacity: .5; cursor: default; }
+input.settings-switch { appearance: none; position: relative; flex-shrink: 0; width: 40px; height: 24px; margin: 0; border: 0; border-radius: 24px; background: var(--line-strong); cursor: pointer; transition: background-color 150ms ease; }
+input.settings-switch::before { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #0002; transition: transform 150ms ease; }
+input.settings-switch:checked { background: var(--accent); }
+input.settings-switch:checked::before { transform: translateX(16px); }
+input.settings-switch:disabled { opacity: .5; cursor: default; }
+input.settings-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .select-control__menu { animation: none; }
+  .select-control__trigger,
+  .select-control__trigger > svg,
+  .language-choice,
+  input.settings-switch,
+  input.settings-switch::before { transition: none; }
+}
+
 .glass-panel {
   contain: content;
   border: 1px solid var(--line);

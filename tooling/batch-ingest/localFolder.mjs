@@ -20,18 +20,18 @@ export class LocalFolder {
   async scan(input) {
     this.invalidate();
     const generation = this.generation;
-    if (typeof input !== 'string' || !input.trim() || input.length > 4096) throw new Error('请输入本机音乐目录的绝对路径。');
-    if (!isAbsolute(input.trim())) throw new Error('请输入本机音乐目录的绝对路径。');
+    if (typeof input !== 'string' || !input.trim() || input.length > 4096) throw new Error('Enter an absolute path to a local music folder.');
+    if (!isAbsolute(input.trim())) throw new Error('Enter an absolute path to a local music folder.');
     const requested = resolve(input.trim());
     const root = await realpath(requested);
-    if (!(await stat(root)).isDirectory()) throw new Error('所选路径不是文件夹。');
+    if (!(await stat(root)).isDirectory()) throw new Error('The selected path is not a folder.');
     const next = new Map();
     const files = [];
     const walk = async (directory, depth) => {
-      if (depth > 24) throw new Error('目录层级超过 24 层，请选择更小的音乐目录。');
+      if (depth > 24) throw new Error('The folder is more than 24 levels deep. Select a smaller music folder.');
       const handle = await opendir(directory);
       for await (const item of handle) {
-        if (generation !== this.generation) throw new Error('扫描已被新请求替代。');
+        if (generation !== this.generation) throw new Error('A newer request replaced this scan.');
         if (item.isSymbolicLink()) continue;
         const path = join(directory, item.name);
         if (item.isDirectory()) { await walk(path, depth + 1); continue; }
@@ -40,7 +40,7 @@ export class LocalFolder {
         if (!AUDIO_TYPES[extension]) continue;
         const info = await stat(path);
         if (!info.size) continue;
-        if (files.length >= LIMIT) throw new Error(`单次最多扫描 ${LIMIT} 首音频，请选择更小的目录。`);
+        if (files.length >= LIMIT) throw new Error(`A single scan supports at most ${LIMIT} audio files. Select a smaller folder.`);
         let common = {}, duration = '';
         try {
           const data = await parseFile(path, { duration: true, skipCovers: false });
@@ -61,7 +61,7 @@ export class LocalFolder {
       }
     };
     await walk(root, 0);
-    if (generation !== this.generation) throw new Error('扫描已被新请求替代。');
+    if (generation !== this.generation) throw new Error('A newer request replaced this scan.');
     this.root = root;
     this.files = next;
     return { path: root, files };
@@ -69,13 +69,13 @@ export class LocalFolder {
 
   async get(id) {
     const file = this.files.get(id);
-    if (!file) throw new Error('本机文件引用已失效，请重新扫描目录。');
+    if (!file) throw new Error('The local file reference has expired. Rescan the folder.');
     const actual = await realpath(file.path);
-    if (!inside(file.root, actual)) throw new Error('文件已移出扫描目录，请重新扫描。');
+    if (!inside(file.root, actual)) throw new Error('The file moved outside the scanned folder. Scan again.');
     const info = await stat(actual);
     if (!info.isFile() || info.size !== file.size || info.mtimeMs !== file.mtimeMs
       || info.dev !== file.dev || info.ino !== file.ino) {
-      throw new Error('文件扫描后已变化，请重新扫描目录。');
+      throw new Error('The file changed after scanning. Scan the folder again.');
     }
     return { ...file, path: actual };
   }
@@ -86,7 +86,7 @@ export class LocalFolder {
     try {
       const info = await handle.stat();
       if (!info.isFile() || info.size !== file.size || info.mtimeMs !== file.mtimeMs
-        || info.dev !== file.dev || info.ino !== file.ino) throw new Error('文件扫描后已变化，请重新扫描目录。');
+        || info.dev !== file.dev || info.ino !== file.ino) throw new Error('The file changed after scanning. Scan the folder again.');
       return { ...file, body: handle.createReadStream({ start, end, autoClose: true }) };
     } catch (error) { await handle.close(); throw error; }
   }
@@ -98,22 +98,22 @@ export class LocalFolder {
       try {
         const info = await handle.stat();
         if (!info.isFile() || info.size !== file.size || info.mtimeMs !== file.mtimeMs
-          || info.dev !== file.dev || info.ino !== file.ino) throw new Error('文件扫描后已变化，请重新扫描目录。');
+          || info.dev !== file.dev || info.ino !== file.ino) throw new Error('The file changed after scanning. Scan the folder again.');
         const prefix = Buffer.alloc(16);
         await handle.read(prefix, 0, 16, 0);
-        if (!validMediaSignature(prefix, file.extension)) throw new Error('音频格式与扩展名不匹配。');
+        if (!validMediaSignature(prefix, file.extension)) throw new Error('The audio format does not match its file extension.');
         return { extension: file.extension, size: file.size,
           body: handle.createReadStream({ autoClose: true }) };
       } catch (error) { await handle.close(); throw error; }
     }
-    if (kind !== 'cover') throw new Error('媒体类型不受支持。');
+    if (kind !== 'cover') throw new Error('Unsupported media type.');
     const opened = await this.openAudio(id);
     try {
       const metadata = await parseStream(opened.body, { mimeType: AUDIO_TYPES[file.extension], size: file.size }, { skipCovers: false });
       const picture = metadata.common.picture?.find((image) => COVER_TYPES[(image.format || '').split('/')[1]]);
-      if (!picture) throw new Error('此文件没有可用封面，请重新扫描。');
+      if (!picture) throw new Error('This file has no usable cover art. Scan again.');
       const extension = picture.format.split('/')[1];
-      if (!validMediaSignature(picture.data, extension)) throw new Error('封面格式无效。');
+      if (!validMediaSignature(picture.data, extension)) throw new Error('Invalid cover art format.');
       return { extension, size: picture.data.byteLength, body: picture.data };
     } finally {
       opened.body.destroy();

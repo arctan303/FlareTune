@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useThemeStore } from '../../store/useThemeStore';
@@ -128,7 +129,7 @@ function LoadingSkeleton({ motionRunning }) {
             className="immersive-lyrics"
             data-motion-running={motionRunning ? 'true' : 'false'}
             aria-busy="true"
-            aria-label="歌词加载中"
+            aria-label={t("歌词加载中")}
         >
             <div className="flex flex-col items-center justify-center">
                 <div className="immersive-lyrics__loading-spinner mb-7 h-10 w-10 rounded-full border-[3px] border-white/15 border-t-white/80 animate-spin" />

@@ -1,3 +1,4 @@
+import { t } from './i18n/index.js';
 import React, { useState, useEffect, useLayoutEffect, useRef, Suspense } from 'react';
 import { useMusicData } from './hooks/useMusicData.js';
 import { useTheme } from './hooks/useTheme.js';
@@ -97,15 +98,13 @@ class ErrorBoundary extends React.Component {
         <div className="theme-fatal-error fixed inset-0 z-[200] flex items-center justify-center px-6" role="alert">
           <div className="state-panel state-panel--error w-full max-w-md px-8 py-7 text-center">
             <p className="state-panel__eyebrow">PLAYER INTERRUPTED</p>
-            <h2 className="mb-2 text-lg font-semibold">播放器加载失败</h2>
-            <p className="state-panel__copy mb-5 text-sm">{this.state.error?.message || '播放器组件暂时不可用'}</p>
+            <h2 className="mb-2 text-lg font-semibold">{t("播放器加载失败")}</h2>
+            <p className="state-panel__copy mb-5 text-sm">{t(this.state.error?.message || '播放器组件暂时不可用')}</p>
             <button
               type="button"
               onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
               className="primary-button min-h-11 px-5 py-2 text-sm font-semibold"
-            >
-              刷新页面
-            </button>
+            >{t("刷新页面")}</button>
           </div>
         </div>
       );
@@ -148,27 +147,23 @@ class DrawerErrorBoundary extends React.Component {
         <aside className={containerClass} role="alert">
           <div className="text-center">
             <p className="state-panel__eyebrow mb-1 text-xs font-medium text-[var(--accent)]">COMPONENT UNAVAILABLE</p>
-            <h3 className="mb-2 text-base font-semibold text-[color:var(--ink)]">{this.props.title || '组件加载未完成'}</h3>
+            <h3 className="mb-2 text-base font-semibold text-[color:var(--ink)]">{this.props.title || t("组件加载未完成")}</h3>
             <p className="mb-5 text-xs leading-relaxed text-[color:var(--muted)]">
               {this.state.error?.message?.includes('Failed to fetch') || this.state.error?.message?.includes('dynamically imported')
-                ? '网络连接波动或资源繁忙，未能成功加载组件。'
-                : (this.state.error?.message || '组件暂时不可用')}
+                ? t("网络连接波动或资源繁忙，未能成功加载组件。")
+                : (this.state.error?.message || t("组件暂时不可用"))}
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={this.handleReload}
                 className="primary-button min-h-9 px-4 py-1.5 text-xs font-semibold"
-              >
-                刷新页面
-              </button>
+              >{t("刷新页面")}</button>
               <button
                 type="button"
                 onClick={this.handleClose}
                 className="theme-drawer__close-btn inline-flex min-h-9 items-center justify-center rounded-xl border border-white/10 px-4 py-1.5 text-xs font-semibold text-[color:var(--muted)] hover:text-[color:var(--ink)]"
-              >
-                关闭
-              </button>
+              >{t("关闭")}</button>
             </div>
           </div>
         </aside>
@@ -325,7 +320,7 @@ export default function App({ validatedSession }) {
             void accountPlaylistsStore.getState().refresh().catch((error) => {
                 console.warn('账号歌单加载失败:', error);
             });
-            void playStats.synchronizeAccountStats().then((result) => {
+            void playStats.synchronizeListeningPreview().then((result) => {
                 if (!result.ok && result.reason !== 'identity-changed') {
                     console.warn('账号播放统计初始化失败:', result.error || result.reason || result.stage);
                 }
@@ -626,18 +621,16 @@ export default function App({ validatedSession }) {
                         <div className="h-full flex items-center justify-center px-6 pt-[var(--header-height,62px)]" role="alert">
                             <div className="state-panel state-panel--error max-w-md px-8 py-7 text-center">
                                 <p className="state-panel__eyebrow">CONNECTION INTERRUPTED</p>
-                                <h2 className="mb-2 text-lg font-semibold">音乐库暂时不可用</h2>
+                                <h2 className="mb-2 text-lg font-semibold">{t("音乐库暂时不可用")}</h2>
                                 <p className="state-panel__copy mb-5 text-sm">{loadError}</p>
-                                <button type="button" onClick={retryMusicData} className="primary-button px-5 py-2 text-sm font-semibold">
-                                    重新加载
-                                </button>
+                                <button type="button" onClick={retryMusicData} className="primary-button px-5 py-2 text-sm font-semibold">{t("重新加载")}</button>
                             </div>
                         </div>
                     ) : isLoading && myPlaylists.length === 0 ? (
-                        <div className="h-full flex items-center justify-center px-6 pt-[var(--header-height,62px)]" role="status" aria-label="正在加载音乐库">
+                        <div className="h-full flex items-center justify-center px-6 pt-[var(--header-height,62px)]" role="status" aria-label={t("正在加载音乐库")}>
                             <div className="state-panel state-panel--loading w-full max-w-sm px-8 py-7">
                                 <p className="state-panel__eyebrow">OPENING THE RECORD SHELF</p>
-                                <p className="state-panel__copy text-sm">正在加载音乐库</p>
+                                <p className="state-panel__copy text-sm">{t("正在加载音乐库")}</p>
                                 <div className="state-skeleton mt-5" aria-hidden="true"><i></i><i></i><i></i></div>
                             </div>
                         </div>
@@ -662,7 +655,7 @@ export default function App({ validatedSession }) {
                 className="app-player-surface"
                 role={isFullScreen ? 'dialog' : undefined}
                 aria-modal={isFullScreen ? true : undefined}
-                aria-label={isFullScreen ? '全屏播放器' : undefined}
+                aria-label={isFullScreen ? t("全屏播放器") : undefined}
                 inert={secondaryModalOpen ? '' : undefined}
             >
                 {playbackSessionReady && <PlayerBar motionProfile={motionProfile} activePage={activePage} />}
@@ -672,17 +665,17 @@ export default function App({ validatedSession }) {
                   </Suspense>
                 </ErrorBoundary>
             </div>
-            <DrawerErrorBoundary title="播放列表" isOpen={isPlaylistOpen} onClose={() => useUIStore.getState().setIsPlaylistOpen(false)}>
+            <DrawerErrorBoundary title={t("播放列表")} isOpen={isPlaylistOpen} onClose={() => useUIStore.getState().setIsPlaylistOpen(false)}>
               <Suspense fallback={null}>
                    {hasOpenedPlaylistDrawer && <PlaylistDrawer motionProfile={motionProfile} />}
               </Suspense>
             </DrawerErrorBoundary>
-            <DrawerErrorBoundary title="背景设置" isOpen={isBackgroundDrawerOpen} onClose={() => useUIStore.getState().setIsBackgroundDrawerOpen(false)}>
+            <DrawerErrorBoundary title={t("背景设置")} isOpen={isBackgroundDrawerOpen} onClose={() => useUIStore.getState().setIsBackgroundDrawerOpen(false)}>
               <Suspense fallback={null}>
                    {authenticated && hasOpenedBackgroundDrawer && <BackgroundDrawer />}
               </Suspense>
             </DrawerErrorBoundary>
-             <DrawerErrorBoundary title="个人歌单" isOpen={isAccountPlaylistOpen} onClose={() => useUIStore.getState().setIsAccountPlaylistOpen(false)}>
+             <DrawerErrorBoundary title={t("个人歌单")} isOpen={isAccountPlaylistOpen} onClose={() => useUIStore.getState().setIsAccountPlaylistOpen(false)}>
                <Suspense fallback={null}>
                     {authenticated && hasOpenedAccountPlaylistDrawer && <AccountPlaylistDrawer />}
                </Suspense>
@@ -703,7 +696,7 @@ export default function App({ validatedSession }) {
                         }])),
                     }));
                     window.dispatchEvent(new CustomEvent('flaretune:catalog-song-updated', { detail: { id: song.id, ...patch } }));
-                    showToast('歌曲信息已更新');
+                    showToast(t("歌曲信息已更新"));
                 }}
             />}
             <audio

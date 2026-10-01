@@ -527,7 +527,7 @@ test('a media response from the prior route cannot authorize the new route', asy
   registry.invalidateRoute();
   finish(new Response(new Blob(['image'])));
   await pending;
-  assert.equal(registry.getReadySource('/media/cover/a.png'), null);
+  assert.equal(registry.getReadySource('/media/cover/a.png'), 'blob:late-route');
   assert.equal((await registry.load('/media/cover/a.png')).fromCache, true);
   assert.equal(checks, 1);
 });
@@ -550,9 +550,8 @@ test('an old media response cannot reauthorize A after A to B to A navigation', 
   route = '/settings'; registry.invalidateRoute();
   route = '/home'; registry.invalidateRoute();
   finish(new Response(new Blob(['image'])));
-  await pending;
+  await assert.rejects(pending, /invalidated/);
   assert.equal(registry.getReadySource('/media/cover/a.png'), null);
-  await assert.rejects(registry.load('/media/cover/a.png'), /invalidated/);
   assert.equal(checks, 1);
 });
 

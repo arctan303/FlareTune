@@ -1,5 +1,7 @@
 # 参与贡献
 
+[简体中文](CONTRIBUTING.md) · [English](CONTRIBUTING.en.md)
+
 感谢帮助完善 FlareTune。Node.js 入库设备工具已有可用版本，欢迎在更多设备、操作系统与曲库规模下验证，也欢迎一起推进第三方播放器兼容和界面多语言。
 
 ## 适合参与的方向

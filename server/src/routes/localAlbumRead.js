@@ -97,14 +97,18 @@ async function artistCredits(db, name) {
 async function enrichAlbumPage(db, pageKeys) {
   if (!pageKeys.length) return [];
   const clause = pageKeys.map(() => '(TRIM(s.artist) = ? AND TRIM(s.album) = ?)').join(' OR ');
-  const result = rows(await db.prepare(`SELECT TRIM(s.artist) AS artist, TRIM(s.album) AS album,
-    COUNT(*) AS track_count,
-    (SELECT t.cover_url FROM Songs t WHERE t.audio_url IS NOT NULL AND TRIM(t.audio_url) <> ''
-      AND TRIM(t.artist) = TRIM(s.artist) AND TRIM(t.album) = TRIM(s.album)
-      AND t.cover_url IS NOT NULL AND TRIM(t.cover_url) <> ''
-      ORDER BY CASE WHEN t.created_at IS NULL THEN 1 ELSE 0 END, t.created_at, t.id LIMIT 1) AS cover_url
+  // Rank the selected albums in one pass instead of scanning Songs again for
+  // each album's cover. Counts still include tracks without artwork.
+  const result = rows(await db.prepare(`WITH ranked AS (
+    SELECT TRIM(s.artist) AS artist, TRIM(s.album) AS album, s.cover_url,
+      COUNT(*) OVER (PARTITION BY TRIM(s.artist), TRIM(s.album)) AS track_count,
+      ROW_NUMBER() OVER (PARTITION BY TRIM(s.artist), TRIM(s.album) ORDER BY
+        CASE WHEN s.cover_url IS NOT NULL AND TRIM(s.cover_url) <> '' THEN 0 ELSE 1 END,
+        CASE WHEN s.created_at IS NULL THEN 1 ELSE 0 END, s.created_at, s.id) AS cover_rank
     FROM Songs s WHERE ${PLAYABLE} AND (${clause})
-    GROUP BY TRIM(s.artist), TRIM(s.album)`)
+  ) SELECT artist, album, track_count,
+      CASE WHEN cover_url IS NOT NULL AND TRIM(cover_url) <> '' THEN cover_url ELSE NULL END AS cover_url
+    FROM ranked WHERE cover_rank = 1`)
     .bind(...pageKeys.flatMap((row) => [row.artist, row.album])).all());
   const full = new Map(result.map((row) => [JSON.stringify([row.artist, row.album]), row]));
   return pageKeys.flatMap((key) => {

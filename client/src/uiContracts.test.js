@@ -190,12 +190,12 @@ test('the confirmed brand name is consistent across metadata, the unique sidebar
   const manifest = readSource('../public/manifest.json');
   const playbackPresentation = readSource('./hooks/usePlaybackPresentation.js');
 
-  assert.match(html, /<title>FlareTune \| 自建音频流媒体<\/title>/);
+  assert.match(html, /<title>FlareTune<\/title>/);
   assert.match(app, /usePlaybackPresentation\(currentSong, isPlaying\)/);
   assert.match(playbackPresentation, /const DEFAULT_TITLE = 'FlareTune'/);
   assert.match(sidebar, /<TuneWordmark \/>/);
   assert.match(wordmark, />Tune<\/span>/);
-  assert.match(home, /<h1>主页<\/h1>/);
+  assert.match(home, /<h1>\{t\("主页"\)\}<\/h1>/);
   assert.doesNotMatch(app, /HeaderNav/);
 
   assert.match(manifest, /"name": "FlareTune"/);
@@ -363,7 +363,7 @@ test('account playlists remain independent while the assistant page uses account
   assert.match(detail, /onPlaySong\(playlistSongs\[0\], playlistSongs\)/);
   assert.match(search, /openAddToPlaylist\(selectedSong\)/);
   assert.doesNotMatch(search, /selectedPickerSongIds|selectedTargetIds|addSelectionToPlaylists/);
-  assert.match(addToPlaylistModal, /aria-label="选择目标歌单"/);
+  assert.match(addToPlaylistModal, /aria-label=\{t\("选择目标歌单"\)\}/);
   assert.match(addToPlaylistModal, /addSongs\(targets, songIds\)/);
   assert.match(addToPlaylistModal, /songIds\.length \* selectedTargetIds\.length > 500/);
   assert.match(addToPlaylistModal, /playlist\.kind === 'favorite'/);
@@ -505,7 +505,7 @@ test('desktop mode icon shows current state and mobile more menu holds explicit 
   const immersive = readSource('./components/fullscreen/DesktopImmersivePlayer.jsx');
   const chrome = readSource('./components/fullscreen/ImmersiveChrome.jsx');
 
-  assert.match(entry, /aria-label=\{`当前\$\{currentLabel\}，点击切换到\$\{nextLabel\}`\}/);
+  assert.match(entry, /aria-label=\{t\("当前\{p0\}，点击切换到\{p1\}", \{ p0: \(currentLabel\), p1: \(nextLabel\) \}\)\}/);
   assert.match(entry, /onClick=\{\(\) => setPlayerMode\(nextMode\)\}/);
   assert.match(entry, /group-hover:opacity-100/);
   assert.doesNotMatch(entry, /aria-haspopup|<PlayerModeChoices/);
@@ -620,7 +620,7 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
   assert.match(home, /onClick=\{onToggleRoam\}/);
   assert.match(main, /startRandomRoam\(randomSongs/);
   assert.match(main, /setRandomRoamEnabled/);
-  assert.match(roam, /aria-label=\{randomRoam\.enabled \? '暂停漫游' : '开启漫游电台'\}/);
+  assert.match(roam, /aria-label=\{randomRoam\.enabled \? t\("暂停漫游"\) : t\("开启漫游电台"\)\}/);
   assert.match(queue, /队尾随机续播/);
   assert.match(queue, /role="switch"/);
   assert.match(queue, /retryRandomRoam/);
@@ -632,7 +632,7 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
   assert.match(store, /waitingAtQueueEnd/);
   assert.match(store, /resumeWhenAppended/);
   assert.match(store, /removePlaylistSong/);
-  assert.match(store, /本轮已漫游完整个曲库/);
+  assert.match(store, /当前范围暂无可补充的歌曲/);
   assert.match(worker, /handleLocalMusicDiscoveryRoute\(request/);
   assert.match(songs, /isRoam = pathname === '\/api\/songs\/roam' && request\.method === 'POST'/);
   assert.match(songs, /totalPlayable: playable\.length/);
@@ -774,7 +774,7 @@ test('add to playlist modal and multi-page track actions integrate across random
 
   assert.match(store, /isAddToPlaylistOpen: false/);
   assert.match(store, /openAddToPlaylist:/);
-  assert.match(modal, /aria-label="选择目标歌单"/);
+  assert.match(modal, /aria-label=\{t\("选择目标歌单"\)\}/);
   assert.match(modal, /accountPlaylistsStore\.getState\(\)\.addSongs/);
   assert.match(modal, /isTopmostModal/);
   assert.match(modal, /trapDrawerTabKey/);
@@ -797,7 +797,7 @@ test('assistant entry remains on the main sidebar and empty playlist', () => {
 
   assert.match(sidebar, /data-ai-entry="sidebar"/);
   assert.match(sidebar, /navigate\('assistant'\)/);
-  assert.match(sidebar, /<span>助手<\/span>/);
+  assert.match(sidebar, /<span>\{t\("助手"\)\}<\/span>/);
   assert.doesNotMatch(sidebar, /<span>小A<\/span>|data-tooltip="小A"/);
   assert.doesNotMatch(moreMenu, /<span>助手<\/span>|data-ai-entry|setIsAiReviewOpen/);
   assert.doesNotMatch(immersive, /onOpenAssistant|data-ai-entry/);

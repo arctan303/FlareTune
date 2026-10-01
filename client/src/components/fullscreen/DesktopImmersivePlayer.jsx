@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 import React from 'react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -248,7 +249,7 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
     return (
         <div
             ref={stageRef}
-            aria-label="沉浸式播放器画面"
+            aria-label={t("沉浸式播放器画面")}
             tabIndex={-1}
             className={`fixed inset-0 z-50 overflow-hidden bg-black text-white ${(hasMounted && isFullScreen && !isClosing) ? 'translate-y-0' : 'translate-y-full'} ${instantEnter ? 'player-mode-fade-in' : ''}`}
             style={{

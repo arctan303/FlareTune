@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import {
   accountPlaylistsStore,
@@ -37,11 +38,11 @@ export function useFavoriteSongAction() {
   const toggleFavorite = React.useCallback(async (song, event) => {
     event?.stopPropagation();
     if (!song?.id) {
-      showToast('当前未选择歌曲');
+      showToast(t("当前未选择歌曲"));
       return false;
     }
     if (!favoritePlaylist || !favoriteDetail) {
-      showToast('我的收藏尚未加载，请重试');
+      showToast(t("我的收藏尚未加载，请重试"));
       return false;
     }
 

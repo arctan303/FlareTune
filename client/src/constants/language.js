@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 /**
  * 歌曲语言定义与元数据映射
  */
@@ -44,13 +46,13 @@ const LANGUAGE_SHORT_LABEL_MAP = new Map(
 );
 
 export function getLanguageLabel(code, fallback = '未设置') {
-  if (!code) return fallback;
-  return LANGUAGE_LABEL_MAP.get(code) || code;
+  if (!code) return t(fallback);
+  return t(LANGUAGE_LABEL_MAP.get(code) || code);
 }
 
 export function getLanguageShortLabel(code, fallback = '未知') {
-  if (!code) return fallback;
-  return LANGUAGE_SHORT_LABEL_MAP.get(code) || code;
+  if (!code) return t(fallback);
+  return t(LANGUAGE_SHORT_LABEL_MAP.get(code) || code);
 }
 
 export function isPrimaryLanguage(code) {

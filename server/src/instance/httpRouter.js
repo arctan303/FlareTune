@@ -23,7 +23,8 @@ import { handleLocalCatalogAdminRoute } from '../routes/localCatalogAdmin.js';
 import { handleLocalCatalogMediaRoute } from '../routes/localCatalogMedia.js';
 import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
 import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
-import { updateOwnDisplayName } from '../auth/local/profile.js';
+import { getOwnUiLanguage, updateOwnDisplayName, updateOwnUiLanguage } from '../auth/local/profile.js';
+import { ownStatus as subsonicStatus, setEnabled as setSubsonicEnabled } from '../subsonic/credentials.js';
 import {
   AuthError,
   claimInstance,
@@ -83,7 +84,11 @@ function attachCors(response, origin) {
 
 export async function handleApi(request, env, path, ctx) {
   if (path === '/api/auth/recovery') return json({ error: 'not_found' }, 404);
-  const instance = await resolveInstanceState(env?.DB);
+  const cacheSchema = request.method === 'GET'
+    && !['/api/health', '/api/instance/status'].includes(path)
+    && !path.startsWith('/api/admin/') && !path.startsWith('/api/manage/')
+    && !path.startsWith('/api/instance/');
+  const instance = await resolveInstanceState(env?.DB, Date.now(), { cacheSchema });
   const origin = request.headers.get('Origin');
   const sameOrigin = new URL(request.url).origin;
   const crossOrigin = origin && origin !== sameOrigin
@@ -124,7 +129,7 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     return json(session ? {
       authenticated: true,
       mustChangePassword: session.mode === 'must_change_password',
-      user: session.account,
+      user: { ...session.account, uiLanguage: await getOwnUiLanguage(env.DB, session.account.accountId) },
       csrfToken: session.csrfToken,
     } : { authenticated: false, mustChangePassword: false });
   }
@@ -226,12 +231,30 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
     }
     const actorAccountId = session?.account?.accountId;
+    if (path === '/api/account/subsonic' && request.method === 'GET') {
+      return json(await subsonicStatus(env.DB, actorAccountId, env));
+    }
+    if (path === '/api/account/subsonic' && request.method === 'PUT') {
+      const body = await readBoundedJson(request);
+      if (body.enabled === true) {
+        const limit = await consumeAuthAttempt({ db: env.DB, request, kind: 'login', username: session.account.username });
+        if (!limit.allowed) return json({ error: 'rate_limited' }, 429);
+      }
+      return json(await setSubsonicEnabled(env.DB, session, body, env));
+    }
     if (path === '/api/account/profile' && request.method === 'PATCH') {
       const body = await readBoundedJson(request);
       if (!body || Object.keys(body).some((key) => key !== 'displayName')) {
         return json({ error: 'invalid_input' }, 400);
       }
       return json({ user: await updateOwnDisplayName(env.DB, actorAccountId, body.displayName) });
+    }
+    if (path === '/api/account/ui-language' && request.method === 'PATCH') {
+      const body = await readBoundedJson(request);
+      if (!body || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'uiLanguage')) {
+        return json({ error: 'invalid_input' }, 400);
+      }
+      return json(await updateOwnUiLanguage(env.DB, actorAccountId, body.uiLanguage));
     }
     if (path === '/api/admin/accounts' && request.method === 'GET') {
       return json(await listAccounts({ db: env.DB, actorAccountId }));

@@ -38,6 +38,7 @@ export const createImageLoadRegistry = ({
   let routeEpoch = 0;
   let visibilityRevision = 0;
   let privateBytes = 0;
+  let routeCheckError = null;
 
   const notifyVisibilityChange = () => {
     visibilityRevision += 1;
@@ -80,12 +81,14 @@ export const createImageLoadRegistry = ({
     }
   };
 
-  const getPrivate = (url) => {
+  const getPrivate = (url, touchEntry = true) => {
     prunePrivate();
     const entry = privateCovers.get(url);
     if (!entry) return null;
-    privateCovers.delete(url);
-    privateCovers.set(url, entry);
+    if (touchEntry) {
+      privateCovers.delete(url);
+      privateCovers.set(url, entry);
+    }
     return entry;
   };
 
@@ -139,6 +142,7 @@ export const createImageLoadRegistry = ({
   };
 
   const ensureCurrentRoute = async () => {
+    if (routeCheckError) throw routeCheckError;
     const requestedRoute = routeKey();
     const requestedEpoch = routeEpoch;
     if (authorizedRoute === requestedRoute) return;
@@ -146,7 +150,16 @@ export const createImageLoadRegistry = ({
       || sessionVerification.epoch !== requestedEpoch) {
       const expectedScope = sessionScope;
       const promise = (async () => {
-        const session = await verifySession();
+        let session;
+        try {
+          session = await verifySession();
+        } catch (error) {
+          if (expectedScope === sessionScope && requestedEpoch === routeEpoch && requestedRoute === routeKey()) {
+            routeCheckError = error;
+            clearAll();
+          }
+          throw error;
+        }
         if (expectedScope !== sessionScope) throw new Error('Private cover session changed');
         if (routeKey() !== requestedRoute || routeEpoch !== requestedEpoch) {
           throw new Error('Private cover route changed');
@@ -159,6 +172,7 @@ export const createImageLoadRegistry = ({
           throw new Error('Private cover session invalidated');
         }
         authorizedRoute = requestedRoute;
+        routeCheckError = null;
       })();
       sessionVerification = { route: requestedRoute, epoch: requestedEpoch, promise };
       promise.finally(() => {
@@ -169,6 +183,7 @@ export const createImageLoadRegistry = ({
   };
 
   const loadPrivate = (url) => {
+    if (routeCheckError) return Promise.reject(routeCheckError);
     const cached = getPrivate(url);
     if (cached) return ensureCurrentRoute().then(() => {
       const current = getPrivate(url);
@@ -186,6 +201,7 @@ export const createImageLoadRegistry = ({
     const requestEpoch = routeEpoch;
     const controller = new AbortController();
     const promise = (async () => {
+      if (authorizedRoute !== routeKey()) await ensureCurrentRoute();
       const response = await fetchImpl(url, {
         credentials: 'include', cache: 'no-store', signal: controller.signal,
       });
@@ -221,6 +237,7 @@ export const createImageLoadRegistry = ({
       privateBytes += blob.size;
       prunePrivate();
       if (routeKey() === requestRoute && routeEpoch === requestEpoch) authorizedRoute = requestRoute;
+      await ensureCurrentRoute();
       return { url: objectUrl, fromCache: false };
     })().finally(() => {
       if (privateInflight.get(url)?.promise === promise) privateInflight.delete(url);
@@ -415,6 +432,12 @@ export const createImageLoadRegistry = ({
     loadWithFallback,
     loadGroup,
     getReadySource,
+    // Only keep a Blob already held by a mounted consumer. New consumers must
+    // still use getReadySource/load and pass the current route's session check.
+    canRetainSource(url, source) {
+      return !routeCheckError && shouldLoadPrivately(url) && source?.startsWith('blob:')
+        && getPrivate(url, false)?.objectUrl === source;
+    },
     shouldLoadPrivately,
     isPrivateMediaUrl,
     getRouteRevision: () => routeEpoch,
@@ -426,12 +449,14 @@ export const createImageLoadRegistry = ({
     invalidateRoute() {
       routeEpoch += 1;
       authorizedRoute = null;
+      routeCheckError = null;
       notifyVisibilityChange();
     },
     setSessionScope(session) {
       const next = scopeForSession(session);
       if (next === sessionScope) return;
       sessionScope = next;
+      routeCheckError = null;
       authorizedRoute = next ? routeKey() : null;
       this.clear();
     },

@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { X, Trash2, ListMusic, Compass, Loader2, RotateCcw, GripVertical, Disc } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -97,18 +98,18 @@ export default function PlaylistDrawer() {
         if (nextEnabled) {
             showToast(playlist.length === 0 ? '已开启随机漫游，正在载入歌曲…' : '已开启队尾随机续播');
         } else {
-            showToast('已关闭队尾随机续播');
+            showToast(t("已关闭队尾随机续播"));
         }
     };
 
     const handleManualRoamAppend = () => {
         if (!authenticated) {
-            showToast('请先登录后体验漫游功能');
+            showToast(t("请先登录后体验漫游功能"));
             return;
         }
         if (randomRoam.status === 'loading') return;
         triggerManualRandomRoam();
-        showToast(`正在补充 ${randomRoam.batchSize || 10} 首漫游歌曲…`);
+        showToast(t("正在补充 {p0} 首漫游歌曲…", { p0: (randomRoam.batchSize || 10) }));
     };
 
     React.useEffect(() => {
@@ -195,11 +196,11 @@ export default function PlaylistDrawer() {
                 <div className="theme-drawer__header px-4 py-3 border-b border-current/10">
                     <div className="w-full flex items-center justify-between gap-2">
                         <h2 id="playlist-drawer-title" className="flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
-                            <ListMusic size={17} aria-hidden="true" /> 当前播放 <span className="text-xs text-[var(--muted)]">({playlist.length})</span>
+                            <ListMusic size={17} aria-hidden="true" />{' '}{t("当前播放")}{' '}<span className="text-xs text-[var(--muted)]">({playlist.length})</span>
                         </h2>
                         <button
                             ref={closeButtonRef}
-                            aria-label="关闭播放列表"
+                            aria-label={t("关闭播放列表")}
                             onClick={() => setIsPlaylistOpen(false)}
                             className="theme-drawer__close !w-8 !h-8 !min-w-[32px] !min-h-[32px] !rounded-xl !border-transparent !bg-transparent flex items-center justify-center text-[var(--muted)] hover:text-[var(--ink)] hover:!bg-current/10 transition-all shrink-0 cursor-pointer"
                         >
@@ -214,14 +215,14 @@ export default function PlaylistDrawer() {
                             {playlist.length === 0 ? (
                                 <div className="theme-empty text-center py-20 flex flex-col items-center justify-center">
                                     <ListMusic size={48} className="mx-auto mb-4 opacity-30" strokeWidth={1} />
-                                    <p className="text-sm text-[var(--muted)] mb-3">列表是空的</p>
+                                    <p className="text-sm text-[var(--muted)] mb-3">{t("列表是空的")}</p>
                                     <button
                                         type="button"
                                         onClick={handleManualRoamAppend}
                                         disabled={randomRoam.status === 'loading'}
                                         className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-[var(--accent)] text-[var(--accent-contrast,white)] text-xs font-semibold hover:opacity-90 transition-all cursor-pointer shadow-sm disabled:opacity-50"
                                     >
-                                        <span>{randomRoam.status === 'loading' ? '正在载入漫游歌曲…' : `开启随机漫游 (${randomRoam.batchSize || 10} 首)`}</span>
+                                        <span>{randomRoam.status === 'loading' ? t("正在载入漫游歌曲…") : t("开启随机漫游 ({p0} 首)", { p0: (randomRoam.batchSize || 10) })}</span>
                                     </button>
                                     {randomRoam.status === 'loading' && (
                                         <div className="mt-6 w-full max-w-xs animate-roam-loading-expand space-y-2 text-left">
@@ -308,8 +309,8 @@ export default function PlaylistDrawer() {
                                                         removePlaylistSong(index);
                                                     }}
                                                     className="queue-row__action relative z-[2] opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg text-current/50 hover:text-red-400 hover:bg-current/10 transition-all flex-shrink-0"
-                                                    title="从播放列表移出"
-                                                    aria-label={`从播放列表移出 ${song.title}`}
+                                                    title={t("从播放列表移出")}
+                                                    aria-label={t("从播放列表移出 {p0}", { p0: (song.title) })}
                                                 >
                                                     <X size={15} />
                                                 </button>
@@ -323,8 +324,8 @@ export default function PlaylistDrawer() {
                                                             beginPointerDrag(song.id, index, event);
                                                         }}
                                                         className="queue-row__drag relative z-[2] flex-shrink-0 touch-none select-none"
-                                                        title="按住拖拽调整排序"
-                                                        aria-label={`按住拖拽调整 ${song.title} 排序`}
+                                                        title={t("按住拖拽调整排序")}
+                                                        aria-label={t("按住拖拽调整 {p0} 排序", { p0: (song.title) })}
                                                     >
                                                         <GripVertical size={16} />
                                                     </button>
@@ -344,7 +345,7 @@ export default function PlaylistDrawer() {
                                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75" />
                                                             <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]" />
                                                         </span>
-                                                        <span>正在漫游探索新歌…</span>
+                                                        <span>{t("正在漫游探索新歌…")}</span>
                                                     </span>
                                                     <div className="flex items-end gap-0.5 h-3">
                                                         <span className="w-0.5 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDuration: '0.6s' }} />
@@ -382,12 +383,12 @@ export default function PlaylistDrawer() {
                                             {randomRoam.status === 'loading' ? (
                                                 <span className="flex items-center gap-2">
                                                     <Loader2 size={14} className="animate-spin text-[var(--accent)] shrink-0" />
-                                                    <span>正在补充漫游歌曲…</span>
+                                                    <span>{t("正在补充漫游歌曲…")}</span>
                                                 </span>
                                             ) : (
                                                 <span className="flex items-center gap-2">
                                                     <Compass size={14} className="text-[var(--accent)] shrink-0" />
-                                                    <span>{`漫游补充 ${randomRoam.batchSize || 10} 首歌曲`}</span>
+                                                    <span>{t("漫游补充 {p0} 首歌曲", { p0: (randomRoam.batchSize || 10) })}</span>
                                                 </span>
                                             )}
                                         </button>
@@ -403,19 +404,19 @@ export default function PlaylistDrawer() {
                                 <div className="flex items-center gap-1.5 min-w-0">
                                     <Compass size={17} className={`shrink-0 ${randomRoam.enabled ? 'text-[var(--accent)]' : 'text-[var(--muted)] opacity-70'}`} aria-hidden="true" />
                                     <div className="flex flex-col min-w-0">
-                                        <span className="text-xs font-semibold text-[var(--ink)] leading-snug whitespace-nowrap">队尾随机续播</span>
+                                        <span className="text-xs font-semibold text-[var(--ink)] leading-snug whitespace-nowrap">{t("队尾随机续播")}</span>
                                         <span className="text-[10px] text-[var(--muted)] leading-snug truncate max-w-[125px]">
                                             {randomRoam.status === 'exhausted'
-                                                ? '本轮已走完'
+                                                ? t("暂无可补充歌曲")
                                                 : randomRoam.status === 'loading'
-                                                    ? '正在寻找…'
+                                                    ? t("正在寻找…")
                                                     : randomRoam.status === 'error'
-                                                        ? '重试续播'
+                                                        ? t("重试续播")
                                                         : randomRoam.enabled && !authenticated
-                                                            ? '未登录暂停'
+                                                            ? t("未登录暂停")
                                                             : isRoamLibraryQueued
-                                                                ? '全曲库已进队'
-                                                                : '队尾自动补充'}
+                                                                ? t("暂无可补充歌曲")
+                                                                : t("队尾自动补充")}
                                         </span>
                                     </div>
                                 </div>
@@ -423,7 +424,7 @@ export default function PlaylistDrawer() {
                                     type="button"
                                     role="switch"
                                     aria-checked={randomRoam.enabled}
-                                    aria-label="队尾随机续播"
+                                    aria-label={t("队尾随机续播")}
                                     onClick={handleRoamToggle}
                                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
                                         randomRoam.enabled ? 'bg-[var(--accent)]' : 'bg-slate-300 dark:bg-slate-600'
@@ -436,13 +437,13 @@ export default function PlaylistDrawer() {
                                 {/* 状态反馈固定位：放于开关后面，避免开关位移 */}
                                 <div className="w-5 h-5 flex items-center justify-center shrink-0">
                                     {randomRoam.status === 'loading' ? (
-                                        <Loader2 size={13} className="shrink-0 animate-spin text-[var(--accent)]" aria-label="正在加载续播歌曲" />
+                                        <Loader2 size={13} className="shrink-0 animate-spin text-[var(--accent)]" aria-label={t("正在加载续播歌曲")} />
                                     ) : randomRoam.status === 'error' && randomRoam.enabled ? (
                                         <button
                                             type="button"
                                             onClick={retryRandomRoam}
                                             className="text-button text-xs font-medium p-0.5 text-[var(--accent)] hover:scale-110 active:scale-95 transition-transform"
-                                            title="重试续播"
+                                            title={t("重试续播")}
                                         >
                                             <RotateCcw size={12} aria-hidden="true" />
                                         </button>
@@ -455,10 +456,10 @@ export default function PlaylistDrawer() {
                                 type="button"
                                 onClick={clearPlaylist}
                                 className="theme-drawer__danger flex items-center gap-1.5 px-3 py-2 text-xs font-medium cursor-pointer shrink-0"
-                                title="清空当前播放队列"
+                                title={t("清空当前播放队列")}
                             >
                                 <Trash2 size={13} strokeWidth={2} />
-                                <span>清空列表</span>
+                                <span>{t("清空列表")}</span>
                             </button>
                         </div>
                 </>

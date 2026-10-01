@@ -231,6 +231,8 @@ const updateShelf = async (db, accountId, input, now) => {
 const createPlaylist = async (db, accountId, input, now) => {
   const name = cleanName(input.name);
   const description = cleanDescription(input.description ?? '');
+  const initialSongs = uniqueIds(input.songIds ?? []);
+  await assertSongs(db, initialSongs);
   await ensureFavorite(db, accountId, now);
   const idempotencyKey = typeof input.idempotencyKey === 'string' ? input.idempotencyKey : '';
   let id = `pl_${crypto.randomUUID()}`;
@@ -241,11 +243,16 @@ const createPlaylist = async (db, accountId, input, now) => {
     const previous = await summary(db, accountId, id);
     if (previous) return { outcome: 'noop', playlist: previous, shelf: await getShelf(db, accountId, now) };
   }
-  const result = await db.prepare(`INSERT OR IGNORE INTO Member_Playlists
+  const insert = db.prepare(`INSERT OR IGNORE INTO Member_Playlists
     (id, account_id, kind, name, description, revision, created_at, updated_at)
     SELECT ?, ?, 'regular', ?, ?, 0, ?, ? WHERE
       (SELECT COUNT(*) FROM Member_Playlists WHERE account_id = ? AND kind = 'regular') < ?`)
-    .bind(id, accountId, name, description, now, now, accountId, MAX_REGULAR_PLAYLISTS).run();
+    .bind(id, accountId, name, description, now, now, accountId, MAX_REGULAR_PLAYLISTS);
+  const statements = [insert, db.prepare(`INSERT INTO Member_Playlist_Songs
+    (playlist_id, song_id, sort_order, added_at) SELECT ?, value, CAST(key AS INTEGER), ? FROM json_each(?) WHERE EXISTS (
+      SELECT 1 FROM Member_Playlists WHERE id = ? AND account_id = ? AND revision = 0)`)
+    .bind(id, now, JSON.stringify(initialSongs), id, accountId)];
+  const result = initialSongs.length ? (await db.batch(statements))[0] : await insert.run();
   if (changed(result) !== 1) {
     if (idempotencyKey) {
       const previous = await summary(db, accountId, id);
@@ -289,6 +296,10 @@ const deletePlaylist = async (db, accountId, id, input, now) => {
 const replaceSongs = async (db, accountId, id, input, now) => {
   const current = await playlistRow(db, accountId, id);
   if (!current) fail('PLAYLIST_NOT_FOUND', '歌单不存在。', 404);
+  const hasMetadata = Object.hasOwn(input, 'name') || Object.hasOwn(input, 'description');
+  if (hasMetadata && current.kind === 'favorite') fail('FAVORITE_METADATA_FORBIDDEN', '收藏歌单不可改名。', 409);
+  const name = Object.hasOwn(input, 'name') ? cleanName(input.name) : current.name;
+  const description = Object.hasOwn(input, 'description') ? cleanDescription(input.description) : current.description;
   if (Array.isArray(input.songIds) && input.songIds.length > MAX_PLAYLIST_SONGS) {
     fail('PLAYLIST_SONG_LIMIT_REACHED', '每个歌单最多保存 500 首歌曲。', 409);
   }
@@ -300,20 +311,21 @@ const replaceSongs = async (db, accountId, id, input, now) => {
     JOIN Member_Playlists p ON p.id = ps.playlist_id
     WHERE p.id = ? AND p.account_id = ? ORDER BY ps.sort_order, ps.song_id`).bind(id, accountId).all();
   const before = rows(existing).map((row) => row.song_id);
-  if (before.length === ids.length && before.every((songId, index) => songId === ids[index])) {
+  if (before.length === ids.length && before.every((songId, index) => songId === ids[index])
+    && name === current.name && description === current.description) {
     return { outcome: 'noop', playlist: await getPlaylist(db, accountId, id) };
   }
   // D1 batch is transactional. A failed compare-and-swap leaves every later
   // statement inert because all writes require the incremented revision.
-  const statements = [db.prepare(`UPDATE Member_Playlists SET revision = revision + 1, updated_at = ?
-    WHERE id = ? AND account_id = ? AND revision = ?`).bind(now, id, accountId, revision)];
+  const statements = [db.prepare(`UPDATE Member_Playlists SET revision = revision + 1, updated_at = ?, name = ?, description = ?
+    WHERE id = ? AND account_id = ? AND revision = ?`).bind(now, name, description, id, accountId, revision)];
   statements.push(db.prepare(`DELETE FROM Member_Playlist_Songs WHERE playlist_id = ? AND EXISTS (
     SELECT 1 FROM Member_Playlists WHERE id = ? AND account_id = ? AND revision = ?
   )`).bind(id, id, accountId, revision + 1));
-  ids.forEach((songId, index) => statements.push(db.prepare(`INSERT INTO Member_Playlist_Songs
-    (playlist_id, song_id, sort_order, added_at) SELECT ?, ?, ?, ? WHERE EXISTS (
+  if (ids.length) statements.push(db.prepare(`INSERT INTO Member_Playlist_Songs
+    (playlist_id, song_id, sort_order, added_at) SELECT ?, value, CAST(key AS INTEGER), ? FROM json_each(?) WHERE EXISTS (
       SELECT 1 FROM Member_Playlists WHERE id = ? AND account_id = ? AND revision = ?
-    )`).bind(id, songId, index, now, id, accountId, revision + 1)));
+    )`).bind(id, now, JSON.stringify(ids), id, accountId, revision + 1));
   const result = await guardedBatch(db, accountId, id, revision, statements);
   if (changed(result[0]) !== 1) await conflict(db, accountId, id);
   return { outcome: 'applied', playlist: await getPlaylist(db, accountId, id) };
@@ -494,15 +506,18 @@ const recordPlays = async (db, accountId, input, now) => {
   if (unresolved) fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
   return { recorded, acceptedEventIds: events.map((event) => event.eventId) };
 };
-const topPlays = async (db, accountId, input) => {
+const topPlays = async (db, accountId, input, summaryOnly = false) => {
   const parsed = Number(input);
   const limit = Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : 20;
-  const [songs, playRows] = await Promise.all([
-    db.prepare(`SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url,
+  const songsRequest = db.prepare(`SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url,
       s.cover_url, s.language, p.play_count, p.last_played_at
       FROM Member_Song_Plays p JOIN Songs s ON s.id = p.song_id
       WHERE p.account_id = ? ORDER BY p.play_count DESC, p.last_played_at DESC LIMIT ?`)
-      .bind(accountId, limit).all(),
+      .bind(accountId, limit).all();
+  // Home needs only the indexed top list, never the account's complete counts.
+  if (summaryOnly) return { songs: rows(await songsRequest), topAlbums: [], view: 'summary' };
+  const [songs, playRows] = await Promise.all([
+    songsRequest,
     db.prepare(`SELECT song_id, play_count FROM Member_Song_Plays WHERE account_id = ?`)
       .bind(accountId).all(),
   ]);
@@ -515,6 +530,11 @@ const topPlays = async (db, accountId, input) => {
 };
 
 const ACCOUNT_PATHS = /^\/api\/account\/(?:playlists(?:\/|$)|playlist-songs$|playlist-shelf(?:\/|$)|play-stats$)/;
+
+// Internal adapters must provide a verified account id; never export an HTTP
+// bypass. All writes retain the same quotas, ownership and revision guards.
+export const accountMusic = Object.freeze({ listPlaylists, getPlaylist, createPlaylist,
+  replaceSongs, deletePlaylist });
 
 // Assistant tools call the same account-scoped operations after the outer
 // router has verified the local session and CSRF token.
@@ -551,7 +571,8 @@ export async function handleLocalAccountMusicRoute(request, url, db, headers = {
       if (request.method === 'PUT') return success(await updateShelf(db, accountId, await bodyOf(request), now), 200, headers);
     }
     if (path === '/api/account/play-stats') {
-      if (request.method === 'GET') return success(await topPlays(db, accountId, url.searchParams.get('limit') || 20), 200, headers);
+      if (request.method === 'GET') return success(await topPlays(db, accountId,
+        url.searchParams.get('limit') || 20, url.searchParams.get('view') === 'summary'), 200, headers);
       if (request.method === 'POST') return success(await recordPlays(db, accountId, await bodyOf(request), now), 200, headers);
       return failure('METHOD_NOT_ALLOWED', 405, '不支持的请求方法。', headers);
     }

@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import {
   Check,
@@ -81,11 +82,11 @@ export default function AccountPlaylistDrawer() {
       setShelfDraftItems((current) => moveOrderingItem(current, itemKey, toIndex));
       const movedItem = snapshot.find((item) => typedPlaylistRefKey(item) === itemKey);
       const title = memberById.get(movedItem?.id)?.name;
-      setLiveStatus(`已将《${title || '歌单'}》移动到第 ${toIndex + 1} 位`);
+      setLiveStatus(t('已将《{title}》移动到第 {position} 位', { title: title || t('歌单'), position: toIndex + 1 }));
     },
     onCancel: ({ snapshot }) => {
       setShelfDraftItems(cloneOrderingItems(snapshot));
-      setLiveStatus('拖动已取消，顺序已恢复');
+      setLiveStatus(t('拖动已取消，顺序已恢复'));
     },
   });
 
@@ -130,8 +131,8 @@ export default function AccountPlaylistDrawer() {
       return;
     }
     if (workspaceSubject && workspaceSubject !== subject) {
-      setLiveStatus('账号状态已变化，正在关闭管理抽屉');
-      showToast('账号状态已变化，已退出唱片架管理');
+      setLiveStatus(t('账号状态已变化，正在关闭管理抽屉'));
+      showToast(t("账号状态已变化，已退出唱片架管理"));
       resetWorkspace(null, null);
       if (isOpen) setIsOpen(false, { force: true });
       return;
@@ -154,7 +155,7 @@ export default function AccountPlaylistDrawer() {
     if (!isOpen) return () => {};
     const beforeClose = () => {
       if (!hasDirtyDraft) return true;
-      return window.confirm('有尚未保存的调整，确认放弃并关闭吗？');
+      return window.confirm(t('有尚未保存的调整，确认放弃并关闭吗？'));
     };
     return registerBeforeClose(beforeClose);
   }, [hasDirtyDraft, isOpen, registerBeforeClose]);
@@ -176,7 +177,7 @@ export default function AccountPlaylistDrawer() {
       const next = moveOrderingItemBy(current, itemKey, delta);
       const movedItem = next.find((item) => typedPlaylistRefKey(item) === itemKey);
       const title = memberById.get(movedItem?.id)?.name;
-      setLiveStatus(`已调整《${title || '歌单'}》的顺序`);
+      setLiveStatus(t('已调整《{title}》的顺序', { title: title || t('歌单') }));
       return next;
     });
   };
@@ -193,19 +194,19 @@ export default function AccountPlaylistDrawer() {
       setShelfRevision(result.shelf.revision);
       setShelfBaseItems(nextServerItems);
       setShelfDraftItems(cloneOrderingItems(nextServerItems));
-      showToast('唱片架调整已保存');
+      showToast(t("唱片架调整已保存"));
     } catch (error) {
       if (!isIdentityTokenCurrent(identityToken)) return;
       if (error?.status === 409) {
-        if (window.confirm('唱片架已在其他位置更新。放弃当前排序并加载最新顺序吗？')) {
+        if (window.confirm(t('唱片架已在其他位置更新。放弃当前排序并加载最新顺序吗？'))) {
           await accountPlaylistsStore.getState().refresh().catch(() => {});
         }
       } else if (error?.status >= 500) {
         setShelfError('服务器暂时不可用，草稿已保留，可以重试。');
-        showToast('调整保存失败，草稿已保留');
+        showToast(t("调整保存失败，草稿已保留"));
       } else {
         setShelfError(error?.message || '保存唱片架调整失败。');
-        showToast(error?.message || '保存唱片架调整失败');
+        showToast(t(error?.message || '保存唱片架调整失败'));
       }
     } finally {
       if (isIdentityTokenCurrent(identityToken)) setShelfSaving(false);
@@ -217,7 +218,7 @@ export default function AccountPlaylistDrawer() {
   };
 
   const resolveItemTitle = (item) => {
-    return memberById.get(item.id)?.name || '个人歌单';
+    return memberById.get(item.id)?.name || t('个人歌单');
   };
 
   const resolveItemCover = (item) => {
@@ -245,13 +246,13 @@ export default function AccountPlaylistDrawer() {
       <div className="account-playlist-header sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-[var(--line)] bg-[var(--drawer-solid-bg)]">
         <div>
           <p className="collection-section__index text-xs">RECORD SHELF</p>
-          <h2 id="account-playlist-drawer-title" className="text-base font-semibold text-[var(--ink)]">歌单排序</h2>
+          <h2 id="account-playlist-drawer-title" className="text-base font-semibold text-[var(--ink)]">{t("歌单排序")}</h2>
         </div>
         <button
           ref={closeButtonRef}
           type="button"
           onClick={handleClose}
-          aria-label="关闭唱片架管理"
+          aria-label={t("关闭唱片架管理")}
           className="theme-drawer__close flex items-center justify-center p-2 text-[var(--muted)] hover:text-[var(--ink)]"
         >
           <X size={18} />
@@ -266,8 +267,8 @@ export default function AccountPlaylistDrawer() {
 
         {accountStatus === 'error' && !shelf ? (
           <div className="state-panel state-panel--error p-4 text-center rounded-xl">
-            <p className="text-sm font-semibold text-red-500 mb-1">账号唱片架加载失败</p>
-            <p className="text-xs text-[var(--muted)] mb-3">{accountError?.message || '请稍后重试。'}</p>
+            <p className="text-sm font-semibold text-red-500 mb-1">{t("账号唱片架加载失败")}</p>
+            <p className="text-xs text-[var(--muted)] mb-3">{accountError?.message || t("请稍后重试。")}</p>
             <button
               type="button"
               disabled={accountRetrying}
@@ -275,17 +276,13 @@ export default function AccountPlaylistDrawer() {
               className="secondary-button px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5"
             >
               {accountRetrying ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              <span>重试加载</span>
+              <span>{t("重试加载")}</span>
             </button>
           </div>
         ) : null}
 
         {accountStatus === 'ready' && shelfRevision !== null ? (
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-[var(--muted)] px-1">
-              <span>拖拽手柄或使用上下按钮调整在主页及二级页面的展示顺序</span>
-            </div>
-
             {shelfDraftItems.map((item, index) => {
               const itemKey = typedPlaylistRefKey(item);
               const title = resolveItemTitle(item);
@@ -316,7 +313,7 @@ export default function AccountPlaylistDrawer() {
                     onPointerMove={movePointerDrag}
                     onPointerUp={(event) => finishPointerDrag(event)}
                     onPointerCancel={(event) => finishPointerDrag(event, true)}
-                    aria-label={`拖拽调整《${title}》排序`}
+                    aria-label={t("拖拽调整《{p0}》排序", { p0: (title) })}
                   >
                     <GripVertical size={16} />
                   </button>
@@ -327,9 +324,7 @@ export default function AccountPlaylistDrawer() {
 
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-[var(--ink)] truncate">{title}</p>
-                    <p className="text-[11px] text-[var(--muted)]">
-                      个人歌单
-                    </p>
+                    <p className="text-[11px] text-[var(--muted)]">{t("个人歌单")}</p>
                   </div>
 
                   <OrderingButtons
@@ -344,7 +339,7 @@ export default function AccountPlaylistDrawer() {
           </div>
         ) : null}
 
-        {shelfError && <p className="text-xs text-red-500 px-1">{shelfError}</p>}
+        {shelfError && <p className="text-xs text-red-500 px-1">{t(shelfError)}</p>}
       </div>
 
       <div className="account-playlist-footer sticky bottom-0 z-10 px-5 py-3.5 border-t border-[var(--line)] bg-[var(--drawer-solid-bg)] flex items-center justify-between gap-3">
@@ -353,9 +348,7 @@ export default function AccountPlaylistDrawer() {
           disabled={!shelfDirty || shelfSaving}
           onClick={() => setShelfDraftItems(cloneOrderingItems(shelfBaseItems))}
           className="secondary-button px-4 py-2 text-xs font-medium rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:text-[var(--danger)] transition-colors"
-        >
-          重置
-        </button>
+        >{t("重置")}</button>
 
         <button
           type="button"
@@ -370,17 +363,17 @@ export default function AccountPlaylistDrawer() {
           {shelfSaving ? (
             <>
               <Loader2 size={14} className="animate-spin text-white" />
-              <span className="text-white">正在保存...</span>
+              <span className="text-white">{t("正在保存...")}</span>
             </>
           ) : shelfDirty ? (
             <>
               <Save size={14} className="text-white" />
-              <span className="text-white">保存唱片架调整</span>
+              <span className="text-white">{t("保存唱片架调整")}</span>
             </>
           ) : (
             <>
               <Check size={14} className="text-[var(--muted)]" />
-              <span>已是最新设置</span>
+              <span>{t("已是最新设置")}</span>
             </>
           )}
         </button>

@@ -40,13 +40,24 @@ export function useRandomRoam({ authenticated, isPlayerContextReady }) {
     const lastRequestKeyRef = useRef('');
     const activeRequestRef = useRef(null);
     const lastHandledManualNonceRef = useRef(0);
+    const requestScopeRef = useRef('');
+    const activeManualNonceRef = useRef(null);
+    const sessionScope = useUIStore(state => `${state.authSession?.user?.accountId || ''}:${state.authSession?.csrfToken || ''}`);
 
     useEffect(() => () => activeRequestRef.current?.abort(), []);
 
     useEffect(() => {
+        const scope = `${sessionScope}:${randomRoam.language}`;
+        if (requestScopeRef.current !== scope) {
+            activeRequestRef.current?.abort();
+            activeRequestRef.current = null;
+            requestScopeRef.current = scope;
+            lastRequestKeyRef.current = '';
+            if (randomRoam.status === 'loading') { pauseRandomRoamRequest(); return; }
+        }
         const manualNonce = Number.isInteger(randomRoam.manualNonce) ? randomRoam.manualNonce : 0;
         const isManualTrigger = manualNonce > lastHandledManualNonceRef.current;
-        if (!authenticated || (!randomRoam.enabled && !isManualTrigger)) {
+        if (!authenticated || (!randomRoam.enabled && !isManualTrigger && activeManualNonceRef.current !== manualNonce)) {
             activeRequestRef.current?.abort();
             activeRequestRef.current = null;
             lastRequestKeyRef.current = '';
@@ -63,12 +74,12 @@ export function useRandomRoam({ authenticated, isPlayerContextReady }) {
             return;
         }
 
-        const payload = buildRandomRoamPayload(randomRoam, playlist);
+        const payload = buildRandomRoamPayload(randomRoam, playlist, currentSong);
         const requestKey = [
             randomRoam.language || 'all',
             randomRoam.batchSize || 10,
             currentSong?.id || '',
-            payload.seenSongIds.length,
+            payload.queuedSongIds.join(','),
             randomRoam.retryNonce,
             manualNonce,
         ].join(':');
@@ -82,6 +93,7 @@ export function useRandomRoam({ authenticated, isPlayerContextReady }) {
         }
         const controller = new AbortController();
         activeRequestRef.current = controller;
+        activeManualNonceRef.current = isManualTrigger && !randomRoam.enabled ? manualNonce : null;
         let timedOut = false;
         const timeout = setTimeout(() => {
             timedOut = true;
@@ -103,15 +115,20 @@ export function useRandomRoam({ authenticated, isPlayerContextReady }) {
                     error.status = response.status;
                     throw error;
                 }
-                const { songs, totalPlayable, remainingPlayable, exhausted } = normalizeRandomRoamResponse(await response.json());
+                const { songs, ...batchState } = normalizeRandomRoamResponse(await response.json());
+                if (controller.signal.aborted || requestScopeRef.current !== scope) return;
                 const hydratedSongs = songs.map(hydrateSong).filter((song) => song?.id != null && song.audio_url);
-                appendRandomRoamBatch(hydratedSongs, { totalPlayable, remainingPlayable, exhausted });
+                if (hydratedSongs.length) lastRequestKeyRef.current = '';
+                appendRandomRoamBatch(hydratedSongs, { ...batchState, requestedForSongId: currentSong?.id });
             } catch (error) {
                 if (controller.signal.aborted && !timedOut) return;
                 failRandomRoamRequest(getRandomRoamErrorMessage(error));
             } finally {
                 clearTimeout(timeout);
-                if (activeRequestRef.current === controller) activeRequestRef.current = null;
+                if (activeRequestRef.current === controller) {
+                    activeRequestRef.current = null;
+                    activeManualNonceRef.current = null;
+                }
             }
         };
         void request();
@@ -131,5 +148,7 @@ export function useRandomRoam({ authenticated, isPlayerContextReady }) {
         randomRoam.retryNonce,
         randomRoam.seenSongIds,
         randomRoam.totalPlayable,
+        randomRoam.status,
+        sessionScope,
     ]);
 }

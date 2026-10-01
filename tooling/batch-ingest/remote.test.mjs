@@ -23,7 +23,7 @@ test('login rejects a response without the secure session cookie', async () => {
   const remote = new RemoteCatalog('https://music.example', async () => Response.json({ authenticated: true,
     user: { role: 'admin', username: 'owner', accountId: 'account-1' }, csrfToken: 'csrf-1' },
   { headers: { 'Set-Cookie': 'ft_session=legacy-token; Path=/; HttpOnly' } }));
-  await assert.rejects(remote.login('owner', 'password'), /可用的管理员会话/);
+  await assert.rejects(remote.login('owner', 'password'), /usable administrator session/);
 });
 
 test('media upload passes its timeout signal to fetch', async () => {

@@ -21,6 +21,14 @@ export function finishToolProcessEntry(entries = [], { id, summary, ok }) {
     : entry);
 }
 
+const toolNames = {
+  remember_user: '记忆', music_query: '检索乐境曲库', my_playlists: '我的歌单',
+  my_listening_stats: '我的收听统计', manage_playlist: '管理账号歌单',
+  get_current_playback: '获取播放器现场状态', current_time: '查询当前时间',
+  music_control: '音乐播放控制', player_queue: '管理当前播放队列',
+  player_seek: '跳转播放进度', roam_control: '随机漫游开关', song_details: '读取歌曲资料',
+};
+
 export function getAssistantProcessTimeline(message) {
   const thought = typeof message?.thought === 'string' ? message.thought : '';
   const orderedEntries = Array.isArray(message?.processEntries) && message.processEntries.length > 0
@@ -38,8 +46,10 @@ export function getAssistantProcessTimeline(message) {
   for (const item of summaries) {
     if ((item.id && recordedToolIds.has(item.id))
       || (!item.id && recordedToolSummaries.has(item.summary))) continue;
-    entries.push({ type: 'tool', id: item.id, name: '工具调用', summary: item.summary,
+    entries.push({ type: 'tool', id: item.id, name: toolNames[item.name] || '工具调用', summary: item.summary,
       ok: item.ok, orderUnknown: true });
+    if (item.id) recordedToolIds.add(item.id);
+    if (item.summary) recordedToolSummaries.add(item.summary);
   }
   return entries.flatMap((entry) => {
     if (entry?.type === 'thought') {
@@ -55,6 +65,16 @@ export function getAssistantProcessTimeline(message) {
     }
     return [];
   });
+}
+
+export function getAssistantProcessOverview(message, timeline = getAssistantProcessTimeline(message)) {
+  const tools = timeline.filter((entry) => entry.type === 'tool');
+  const active = message?.isGenerating ? tools.findLast((entry) => !entry.summary) : null;
+  return { toolCount: tools.length, toolName: active?.name || '',
+    detail: message?.isGenerating && !active
+      ? message.content?.trim() ? '整理回答' : timeline.at(-1)?.type === 'thought' ? '思考中'
+        : tools.length ? '等待模型响应…' : ''
+      : '' };
 }
 
 export function getAssistantProcessStatus(message, now = Date.now()) {

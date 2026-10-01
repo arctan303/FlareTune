@@ -1,3 +1,4 @@
+import { localizeUnknownArtist, t } from '../i18n/index.js';
 import React from 'react';
 import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react';
 import LazyImage from './LazyImage.jsx';
@@ -56,7 +57,7 @@ export default function PlaylistEditableTracks({
     if (songs.length === 0) {
         return (
             <div className="state-panel p-8 text-center border border-dashed border-[var(--line)] rounded-2xl">
-                <p className="text-sm text-[var(--muted)]">{onRemoveSong ? '已移出所有歌曲。点击「保存」将清空歌单，或点击「取消」恢复原状。' : '暂无歌曲可排序。'}</p>
+                <p className="text-sm text-[var(--muted)]">{onRemoveSong ? t("已移出所有歌曲。点击「保存」将清空歌单，或点击「取消」恢复原状。") : t("暂无歌曲可排序。")}</p>
             </div>
         );
     }
@@ -85,8 +86,8 @@ export default function PlaylistEditableTracks({
                     onPointerUp={(event) => onFinishDrag(event)}
                     onPointerCancel={(event) => onFinishDrag(event, true)}
                     className="account-order-handle p-1.5 cursor-grab active:cursor-grabbing text-[var(--muted)] hover:text-[var(--ink)] flex-shrink-0 touch-none select-none rounded-lg hover:bg-[var(--surface-raised)] transition-colors"
-                    title="按住拖拽调整排序"
-                    aria-label={`按住拖拽调整 ${song.title} 排序`}
+                    title={t("按住拖拽调整排序")}
+                    aria-label={t("按住拖拽调整 {p0} 排序", { p0: (song.title) })}
                 >
                     <GripVertical size={18} />
                 </button>
@@ -97,7 +98,7 @@ export default function PlaylistEditableTracks({
                 <div className="track-row__cover relative h-[52px] w-[52px] flex-shrink-0 overflow-hidden rounded-lg">
                     <LazyImage
                         src={song.cover_url || '/placeholder-album.svg'}
-                        alt={song.title ? `${song.title} - ${song.artist} 专辑封面` : '专辑封面'}
+                        alt={song.title ? t("{p0} - {p1} 专辑封面", { p0: song.title, p1: localizeUnknownArtist(song.artist) }) : t("专辑封面")}
                         className="h-full w-full object-cover"
                     />
                 </div>
@@ -119,8 +120,8 @@ export default function PlaylistEditableTracks({
                         disabled={index === 0}
                         onClick={() => onMoveSong(index, index - 1)}
                         className="track-row__action disabled:opacity-20 disabled:pointer-events-none"
-                        title="上移"
-                        aria-label={`上移 ${song.title}`}
+                        title={t("上移")}
+                        aria-label={t("上移 {p0}", { p0: (song.title) })}
                     >
                         <ChevronUp size={18} />
                     </button>
@@ -129,8 +130,8 @@ export default function PlaylistEditableTracks({
                         disabled={index === songs.length - 1}
                         onClick={() => onMoveSong(index, index + 1)}
                         className="track-row__action disabled:opacity-20 disabled:pointer-events-none"
-                        title="下移"
-                        aria-label={`下移 ${song.title}`}
+                        title={t("下移")}
+                        aria-label={t("下移 {p0}", { p0: (song.title) })}
                     >
                         <ChevronDown size={18} />
                     </button>
@@ -138,8 +139,8 @@ export default function PlaylistEditableTracks({
                         type="button"
                         onClick={() => onRemoveSong(song.id)}
                         className="track-row__action text-[var(--danger)] hover:opacity-80"
-                        title="从歌单移除"
-                        aria-label={`从歌单移除 ${song.title}`}
+                        title={t("从歌单移除")}
+                        aria-label={t("从歌单移除 {p0}", { p0: (song.title) })}
                     >
                         <Trash2 size={18} />
                     </button>}

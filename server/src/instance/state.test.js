@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { resolveInstanceState } from './state.js';
 import { KNOWN_MIGRATIONS } from './schemaManifest.js';
+import { SCHEMA_CHECK_TTL_MS } from './schemaInventory.js';
 
 const baseline = readFileSync(new URL('../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8');
 const expand = readFileSync(new URL('../../db/migrations-flaretune/0002_expand_playlist_count.sql', import.meta.url), 'utf8');
@@ -39,6 +40,64 @@ function fixture({ current = false } = {}) {
   };
   return { sqlite, d1 };
 }
+
+function readyFixture() {
+  const f = fixture({ current: true });
+  f.sqlite.exec(`INSERT INTO accounts (account_id, username, role, created_at, updated_at)
+    VALUES ('a1', 'owner', 'admin', 1, 1);
+    INSERT INTO account_credentials (account_id, kdf, kdf_version, kdf_params_json, salt, password_hash, updated_at)
+    VALUES ('a1', 'pbkdf2-sha256-chain', 2, '{"iterations":100000,"rounds":6}', '${validSalt}', '${validHash}', 1);
+    UPDATE ft_instance SET initialized_at = 1 WHERE id = 1;`);
+  const queries = [];
+  return { ...f, queries, observed: { prepare(sql) { queries.push(sql); return f.d1.prepare(sql); } } };
+}
+
+test('serving requests coalesce metadata and reuse it for at most 60 seconds without caching control state', async () => {
+  const f = readyFixture();
+  const read = (time) => resolveInstanceState(f.observed, time, { cacheSchema: true });
+  const states = await Promise.all(Array.from({ length: 40 }, () => read(now)));
+  assert.ok(states.every((result) => result.state === 'ready'));
+  assert.equal(f.queries.filter((sql) => sql.includes('FROM sqlite_master')).length, 1);
+  assert.equal(f.queries.filter((sql) => sql.startsWith('PRAGMA')).length, 1);
+  assert.equal(f.queries.filter((sql) => sql.includes('FROM ft_instance')).length, 40);
+  assert.equal((await read(now + SCHEMA_CHECK_TTL_MS - 1)).state, 'ready');
+  assert.equal(f.queries.filter((sql) => sql.includes('FROM sqlite_master')).length, 1);
+  f.sqlite.exec('DROP TRIGGER ft_member_playlist_songs_insert_count');
+  assert.equal((await read(now + SCHEMA_CHECK_TTL_MS)).reason, 'schema_structure_invalid');
+  assert.equal(f.queries.filter((sql) => sql.includes('FROM sqlite_master')).length, 2);
+  f.sqlite.close();
+});
+
+test('warm schema never hides maintenance, damaged ledger, disabled admin or storage errors', async () => {
+  for (const mutation of [
+    `UPDATE ft_migration_lock SET owner_token = '${'a'.repeat(32)}', lease_expires_at = ${now + 60_000}`,
+    "UPDATE ft_migrations SET checksum = '0' || substr(checksum, 2)",
+    "UPDATE accounts SET status = 'disabled'",
+    'DROP TABLE ft_instance',
+  ]) {
+    const f = readyFixture();
+    assert.equal((await resolveInstanceState(f.observed, now, { cacheSchema: true })).state, 'ready');
+    f.sqlite.exec(mutation);
+    assert.notEqual((await resolveInstanceState(f.observed, now + 1, { cacheSchema: true })).state, 'ready', mutation);
+    const before = f.queries.filter((sql) => sql.includes('FROM sqlite_master')).length;
+    await resolveInstanceState(f.observed, now + 2, { cacheSchema: true });
+    assert.ok(f.queries.filter((sql) => sql.includes('FROM sqlite_master')).length > before);
+    f.sqlite.close();
+  }
+});
+
+test('full checks and separate databases cannot reuse a warm serving schema', async () => {
+  const a = readyFixture();
+  const b = readyFixture();
+  await resolveInstanceState(a.observed, now, { cacheSchema: true });
+  b.sqlite.exec('DROP TRIGGER ft_member_playlist_songs_insert_count');
+  assert.equal((await resolveInstanceState(b.observed, now, { cacheSchema: true })).reason, 'schema_structure_invalid');
+  a.sqlite.exec('DROP TRIGGER ft_member_playlist_songs_insert_count');
+  assert.equal((await resolveInstanceState(a.observed, now + 1, { cacheSchema: true })).state, 'ready');
+  assert.equal((await resolveInstanceState(a.observed, now + 1)).reason, 'schema_structure_invalid');
+  assert.equal((await resolveInstanceState(a.observed, now + 2, { cacheSchema: true })).reason, 'schema_structure_invalid');
+  a.sqlite.close(); b.sqlite.close();
+});
 
 test('v1 baseline awaits migration, then completed v2 is setup_required', async () => {
   const old = fixture();

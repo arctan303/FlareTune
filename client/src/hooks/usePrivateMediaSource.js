@@ -2,6 +2,7 @@ import React from 'react';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 import { usePrivateMediaRouteRevision } from './usePrivateMediaRouteRevision.js';
 import { visibleImageSource } from '../utils/privateImageVisibility.js';
+import { usePageActivity } from './usePageActivity.js';
 
 const currentSource = (src) => imageLoadRegistry.isPrivateMediaUrl(src)
   ? (imageLoadRegistry.shouldLoadPrivately(src) ? imageLoadRegistry.getReadySource(src) : null) : src;
@@ -9,10 +10,12 @@ const currentSource = (src) => imageLoadRegistry.isPrivateMediaUrl(src)
 // Preserve existing <img> layout and animation while resolving private media
 // through the same session-scoped Blob URL as LazyImage.
 export function usePrivateMediaSource(src) {
+  const visible = usePageActivity();
   const route = usePrivateMediaRouteRevision();
   const [resolved, setResolved] = React.useState(() => ({ src, route, url: currentSource(src) }));
 
   React.useEffect(() => {
+    if (!visible) return undefined;
     if (imageLoadRegistry.isPrivateMediaUrl(src) && !imageLoadRegistry.shouldLoadPrivately(src)) {
       setResolved({ src, route, url: null });
       return undefined;
@@ -27,16 +30,17 @@ export function usePrivateMediaSource(src) {
       return undefined;
     }
     let active = true;
-    setResolved({ src, route, url: null });
+    setResolved((current) => current.src === src && imageLoadRegistry.canRetainSource(src, current.url)
+      ? current : { src, route, url: null });
     void imageLoadRegistry.load(src).then(({ url }) => {
       if (active) setResolved({ src, route, url });
     }).catch(() => {
       if (active) setResolved({ src, route, url: null });
     });
     return () => { active = false; };
-  }, [src, route]);
+  }, [src, route, visible]);
 
-  if (resolved.src !== src || resolved.route !== route) return null;
+  if (resolved.src !== src) return currentSource(src);
   if (imageLoadRegistry.isPrivateMediaUrl(src) && !imageLoadRegistry.shouldLoadPrivately(src)) return null;
-  return visibleImageSource(src, resolved.url, '', imageLoadRegistry);
+  return visibleImageSource(src, resolved.url, '', imageLoadRegistry, true);
 }

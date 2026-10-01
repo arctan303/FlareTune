@@ -221,15 +221,18 @@ test('HTTP setup, login, CSRF and logout use the new local account only', async 
       { headers: { Cookie: cookie } }), env).then((response) => response.json())).authenticated, true);
     assert.equal(typeof sessionBody.csrfToken, 'string');
     schemaInspections = 0;
+    let mediaSessionChecks = 0;
     db.prepare = (sql) => {
       if (sql.includes('FROM sqlite_master')) schemaInspections += 1;
+      if (sql.includes('FROM account_sessions s')) mediaSessionChecks += 1;
       return originalPrepare(sql);
     };
     const media = await worker.fetch(new Request(mediaUrl, {
       headers: { Cookie: cookie, Range: 'bytes=0-1' },
     }), env);
     assert.equal(media.status, 206);
-    assert.equal(schemaInspections, 1, 'authenticated media checks instance readiness once');
+    assert.equal(schemaInspections, 0, 'media reuses the recent API schema inventory');
+    assert.equal(mediaSessionChecks, 1, 'media still verifies the current session');
     db.prepare = originalPrepare;
     assert.equal(media.headers.get('Content-Range'), 'bytes 0-1/5');
     assert.equal(media.headers.get('Cache-Control'), 'private, no-store');
@@ -240,6 +243,14 @@ test('HTTP setup, login, CSRF and logout use the new local account only', async 
     assert.equal(mediaHead.status, 200);
     assert.equal(mediaHead.headers.get('Cache-Control'), 'private, no-store');
     assert.deepEqual(mediaReads, [['get', 'media/audio/song.mp3'], ['head', 'media/audio/song.mp3']]);
+    sqlite.exec('UPDATE account_sessions SET revoked_at = 1');
+    assert.equal((await worker.fetch(new Request(mediaUrl, { headers: { Cookie: cookie } }), env)).status, 401);
+    assert.equal(mediaReads.length, 2, 'warm metadata cannot authorize a revoked session or read R2');
+    sqlite.exec('UPDATE account_sessions SET revoked_at = NULL');
+    sqlite.exec(`UPDATE ft_migration_lock SET owner_token = '${'a'.repeat(32)}', lease_expires_at = ${Date.now() + 60_000}`);
+    assert.equal((await worker.fetch(new Request(mediaUrl, { headers: { Cookie: cookie } }), env)).status, 503);
+    assert.equal(mediaReads.length, 2, 'maintenance stops warm media before R2');
+    sqlite.exec('UPDATE ft_migration_lock SET owner_token = NULL, lease_expires_at = 0');
     const emptyLibrary = await worker.fetch(new Request('https://example.test/api/init',
       { headers: { Cookie: cookie } }), env);
     assert.equal(emptyLibrary.status, 200);

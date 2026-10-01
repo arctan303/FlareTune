@@ -249,6 +249,9 @@ export async function changePassword({ db, session, currentPassword, newPassword
           old.password_hash, old.salt),
       db.prepare(`UPDATE account_sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL`)
         .bind(now, session.account.accountId),
+      db.prepare(`UPDATE instance_settings SET value_json = '{"enabled":false}',
+        revision = revision + 1, updated_at = ? WHERE key = ?`)
+        .bind(now, `account.subsonic.${session.account.accountId}`),
     ]);
   } catch {
     throw new AuthError('password_change_failed', 409);

@@ -230,7 +230,7 @@ test('local tool exposes upstream 503 separately from its own request status', a
       headers: { Cookie: login.headers.get('set-cookie').split(';', 1)[0] },
     });
     assert.equal(response.status, 400);
-    assert.deepEqual(await response.json(), { error: '读取歌曲失败（503）。', upstreamStatus: 503 });
+    assert.deepEqual(await response.json(), { error: 'Could not read the song (503).', upstreamStatus: 503 });
   } finally { await tool.close(); }
 });
 

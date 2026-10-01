@@ -155,9 +155,9 @@ test('temporary poll transport failures retry without rescanning and report reco
   assert.equal(scans, 1);
   assert.equal(polls, 3);
   assert.deepEqual(delays, [10_000, 10_000, 5_000]);
-  assert.equal(logs.filter((message) => message.includes('不重新扫描')).length, 1);
+  assert.equal(logs.filter((message) => message.includes('without rescanning')).length, 1);
   assert.ok(logs.some((message) => message.includes('ECONNRESET')));
-  assert.equal(logs.filter((message) => message.includes('任务轮询已恢复')).length, 1);
+  assert.equal(logs.filter((message) => message.includes('Job polling recovered')).length, 1);
 });
 
 test('a temporary post-scan heartbeat failure keeps the scanned device running', async () => {

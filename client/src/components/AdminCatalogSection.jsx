@@ -1,3 +1,5 @@
+import SelectControl from './SelectControl.jsx';
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -116,7 +118,7 @@ export default function AdminCatalogSection() {
       const value = catalogSongBody(draft, false);
       await updateCatalogSong(draft.id, { ...value, expectedVersion: editor.version });
       setEditor(null);
-      setMessage('歌曲已成功保存到曲库。');
+      setMessage(t("歌曲已成功保存到曲库。"));
       await load();
     } catch (error) {
       setMessage(error.message);
@@ -133,7 +135,7 @@ export default function AdminCatalogSection() {
     setMessage('');
     try {
       await deleteCatalogSong(item.id, item.version);
-      setMessage(`${label}元数据已删除；关联媒体文件已安全保留。`);
+      setMessage(t("{p0}元数据已删除；关联媒体文件已安全保留。", { p0: (label) }));
       setItemToDelete(null);
       await load();
     } catch (error) {
@@ -175,7 +177,7 @@ export default function AdminCatalogSection() {
         <div>
           <h2 className="text-xl font-bold tracking-tight text-[var(--ink)] flex items-center gap-2">
             <Disc className="text-[var(--accent)]" size={20} />
-            <span>曲库数据管理</span>
+            <span>{t("曲库数据管理")}</span>
           </h2>
         </div>
 
@@ -183,7 +185,7 @@ export default function AdminCatalogSection() {
 
       {/* 分类切换与搜索栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <span className="text-xs font-semibold text-[var(--muted)]">单曲 ({list.total || 0})</span>
+        <span className="text-xs font-semibold text-[var(--muted)]">{t("单曲 (")}{list.total || 0})</span>
 
         {/* 搜索框 */}
         <form
@@ -201,7 +203,7 @@ export default function AdminCatalogSection() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索标题、歌手或专辑…"
+            placeholder={t("搜索标题、歌手或专辑…")}
             className="w-full pl-9 pr-8 py-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)]"
           />
           {query && (
@@ -227,7 +229,7 @@ export default function AdminCatalogSection() {
           role="status"
           className="rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 text-xs text-[var(--ink)] flex items-center justify-between gap-3"
         >
-          <span>{message}</span>
+          <span>{t(message)}</span>
           <button type="button" onClick={() => setMessage('')} className="text-[var(--muted)] hover:text-[var(--ink)]">
             <X size={14} />
           </button>
@@ -239,25 +241,21 @@ export default function AdminCatalogSection() {
         <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-600 dark:text-rose-400">
           <div className="flex items-center gap-2.5">
             <AlertTriangle size={16} className="shrink-0" />
-            <span>
-              确定删除<strong>「{itemToDelete.title}」</strong>的元数据？媒体文件会保留，存在引用时删除会被拒绝。
-            </span>
+            <span>{t("确定删除")}<strong>「{itemToDelete.title}」</strong>{t("的元数据？媒体文件会保留，存在引用时删除会被拒绝。")}</span>
           </div>
           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
             <button
               type="button"
               onClick={() => setItemToDelete(null)}
               className="px-3 py-1.5 rounded-xl border border-[var(--line)] text-xs text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer bg-[var(--surface)]"
-            >
-              取消
-            </button>
+            >{t("取消")}</button>
             <button
               type="button"
               disabled={busy}
               onClick={confirmDelete}
               className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500 cursor-pointer shadow-xs"
             >
-              {busy ? '正在删除…' : '确认删除'}
+              {busy ? t("正在删除…") : t("确认删除")}
             </button>
           </div>
         </div>
@@ -266,18 +264,16 @@ export default function AdminCatalogSection() {
       {/* 数据列表 */}
       <div className="wallpaper-content-surface rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] overflow-hidden shadow-xs">
         {loading ? (
-          <div className="py-16 text-center text-xs text-[var(--muted)]">正在加载曲库数据…</div>
+          <div className="py-16 text-center text-xs text-[var(--muted)]">{t("正在加载曲库数据…")}</div>
         ) : items.length === 0 ? (
           <div className="py-16 text-center text-xs text-[var(--muted)] space-y-2">
-            <p>暂无符合条件的歌曲</p>
+            <p>{t("暂无符合条件的歌曲")}</p>
             {search && (
               <button
                 type="button"
                 onClick={() => { setQuery(''); setSearch(''); invalidateList(); }}
                 className="text-[var(--accent)] underline hover:opacity-80"
-              >
-                清除搜索条件
-              </button>
+              >{t("清除搜索条件")}</button>
             )}
           </div>
         ) : (
@@ -310,7 +306,7 @@ export default function AdminCatalogSection() {
                         )}
                       </div>
                       <p className="text-[11px] text-[var(--muted)] truncate">
-                        {`${item.artist || '未知歌手'} · ${item.album || '无专辑'} · ${formatDuration(item.duration) || '时长未知'}`}
+                        {`${item.artist || t("未知歌手")} · ${item.album || t("无专辑")} · ${formatDuration(item.duration) || t("时长未知")}`}
                       </p>
                     </div>
                   </div>
@@ -322,8 +318,8 @@ export default function AdminCatalogSection() {
                       disabled={busy}
                       onClick={() => void openEdit(item)}
                       className="p-2 text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] rounded-xl transition-colors cursor-pointer"
-                      title="编辑"
-                      aria-label="编辑"
+                      title={t("编辑")}
+                      aria-label={t("编辑")}
                     >
                       <Edit3 size={15} />
                     </button>
@@ -332,8 +328,8 @@ export default function AdminCatalogSection() {
                       disabled={busy}
                       onClick={() => setItemToDelete(item)}
                       className="p-2 text-[var(--muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
-                      title="删除"
-                      aria-label="删除"
+                      title={t("删除")}
+                      aria-label={t("删除")}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -348,14 +344,14 @@ export default function AdminCatalogSection() {
       {/* 分页控制栏 */}
       {items.length > 0 && (
         <div className="flex items-center justify-between text-xs text-[var(--muted)] pt-1">
-          <span>共 {list.total || 0} 项 · 第 {page} / {pages} 页</span>
+          <span>{t("共")}{' '}{list.total || 0}{' '}{t("项 · 第")}{' '}{page} / {pages}{' '}{t("页")}</span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               disabled={page <= 1 || loading || busy}
               onClick={() => { invalidateList(); setPage(page - 1); }}
               className="p-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] hover:bg-[var(--surface)] disabled:opacity-30 cursor-pointer"
-              title="上一页"
+              title={t("上一页")}
             >
               <ChevronLeft size={15} />
             </button>
@@ -365,7 +361,7 @@ export default function AdminCatalogSection() {
               disabled={page >= pages || loading || busy}
               onClick={() => { invalidateList(); setPage(page + 1); }}
               className="p-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] hover:bg-[var(--surface)] disabled:opacity-30 cursor-pointer"
-              title="下一页"
+              title={t("下一页")}
             >
               <ChevronRight size={15} />
             </button>
@@ -387,24 +383,19 @@ export default function AdminCatalogSection() {
             className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(88dvh,760px)] w-[min(92vw,620px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xl"
             role="dialog"
             aria-modal="true"
-            aria-label="编辑歌曲"
+            aria-label={t("编辑歌曲")}
           >
           {/* 弹窗顶栏 */}
             <div className="p-5 border-b border-[var(--line)] flex items-center justify-between shrink-0 bg-[var(--surface-raised)]">
               <div>
-                <h3 className="text-base font-bold text-[var(--ink)]">
-                  编辑歌曲
-                </h3>
-                <p className="text-[11px] text-[var(--muted)] mt-0.5">
-                  修改后点击下方「保存到曲库」即可同步。
-                </p>
+                <h3 className="text-base font-bold text-[var(--ink)]">{t("编辑歌曲")}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => { editRequest.current.invalidate(); setEditor(null); }}
                 disabled={busy}
                 className="p-2 text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] rounded-xl transition-colors cursor-pointer"
-                aria-label="关闭编辑"
+                aria-label={t("关闭编辑")}
               >
                 <X size={18} />
               </button>
@@ -416,37 +407,36 @@ export default function AdminCatalogSection() {
               {(
                 <>
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-[var(--ink)]">
-                      歌曲标题<span className="text-rose-500 ml-1">*</span>
+                    <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲标题")}<span className="text-rose-500 ml-1">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={editor.draft.title || ''}
                       onChange={(e) => setDraft('title', e.target.value)}
-                      placeholder="歌曲名称"
+                      placeholder={t("歌曲名称")}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)]"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">歌手</label>
+                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌手")}</label>
                       <input
                         type="text"
                         value={editor.draft.artist || ''}
                         onChange={(e) => setDraft('artist', e.target.value)}
-                        placeholder="主要艺术家"
+                        placeholder={t("主要艺术家")}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)]"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">专辑</label>
+                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("专辑")}</label>
                       <input
                         type="text"
                         value={editor.draft.album || ''}
                         onChange={(e) => setDraft('album', e.target.value)}
-                        placeholder="所属专辑名称"
+                        placeholder={t("所属专辑名称")}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)]"
                       />
                     </div>
@@ -454,28 +444,28 @@ export default function AdminCatalogSection() {
 
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">时长（秒）</label>
+                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("时长（秒）")}</label>
                       <input
                         type="number"
                         min="0"
                         value={editor.draft.duration || ''}
                         onChange={(e) => setDraft('duration', e.target.value)}
-                        placeholder="如 215"
+                        placeholder={t("如 215")}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)] font-mono"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">歌曲语言</label>
-                      <select
+                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲语言")}</label>
+                      <SelectControl aria-label={t("歌曲语言")}
                         value={editor.draft.language || ''}
                         onChange={(e) => setDraft('language', e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
                       >
-                        <option value="">未设置</option>
+                        <option value="">{t("未设置")}</option>
                         {ALL_LANGUAGES.map(({ code, label }) => (
-                          <option key={code} value={code}>{label}</option>
+                          <option key={code} value={code}>{t(label)}</option>
                         ))}
-                      </select>
+                      </SelectControl>
                     </div>
                   </div>
 
@@ -484,12 +474,12 @@ export default function AdminCatalogSection() {
 
               {/* 封面地址与上传 */}
               <div className="space-y-2 pt-2 border-t border-[var(--line)]">
-                <label className="block text-xs font-semibold text-[var(--ink)]">封面图片</label>
+                <label className="block text-xs font-semibold text-[var(--ink)]">{t("封面图片")}</label>
                 <div className="flex items-start gap-3">
                   {editor.draft.cover_url ? (
                     <PrivateCoverImage
                       src={resolveCoverUrl(editor.draft.cover_url)}
-                      alt="预览"
+                      alt={t("预览")}
                       className="w-14 h-14 rounded-xl object-cover border border-[var(--line)] shrink-0 bg-[var(--surface)]"
                     />
                   ) : (
@@ -500,7 +490,7 @@ export default function AdminCatalogSection() {
                   <div className="flex-1 space-y-2">
                     <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-colors">
                       <Upload size={13} />
-                      <span>{editor.draft.cover_url ? '替换封面' : '上传封面'}</span>
+                      <span>{editor.draft.cover_url ? t("替换封面") : t("上传封面")}</span>
                       <input
                         type="file"
                         accept=".jpg,.jpeg,.png,.webp"
@@ -519,10 +509,10 @@ export default function AdminCatalogSection() {
               {/* 上传反馈 */}
               {uploadNotice && (
                 <div className="text-[11px] px-3 py-2 rounded-xl bg-[var(--surface)] border border-[var(--line)] text-[var(--accent)]">
-                  {uploadNotice}
+                  {t(uploadNotice)}
                 </div>
               )}
-              {message && <div role="alert" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--ink)]">{message}</div>}
+              {message && <div role="alert" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--ink)]">{t(message)}</div>}
 
               {/* 底部提交栏 */}
               <div className="pt-4 border-t border-[var(--line)] flex items-center justify-end gap-2.5">
@@ -531,15 +521,13 @@ export default function AdminCatalogSection() {
                   onClick={() => { editRequest.current.invalidate(); setEditor(null); }}
                   disabled={busy}
                   className="px-4 py-2 rounded-xl border border-[var(--line)] text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
-                >
-                  取消
-                </button>
+                >{t("取消")}</button>
                 <button
                   type="submit"
                   disabled={busy}
                   className="primary-button px-5 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
                 >
-                  {busy ? '正在处理…' : '保存到曲库'}
+                  {busy ? t("正在处理…") : t("保存到曲库")}
                 </button>
               </div>
             </form>

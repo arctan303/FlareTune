@@ -1,6 +1,6 @@
 {
   "name": "flaretune",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A self-hosted personal audio streaming application for Cloudflare Workers.",
   "private": true,
   "type": "module",
@@ -21,6 +21,7 @@
     "deploy:worker": "wrangler deploy --config wrangler.toml",
     "deploy:dev:ci": "node tooling/deploy/dev-ci.mjs",
     "verify:dist-css": "node tooling/verify/verify-dist-css.mjs",
+    "verify:i18n": "node tooling/i18n/check-catalog.mjs && node tooling/i18n/check-public-doc-links.mjs",
     "verify:worker-http": "node tooling/verify/verify-worker-http.mjs",
     "verify:worker:preview": "npm run build && node tooling/dev/preview-worker.mjs --smoke",
     "db:migrations:list:local": "wrangler d1 migrations list DB --local --config server/wrangler.local.toml --persist-to worker/.wrangler/state",
@@ -38,7 +39,7 @@
         "description": "FlareTune stores audio, artwork, and generated lyric artifacts in this private R2 bucket."
       },
       "SETUP_SECRET": {
-        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI model API keys. Rotating it requires re-entering those keys; it cannot reset an administrator."
+        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI model API keys and opt-in Subsonic password copies. Rotating it requires re-entering model keys and re-enabling Subsonic; it cannot reset an administrator."
       }
     }
   },
@@ -59,6 +60,8 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@babel/parser": "^8.0.6",
+    "@babel/traverse": "^8.0.6",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.4.19",
     "esbuild": "^0.28.1",

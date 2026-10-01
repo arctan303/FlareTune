@@ -61,7 +61,7 @@ const denied = (status, extraHeaders = {}) => new Response(null, { status, heade
 
 export async function handleMediaRoute(request, pathname, env) {
   try {
-    const instance = await resolveInstanceState(env?.DB);
+    const instance = await resolveInstanceState(env?.DB, Date.now(), { cacheSchema: true });
     if (instance.state !== 'ready') return denied(503);
     const token = tokenFromCookie(request.headers.get('Cookie'));
     if (!token) return denied(401);

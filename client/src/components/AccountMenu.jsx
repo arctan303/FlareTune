@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import React from 'react';
 import { useUIStore } from '../store/useUIStore.js';
 import { getSession } from '../instance/api.js';
@@ -59,9 +60,9 @@ export default function AccountMenu({ onNavigate }) {
           onNavigate?.('settings', 'personal');
         }}
         className="app-nav-item app-nav-item--account account-menu-trigger"
-        aria-label={`我的账号：${name}`}
-        title={`我的账号 (${name})`}
-        data-tooltip="我的账号"
+        aria-label={t("我的账号：{p0}", { p0: (name) })}
+        title={t("我的账号 ({p0})", { p0: (name) })}
+        data-tooltip={t("我的账号")}
       >
         <span className="account-avatar-char" aria-hidden="true">{initial}</span>
         <span className="app-nav-item__label">{name}</span>

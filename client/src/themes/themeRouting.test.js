@@ -27,7 +27,7 @@ test('player mode state is visible on desktop hover and selectable in mobile mor
   const mobile = readSource('../components/fullscreen/MobilePlayerLayout.jsx');
   const panes = readSource('../components/fullscreen/MobileClassicPanes.jsx');
   assert.match(entry, /data-player-mode=\{playerMode\}/);
-  assert.match(entry, /当前：\{currentLabel\}/);
+  assert.match(entry, /t\("当前："\)\}\{currentLabel\}/);
   assert.match(entry, /setPlayerMode\(nextMode\)/);
   assert.match(entry, /type="button"/);
   assert.doesNotMatch(mobile, /PlayerSkinEntry/);

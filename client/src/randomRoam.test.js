@@ -55,13 +55,13 @@ test('random roam requests include both persisted history and current queue ids,
     { seenSongIds: ['old', 'same'], language: 'all' },
     [song('same'), song('new')],
   );
-  assert.deepEqual(payloadAll, { seenSongIds: ['old', 'same', 'new'], limit: 10 });
+  assert.deepEqual(payloadAll, { strategy: 'recent', recentSongIds: [], queuedSongIds: ['same', 'new'], limit: 10 });
 
   const payloadZh = buildRandomRoamPayload(
     { seenSongIds: ['old'], language: 'zh', batchSize: 5 },
     [song('zh-1')],
   );
-  assert.deepEqual(payloadZh, { seenSongIds: ['old', 'zh-1'], limit: 5, language: 'zh' });
+  assert.deepEqual(payloadZh, { strategy: 'recent', recentSongIds: [], queuedSongIds: ['zh-1'], limit: 5, language: 'zh' });
 });
 
 test('random roam normalization preserves language and batchSize preference', () => {

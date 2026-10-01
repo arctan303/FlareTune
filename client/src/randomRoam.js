@@ -7,6 +7,7 @@ export const createInactiveRandomRoam = () => ({
     batchSize: 10,
     manualNonce: 0,
     seenSongIds: [],
+    recentSongIds: [],
     totalPlayable: null,
     remainingPlayable: null,
     exhausted: false,
@@ -63,6 +64,7 @@ export const normalizeRandomRoamState = (value) => {
         batchSize,
         manualNonce,
         seenSongIds: normalizeRandomRoamSongIds(value.seenSongIds),
+        recentSongIds: normalizeRandomRoamSongIds(value.recentSongIds),
         totalPlayable,
         remainingPlayable: Number.isInteger(value.remainingPlayable) && value.remainingPlayable >= 0
             ? value.remainingPlayable
@@ -91,6 +93,9 @@ export const shouldPrefetchRandomRoam = ({ randomRoam, playlist, currentSong, la
     if (manualNonce > lastHandledManualNonce) return true;
     if (!randomRoam.enabled) return false;
     if (randomRoam.waitingAtQueueEnd) return true;
+    if (randomRoam.saturatedAtSongId != null
+        && String(randomRoam.saturatedAtSongId) === String(currentSong?.id)
+        && randomRoam.saturatedQueueKey === splitRoamQueue(playlist, currentSong).queued.map(song => String(song.id)).join(',')) return false;
     if (!Array.isArray(playlist) || playlist.length === 0 || !currentSong) return false;
     return getRandomRoamRemainingAfterCurrent(playlist, currentSong) <= RANDOM_ROAM_PREFETCH_THRESHOLD;
 };
@@ -111,15 +116,16 @@ export const normalizeRandomRoamResponse = (payload) => {
         totalPlayable: data.totalPlayable,
         remainingPlayable: data.remainingPlayable,
         exhausted: data.exhausted,
+        ...(data.strategy === 'recent' ? { strategy: 'recent', recentWindow: data.recentWindow } : {}),
     };
 };
 
-export const buildRandomRoamPayload = (randomRoam, playlist = []) => {
+export const buildRandomRoamPayload = (randomRoam, playlist = [], currentSong = null) => {
+    const { played, queued } = splitRoamQueue(playlist, currentSong, randomRoam?.waitingAtQueueEnd);
     const payload = {
-        seenSongIds: normalizeRandomRoamSongIds([
-            ...(randomRoam?.seenSongIds || []),
-            ...playlist.map((song) => song?.id),
-        ]),
+        strategy: 'recent',
+        recentSongIds: recentRoamIds([...(randomRoam?.recentSongIds || []), ...played.map(song => song.id)]),
+        queuedSongIds: normalizeRandomRoamSongIds(queued.map(song => song.id)),
         limit: (Number.isInteger(randomRoam?.batchSize) && randomRoam.batchSize >= 1)
             ? Math.min(randomRoam.batchSize, 50)
             : 10,
@@ -129,3 +135,14 @@ export const buildRandomRoamPayload = (randomRoam, playlist = []) => {
     }
     return payload;
 };
+
+export function recentRoamIds(values) {
+  // Preserve the newest occurrence and the newest 5000 IDs, not the first 5000.
+  return normalizeRandomRoamSongIds([...values].reverse()).reverse();
+}
+
+export function splitRoamQueue(playlist, currentSong, waitingAtQueueEnd = false) {
+  const index = playlist.findIndex(song => String(song.id) === String(currentSong?.id));
+  const boundary = index >= 0 ? index : waitingAtQueueEnd ? playlist.length : 0;
+  return { played: playlist.slice(0, boundary), queued: playlist.slice(boundary) };
+}

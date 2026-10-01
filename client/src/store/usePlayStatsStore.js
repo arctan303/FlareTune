@@ -19,6 +19,7 @@ let flushPromise = null;
 let flushSubject = null;
 let syncPromise = null;
 let syncSubject = null;
+let syncSummaryOnly = false;
 let consecutiveFailures = 0;
 let nextAllowedSyncTime = 0;
 let nextRetryTime = 0;
@@ -172,6 +173,8 @@ function emptyIdentityState(ownerSubject = null, identityReady = false) {
     legacyMigrationComplete: true,
     songMetaMap: {},
     topSongs: [],
+    listeningPreview: [],
+    detailViewActive: false,
     totalPlays: 0,
     totalUniqueSongs: 0,
     isSyncing: false,
@@ -278,7 +281,8 @@ function scheduleNextRefresh() {
     scheduledRefreshTimer = null;
     const store = usePlayStatsStore.getState();
     if (store.identityReady && store.ownerSubject && pageIsVisible()) {
-      void store.synchronizeAccountStats();
+      if (store.detailViewActive) void store.refreshRemoteStats(50, { requireDetailView: true });
+      else void store.synchronizeListeningPreview();
     }
   }, Math.max(0, nextRefreshTime - Date.now()));
   scheduledRefreshTimer.unref?.();
@@ -604,14 +608,23 @@ export const usePlayStatsStore = create(
         return flushPromise;
       },
 
-      refreshRemoteStats: (limit = 20) => {
+      setDetailViewActive: (active) => {
+        set({ detailViewActive: Boolean(active) });
+      },
+
+      refreshRemoteStats: (limit = 20, { summaryOnly = false, requireDetailView = false } = {}) => {
+        if (requireDetailView && !get().detailViewActive) return Promise.resolve({ ok: false, reason: 'detail-hidden' });
         if (syncPromise) {
-          if (syncSubject === get().ownerSubject) return syncPromise;
-          return syncPromise.then(() => get().refreshRemoteStats(limit));
+          if (syncSubject === get().ownerSubject && (summaryOnly || !syncSummaryOnly)) return syncPromise;
+          const expectedSubject = get().ownerSubject;
+          return syncPromise.then(() => expectedSubject === get().ownerSubject
+            ? get().refreshRemoteStats(limit, { summaryOnly, requireDetailView })
+            : { ok: false, reason: 'identity-changed' });
         }
         const initial = get();
         const subject = initial.ownerSubject;
         syncSubject = subject;
+        syncSummaryOnly = summaryOnly;
         const currentPromise = (async () => {
           if (!initial.identityReady) return { ok: false, reason: 'identity-unconfirmed' };
           if (!subject) return { ok: false, reason: 'unauthenticated' };
@@ -620,14 +633,16 @@ export const usePlayStatsStore = create(
           if (!get().identityReady || get().ownerSubject !== subject) {
             return { ok: false, reason: 'identity-changed' };
           }
+          if (requireDetailView && !get().detailViewActive) return { ok: false, reason: 'detail-hidden' };
           try {
             const fetchEpoch = acknowledgedUploadEpoch;
-            let data = await fetchAccountPlayStats({ limit, expectedSubject: subject });
-            if (fetchEpoch !== acknowledgedUploadEpoch) {
+            let data = await fetchAccountPlayStats({ limit, summaryOnly, expectedSubject: subject });
+            if (!summaryOnly && fetchEpoch !== acknowledgedUploadEpoch) {
               // An emergency or keepalive upload may finish during the GET. Its older
               // response must not replace the immediately updated local count.
               if (flushPromise) await flushPromise;
               const retryEpoch = acknowledgedUploadEpoch;
+              if (requireDetailView && !get().detailViewActive) return { ok: false, reason: 'detail-hidden' };
               data = await fetchAccountPlayStats({ limit, expectedSubject: subject });
               if (retryEpoch !== acknowledgedUploadEpoch) {
                 nextRefreshTime = Date.now() + INITIAL_BACKOFF_MS;
@@ -642,10 +657,19 @@ export const usePlayStatsStore = create(
 
             set((state) => {
               if (state.ownerSubject !== subject) return {};
-              return rebuildFromRemote(data, {
+              // A limited preview is never a replacement for the full count
+              // ledger. In particular, it must not replay or remove pending plays.
+              const listeningPreview = (data.songs || []).slice(0, TOP_SONG_LIMIT)
+                .filter((song) => song?.id).map((song) => ({
+                  ...cleanSongMeta(String(song.id), song, song.last_played_at),
+                  // Retain only the limited ranking weights used by top artists.
+                  play_count: Number(song.play_count) || 0,
+                }));
+              if (summaryOnly) return { listeningPreview };
+              return { ...rebuildFromRemote(data, {
                 ...state,
                 pendingQueue: readPendingEvents(subject),
-              });
+              }), listeningPreview };
             });
             consecutiveRefreshFailures = 0;
             nextRefreshTime = Date.now() + STATS_REFRESH_INTERVAL_MS;
@@ -665,21 +689,21 @@ export const usePlayStatsStore = create(
           }
         })();
         syncPromise = currentPromise;
-        currentPromise.then(() => {
+        const clearSyncFlight = () => {
           if (syncPromise === currentPromise) {
             syncPromise = null;
             syncSubject = null;
+            // A detail read may have been skipped after waiting for an upload.
+            // Keep the hourly preview alive when the user has already left.
+            scheduleNextRefresh();
           }
-        }, () => {
-          if (syncPromise === currentPromise) {
-            syncPromise = null;
-            syncSubject = null;
-          }
-        });
+        };
+        currentPromise.then(clearSyncFlight, clearSyncFlight);
         return currentPromise;
       },
 
       synchronizeAccountStats: (limit = 50) => get().refreshRemoteStats(limit),
+      synchronizeListeningPreview: (limit = 50) => get().refreshRemoteStats(limit, { summaryOnly: true }),
     }),
     {
       name: 'music-play-stats-v2',
@@ -695,6 +719,7 @@ export const usePlayStatsStore = create(
         } : {}),
         songMetaMap: state.songMetaMap,
         topSongs: state.topSongs,
+        listeningPreview: state.listeningPreview,
         totalPlays: state.totalPlays,
         totalUniqueSongs: state.totalUniqueSongs,
         lastSyncedAt: state.lastSyncedAt,

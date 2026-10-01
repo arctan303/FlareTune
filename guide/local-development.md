@@ -1,5 +1,7 @@
 # 本地开发
 
+[简体中文](local-development.md) · [English](local-development.en.md)
+
 ## 前置条件
 
 - Node.js 22.12.0 或更高版本及 npm。
