@@ -1,6 +1,6 @@
 {
   "name": "flaretune",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A self-hosted personal audio streaming application for Cloudflare Workers.",
   "private": true,
   "type": "module",

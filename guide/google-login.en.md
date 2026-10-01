@@ -6,9 +6,9 @@ Google sign-in is optional and disabled by default. It links existing FlareTune 
 
 1. Upgrade existing instances under **Settings → Instance settings → Runtime overview**. New installations include the required tables.
 2. Configure a **Web application** OAuth client and consent screen in Google Cloud. An existing Cloud project can be used; the Client ID, Secret and redirects must belong to the same Web client. Add test users when required by the console.
-3. Under **Instance settings → Google sign-in**, enter the Client ID, Secret and fixed callback origin, for example `https://music.example.com`. Include only the scheme, host and optional port, without a path or trailing slash.
+3. Under **Instance settings → Google sign-in**, click **Edit configuration** and enter the Client ID, Secret and fixed callback origin in the dialog, for example `https://music.example.com`. Include only the scheme, host and optional port, without a path or trailing slash.
 4. Add the displayed full address to Google's **Authorized redirect URIs**: `https://music.example.com/auth/google/callback`. Sign-in and linking share this exact callback.
-5. Enable and save. This origin's sign-in page shows **Sign in with Google**. Other origins do not.
+5. Save the configuration, then turn on the switch on the right of the card; changes save immediately. This origin's sign-in page shows **Sign in with Google**. Other origins do not. Enabling before configuration opens the editor; saving enables sign-in, while canceling leaves it disabled.
 
 Production requires HTTPS. Local development can use a fixed origin such as `http://127.0.0.1:8790`. Open the Worker at the callback origin directly. A frontend proxy at another origin receives its own transaction cookie and cannot complete a callback at a different site. Configure development and production separately.
 

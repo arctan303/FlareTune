@@ -6,9 +6,9 @@ Google 登录是可选功能，默认关闭。它绑定已有 FlareTune 账号�
 
 1. 既有实例先在「设置 → 实例设置 → 运行概况」升级数据库。新安装已包含所需表。
 2. 在 Google Cloud 配置 **Web application** OAuth 客户端和授权界面。可使用已有 Google Cloud 项目；Client ID、Secret 和回调必须属于同一 Web 客户端。测试状态按 Google 控制台要求添加测试用户。
-3. 在「实例设置 → Google 登录」填写 Client ID、Client Secret、固定回调来源，例如 `https://music.example.com`。来源只有协议、域名和端口，不加路径或末尾斜杠。
+3. 在「实例设置 → Google 登录」点击「修改配置」，在弹窗填写 Client ID、Client Secret、固定回调来源，例如 `https://music.example.com`。来源只有协议、域名和端口，不加路径或末尾斜杠。
 4. 将显示的完整地址加入 Google 控制台 **Authorized redirect URIs**：`https://music.example.com/auth/google/callback`。登录和绑定共用此地址，必须精确匹配。
-5. 启用并保存。在该来源的登录页应看到「使用 Google 登录」；其他来源不显示入口。
+5. 保存配置，再打开卡片右侧开关；开关立即保存。在该来源的登录页应看到「使用 Google 登录」；其他来源不显示入口。尚未配置时打开开关会进入配置弹窗，保存后启用，取消不启用。
 
 生产须用 HTTPS；本地可用 `http://127.0.0.1:8790` 等固定来源。请直接打开与回调来源一致的 Worker 站点；代理前端到另一来源时，浏览器事务 Cookie 属于代理地址，不能完成另一站点的回调。开发和生产实例分别配置。
 

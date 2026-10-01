@@ -4,6 +4,9 @@ import generated from './en.auto.js';
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
   ...generated,
+  '修改配置': 'Edit configuration',
+  '修改 Google 登录配置': 'Edit Google sign-in configuration',
+  '尚未绑定 Google 账号': 'No Google account linked',
   'Google 登录': 'Google sign-in',
   '正在读取…': 'Loading…',
   '使用 Google 登录': 'Sign in with Google',

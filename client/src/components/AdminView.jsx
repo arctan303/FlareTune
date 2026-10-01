@@ -9,6 +9,7 @@ import AdminCatalogSection from './AdminCatalogSection.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
 import Section from './SettingsSection.jsx';
+import SettingsEditDialog from './SettingsEditDialog.jsx';
 import IngestDevicesPanel from './IngestDevicesPanel.jsx';
 import { GoogleAdminSettings } from './GoogleLogin.jsx';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
@@ -23,23 +24,6 @@ const tabs = [
 ];
 const inputClass = 'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-xs text-[var(--ink)] placeholder:text-[var(--muted)] outline-none focus:border-[var(--accent)] transition-colors';
 const buttonClass = 'primary-button rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs';
-
-function SettingsEditDialog({ title, onClose, children, message, busy }) {
-  const dialogRef = React.useRef(null);
-  React.useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return undefined;
-    dialog.showModal();
-    dialog.querySelector('input, textarea, select')?.focus();
-    return () => { if (dialog.open) dialog.close(); };
-  }, []);
-  return (
-    <dialog ref={dialogRef} aria-label={title} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} className="w-[min(92vw,48rem)] max-h-[85vh] rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--line)] bg-[var(--surface-raised)] px-5 py-4"><h2 className="text-lg font-semibold">{title}</h2><button type="button" onClick={onClose} disabled={busy} className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface)] disabled:opacity-50" aria-label={t("关闭编辑")}>{t("关闭")}</button></div>
-      <div className="max-h-[calc(85vh-4rem)] overflow-y-auto p-5 sm:p-6">{message && <div role="alert" className="mb-4 rounded-xl bg-rose-500/10 p-3 text-sm text-rose-600">{t(message)}</div>}{children}</div>
-    </dialog>
-  );
-}
 
 function Field({ label, hint, children }) {
   return (
