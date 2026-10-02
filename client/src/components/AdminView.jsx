@@ -10,6 +10,7 @@ import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
 import Section from './SettingsSection.jsx';
 import SettingsEditDialog from './SettingsEditDialog.jsx';
+import DatabaseMigrationStatus from './DatabaseMigrationStatus.jsx';
 import IngestDevicesPanel from './IngestDevicesPanel.jsx';
 import { GoogleAdminSettings } from './GoogleLogin.jsx';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
@@ -716,14 +717,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                     </dd>
                   </div>
                 </dl>
-                <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-                  <p className="text-xs text-[var(--muted)]">{t("数据库版本")}</p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{status?.schemaVersion ?? t("未知")} / {status?.targetVersion ?? t("未知")}</p>
-                  {Number.isSafeInteger(status?.schemaVersion) && Number.isSafeInteger(status?.targetVersion)
-                    && (status.schemaVersion < status.targetVersion || status.supplementalPending) && <button className={`${buttonClass} mt-3`} type="button" disabled={busy} onClick={() => void upgradeDatabase()}>{t("升级数据库")}</button>}
-                  {status?.schemaVersion === status?.targetVersion && !status?.supplementalPending && <p className="mt-2 text-xs text-[var(--muted)]">{t("数据库已是当前版本。")}</p>}
-                  {status?.supplementalPending && <p className="mt-2 text-xs text-[var(--muted)]">{t("有可用的 AI 接入配置迁移。")}</p>}
-                </div>
+                <DatabaseMigrationStatus status={status} busy={busy} onUpgrade={() => void upgradeDatabase()} />
               </Section>
             </div>
           )}

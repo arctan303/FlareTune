@@ -1,9 +1,11 @@
 import generated from './en.auto.js';
+import database from './database.js';
 
 // Chinese source copy is the stable key until every screen has migrated.
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
   ...generated,
+  ...database,
   '修改配置': 'Edit configuration',
   '修改 Google 登录配置': 'Edit Google sign-in configuration',
   '尚未绑定 Google 账号': 'No Google account linked',

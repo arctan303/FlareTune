@@ -8,7 +8,7 @@ test('instance management replaces the retired Admin Key console', () => {
   for (const label of ['常规', '访问', 'AI 与助手', '曲库', '账号', '系统']) assert.match(source, new RegExp(label));
   assert.match(source, /getAdminOverview\(csrfToken\)/);
   assert.match(source, /getAdminMigrationStatus\(csrfToken\)/);
-  assert.match(source, /status\.supplementalPending/);
+  assert.match(source, /DatabaseMigrationStatus status=\{status\} busy=\{busy\}/);
   assert.match(source, /authSession\.user\?\.role === 'admin'/);
   assert.doesNotMatch(source, /manageApi|AdminAuthPanel|setAdminKey|adminKeyInput|ADMIN_API_KEY/);
 });
