@@ -4,6 +4,7 @@ import { consumeSetupVerificationAttempt, issuePurposeProof, issueSetupProof,
   verifyPurposeProof, verifySetupProof } from './setupProof.js';
 import { CURRENT_SCHEMA_VERSION } from './schemaManifest.js';
 import { runKnownDatabaseUpgrade, DatabaseUpgradeError } from './upgradeDatabase.js';
+import { getSupplementalMigrationStatus } from './migrationStatus.js';
 import { decideApiAccess } from './accessPolicy.js';
 import { isTrustedMutationRequest, readBoundedJson, RequestBodyError } from './httpSecurity.js';
 import { InstanceAdminError } from '../instanceAdmin/common.js';
@@ -27,7 +28,7 @@ import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
 import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
 import { getOwnUiLanguage, updateOwnDisplayName, updateOwnUiLanguage } from '../auth/local/profile.js';
 import { handleUserImages } from '../routes/userImages.js';
-import { handleGoogleRequest, googleSchemaReady } from '../auth/google.js';
+import { handleGoogleRequest } from '../auth/google.js';
 import { getOwnImageSlot, userImagesReady } from '../services/userImages.js';
 import { ownStatus as subsonicStatus, setEnabled as setSubsonicEnabled } from '../subsonic/credentials.js';
 import {
@@ -206,10 +207,7 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     if (access.category === 'admin_migration') {
       if (request.method === 'GET') return json({ schemaVersion: instance.schemaVersion,
         targetVersion: CURRENT_SCHEMA_VERSION, state: instance.state,
-        supplementalPending: !await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_profile_protocols'").first()
-          || !await userImagesReady(env.DB)
-          || !await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_feature_models'").first()
-          || !await googleSchemaReady(env.DB) });
+        ...await getSupplementalMigrationStatus(env.DB) });
       await readBoundedJson(request);
       let result;
       // Finish a compatible migration while this authenticated request still has

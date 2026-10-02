@@ -52,7 +52,7 @@ export const album = (row) => ({ id: row.id, name: row.name, title: row.name, ar
 export const artist = (row) => ({ id: row.id, name: row.name, albumCount: row.albums.size, coverArt: row.coverArt });
 const found = (row) => row || reject(70, 'Requested item was not found');
 export async function findSong(db, id) {
-  const row = await db.prepare('SELECT id, title, artist, album, duration, audio_url, cover_url, created_at FROM Songs WHERE id = ?').bind(id).first();
+  const row = await db.prepare('SELECT id, title, artist, album, duration, language, audio_url, cover_url, created_at FROM Songs WHERE id = ?').bind(id).first();
   if (!row || !playable(row)) reject(70, 'Song was not found');
   return row;
 }

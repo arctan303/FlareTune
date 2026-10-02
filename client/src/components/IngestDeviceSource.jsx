@@ -4,13 +4,17 @@ import React from 'react';
 import { Disc } from 'lucide-react';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 import { deviceFolder, resolveDeviceLanguage } from '../utils/deviceFolderLanguage.js';
-import { getDeviceManifest, listIngestDevices, runDeviceJob } from '../services/ingestDeviceApi.js';
+import { getDeviceManifest as readManifest, listIngestDevices as listDevices,
+  runDeviceJob as deviceJob } from '../services/ingestDeviceApi.js';
 
 const PAGE_SIZE = 25;
 const formatDuration = (seconds) => seconds
   ? `${Math.floor(Number(seconds) / 60)}:${String(Math.round(Number(seconds)) % 60).padStart(2, '0')}` : t('时长未知');
 
-export default function IngestDeviceSource({ disabled, onAdd }) {
+export default function IngestDeviceSource({ disabled, onAdd, sessionGuardRef }) {
+  const listIngestDevices = () => sessionGuardRef.current.run((signal) => listDevices(signal));
+  const getDeviceManifest = (id) => sessionGuardRef.current.run((signal) => readManifest(id, signal));
+  const runDeviceJob = (id, value) => sessionGuardRef.current.run((signal) => deviceJob(id, value, { signal }));
   const [devices, setDevices] = React.useState([]);
   const [deviceId, setDeviceId] = React.useState('');
   const [files, setFiles] = React.useState([]);

@@ -47,10 +47,7 @@ export default function SubsonicSettings({ session }) {
       try { await refresh(); } catch { /* Keep the error visible. */ }
     } finally { if (current()) setBusy(false); }
   };
-  return <SettingsSection title={<span className="inline-flex items-center gap-2">
-    {t('第三方音乐客户端')}
-    <span className="rounded-md border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[var(--muted)]">Beta</span>
-  </span>}>
+  return <SettingsSection title={t('第三方音乐客户端')}>
     <label className="flex min-h-11 items-center justify-between gap-4 text-sm font-semibold">
       <span>{t('允许 Subsonic 客户端连接')}</span>
       <input type="checkbox" role="switch" checked={Boolean(status?.enabled)} disabled={!status || busy}
@@ -67,7 +64,7 @@ export default function SubsonicSettings({ session }) {
         setError(''); refresh().catch(() => setError('客户端连接设置加载失败，请重试。'));
       }}>{t('重试')}</button></div>}
     <dialog ref={dialog} onCancel={(event) => { event.preventDefault(); close(); }}
-      className="w-[min(28rem,calc(100%-2rem))] rounded-2xl bg-[var(--surface-raised)] p-6 text-[var(--ink)] backdrop:bg-black/40"
+      className="fixed inset-0 m-auto w-[min(28rem,calc(100%-2rem))] max-h-[85dvh] overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-6 text-[var(--ink)] shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
       aria-labelledby="subsonic-enable-title">
       <form onSubmit={(event) => { event.preventDefault(); save(true); }}>
         <h2 id="subsonic-enable-title" className="text-lg font-bold">{t('开启客户端连接')}</h2>

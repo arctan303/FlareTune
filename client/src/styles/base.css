@@ -27,6 +27,16 @@
   scrollbar-color: var(--line, rgba(128, 128, 128, 0.25)) transparent;
 }
 
+dialog {
+  margin: auto;
+}
+
+dialog:modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}
+
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-serif: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;

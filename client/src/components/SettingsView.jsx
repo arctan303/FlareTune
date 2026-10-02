@@ -27,7 +27,6 @@ import AccountSettings from './AccountSettings.jsx';
 import PrivateCoverImage from './PrivateCoverImage.jsx';
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
-const AdminSongCreatePage = React.lazy(() => import('./AdminSongCreatePage.jsx'));
 
 /**
  * 播放器形态微缩沙盘模型
@@ -688,17 +687,14 @@ export default function SettingsView({ section, themePreference = 'system', sele
           {activeSection === 'personal' && <AccountSettings />}
 
           {/* 分支 3：系统管理各个子页面 */}
-          {activeSection === 'admin-add-song' && isAdmin && (
-            <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">{t("正在打开歌曲入库…")}</p>}>
-              <AdminSongCreatePage />
-            </React.Suspense>
-          )}
 
           {activeSection.startsWith('admin-') && activeSection !== 'admin-add-song' && isAdmin && (
-            <div className="space-y-8 animate-[fade-in_0.2s_ease-out]">
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)]">
-                {{ 'admin-assistant': t("AI 与助手"), 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("实例设置") }[activeSection] || t("站点管理")}
-              </h1>
+            <div className="space-y-6 sm:space-y-7 animate-[fade-in_0.2s_ease-out]">
+              <header className="border-b border-[var(--line)] pb-4">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)]">
+                  {{ 'admin-assistant': t("AI 与助手"), 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("实例设置") }[activeSection] || t("站点管理")}
+                </h1>
+              </header>
               <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">{t("正在打开站点管理…")}</p>}>
                 <AdminView
                   embeddedTab={activeSection.replace('admin-', '')}

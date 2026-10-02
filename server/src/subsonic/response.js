@@ -2,8 +2,11 @@ import packageMetadata from '../../../package.json' with { type: 'json' };
 
 const escape = (value) => String(value).replace(/[&<>"']/g,
   (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
+// Literal attribute whitespace is normalized by XML parsers; entities preserve byte offsets.
+const escapeAttribute = (value) => escape(value).replace(/[\t\n\r]/g,
+  (char) => ({ '\t': '&#9;', '\n': '&#10;', '\r': '&#13;' })[char]);
 const attributes = (value) => Object.entries(value).filter(([, v]) => v != null)
-  .map(([key, v]) => ` ${key}="${escape(v)}"`).join('');
+  .map(([key, v]) => ` ${key}="${escapeAttribute(v)}"`).join('');
 
 function element(name, value) {
   if (value == null) return '';
@@ -12,8 +15,8 @@ function element(name, value) {
   const attrs = {};
   let children = '';
   for (const [key, item] of Object.entries(value)) {
-    // Subsonic text nodes have a JSON "value" property, not an XML attribute.
-    if (key === 'value') children += escape(item);
+    // line/cue/lyrics use text nodes. OpenSubsonic v2 cueLine.value is an attribute.
+    if (key === 'value' && name !== 'cueLine') children += escape(item);
     else if (item !== null && typeof item === 'object') children += element(key, item);
     else if (item != null) attrs[key] = item;
   }

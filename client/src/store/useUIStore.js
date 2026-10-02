@@ -13,7 +13,7 @@ import {
 import { accountPlaylistsStore } from '../accountPlaylists.js';
 import { usePlayStatsStore } from './usePlayStatsStore.js';
 import { usePlayHistoryStore } from './usePlayHistoryStore.js';
-import { clearRecentSearchesFromStorage } from '../utils/searchHistory.js';
+import { discardUnownedSearchHistory } from '../utils/searchHistory.js';
 import { formatPath, syncBrowserHistory } from '../utils/navigation.js';
 
 export const mergePersistedUISettings = (persistedState, currentState) => {
@@ -238,9 +238,7 @@ export const useUIStore = create(
           usePlayStatsStore.getState().setSubject(nextAccountId);
           usePlayHistoryStore.getState().setSubject(nextAccountId);
         }
-        if (next?.initialized && (!nextAccountId || previousAccountId !== nextAccountId)) {
-          clearRecentSearchesFromStorage();
-        }
+        if (next?.initialized) discardUnownedSearchHistory();
         set({
           authSession: next,
           ...(!nextAccountId || previousAccountId !== nextAccountId ? {

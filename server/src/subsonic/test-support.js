@@ -62,6 +62,7 @@ export async function fixture() {
       const range = match ? { offset: Number(match[1]), length: Number(match[2]) - Number(match[1]) + 1 } : null;
       return { body: range ? object.bytes.slice(range.offset, range.offset + range.length) : object.bytes,
         size, range, httpEtag: '"test-etag"', etag: 'test-etag', text: async () => new TextDecoder().decode(object.bytes),
+        json: async () => JSON.parse(new TextDecoder().decode(object.bytes)),
         writeHttpMetadata(headers) { headers.set('Content-Type', object.type); } };
     },
     async head(key) { const object = await this.get(key); return object; },

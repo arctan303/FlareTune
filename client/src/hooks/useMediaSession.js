@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../store/usePlayerStore.js';
+import { useUIStore } from '../store/useUIStore.js';
+import { stopSessionPlayback } from '../utils/playerSessionCleanup.js';
 import { usePrivateMediaSource } from './usePrivateMediaSource.js';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 import { localizeUnknownArtist, t, useLocale } from '../i18n/index.js';
@@ -11,13 +13,27 @@ export function selectMediaSessionArtwork(coverUrl, resolvedCoverUrl, registry =
 }
 
 export function useMediaSession({ currentSong, isPlaying }) {
+    // A restored paused queue is not a playback action in this new session.
+    const hasPlayedInSession = useRef(false);
+    useEffect(() => {
+        const unsubscribe = useUIStore.subscribe((next, previous) => {
+            const before = previous.authSession?.authenticated ? previous.authSession.user?.accountId : null;
+            const after = next.authSession?.authenticated ? next.authSession.user?.accountId : null;
+            if (before && before !== after) {
+                hasPlayedInSession.current = false;
+                stopSessionPlayback(usePlayerStore);
+            }
+        });
+        return () => { unsubscribe(); hasPlayedInSession.current = false; stopSessionPlayback(usePlayerStore); };
+    }, []);
     const locale = useLocale();
     const coverUrl = currentSong?.cover_url || '';
     const resolvedCoverUrl = usePrivateMediaSource(coverUrl);
     useEffect(() => {
         if (!('mediaSession' in navigator)) return;
+        if (isPlaying) hasPlayedInSession.current = true;
 
-        if (currentSong) {
+        if (currentSong && hasPlayedInSession.current) {
             try {
                 const cover = selectMediaSessionArtwork(coverUrl, resolvedCoverUrl);
                 navigator.mediaSession.metadata = new MediaMetadata({
@@ -39,12 +55,12 @@ export function useMediaSession({ currentSong, isPlaying }) {
         } else {
             navigator.mediaSession.metadata = null;
         }
-    }, [currentSong?.id, currentSong?.title, currentSong?.artist, currentSong?.album, coverUrl, resolvedCoverUrl, locale]);
+    }, [currentSong?.id, currentSong?.title, currentSong?.artist, currentSong?.album, coverUrl, resolvedCoverUrl, locale, isPlaying]);
 
     useEffect(() => {
         if (!('mediaSession' in navigator)) return;
 
-        navigator.mediaSession.playbackState = currentSong
+        navigator.mediaSession.playbackState = currentSong && hasPlayedInSession.current
             ? (isPlaying ? 'playing' : 'paused')
             : 'none';
     }, [isPlaying, currentSong]);
@@ -52,6 +68,7 @@ export function useMediaSession({ currentSong, isPlaying }) {
     useEffect(() => {
         if (!('mediaSession' in navigator)) return;
 
+        if (!hasPlayedInSession.current) return;
         const setHandler = (action, handler) => {
             try {
                 navigator.mediaSession.setActionHandler(action, handler);
@@ -113,5 +130,5 @@ export function useMediaSession({ currentSong, isPlaying }) {
             const actions = ['play', 'pause', 'previoustrack', 'nexttrack', 'seekto', 'seekforward', 'seekbackward', 'stop'];
             actions.forEach((action) => setHandler(action, null));
         };
-    }, []);
+    }, [isPlaying]);
 }

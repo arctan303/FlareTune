@@ -611,7 +611,7 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
   const home = readSource('./components/HomeOverview.jsx');
   const roam = readSource('./components/RoamOverview.jsx');
   const queue = readSource('./components/PlaylistDrawer.jsx');
-  const app = readSource('./App.jsx');
+  const app = readSource('./app.jsx');
   const hook = readSource('./hooks/useRandomRoam.js');
   const store = readSource('./store/usePlayerStore.js');
   const worker = readSource('../../server/src/instance/httpRouter.js');
@@ -770,7 +770,7 @@ test('add to playlist modal and multi-page track actions integrate across random
   const trackRow = readSource('./components/TrackRow.jsx');
   const main = readSource('./components/MainContent.jsx');
   const detail = readSource('./components/PlaylistDetailView.jsx');
-  const app = readSource('./App.jsx');
+  const app = readSource('./app.jsx');
 
   assert.match(store, /isAddToPlaylistOpen: false/);
   assert.match(store, /openAddToPlaylist:/);

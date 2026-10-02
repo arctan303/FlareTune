@@ -81,7 +81,7 @@ async function seed(db, bucket, splitSqlQuery, { migrationPending = false } = {}
 }
 
 async function startRuntime({ runtime: { wrangler, miniflare, esbuild }, statePath,
-  workerTestBindings = null, seedMigrationPending = false, seedEmpty = false }) {
+  workerTestBindings = null, seedMigrationPending = false, seedEmpty = false, port = 8790 }) {
   const [generated, bundle] = await Promise.all([
     wrangler.unstable_getMiniflareWorkerOptions(configPath),
     esbuild.build({ entryPoints: [resolve(root, 'server/src/flaretune.js')], bundle: true, write: false, format: 'esm', platform: 'browser' }),
@@ -91,7 +91,7 @@ async function startRuntime({ runtime: { wrangler, miniflare, esbuild }, statePa
   let mf;
   try {
     mf = new miniflare.Miniflare(miniflare.convertV4MiniflareOptions({
-      host: '127.0.0.1', port: 8790, cachePersist: statePath, d1Persist: statePath, r2Persist: statePath,
+      host: '127.0.0.1', port, cachePersist: statePath, d1Persist: statePath, r2Persist: statePath,
       workers: [{ ...options, bindings: { ...options.bindings, ...workerTestBindings },
         name: 'flaretune-preview', modules: true, script: bundle.outputFiles[0].text,
         outboundService: () => { throw new Error('PREVIEW_OUTBOUND_BLOCKED'); } }, ...generated.externalWorkers],
@@ -126,14 +126,14 @@ export async function startPreview({ ephemeral = false, runtimeLoader = loadRunt
   if (seedMigrationPending && !ephemeral) throw new Error('Pending-migration seed is only allowed in ephemeral previews');
   if (seedEmpty && (!ephemeral || seedMigrationPending)) throw new Error('Empty seed is only allowed in an ephemeral fresh preview');
   const statePath = override || (ephemeral
-    ? resolve(previewStateRoot, `state-preview-smoke-${process.pid}`)
+    ? resolve(previewStateRoot, `state-preview-smoke-${process.pid}-${crypto.randomUUID()}`)
     : resolve(previewStateRoot, 'state-preview'));
   assertPreviewStatePath(statePath);
   let mf;
   try {
     await mkdir(statePath, { recursive: true });
     mf = await runtimeStarter({ runtime: await runtimeLoader(), statePath,
-      workerTestBindings, seedMigrationPending, seedEmpty });
+      workerTestBindings, seedMigrationPending, seedEmpty, port: ephemeral ? 0 : 8790 });
   } catch (error) {
     const cleanupErrors = await cleanupPreview({ mf, statePath, removeState: ephemeral });
     if (cleanupErrors.length) error.cleanupErrors = [...(error.cleanupErrors || []), ...cleanupErrors];
@@ -141,7 +141,7 @@ export async function startPreview({ ephemeral = false, runtimeLoader = loadRunt
   }
   let stopped = false;
   return {
-    origin: 'http://127.0.0.1:8790',
+    origin: mf.ready ? new URL(await mf.ready).origin : 'http://127.0.0.1:8790',
     async stop() {
       if (stopped) return;
       stopped = true;

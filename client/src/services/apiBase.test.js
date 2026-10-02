@@ -24,15 +24,13 @@ test('local frontend uses the same-origin Worker proxy without OAuth defaults', 
   const localWrangler = readSource('../../../server/wrangler.local.toml');
   const viteConfig = readSource('../../vite.config.js');
   const apiBase = developmentEnv.match(/^VITE_API_BASE_URL=(.+)$/m)?.[1]?.trim();
-  const musicWebOrigin = localWrangler.match(/^MUSIC_WEB_ORIGIN\s*=\s*"([^"]+)"$/m)?.[1]?.trim();
 
   assert.equal(apiBase, undefined, 'development API calls must use the same-origin Vite proxy');
-  assert.ok(musicWebOrigin, 'MUSIC_WEB_ORIGIN must be configured for the local Worker');
   assert.match(viteConfig, /server:\s*\{[\s\S]*?host:\s*'127\.0\.0\.1',[\s\S]*?port:\s*3000,/);
-  assert.equal(new URL(musicWebOrigin).origin, 'http://127.0.0.1:3000');
   assert.equal(viteDevelopmentConfig.server.proxy['/api'].target, 'http://127.0.0.1:8789');
   assert.equal(viteDevelopmentConfig.server.proxy['/media'].target, 'http://127.0.0.1:8789');
   assert.doesNotMatch(localWrangler, /^OAUTH_ISSUER\s*=|^CLIENT_ID\s*=|^REDIRECT_URI\s*=/m);
+  assert.doesNotMatch(localWrangler, /^CORS_ORIGINS\s*=|^MUSIC_WEB_ORIGIN\s*=/m);
 });
 
 test('production consumers use the single no-strategy API base contract', () => {

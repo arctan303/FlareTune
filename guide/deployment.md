@@ -2,11 +2,11 @@
 
 [简体中文](deployment.md) · [English](deployment.en.md)
 
-## 当前状态
+## 部署方式
 
-维护者已在生产实例测试主要功能，反馈运行正常。公开模板在仓库根目录的 `wrangler.toml` 声明 Worker、静态资源、D1 和 R2；Cloudflare 的部署向导会创建并绑定资源，并依据 `.dev.vars.example` 提示填写 `SETUP_SECRET`。空 D1 的初始化及已知旧版升级已通过本地 Worker/D1 端到端演练。**全新 Cloudflare 账号的实际一键部署尚未验收**。
+公开模板在仓库根目录的 `wrangler.toml` 声明 Worker、静态资源、D1 和 R2；Cloudflare 的部署向导会创建并绑定资源，并依据 `.dev.vars.example` 提示填写 `SETUP_SECRET`。
 
-[一键部署到 Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune)（仓库公开后可供所有用户使用）。根 `wrangler.toml` 中的 D1/R2 名称和空数据库 ID 是部署按钮使用的默认值；向导会为部署者创建资源并写入自己的绑定。不要为新安装执行 `wrangler d1 migrations apply`。首次初始化由应用内置迁移事务完成。直接在源码目录运行 `npm run deploy` 是真实远程部署命令，须先把配置绑定到自己已有的 D1/R2。
+[一键部署到 Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune)。根 `wrangler.toml` 中的 D1/R2 名称和空数据库 ID 是部署按钮使用的默认值；向导会为部署者创建资源并写入自己的绑定。不要为新安装执行 `wrangler d1 migrations apply`。首次初始化由应用内置迁移事务完成。直接在源码目录运行 `npm run deploy` 是真实远程部署命令，须先把配置绑定到自己已有的 D1/R2。
 
 ## 首次安装
 

@@ -33,6 +33,6 @@ In Settings, follow the system appearance or choose light or dark mode, a backgr
 
 The player reads lyrics saved by the instance and shows synchronized source lyrics and translations when available. Administrators can use the lyrics workspace to review sources, correct lyrics and timing, and apply AI translation according to instance settings. Saved shared lyrics are available to members. The interface language does not translate song titles, lyrics, or user content.
 
-## Installation status
+## Installation
 
-This guide describes the current app entry points. See the [deployment guide](deployment.en.md) for new-instance setup and the status of one-click deployment testing.
+See the [deployment guide](deployment.en.md) for new-instance setup.

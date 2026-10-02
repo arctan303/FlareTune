@@ -78,7 +78,7 @@ export default function QuickSongEditDialog({ songId, onClose, onSaved }) {
   };
 
   return (
-    <dialog ref={dialogRef} onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }} aria-labelledby="quick-song-edit-title" className="w-[min(92vw,36rem)] max-h-[85vh] rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
+    <dialog ref={dialogRef} onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }} aria-labelledby="quick-song-edit-title" className="fixed inset-0 m-auto w-[min(92vw,36rem)] max-h-[85vh] rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4"><h2 id="quick-song-edit-title" className="text-lg font-semibold">{t("编辑歌曲信息")}</h2><button type="button" onClick={onClose} disabled={saving} className="text-sm text-[var(--muted)] disabled:opacity-50">{t("关闭")}</button></div>
       <form onSubmit={save} className="max-h-[calc(85vh-4rem)] space-y-5 overflow-y-auto p-5 sm:p-6">
         {loading ? <p role="status" className="py-8 text-center text-sm text-[var(--muted)]">{t("正在读取歌曲…")}</p> : song && draft ? <>

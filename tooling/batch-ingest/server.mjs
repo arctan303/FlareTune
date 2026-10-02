@@ -75,7 +75,9 @@ export async function createBatchIngestServer({ port = 0, fetchImpl = fetch, sta
     const host = request.headers.host;
     if (!/^127\.0\.0\.1:\d+$/.test(host || '')) return json(response, 403, { error: '本地地址无效。' });
     const origin = `http://${host}`;
-    const url = new URL(request.url, origin);
+    let url;
+    try { url = new URL(request.url, origin); }
+    catch { return json(response, 400, { error: '本地请求地址无效。' }); }
     const isMutation = !['GET', 'HEAD'].includes(request.method);
     if (isMutation && (request.headers.origin !== origin || request.headers['x-requested-with'] !== 'FlareTuneIngest')) {
       return json(response, 403, { error: '本地请求来源无效。' });

@@ -51,6 +51,7 @@ export default function AllPlaylistsView({
     const [activeDragIndex, setActiveDragIndex] = React.useState(null);
     const [floatingDrag, setFloatingDrag] = React.useState(null);
     const dragIndexRef = React.useRef(null);
+    const dragCleanupRef = React.useRef(null);
     const floatingElRef = React.useRef(null);
     const shelfGridRef = React.useRef(null);
     const contentRef = React.useRef(null);
@@ -73,6 +74,7 @@ export default function AllPlaylistsView({
     const settleTimerRef = React.useRef(null);
 
     React.useEffect(() => () => {
+        dragCleanupRef.current?.();
         clearTimeout(settleTimerRef.current);
         for (const animation of reorderAnimationsRef.current.values()) animation.cancel();
     }, []);
@@ -229,6 +231,7 @@ export default function AllPlaylistsView({
         };
 
         const cleanupListeners = () => {
+            dragCleanupRef.current = null;
             try {
                 handleEl.releasePointerCapture?.(pointerId);
             } catch {}
@@ -275,6 +278,8 @@ export default function AllPlaylistsView({
             }
         };
 
+        dragCleanupRef.current?.();
+        dragCleanupRef.current = cleanupListeners;
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
         window.addEventListener('pointercancel', onPointerUp);

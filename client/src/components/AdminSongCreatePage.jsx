@@ -9,12 +9,16 @@ import { catalogSaveApplied } from '../utils/catalogSaveVerification.js';
 import { compareSongIdentity, duplicateReviewSignature, findCatalogDuplicates, findQueueDuplicates } from '../utils/songDuplicateCheck.js';
 import { suggestSongLanguage } from '../utils/songLanguageSuggestion.js';
 import { resolveDeviceLanguage } from '../utils/deviceFolderLanguage.js';
-import { createCatalogSong, getCatalogSong, listCatalogSongs, updateCatalogSong, uploadCatalogMedia } from '../services/catalogAdminApi.js';
+import { createCatalogSong as createSong, getCatalogSong as getSong, listCatalogSongs as listSongs,
+  updateCatalogSong as updateSong, uploadCatalogMedia as uploadMedia } from '../services/catalogAdminApi.js';
+import { useUIStore } from '../store/useUIStore.js';
+import { createIngestSessionGuard } from '../utils/ingestSessionGuard.js';
+import { usePageActivity } from '../hooks/usePageActivity.js';
 import { hydrateSong } from '../utils.js';
 import { rejectDuplicateDecisionAfterCheckFailure } from '../utils/duplicateIngestDecision.js';
 import IngestDeviceSource from './IngestDeviceSource.jsx';
 import PrivateCoverImage from './PrivateCoverImage.jsx';
-import { runDeviceJob } from '../services/ingestDeviceApi.js';
+import { runDeviceJob as deviceJob } from '../services/ingestDeviceApi.js';
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'wav', 'ogg', 'm4a', 'aac', 'wma']);
 const COVER_EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -58,6 +62,26 @@ function LocalAudioPreview({ file }) {
 }
 
 export default function AdminSongCreatePage() {
+  const pageActive = usePageActivity();
+  const sessionGuardRef = React.useRef(null);
+  React.useEffect(() => {
+    const guard = createIngestSessionGuard(useUIStore.getState().authSession,
+      () => useUIStore.getState().authSession);
+    sessionGuardRef.current = guard;
+    const unsubscribe = useUIStore.subscribe(() => {
+      try { guard.assertCurrent(); } catch { /* Stops uploads and later queue operations. */ }
+    });
+    return () => { unsubscribe(); guard.close(); };
+  }, []);
+  const guarded = (operation) => sessionGuardRef.current.run(operation);
+  const createCatalogSong = (...args) => guarded(() => createSong(...args));
+  const getCatalogSong = (...args) => guarded(() => getSong(...args));
+  const listCatalogSongs = (...args) => guarded(() => listSongs(...args));
+  const updateCatalogSong = (...args) => guarded(() => updateSong(...args));
+  const uploadCatalogMedia = (kind, file, fetchImpl, onProgress) =>
+    guarded((signal) => uploadMedia(kind, file, fetchImpl, onProgress, signal));
+  const runDeviceJob = (id, value, options) =>
+    guarded((signal) => deviceJob(id, value, { ...options, signal }));
   const [entries, setEntries] = React.useState([]);
   const [editingId, setEditingId] = React.useState(null);
   const [reviewingId, setReviewingId] = React.useState(null);
@@ -83,8 +107,8 @@ export default function AdminSongCreatePage() {
   const fileInput = React.useRef(null);
   const titleInput = React.useRef(null);
   const returnFocus = React.useRef(null);
-  const editing = entries.find((entry) => entry.key === editingId);
-  const reviewing = entries.find((entry) => entry.key === reviewingId);
+  const editing = pageActive ? entries.find((entry) => entry.key === editingId) : null;
+  const reviewing = pageActive ? entries.find((entry) => entry.key === reviewingId) : null;
   const activeUpload = entries.find((entry) => entry.key === activeUploadId);
   const remaining = entries.filter((entry) => entry.status !== 'saved').length;
   const savedCount = entries.length - remaining;
@@ -126,7 +150,7 @@ export default function AdminSongCreatePage() {
   };
 
   React.useEffect(() => {
-    if (!editingId) return undefined;
+    if (!editingId || !pageActive) return undefined;
     const frame = requestAnimationFrame(() => titleInput.current?.focus());
     const onKeyDown = (event) => {
       if (event.key === 'Escape' && !savingRef.current) closeEditor();
@@ -137,14 +161,14 @@ export default function AdminSongCreatePage() {
       document.removeEventListener('keydown', onKeyDown);
       returnFocus.current?.focus?.();
     };
-  }, [editingId]);
+  }, [editingId, pageActive]);
 
   React.useEffect(() => {
-    if (!reviewingId) return undefined;
+    if (!reviewingId || !pageActive) return undefined;
     const onKeyDown = (event) => { if (event.key === 'Escape') setReviewingId(null); };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [reviewingId]);
+  }, [reviewingId, pageActive]);
 
   const openEditor = (key) => {
     if (savingRef.current) return;
@@ -447,6 +471,7 @@ export default function AdminSongCreatePage() {
     let pausedAt = targets.length;
     try {
       for (let index = 0; index < targets.length; index += 1) {
+        if (sessionGuardRef.current.signal.aborted) break;
         if (!onlyId && pauseRequestedRef.current) {
           pausedAt = index;
           break;
@@ -607,7 +632,7 @@ export default function AdminSongCreatePage() {
             className={'rounded-xl px-4 py-2 text-sm font-semibold ' +
               (source === 'device' ? 'primary-button' : 'border border-[var(--line)]')}>{t("已连接设备目录")}</button>
         </div>
-        {source === 'device' ? <div className="mt-4"><IngestDeviceSource disabled={saving} onAdd={addDeviceFiles} /></div> : <div
+        {source === 'device' ? <div className="mt-4"><IngestDeviceSource disabled={saving} onAdd={addDeviceFiles} sessionGuardRef={sessionGuardRef} /></div> : <div
           className={'mt-3 rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-colors ' +
             (dragging ? 'border-[var(--accent)] bg-[var(--surface)]' : 'border-[var(--line)]')}
           onDragOver={(event) => { event.preventDefault(); setDragging(true); }}

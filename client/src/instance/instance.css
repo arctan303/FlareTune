@@ -46,11 +46,14 @@
 
 .instance-portal__body { margin-top: clamp(26px, 4.5vh, 40px); }
 
-/* 登录页：让品牌与表单各占一块平面，不把表单装进面板。 */
+/* 登录页：一体化温润背景，纯粹文字美学设计与现代质感表单 */
 .instance-page--login {
   isolation: isolate;
   padding: clamp(24px, 5vw, 72px) clamp(24px, 6vw, 88px);
-  background: var(--page, #ffffff);
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--accent, #0284c7) 7%, transparent), transparent 65%),
+    radial-gradient(100% 60% at 90% 90%, color-mix(in srgb, var(--accent, #0284c7) 4%, transparent), transparent 55%),
+    var(--surface, #f4f4f5);
 }
 
 .instance-page--login,
@@ -59,23 +62,49 @@
 .instance-page--login *::before,
 .instance-page--login *::after { box-sizing: border-box; }
 
+/* 满足契约的同时让整个背景浑然一体，消除左右生硬的色块断层 */
 .instance-page--login::before {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 54%;
-  border-right: 1px solid var(--line, #e5e5e5);
+  inset: 0;
+  width: 100%;
+  border: 0;
   background: var(--surface, #f4f4f5);
+  opacity: 0.5;
   content: '';
   pointer-events: none;
 }
 
+/* 纯粹文字美学背景：巨幅空心艺术字水印 */
+.instance-login__backdrop-text {
+  position: absolute;
+  top: 50%;
+  left: 3%;
+  transform: translateY(-50%);
+  font-family: var(--font-sans);
+  font-size: clamp(150px, 24vw, 340px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--ink, #18181b) 5.5%, transparent);
+  user-select: none;
+  pointer-events: none;
+  z-index: 0;
+  white-space: nowrap;
+}
+
+html.dark .instance-login__backdrop-text {
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--ink, #fafafa) 7%, transparent);
+}
+
 .instance-login {
   position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
-  gap: clamp(56px, 9vw, 152px);
-  align-items: stretch;
-  width: min(100%, 1180px);
+  gap: clamp(48px, 8vw, 120px);
+  align-items: center;
+  width: min(100%, 1160px);
   min-height: clamp(480px, calc(100dvh - 120px), 660px);
   margin-inline: auto;
 }
@@ -84,51 +113,230 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  padding-block: 8px;
+  padding-block: 16px;
 }
 
 .instance-login .instance-wordmark.tune-wordmark {
   margin: 0;
-  font-size: 24px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
 }
 
 .instance-login__headline { margin-block: auto; }
+.instance-login__headline { padding-top: clamp(20px, 3vh, 40px); }
 
 .instance-login__headline h1 {
   margin: 0;
-  font-size: clamp(52px, 6.5vw, 88px);
+  font-size: clamp(52px, 6.5vw, 84px);
   font-weight: 750;
-  letter-spacing: -0.075em;
-  line-height: 1.14;
+  letter-spacing: -0.065em;
+  line-height: 1.12;
 }
 
-.instance-login__rule { width: 88px; height: 3px; margin-top: 30px; background: var(--accent, #0284c7); }
+.instance-login__subtitle {
+  max-width: 380px;
+  margin: 16px 0 0;
+  color: var(--muted, #52525b);
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+/* 纯文字与刻度排版块 */
+.instance-login__editorial {
+  display: grid;
+  gap: 12px;
+  max-width: 360px;
+  margin-top: 36px;
+}
+
+.instance-login__editorial-meta {
+  color: var(--accent, #0284c7);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.instance-login__editorial-track {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--muted, #52525b);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+}
+
+.instance-login__editorial-line {
+  position: relative;
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--line, #e5e5e5) 75%, var(--ink, #18181b) 15%);
+}
+
+.instance-login__editorial-line::after {
+  position: absolute;
+  top: -2px;
+  left: 42%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent, #0284c7);
+  content: '';
+}
+
+/* 简约线条 */
+.instance-login__rule {
+  width: 64px;
+  height: 2px;
+  margin-top: 24px;
+  background: var(--accent, #0284c7);
+  opacity: 0.85;
+}
 
 .instance-login__access {
   align-self: center;
   width: 100%;
   max-width: 420px;
+  padding: clamp(28px, 3.5vw, 40px);
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 20px;
+  background: var(--surface-raised, #ffffff);
+  box-shadow: 0 20px 48px -12px color-mix(in srgb, var(--ink, #18181b) 8%, transparent),
+              0 2px 6px -1px color-mix(in srgb, var(--ink, #18181b) 3%, transparent);
+}
+
+.instance-login__access-header {
+  margin-bottom: 22px;
 }
 
 .instance-login__access h2 {
-  margin: 0 0 16px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--line, #e5e5e5);
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.045em;
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+  font-size: 26px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
   line-height: 1.2;
 }
 
-.instance-page--login .instance-form { gap: 8px; }
-.instance-page--login .instance-field { grid-template-columns: minmax(0, 1fr); padding: 12px 0 10px; }
-.instance-page--login .instance-field > label { grid-column: 1; grid-row: auto; font-size: 13px; }
-.instance-page--login .instance-input-wrap { grid-column: 1; grid-row: auto; }
+.instance-login__access-desc {
+  margin: 6px 0 0;
+  color: var(--muted, #52525b);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.instance-page--login .instance-form { gap: 14px; }
+
+/* 登录页输入框升级为带有浅灰质感底色的现代容器，与纯白卡片形成鲜明立体反差！ */
+.instance-page--login .instance-field { grid-template-columns: minmax(0, 1fr); padding: 0; border-bottom: 0; }
+.instance-page--login .instance-field::after { display: none; }
+.instance-page--login .instance-field > label { grid-column: 1; grid-row: auto; margin-bottom: 6px; color: var(--ink, #18181b); font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+
+.instance-page--login .instance-input-wrap {
+  grid-column: 1;
+  grid-row: auto;
+  border: 1px solid color-mix(in srgb, var(--line, #e5e5e5) 75%, var(--ink, #18181b) 12%);
+  border-radius: var(--radius-card, 12px);
+  background: color-mix(in srgb, var(--surface, #f4f4f5) 85%, var(--page, #ffffff));
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.instance-page--login .instance-input-wrap:hover {
+  border-color: color-mix(in srgb, var(--line, #e5e5e5) 40%, var(--ink, #18181b));
+  background: color-mix(in srgb, var(--surface, #f4f4f5) 60%, var(--page, #ffffff));
+}
+
+.instance-page--login .instance-input-wrap:focus-within {
+  border-color: var(--accent, #0284c7);
+  background: var(--surface-raised, #ffffff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #0284c7) 16%, transparent),
+              0 2px 8px -2px color-mix(in srgb, var(--ink, #18181b) 5%, transparent);
+}
+
+.instance-page--login .instance-field[data-invalid='true'] .instance-input-wrap {
+  border-color: var(--danger, #dc2626);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #dc2626) 16%, transparent);
+}
+
 .instance-page--login .instance-hint,
-.instance-page--login .instance-field-status { grid-column: 1; }
-.instance-page--login .instance-field input { min-height: 46px; padding: 8px 0 4px; font-size: 18px; }
-.instance-page--login .instance-primary { min-height: 52px; margin-top: 25px; font-size: 15px; }
+.instance-page--login .instance-field-status {
+  grid-column: 1;
+  margin-top: 4px;
+}
+
+.instance-page--login .instance-field input { min-height: 46px; padding: 10px 14px; border: 0; border-radius: inherit; font-size: 18px; }
+
+.instance-page--login .instance-input-wrap:has(.instance-reveal) input {
+  padding-right: 44px;
+}
+
+.instance-page--login .instance-reveal {
+  right: 2px;
+}
+
+/* 按钮 */
+.instance-page--login .instance-primary {
+  min-height: 48px;
+  margin-top: 22px;
+  border-radius: var(--radius-card, 12px);
+  background: var(--accent, #0284c7);
+  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--accent, #0284c7) 45%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.instance-page--login .instance-primary:hover:not(:disabled) {
+  background: var(--accent-strong, #0369a1);
+  box-shadow: 0 6px 20px -2px color-mix(in srgb, var(--accent, #0284c7) 55%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1.5px);
+}
+
+.instance-page--login .instance-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
 html.dark .instance-page--login .instance-primary { color: var(--page, #09090b); }
+
+/* 分割线与 Google 按钮 */
+.instance-login__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--muted, #52525b);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.instance-login__divider::before,
+.instance-login__divider::after {
+  flex: 1;
+  height: 1px;
+  background: var(--line, #e5e5e5);
+  content: '';
+}
+
+.instance-google-btn {
+  border-radius: var(--radius-card, 12px);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.instance-google-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px -2px color-mix(in srgb, var(--ink, #18181b) 8%, transparent);
+}
 
 /* 非表单页面（维护、不可用等）把段落与按钮直接放在内容列里 */
 .instance-portal__body > * + * { margin-top: 14px; }
@@ -344,6 +552,8 @@ html.dark .instance-page--login .instance-primary { color: var(--page, #09090b);
   }
 
   .instance-login__headline h1 { font-size: clamp(48px, 8vw, 72px); }
+  .instance-login__art { margin-top: 24px; gap: 20px; }
+  .instance-vinyl svg { width: 140px; height: 140px; }
   .instance-login__rule { margin-top: 20px; }
   .instance-login__access { max-width: none; padding-top: clamp(36px, 5vh, 54px); }
 }

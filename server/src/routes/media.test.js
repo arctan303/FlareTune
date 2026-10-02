@@ -58,3 +58,26 @@ test('media route reports missing storage and objects without falling back exter
   const env = { MEDIA_PREFIX: 'media', MEDIA_BUCKET: { get: async () => null } };
   assert.equal((await serveMediaObject(new Request('https://flaretune.example.test/media/missing.mp3'), '/media/missing.mp3', env)).status, 404);
 });
+
+test('reserved device mailboxes are never exposed by generic media readers', async () => {
+  for (const prefix of ['media', 'tenant/music']) {
+    const env = { MEDIA_PREFIX: prefix, MEDIA_BUCKET: {
+      get() { assert.fail('mailbox GET reached the bucket'); },
+      head() { assert.fail('mailbox HEAD reached the bucket'); },
+    } };
+    for (const path of ['/media/ingest-devices/v1/id/manifest.json',
+      '/media/%69ngest-devices/v1/registry.json', '/media/ingest-devices/v2/id/results/job.json',
+      '/media/ingest-devices/v1/id/pending/job.json']) {
+      assert.equal(resolveMediaObjectKey(path, env), null);
+      for (const method of ['GET', 'HEAD']) {
+        const response = await serveMediaObject(new Request(`https://example.test${path}`, {
+          method, headers: { Range: 'bytes=0-4' },
+        }), path, env);
+        assert.equal(response.status, 404);
+      }
+    }
+    for (const path of ['audio/song.mp3', 'cover/song.webp', 'lyrics/song.json']) {
+      assert.equal(resolveMediaObjectKey(`/media/${path}`, env), `${prefix}/${path}`);
+    }
+  }
+});
