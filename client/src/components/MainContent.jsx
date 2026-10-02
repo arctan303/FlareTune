@@ -23,6 +23,7 @@ import RetainedPage from './RetainedPage.jsx';
 import PlayHistoryView from './PlayHistoryView.jsx';
 import PlayStatsDetailView from './PlayStatsDetailView.jsx';
 import SettingsView from './SettingsView.jsx';
+const AdminSongCreatePage = React.lazy(() => import('./AdminSongCreatePage.jsx'));
 const LyricsManagementWorkspace = React.lazy(() => import('./LyricsManagementWorkspace.jsx'));
 import AssistantView from './AssistantView.jsx';
 import ArtistDetailView from './ArtistDetailView.jsx';
@@ -233,6 +234,8 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     const requestGuardRef = useRef(null);
     if (!requestGuardRef.current) requestGuardRef.current = createLatestRequestGuard();
     const viewerKey = authUser?.accountId || '';
+    const isIngestActive = activePage === 'settings' && activeRoute?.section === 'admin-add-song'
+        && authUser?.role === 'admin';
     const sessionToken = useUIStore((state) => state.authSession.csrfToken);
     const searchCache = React.useMemo(() => createSearchPageCache(), [viewerKey, sessionToken]);
     useEffect(() => {
@@ -527,6 +530,13 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             <RetainedPage key={`home:${viewerKey}:${sessionToken}`} active={isHomeActive}>
                 {renderHome()}
             </RetainedPage>
+            {authUser?.role === 'admin' && <RetainedPage key={`ingest:${viewerKey}:${sessionToken}`} active={isIngestActive}>
+                <div className="app-page">
+                    <React.Suspense fallback={<p role="status">{t("正在打开歌曲入库…")}</p>}>
+                        <AdminSongCreatePage />
+                    </React.Suspense>
+                </div>
+            </RetainedPage>}
             <PlaylistDetailView
                 isViewingPlaylist={isViewingPlaylist && activeRoute?.type === 'playlist'}
                 loadState={activeRoute?.type === 'playlist' ? playlistLoadState : { status: 'idle' }}
@@ -614,7 +624,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                     : activePage === 'search' ? <SearchView key={`${viewerKey}:${sessionToken}`} cache={searchCache} route={activeRoute} onBack={() => onNavigate('home')} songsMap={songsMap} />
                         : activePage === 'library' ? renderLibrary()
                         : activePage === 'roam' ? renderRoam()
-                            : activePage === 'settings' ? <SettingsView section={activeRoute?.section} themePreference={themePreference} selectTheme={selectTheme} />
+                            : activePage === 'settings' ? (isIngestActive ? null : <SettingsView section={activeRoute?.section} themePreference={themePreference} selectTheme={selectTheme} />)
                                 : activePage === 'lyrics' ? <React.Suspense fallback={<div className="app-page" role="status">{t("正在打开歌词工作台…")}</div>}>
                                     <LyricsManagementWorkspace route={activeRoute} songFromLibrary={songsMap?.get(String(activeRoute?.songId))} onNavigate={onNavigate} />
                                   </React.Suspense>

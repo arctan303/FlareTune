@@ -4,7 +4,7 @@
 
 ## 前置条件
 
-- Node.js 22.12.0 或更高版本及 npm。
+- Node.js 22.18+（22.x）或 24.11+及 npm。
 - 本地开发使用 Wrangler 的 D1/R2 模拟绑定；不要求连接维护者的 Cloudflare 资源。
 - 自行准备高强度的 `SETUP_SECRET`，仅写入未跟踪的 `server/.dev.vars`。
 

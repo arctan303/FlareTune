@@ -44,7 +44,7 @@ FlareTune 是一款面向个人和家庭的自建音频流媒体应用。管理�
 
 ## 开发与文档
 
-项目使用 React、Vite 和 Cloudflare Workers，数据使用 D1，音频与封面使用私有 R2。本地开发需要 Node.js 22.12.0 或更新版本；完整的启动与验证步骤见[本地开发指南](guide/local-development.md)。
+项目使用 React、Vite 和 Cloudflare Workers，数据使用 D1，音频与封面使用私有 R2。本地开发需要 Node.js 22.18+（22.x）或 24.11+；完整的启动与验证步骤见[本地开发指南](guide/local-development.md)。
 
 | 文档 | 内容 |
 | --- | --- |

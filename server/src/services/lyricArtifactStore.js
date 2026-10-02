@@ -263,7 +263,7 @@ function normalizeAiCompletion(value, lineCount) {
   const hasProcessingKey = Object.prototype.hasOwnProperty.call(value, 'processingKey');
   if (value.status === 'completed') {
     if (hasProcessingKey && (typeof value.processingKey !== 'string'
-      || !/^[a-z]{2,5}(?:\|[01]){4}$/u.test(value.processingKey))) {
+      || !/^[a-z]{2,5}(?:(?:\|[01]){4}|(?:\|[01]){6})$/u.test(value.processingKey))) {
       validationError('completed aiCompletion has an invalid processingKey');
     }
   } else if (hasProcessingKey) validationError('processingKey requires completed aiCompletion');

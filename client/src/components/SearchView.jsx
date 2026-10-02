@@ -155,6 +155,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   const [albumVisibleCount, setAlbumVisibleCount] = useState(0);
   const [songScrollOverflow, setSongScrollOverflow] = useState(false);
   const isAuthenticated = useUIStore((s) => Boolean(s.authSession.authenticated));
+  const accountId = useUIStore((s) => s.authSession.authenticated ? s.authSession.user?.accountId : null);
   const openAddToPlaylist = useUIStore((s) => s.openAddToPlaylist);
   const { playSong, currentSong, isPlaying } = usePlayerStore(useShallow((s) => ({
     playSong: s.playSong,
@@ -199,7 +200,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   const [songSubCategory, setSongSubCategory] = useState(route?.language || 'all');
   const [isFiltering, setIsFiltering] = useState(false);
 
-  const [recentEntities, setRecentEntities] = useState(() => loadRecentSearchEntities());
+  const [recentEntities, setRecentEntities] = useState(() => loadRecentSearchEntities(accountId));
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef(null);
   const searchGenerationRef = useRef(0);
@@ -210,16 +211,16 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
 
   const recordRecentEntity = (entity) => {
-    setRecentEntities(saveRecentSearchEntity(entity));
+    setRecentEntities(saveRecentSearchEntity(entity, accountId));
   };
 
   const handleRemoveRecentEntity = (entity, e) => {
     e?.stopPropagation();
-    setRecentEntities(removeRecentSearchEntity(entity));
+    setRecentEntities(removeRecentSearchEntity(entity, accountId));
   };
 
   const handleClearRecentEntities = () => {
-    setRecentEntities(clearRecentSearchEntities());
+    setRecentEntities(clearRecentSearchEntities(accountId));
   };
 
   useEffect(() => {

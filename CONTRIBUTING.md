@@ -9,7 +9,7 @@
 - 在自己的测试实例中验证多首歌曲预检、重复识别、失败重试与恢复；反馈可复现的问题。
 - 验证不同操作系统、浏览器和音乐文件格式下的入库体验。
 - 帮助验证 Cloudflare R2 直传、分片上传和目标 bucket 核对，或改进相应测试与说明。
-- 研究 [Subsonic／OpenSubsonic API](https://opensubsonic.netlify.app/docs/) 的基础接口，并用音流等客户端做互通测试；FlareTune 目前尚未实现该兼容接口。
+- 研究 [Subsonic／OpenSubsonic API](https://opensubsonic.netlify.app/docs/) 的基础接口，并用音流等客户端做互通测试；FlareTune 已提供该兼容接口，支持范围见[第三方客户端指南](guide/subsonic.md)。
 - 设计界面与公开文档的多语言方案，帮助整理术语、翻译和校对；歌曲语言分类与界面国际化是两项不同工作。
 - 改进播放器、歌词、助手、无障碍和中文使用文档。
 

@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- Node.js 22.12.0 or newer and npm.
+- Node.js 22.18+ (22.x) or 24.11+ and npm.
 - Local development uses Wrangler's simulated D1/R2 bindings. You do not need access to the maintainer's Cloudflare resources.
 - Generate a strong `SETUP_SECRET` and keep it only in the untracked `server/.dev.vars` file.
 

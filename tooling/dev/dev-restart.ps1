@@ -12,7 +12,7 @@ function Stop-PortProcess([int]$Port) {
   $ids = $conns | Select-Object -ExpandProperty OwningProcess -Unique
   foreach ($procId in $ids) {
     $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId=$procId").CommandLine
-    if (-not $commandLine -or -not $commandLine.Contains($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) { throw "Port $Port belongs to PID $procId outside this repository." }
+    if (-not $commandLine -or $commandLine.IndexOf($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { throw "Port $Port belongs to PID $procId outside this repository." }
     Write-Step "port $Port busy by repository PID $procId, stopping process tree..."
     & node (Join-Path $RepoRoot 'tooling\dev\cleanup-processes.mjs') $procId | Out-Null
   }

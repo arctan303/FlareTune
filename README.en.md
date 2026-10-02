@@ -45,7 +45,7 @@ For setup, upgrades, and backups, see the [deployment guide](guide/deployment.en
 
 ## Development and documentation
 
-FlareTune uses React, Vite, and Cloudflare Workers. D1 stores data, while private R2 stores audio and artwork. Local development requires Node.js 22.12.0 or newer; see the [local development guide](guide/local-development.en.md) for setup and verification.
+FlareTune uses React, Vite, and Cloudflare Workers. D1 stores data, while private R2 stores audio and artwork. Local development requires Node.js 22.18+ (22.x) or 24.11+; see the [local development guide](guide/local-development.en.md) for setup and verification.
 
 | Document | Contents |
 | --- | --- |

@@ -32,6 +32,6 @@ function Check-Service([string]$Name, [int]$Port, [string]$Url) {
 }
 
 Write-Host "=== Local Service Status ===" -ForegroundColor White
-Check-Service -Name "Backend (Worker)" -Port 8789 -Url "http://127.0.0.1:8789/api/init"
+Check-Service -Name "Backend (Worker)" -Port 8789 -Url "http://127.0.0.1:8789/api/health"
 Check-Service -Name "Frontend (Vite)" -Port 3000 -Url "http://127.0.0.1:3000"
 Write-Host "==========================================" -ForegroundColor DarkGray

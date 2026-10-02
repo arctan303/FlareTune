@@ -8,7 +8,8 @@
 | --- | --- |
 | [使用 FlareTune](using-flaretune.md) | 找歌、播放、个人歌单、助手和设置 |
 | [Google 登录](google-login.md) | 配置、已有账号绑定及免输本站密码登录 |
-| [部署与初始化](deployment.md) | 安装流程、密钥验证、数据库升级及验收状态 |
+| [部署与初始化](deployment.md) | 安装流程、密钥验证及数据库升级 |
+| [第三方客户端](subsonic.md) | Subsonic 开关、连接与兼容范围 |
 | [管理与维护](administration.md) | 管理入口、数据库升级与数据保护 |
 | [本地入库设备](../tooling/ingest-agent/README.md) | Node.js 工具配置、跨设备选歌、语言映射与故障排查 |
 | [更新日志](../CHANGELOG.md) | 版本功能、部署变化与当前限制 |

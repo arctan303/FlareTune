@@ -36,6 +36,10 @@ function uploadWithProgress(url, init, onProgress) {
     const request = new XMLHttpRequest();
     request.open(init.method, url);
     request.withCredentials = true;
+    const abort = () => request.abort();
+    if (init.signal?.aborted) { reject(new DOMException('媒体上传已中止。', 'AbortError')); return; }
+    init.signal?.addEventListener('abort', abort, { once: true });
+    request.onloadend = () => init.signal?.removeEventListener('abort', abort);
     for (const [name, value] of Object.entries(init.headers)) request.setRequestHeader(name, value);
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded, event.total);
@@ -57,7 +61,8 @@ function uploadWithProgress(url, init, onProgress) {
   });
 }
 
-export async function uploadCatalogMedia(kind, file, fetchImpl, onProgress) {
+export async function uploadCatalogMedia(kind, file, fetchImpl, onProgress, signal) {
+  signal?.throwIfAborted();
   if (!['audio', 'cover'].includes(kind) || !(file instanceof File) || !file.size) {
     throw new CatalogAdminError('请选择非空音频或封面文件。');
   }
@@ -71,7 +76,7 @@ export async function uploadCatalogMedia(kind, file, fetchImpl, onProgress) {
   if (session?.user?.role !== 'admin' || !session.csrfToken) throw new CatalogAdminError('需要管理员登录。', { status: 403 });
   const url = `${getApiBaseUrl()}/api/admin/catalog/media/${kind}/${id}.${extension}`;
   const init = {
-    method: 'PUT', credentials: 'include', cache: 'no-store', body: file,
+    method: 'PUT', credentials: 'include', cache: 'no-store', body: file, signal,
     headers: {
       'Content-Type': mediaTypes[extension],
       'X-FlareTune-Media-Size': String(file.size),

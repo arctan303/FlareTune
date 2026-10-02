@@ -1,10 +1,25 @@
 export const RECENT_SEARCHES_KEY = 'arc_recent_searches';
 export const MAX_RECENT_SEARCHES = 10;
 
-export function loadRecentSearches() {
+function historyKey(base, accountId) {
+  return typeof accountId === 'string' && accountId.length > 0
+    ? `${base}:v2:${encodeURIComponent(accountId)}` : null;
+}
+
+// Old global values have no owner; never adopt them into the next account.
+export function discardUnownedSearchHistory() {
+  try {
+    localStorage.removeItem(RECENT_SEARCHES_KEY);
+    localStorage.removeItem(RECENT_ENTITIES_KEY);
+  } catch { /* Storage may be unavailable. */ }
+}
+
+export function loadRecentSearches(accountId) {
   try {
     if (typeof localStorage === 'undefined') return [];
-    const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
+    const key = historyKey(RECENT_SEARCHES_KEY, accountId);
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_SEARCHES) : [];
@@ -13,37 +28,42 @@ export function loadRecentSearches() {
   }
 }
 
-export function saveRecentSearchToStorage(term) {
+export function saveRecentSearchToStorage(term, accountId) {
   const trimmed = String(term || '').trim();
-  if (!trimmed) return loadRecentSearches();
+  if (!trimmed) return loadRecentSearches(accountId);
   try {
     if (typeof localStorage === 'undefined') return [];
-    const list = loadRecentSearches().filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
+    const key = historyKey(RECENT_SEARCHES_KEY, accountId);
+    if (!key) return [];
+    const list = loadRecentSearches(accountId).filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
     list.unshift(trimmed);
     const updated = list.slice(0, MAX_RECENT_SEARCHES);
-    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify(updated));
     return updated;
   } catch {
     return [];
   }
 }
 
-export function removeRecentSearchFromStorage(term) {
+export function removeRecentSearchFromStorage(term, accountId) {
   const trimmed = String(term || '').trim();
   try {
     if (typeof localStorage === 'undefined') return [];
-    const list = loadRecentSearches().filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
-    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(list));
+    const key = historyKey(RECENT_SEARCHES_KEY, accountId);
+    if (!key) return [];
+    const list = loadRecentSearches(accountId).filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
+    localStorage.setItem(key, JSON.stringify(list));
     return list;
   } catch {
     return [];
   }
 }
 
-export function clearRecentSearchesFromStorage() {
+export function clearRecentSearchesFromStorage(accountId) {
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(RECENT_SEARCHES_KEY);
+      const key = historyKey(RECENT_SEARCHES_KEY, accountId);
+      if (key) localStorage.removeItem(key);
     }
   } catch {}
   return [];
@@ -52,10 +72,12 @@ export function clearRecentSearchesFromStorage() {
 export const RECENT_ENTITIES_KEY = 'arc_recent_search_entities';
 export const MAX_RECENT_ENTITIES = 10;
 
-export function loadRecentSearchEntities() {
+export function loadRecentSearchEntities(accountId) {
   try {
     if (typeof localStorage === 'undefined') return [];
-    const raw = localStorage.getItem(RECENT_ENTITIES_KEY);
+    const key = historyKey(RECENT_ENTITIES_KEY, accountId);
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed)
@@ -66,11 +88,13 @@ export function loadRecentSearchEntities() {
   }
 }
 
-export function saveRecentSearchEntity(entity) {
-  if (!entity || !entity.type) return loadRecentSearchEntities();
+export function saveRecentSearchEntity(entity, accountId) {
+  if (!entity || !['song', 'artist'].includes(entity.type)) return loadRecentSearchEntities(accountId);
   try {
     if (typeof localStorage === 'undefined') return [];
-    const list = loadRecentSearchEntities().filter((item) => {
+    const key = historyKey(RECENT_ENTITIES_KEY, accountId);
+    if (!key) return [];
+    const list = loadRecentSearchEntities(accountId).filter((item) => {
       if (item.type !== entity.type) return true;
       if (entity.type === 'song') {
         return String(item.id) !== String(entity.id);
@@ -82,18 +106,20 @@ export function saveRecentSearchEntity(entity) {
     });
     list.unshift(entity);
     const updated = list.slice(0, MAX_RECENT_ENTITIES);
-    localStorage.setItem(RECENT_ENTITIES_KEY, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify(updated));
     return updated;
   } catch {
     return [];
   }
 }
 
-export function removeRecentSearchEntity(entity) {
-  if (!entity || !entity.type) return loadRecentSearchEntities();
+export function removeRecentSearchEntity(entity, accountId) {
+  if (!entity || !entity.type) return loadRecentSearchEntities(accountId);
   try {
     if (typeof localStorage === 'undefined') return [];
-    const list = loadRecentSearchEntities().filter((item) => {
+    const key = historyKey(RECENT_ENTITIES_KEY, accountId);
+    if (!key) return [];
+    const list = loadRecentSearchEntities(accountId).filter((item) => {
       if (item.type !== entity.type) return true;
       if (entity.type === 'song') {
         return String(item.id) !== String(entity.id);
@@ -103,17 +129,18 @@ export function removeRecentSearchEntity(entity) {
       }
       return true;
     });
-    localStorage.setItem(RECENT_ENTITIES_KEY, JSON.stringify(list));
+    localStorage.setItem(key, JSON.stringify(list));
     return list;
   } catch {
     return [];
   }
 }
 
-export function clearRecentSearchEntities() {
+export function clearRecentSearchEntities(accountId) {
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(RECENT_ENTITIES_KEY);
+      const key = historyKey(RECENT_ENTITIES_KEY, accountId);
+      if (key) localStorage.removeItem(key);
     }
   } catch {}
   return [];

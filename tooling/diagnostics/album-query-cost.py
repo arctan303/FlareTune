@@ -11,7 +11,7 @@ import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PATH = "server/src/routes/localAlbumRead.js"
-BASELINE = "517dd49"
+BASELINE = "HEAD"
 old = subprocess.check_output(["git", "show", f"{BASELINE}:{PATH}"], cwd=ROOT, text=True, encoding="utf-8")
 new = (ROOT / PATH).read_text(encoding="utf-8")
 

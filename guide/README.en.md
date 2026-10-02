@@ -8,7 +8,8 @@ These guides are for users and instance administrators. The root [README](../REA
 | --- | --- |
 | [Using FlareTune](using-flaretune.en.md) | Search, playback, personal playlists, assistant, and settings |
 | [Google sign-in](google-login.en.md) | Configuration, account linking and sign-in without the local password |
-| [Deployment and setup](deployment.en.md) | Installation, secret verification, database upgrades, and validation status |
+| [Deployment and setup](deployment.en.md) | Installation, secret verification, and database upgrades |
+| [Third-party clients](subsonic.en.md) | Subsonic opt-in, connection, and supported features |
 | [Administration](administration.en.md) | Admin entry points, database upgrades, and data protection |
 | [Local ingest device](../tooling/ingest-agent/README.en.md) | Node.js setup, selecting songs across devices, language mapping, and troubleshooting |
 | [Changelog](../CHANGELOG.md) | Releases, deployment changes, and current limitations |

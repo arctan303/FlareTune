@@ -9,7 +9,7 @@ Thanks for helping improve FlareTune. A usable Node.js ingest device is availabl
 - Test previews, duplicate detection, retries, and recovery with multiple songs on your own test instance. Report reproducible problems.
 - Verify the ingest experience with different operating systems, browsers, and music file formats.
 - Help verify Cloudflare R2 direct upload, multipart upload, and target bucket checks, or improve their tests and documentation.
-- Research the basic [Subsonic/OpenSubsonic API](https://opensubsonic.netlify.app/docs/) and test interoperability with compatible clients. FlareTune does not yet provide this API.
+- Research the basic [Subsonic/OpenSubsonic API](https://opensubsonic.netlify.app/docs/) and test interoperability with compatible clients. FlareTune provides this API; see the [third-party client guide](guide/subsonic.en.md) for supported features.
 - Review Simplified Chinese and English interface copy and public documentation. Song language classification and interface localization are separate features.
 - Improve the player, lyrics, assistant, accessibility, and user guides.
 

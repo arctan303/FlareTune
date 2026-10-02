@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, writeFile, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createBatchIngestServer } from './server.mjs';
+import { request as httpRequest } from 'node:http';
 const profileStore = () => {
   const values = [];
   return { list: async () => values,
@@ -11,6 +12,24 @@ const profileStore = () => {
       username: data.username, savedPassword: false }; values.push(profile); return { profile, warning: '' }; },
   };
 };
+
+test('malformed literal request targets return 400 and the local server survives', async () => {
+  const tool = await createBatchIngestServer({ profileStore: profileStore() });
+  try {
+    for (const path of ['//[', '//[invalid']) {
+      const status = await new Promise((resolve, reject) => {
+        const request = httpRequest(tool.url, { path }, (response) => {
+          response.resume(); response.on('end', () => resolve(response.statusCode));
+        });
+        request.on('error', reject); request.end();
+      });
+      assert.equal(status, 400);
+    }
+    const healthy = await fetch(`${tool.url}/api/state`);
+    assert.equal(healthy.status, 200);
+    assert.ok((await healthy.json()).csrf);
+  } finally { await tool.close(); }
+});
 
 test('local directory scanning and uploads require the current local admin session', async () => {
   const root = await mkdtemp(join(tmpdir(), 'flaretune-local-http-'));

@@ -45,6 +45,6 @@ test('ArtistDetailView provides full-width hero, photos, playback actions, and t
 });
 
 test('App.jsx does not treat isArtistDrawerOpen as secondaryModalOpen to prevent app-workspace inert lockup', () => {
-  const app = readSource('../App.jsx');
+  const app = readSource('../app.jsx');
   assert.doesNotMatch(app, /secondaryModalOpen =[\s\S]*isArtistDrawerOpen/);
 });

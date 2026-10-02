@@ -157,6 +157,21 @@ test('older completed markers without a processing key remain readable', async (
   assert.deepEqual((await store.get('song-1')).artifact, artifact);
 });
 
+test('current six-flag processing keys survive real storage CAS and invalid arities fail', async () => {
+  const store = createLyricArtifactStore({ MEDIA_BUCKET: new MemoryR2Bucket() });
+  await store.createIfAbsent('song-1', readyArtifact());
+  const read = await store.get('song-1');
+  const artifact = readyArtifact({ translation: null,
+    aiCompletion: { status: 'completed', processingKey: 'zh|1|1|1|0|1|1', updatedAt: NOW } });
+  await store.putIfMatch('song-1', artifact, read.etag);
+  assert.deepEqual((await store.get('song-1')).artifact, artifact);
+  for (const key of ['zh|1|1|1', 'zh|1|1|1|0|1', 'zh|1|1|1|0|1|1|1', 'zh|2|1|1|0|1|1']) {
+    assert.equal(validateLyricArtifact(readyArtifact({ aiCompletion: {
+      status: 'completed', processingKey: key, updatedAt: NOW,
+    } })).valid, false);
+  }
+});
+
 test('reset and deleting markers use a minimal strict public schema', async () => {
   const bucket = new MemoryR2Bucket();
   const store = createLyricArtifactStore({ MEDIA_BUCKET: bucket });

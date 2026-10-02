@@ -32,6 +32,9 @@ export function resolveMediaObjectKey(pathname, env) {
   } catch {
     return null;
   }
+  // Device mailboxes are read only through the administrator/agent APIs.
+  // This resolver is also shared with Subsonic media reads.
+  if (segments[0] === 'ingest-devices') return null;
   const key = `${prefix}/${segments.join('/')}`;
   return key.startsWith('users/') ? null : key;
 }
