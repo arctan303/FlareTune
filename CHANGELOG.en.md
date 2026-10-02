@@ -2,6 +2,45 @@
 
 [简体中文](CHANGELOG.md)
 
+## 1.1.3 — 2026-10-03
+
+This release improves the frontend and song-ingest experience, includes third-party playback, cover and lyrics compatibility fixes, and addresses findings from the security scan.
+
+### Frontend and settings
+
+- Update the login background, introduction and form layout for Chinese, English, narrow and short screens.
+- Use compact summaries and edit dialogs for personal information, AI feature assignments, lyrics AI and administration. Align Cancel/Save actions, centering, scrolling and focus restoration; canceling restores saved values.
+- Improve circular avatars, image cropping/previews and private-playlist editing, including cover upload, replacement and removal. Async results from previous accounts or editing rounds do not overwrite current drafts.
+- Show the database base version, completed feature migrations and individual statuses separately, so partially missing feature tables are not reported as fully current.
+
+### Third-party clients and lyrics
+
+- Fix protocol reads of relative `audio/`, `cover/` and `/media/` catalog paths, restoring original audio playback/download, Range seeking and covers. Remove the settings card's Beta label.
+- Return HTTP errors and XML protocol errors for failed media requests, preventing clients from caching authentication errors or missing media as successful audio. Metadata retains existing JSON/XML behavior. Existing invalid client caches need retrieval again; a server upgrade does not remove local files.
+- Add OpenSubsonic `songLyrics` v2. Clients explicitly requesting `enhanced=true` can read saved word timing and a separate translation layer; default/v1 line timing or text remains unchanged. UTF-8 ranges, saved offsets and JSON/XML agree, without external fetching or AI requests.
+- Windows Musiver 1.3.9 has been checked for actual audio caches, pause/resume, seeking, track switching, covers and existing lyrics, with playlists/favorites shared with the web app. Word highlighting and translation display require client enhanced-mode support. See the [client guide](https://github.com/arctan303/FlareTune/blob/1.1.3/guide/subsonic.en.md) for offline and other-client limits.
+
+### Ingest, playback and search
+
+- Song ingest continues during navigation within the site and retains its queue/results on return. Hidden ingest pages do not handle their shortcuts or display dialogs. Continuation after refresh or closing the browser page is outside this feature.
+- Signing out or switching accounts immediately stops playback and clears system media information/actions. Signing in with another account does not republish a previously paused song.
+- Account/session changes or loss of administrator access stop subsequent uploads, device scans and polling without applying old results to the new session. Successfully ingested songs remain.
+- Recent searches stay in the current browser, isolated by stable account ID and restored when the same account signs in again. There is no cloud sync. Legacy global history with unknown ownership is cleared rather than assigned to another account.
+
+### Security and maintenance
+
+- Prevent generic media routes and Subsonic from reading ingest-device manifests, tasks and other objects. Normal music, cover and lyrics access remains available; device management uses dedicated administrator/device APIs.
+- Handle malformed requests in the legacy local batch tool without an unhandled exception or loss of service.
+- Fix four/six-flag lyrics-processing persistence, playlist drag cleanup on unmount, Linux test-path casing, Windows PowerShell 5.1 scripts and the development health check.
+- Require explicit `--replace-local-data` for local D1 replacement and report execution failures correctly. Test previews use independent temporary ports/state directories.
+- Clean up unused translations, 404 copy and obsolete configuration, document historical SQL/diagnostics, and remove unfinished one-click deployment notices while retaining installation/upgrade instructions.
+
+### Release and upgrade
+
+- Add automatic tag Releases. After accepted `dev` changes merge into `main` through a PR, push an immutable annotated `X.Y.Z` tag. Matching versions, bilingual notes, tests, builds and isolated smoke checks gate the stable Release and source archives.
+- Upgrade frontend, Worker and ingest-device tooling together to 1.1.3. No new database migration is added; instances still missing 1.1.2 feature structures apply existing upgrades through the administrator's runtime overview.
+- Supported Node.js versions are `^22.18.0 || >=24.11.0`. Passwords, music, favorites and private playlists are retained; no automatic data replacement is performed.
+
 ## 1.1.2 — 2026-10-02
 
 This release adds optional Google sign-in, four AI protocols with separate provider connections, private images, and updated settings dialogs.

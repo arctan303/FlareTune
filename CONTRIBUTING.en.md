@@ -24,3 +24,11 @@ When reporting a problem, include the operating system, Node.js version, browser
 A Git branch does not create or bind Cloudflare D1/R2 resources. A development Worker must use separate development resources and private Wrangler configuration. Do not commit personal resource IDs, setup secrets, or production bindings. See [Local development](guide/local-development.en.md). Development plans and acceptance records live in the maintainer's internal workspace and are not public user documentation.
 
 The root `/docs/` directory contains Git-ignored internal work records. Do not force-add it or remove its `.gitignore` exclusion. Write user-facing guides in `guide/`.
+
+## Releasing a version
+
+1. On `dev`, synchronize the version in `package.json`, the lockfile top level and root package, and add the same version and date at the top of both changelogs. Complete tests, builds, artifact smoke checks and applicable reviews, then confirm the development Worker build succeeds.
+2. Merge `dev` into `main` through a pull request. Confirm the production build, health, protocol version, anonymous access boundaries and frontend artifacts. Administrators still explicitly apply database upgrades; releases do not migrate production data automatically.
+3. Create and push an annotated `X.Y.Z` tag (without `v`) on the accepted `main` release commit. Never rewrite existing tags.
+
+Pull requests targeting `main` first run read-only release validation. Pushing a version tag triggers [Publish release](.github/workflows/release.yml). It checks main ancestry, matching versions and complete bilingual notes, then runs tests, builds and an isolated Worker smoke check before creating a stable GitHub Release. The body contains both changelog entries, with GitHub's automatic source ZIP/TAR archives. Internal documents, logs, credentials and `dist` are not uploaded. Resolve failures before rerunning the workflow; retries preserve existing Releases and tags. GitHub Releases and Cloudflare branch deployments are separate processes.

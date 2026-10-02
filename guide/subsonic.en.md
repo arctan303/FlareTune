@@ -2,9 +2,9 @@
 
 [简体中文](subsonic.md) · [User guide](using-flaretune.en.md)
 
-FlareTune implements a music subset of Subsonic 1.16.1 and the OpenSubsonic lyrics extension. Local automated checks are available; **complete third-party client acceptance is still in progress**. Compatibility with every Subsonic client is not promised.
+FlareTune implements a music subset of Subsonic 1.16.1 and the OpenSubsonic lyrics extension. Version 1.1.3 includes original-audio playback, cover, media-error and enhanced-lyrics compatibility fixes.
 
-Development verification (2026-10-02): Musiver 1.3.9 on Windows has been checked for actual audio cache files, pause/resume, seeking, track switching, covers, and existing lyrics. Private playlists are visible in both directions between the web API and Musiver. Native playlist creation/song addition and starring/unstarring reached the server; remaining playlist CRUD and favorite writes were checked between the protocol and web API. The tools did not listen to audio. Audible playback, complete native playlist editing, local copies after server deletion, other formats/systems/clients still need checks. Download management leads to the Musiver membership page, so offline playback remains unverified. These patches have not entered a formal release.
+Compatibility scope: Windows Musiver 1.3.9 has been checked for actual audio caches, pause/resume, seeking, track switching, covers and existing lyrics. Private playlists are visible in both directions, and native playlist creation/song addition and starring/unstarring reach the server. The protocol and web API cover remaining playlist operations; complete native editing, local copies after server deletion and other formats/systems/clients need scenario-specific checks. Download management leads to the membership page, so offline playback is unconfirmed. Automated tools did not listen to sound; users confirm audible playback.
 
 ## Connect
 
@@ -25,7 +25,7 @@ Supported: browsing, search, original audio playback/download, HTTP Range seekin
 
 No live transcoding, image resizing, playback count reporting, history/queue synchronization, public playlists, podcasts, videos, account or catalog administration. `scrobble` returns unsupported; streams/downloads do not increment web play counts. Missing lyrics return an empty result without external fetching or AI work. Recent/frequent album lists are empty.
 
-### Word timing and translation layers (development deployment, not formally released)
+### Word timing and translation layers (1.1.3)
 
 - Subsonic `getLyrics` returns saved original text. Default `getLyricsBySongId`, including `enhanced=false`, keeps the existing line timing or unsynchronized text response.
 - Discovery advertises `songLyrics` versions `[1,2]`. Clients implementing v2 can request `getLyricsBySongId` with `enhanced=true` to receive a `kind=main` layer with `cueLine/cue` word start/end times in milliseconds, plus a separate `kind=translation` layer for saved translations. Byte ranges address the exact UTF-8 original, including CJK and emoji.
@@ -37,7 +37,7 @@ Grouping uses existing artist credits and album names, retaining joint credits. 
 
 GET only, with HEAD for media; JSON/XML and `.view` paths are supported. Capability discovery is public, all other requests verify account opt-in and credentials. Password parameter `p`, API keys and form POST are unsupported. HTTPS is required outside loopback. Failed protocol authentication has bounded, per-Worker-instance in-memory rate limiting, not global enforcement. Enabling access reuses the durable login rate limiter.
 
-Development media-error behavior (not formally released): streams, downloads and covers return text/xml errors regardless of f=json. Protocol code 70 maps to HTTP404, 40/50 to 403, other protocol errors to 400, and unavailable services to 503; HEAD has no body. Metadata keeps HTTP200 and the selected JSON/XML format. 43 targeted regressions and independent review passed. The development deployment was checked in Musiver: a new failure left no audio cache, and restoring the same track retrieved actual audio. Clients relying on HTTP200 media errors must adapt. Content-Type alone does not prevent Musiver 1.3.9 from caching error documents; existing invalid caches still need retrieval again.
+Version 1.1.3 media-error behavior: streams, downloads and covers return text/xml errors regardless of f=json. Protocol code 70 maps to HTTP404, 40/50 to 403, other protocol errors to 400, and unavailable services to 503; HEAD has no body. Metadata keeps HTTP200 and the selected JSON/XML format. Clients relying on HTTP200 media errors must adapt. Content-Type alone does not prevent Musiver 1.3.9 from caching error documents; existing invalid caches still need retrieval again.
 
 ## Acceptance checklist
 
