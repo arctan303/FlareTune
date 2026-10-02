@@ -31,4 +31,4 @@ Git 分支不会自动创建或绑定 Cloudflare D1/R2。开发 Worker 必须使
 2. 通过 Pull Request 将 `dev` 合入 `main`；确认生产自动构建成功，并回验健康、协议版本、匿名权限和前端产物。生产数据库升级仍由管理员显式执行，不随发版自动迁移。
 3. 在已验收的 `main` 发布提交上创建并推送注释标签 `X.Y.Z`（不加 `v`）。既有标签不可改写。
 
-面向 `main` 的 PR 会先运行只读发布验证。标签推送会触发 [Publish release](.github/workflows/release.yml)：核对标签来自 `main`、版本一致和完整双语日志，运行测试、构建及隔离 Worker 冒烟后，创建正式 GitHub Release。正文来自当版中英日志，沿用 GitHub 自动源码 ZIP/TAR 归档，不上传内部文档、日志、凭据或 `dist`。失败后修复原因再重跑该工作流；重跑保留已有 Release，不改写标签。GitHub Release 与 Cloudflare 分支部署是独立流程。
+面向 `main` 的 PR 会先运行只读发布验证。标签推送会触发 [Publish release](.github/workflows/release.yml)：核对远端注释标签来自 `main`、版本一致和完整双语日志，运行测试、构建及隔离 Worker 冒烟后，创建正式 GitHub Release。正文来自当版中英日志，沿用 GitHub 自动源码 ZIP/TAR 归档，不上传内部文档、日志、凭据或 `dist`。失败后修复原因再重跑；若须修复工作流，在 `main` 合入修复后通过该工作流的 Run workflow 指定原 tag 恢复，仍校验并构建原标签提交。已有 Release 和标签不改写。GitHub Release 与 Cloudflare 分支部署是独立流程。
