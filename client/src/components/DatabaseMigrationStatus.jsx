@@ -31,6 +31,17 @@ export default function DatabaseMigrationStatus({ status, busy, onUpgrade }) {
         </li>)}
       </ul> : <p className="mt-3 text-xs text-[var(--muted)]">{t(status?.supplementalPending ? '有功能迁移待完成。' : '功能迁移详情暂不可用，请刷新重试。')}</p>}
     </div>
-    {pending && <button type="button" disabled={busy} onClick={onUpgrade} className="primary-button mt-4 min-h-11 rounded-xl px-4 text-sm font-semibold disabled:opacity-50">{t(busy ? '正在更新…' : '更新数据库')}</button>}
+    {pending && (
+      <div className="mt-4 flex justify-end border-t border-[var(--line)] pt-3">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onUpgrade}
+          className="primary-button rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs"
+        >
+          {t(busy ? '正在更新…' : '更新数据库')}
+        </button>
+      </div>
+    )}
   </div>;
 }

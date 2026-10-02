@@ -223,16 +223,31 @@ function LoginPage({ onSuccess }) {
   const trackCapsLock = (event) => setCapsLock(event.getModifierState?.('CapsLock') === true);
   return (
     <main className="instance-page instance-page--login">
+      <div className="instance-login__backdrop-text" aria-hidden="true">
+        <span>TUNE</span>
+      </div>
       <section className="instance-login" aria-labelledby="instance-title">
         <div className="instance-login__identity">
           <TuneWordmark className="instance-wordmark" />
           <div className="instance-login__headline">
             <h1 id="instance-title">{t('欢迎回来')}</h1>
+            <p className="instance-login__subtitle">{t('连接你的私有音乐库，随时随地静心聆听。')}</p>
+            <div className="instance-login__editorial" aria-hidden="true">
+              <span className="instance-login__editorial-meta">AUDIO SYSTEM · EST. 2026</span>
+              <div className="instance-login__editorial-track">
+                <span>20 Hz</span>
+                <span className="instance-login__editorial-line" />
+                <span>20 kHz</span>
+              </div>
+            </div>
             <div className="instance-login__rule" aria-hidden="true" />
           </div>
         </div>
         <div className="instance-login__access">
-          <h2 id="instance-login-title">{t('登录')}</h2>
+          <div className="instance-login__access-header">
+            <h2 id="instance-login-title">{t('登录')}</h2>
+            <p className="instance-login__access-desc">{t('输入账号凭据以连接曲库')}</p>
+          </div>
           <form onSubmit={submit} className="instance-form" aria-labelledby="instance-login-title" aria-busy={busy || undefined}>
             <StatusMessage error={error} errorRef={errorRef} />
             <Field id="login-username" label="用户名" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} invalid={credentialError} readOnly={busy} />

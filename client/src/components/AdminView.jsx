@@ -176,13 +176,13 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
               <option value="disabled">{t("停用")}</option>
             </SelectControl>
           </Field>
-          <div className="flex items-center gap-1.5">
-            <button className={buttonClass} type="submit" disabled={busy}>{t("保存")}</button>
+          <div className="flex items-center justify-end gap-1.5">
             <button
               type="button"
               onClick={cancelEdit}
               className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
             >{t("取消")}</button>
+            <button className={buttonClass} type="submit" disabled={busy}>{t("保存")}</button>
           </div>
         </form>
       )}
@@ -191,17 +191,17 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
       {resetOpen && (
         <form onSubmit={reset} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] p-3 animate-[fade-in_0.15s_ease-out]">
           <div className="flex-1 min-w-[200px]">
-            <Field label={t("一次性临时密码")} hint={t("至少 8 个字符。")}>
-              <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("输入新的临时密码")} />
+            <Field label={t("一次性临时密码")}>
+              <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("输入新的临时密码（至少 8 位）")} />
             </Field>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button className={buttonClass} type="submit" disabled={busy}>{t("确认重置")}</button>
+          <div className="flex items-center justify-end gap-1.5">
             <button
               type="button"
               onClick={() => setResetOpen(false)}
               className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
             >{t("取消")}</button>
+            <button className={buttonClass} type="submit" disabled={busy}>{t("确认重置")}</button>
           </div>
         </form>
       )}
@@ -225,6 +225,11 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
   const [lyricAiEditorOpen, setLyricAiEditorOpen] = React.useState(false);
   const [nameEditorOpen, setNameEditorOpen] = React.useState(false);
   const [originsEditorOpen, setOriginsEditorOpen] = React.useState(false);
+  const closeLyricAiEditor = () => {
+    setDraft((current) => ({ ...current, 'lyrics.ai': overview.settings['lyrics.ai'].value }));
+    setMessage('');
+    setLyricAiEditorOpen(false);
+  };
 
   // Sync internal tab if controlled by embeddedTab prop
   React.useEffect(() => {
@@ -363,7 +368,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           />
         )}
       </Field>
-      <div>
+      <div className="flex justify-end pt-3 border-t border-[var(--line)]">
         <button className={buttonClass} type="submit" disabled={busy}>{t("保存设置")}</button>
       </div>
     </form>
@@ -441,7 +446,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           )}
 
           {/* 常规 */}
-          {(tab === 'general' || tab === 'instance' || tab === 'system') && (
+          {(tab === 'general' || tab === 'instance') && (
             <div className="space-y-6">
               <Section title={t("实例名称")}>
                 <div className="flex flex-wrap items-center justify-between gap-4"><strong className="text-base text-[var(--ink)]">{overview.settings['instance.name']?.value || t("未命名实例")}</strong><button type="button" className={buttonClass} onClick={() => { setMessage(''); setNameEditorOpen(true); }}>{t("修改名称")}</button></div>
@@ -453,7 +458,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           )}
 
           {/* 访问 */}
-          {(tab === 'access' || tab === 'instance' || tab === 'system') && (
+          {(tab === 'access' || tab === 'instance') && (
             <div className="space-y-6">
               <Section title={t("附加允许来源")}>
                 <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0 text-sm text-[var(--ink)]">{overview.settings['cors.allowed_origins']?.value?.length ? <><strong>{overview.settings['cors.allowed_origins'].value.length}{' '}{t("个来源")}</strong><p className="mt-1 break-all text-xs text-[var(--muted)]">{overview.settings['cors.allowed_origins'].value.slice(0, 2).join(' · ')}</p></> : <span className="text-[var(--muted)]">{t("没有附加来源")}</span>}</div><button type="button" className={buttonClass} onClick={() => { setMessage(''); setOriginsEditorOpen(true); }}>{t("管理来源")}</button></div>
@@ -468,18 +473,18 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {tab === 'assistant' && (
             <div className="space-y-6">
               <AiProfilesPanel csrfToken={csrfToken} />
-              <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-5">
+              <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:p-5 shadow-2xs">
                 <label className="flex min-h-11 w-full items-center justify-between gap-3 text-sm font-semibold">
                   <span>{t('允许助手图片输入')}</span>
                   <input type="checkbox" role="switch" className="settings-switch" disabled={busy} checked={overview.settings['assistant.images_enabled']?.value === true}
                     onChange={event => void saveSetting(event, 'assistant.images_enabled', event.target.checked)} />
-                </label><p className="mt-2 text-xs text-[var(--muted)]">{t('关闭后不再向模型发送新图或历史图片，已有图片仍仅本人可查看。')}</p>
+                </label>
               </section>
 
               <Section title={t("助手资料")}>
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1.5 text-sm"><p><span className="text-[var(--muted)]">{t("名称：")}</span><strong>{overview.assistant?.name || t("小A")}</strong></p><p className="line-clamp-2 max-w-xl text-xs text-[var(--muted)]">{t(overview.assistant?.description || '暂无描述')}</p></div>
-                  <button type="button" className={buttonClass} onClick={() => { setMessage(''); setAssistantDraft({ ...overview.assistant }); setAssistantEditorOpen(true); }}>{t("编辑助手资料")}</button>
+                  <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setAssistantDraft({ ...overview.assistant }); setAssistantEditorOpen(true); }}>{t("编辑助手资料")}</button>
                 </div>
               </Section>
               {assistantEditorOpen && <SettingsEditDialog title={t("编辑助手资料")} message={message} busy={busy} onClose={() => { setAssistantDraft({ ...overview.assistant }); setAssistantEditorOpen(false); }}>
@@ -535,7 +540,8 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       </div>
                     </Field>
                   </div>
-                  <div className="sm:col-span-2 pt-2">
+                  <div className="sm:col-span-2 flex justify-end items-center gap-2.5 pt-3 border-t border-[var(--line)]">
+                    <button type="button" onClick={() => setAssistantEditorOpen(false)} disabled={busy} className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer">{t("取消")}</button>
                     <button type="submit" className={buttonClass} disabled={busy}>{t("保存助手配置")}</button>
                   </div>
                 </form>
@@ -553,13 +559,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       draft['lyrics.ai']?.detectLanguage && t("识别歌曲语言"),
                     ].filter(Boolean).map((value) => t(value)).join(' · ')}</p>
                   </div>
-                  <button type="button" className={buttonClass} onClick={() => { setMessage(''); setLyricAiEditorOpen(true); }}>{t("编辑歌词 AI")}</button>
+                  <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setLyricAiEditorOpen(true); }}>{t("编辑歌词 AI")}</button>
                 </div>
               </Section>
-              {lyricAiEditorOpen && <SettingsEditDialog title={t("编辑歌词 AI")} message={message} busy={busy} onClose={() => {
-                setDraft((current) => ({ ...current, 'lyrics.ai': overview.settings['lyrics.ai'].value }));
-                setLyricAiEditorOpen(false);
-              }}>
+              {lyricAiEditorOpen && <SettingsEditDialog title={t("编辑歌词 AI")} message={message} busy={busy} onClose={closeLyricAiEditor}>
                 <form onSubmit={(event) => void saveSetting(event, 'lyrics.ai')} className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
                   <Field label={t("目标译文语言")} hint={t("实例内所有用户共用一份译文；修改后旧译文不会自动变成新语言。")}><SelectControl aria-label={t("目标译文语言")} className={inputClass} value={draft['lyrics.ai']?.targetLanguage || 'zh'} onChange={(event) => setLyricTargetLanguage(event.target.value)}>
                     {ALL_LANGUAGES.filter(({ code }) => !['instrumental', 'other'].includes(code)).map(({ code, label }) => <option key={code} value={code}>{t(label)}</option>)}
@@ -583,7 +586,8 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       ].map(([key, label]) => <label key={key} className="flex items-start gap-2.5"><input type="checkbox" className="mt-0.5" checked={Boolean(draft['lyrics.ai']?.[key])} onChange={(event) => setLyricAiField(key, event.target.checked)} /><span>{label}</span></label>)}
                     </div>
                   </fieldset>
-                  <div className="flex justify-end border-t border-[var(--line)] pt-5 sm:col-span-2">
+                  <div className="flex justify-end items-center gap-2.5 border-t border-[var(--line)] pt-4 sm:col-span-2">
+                    <button type="button" onClick={closeLyricAiEditor} disabled={busy} className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer">{t("取消")}</button>
                     <button type="submit" className={buttonClass} disabled={busy}>{t("保存歌词 AI 设置")}</button>
                   </div>
                 </form>
@@ -599,14 +603,11 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
             <div className="space-y-4">
               {/* 顶部操作与概览栏 */}
               <div className="wallpaper-content-surface flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-[var(--ink)]">{t("账号列表")}</h2>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--line)] text-[var(--muted)] font-mono font-medium">
-                      {overview.accounts?.length || 0}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[var(--muted)] mt-1">{t("临时密码需在首次登录后修改；最后一位可用管理员不可停用或降权。")}</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-[var(--ink)]">{t("账号列表")}</h2>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--line)] text-[var(--muted)] font-mono font-medium">
+                    {overview.accounts?.length || 0}
+                  </span>
                 </div>
 
                 {!isCreatingAccount && (
@@ -657,16 +658,16 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                         <option value="admin">{t("系统管理员")}</option>
                       </SelectControl>
                     </Field>
-                    <Field label={t("一次性临时密码")} hint={t("至少 8 个字符。")}>
-                      <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("初始临时密码")} />
+                    <Field label={t("一次性临时密码")}>
+                      <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("初始临时密码（至少 8 位）")} />
                     </Field>
-                    <div className="sm:col-span-2 pt-2 flex items-center gap-2">
-                      <button className={buttonClass} type="submit" disabled={busy}>{t("确认创建账号")}</button>
+                    <div className="sm:col-span-2 flex justify-end items-center gap-2.5 pt-3 border-t border-[var(--line)]">
                       <button
                         type="button"
                         onClick={() => setIsCreatingAccount(false)}
-                        className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/5 transition-colors cursor-pointer"
+                        className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
                       >{t("取消")}</button>
+                      <button className={buttonClass} type="submit" disabled={busy}>{t("确认创建账号")}</button>
                     </div>
                   </form>
                 </div>
@@ -699,6 +700,40 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {/* 系统 */}
           {tab === 'system' && (
             <div className="space-y-6">
+              <Section title={t("实例与网络配置")}>
+                <div className="divide-y divide-[var(--line)]">
+                  <div className="flex flex-wrap items-center justify-between gap-4 py-3 first:pt-0">
+                    <div>
+                      <span className="block text-xs font-semibold text-[var(--muted)]">{t("实例名称")}</span>
+                      <strong className="text-sm font-bold text-[var(--ink)] mt-0.5 block">{overview.settings['instance.name']?.value || t("未命名实例")}</strong>
+                    </div>
+                    <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setNameEditorOpen(true); }}>{t("修改名称")}</button>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-4 py-3 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="block text-xs font-semibold text-[var(--muted)]">{t("附加允许来源 (CORS)")}</span>
+                      <div className="mt-0.5 text-xs text-[var(--ink)]">
+                        {overview.settings['cors.allowed_origins']?.value?.length ? (
+                          <>
+                            <strong className="font-semibold">{overview.settings['cors.allowed_origins'].value.length} {t("个来源")}</strong>
+                            <p className="mt-0.5 break-all text-[11px] text-[var(--muted)]">{overview.settings['cors.allowed_origins'].value.slice(0, 3).join(' · ')}</p>
+                          </>
+                        ) : (
+                          <span className="text-[var(--muted)]">{t("未配置附加来源")}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setOriginsEditorOpen(true); }}>{t("管理来源")}</button>
+                  </div>
+                </div>
+              </Section>
+              {nameEditorOpen && <SettingsEditDialog title={t("修改实例名称")} message={message} busy={busy} onClose={() => { setDraft((current) => ({ ...current, 'instance.name': overview.settings['instance.name']?.value || '' })); setNameEditorOpen(false); }}>
+                {setting('instance.name', t("名称"), t("最多 80 个字符。"))}
+              </SettingsEditDialog>}
+              {originsEditorOpen && <SettingsEditDialog title={t("管理附加允许来源")} message={message} busy={busy} onClose={() => { setDraft((current) => ({ ...current, 'cors.allowed_origins': (overview.settings['cors.allowed_origins']?.value || []).join('\n') })); setOriginsEditorOpen(false); }}>
+                {setting('cors.allowed_origins', t("精确 HTTPS Origin（每行一个）"), t("例如 https://music.example.com；不接受通配符、路径或末尾斜杠。"), true)}
+              </SettingsEditDialog>}
+
               <GoogleAdminSettings key={authSession.user.accountId} session={authSession} />
               <IngestDevicesPanel />
               <Section title={t("运行概况")}>

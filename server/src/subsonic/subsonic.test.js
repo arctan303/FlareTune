@@ -10,7 +10,13 @@ import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { parseLrcDocument } from '../utils/lyricDocument.js';
 import packageMetadata from '../../../package.json' with { type: 'json' };
 
-const body = async (response) => (await response.json())['subsonic-response'];
+const body = async (response) => {
+  if (!response.headers.get('content-type')?.startsWith('text/xml')) return (await response.json())['subsonic-response'];
+  const xml = await response.text();
+  const code = /<error code="(\d+)"/.exec(xml);
+  assert.ok(code, 'expected a protocol error document');
+  return { status: 'failed', error: { code: Number(code[1]) } };
+};
 
 test('protocol reports the package version in JSON and XML', async () => {
   const f = await fixture();
@@ -244,4 +250,145 @@ test('stored canonical lyrics preserve synchronization and XML text; absent lyri
   assert.equal(lyrics.lyricsList.structuredLyrics[0].line[0].start, 1500);
   assert.match(await (await f.rest('getLyricsBySongId', { id: 's1', f: 'xml' })).text(), /<line start="1500">Hello &amp; world<\/line>/);
   assert.deepEqual((await body(await f.rest('getLyricsBySongId', { id: 's2' }))).lyricsList.structuredLyrics, []);
+});
+
+test('existing relative catalog media plays and displays covers through the same private objects', async (t) => {
+  const f = await fixture(); t.after(f.close); await f.enable();
+  f.sqlite.prepare('UPDATE Songs SET audio_url=?, cover_url=? WHERE id=?')
+    .run('audio/one.mp3', 'cover/one.png', 's1');
+  for (const method of ['stream', 'download']) {
+    const r = await f.rest(method, { id: 's1', format: 'raw' }, { headers: { Range: 'bytes=1-3' } });
+    assert.equal(r.status, 206);
+    assert.equal(r.headers.get('Content-Type'), 'audio/mpeg');
+    assert.equal(r.headers.get('Content-Range'), 'bytes 1-3/5');
+    assert.deepEqual([...new Uint8Array(await r.arrayBuffer())], [2, 3, 4]);
+    const head = await f.rest(method, { id: 's1' }, { method: 'HEAD' });
+    assert.equal(head.status, 200);
+    assert.equal(head.headers.get('Content-Length'), '5');
+    assert.equal(await head.text(), '');
+  }
+  const searched = await body(await f.rest('search3', { query: 'One' }));
+  const starred = await f.rest('star', { id: 's1' });
+  assert.equal((await body(starred)).status, 'ok');
+  const favorite = (await body(await f.rest('getStarred2'))).starred2.song[0];
+  const album = (await body(await f.rest('getAlbumList2', { type: 'newest' }))).albumList2.album.find(a => a.name === 'Album');
+  const artist = (await body(await f.rest('getArtists'))).artists.index[0].artist.find(a => a.name === 'Artist');
+  for (const id of [searched.searchResult3.song[0].coverArt, favorite.coverArt, album.coverArt,
+    album.id, `al-${album.id}`, artist.id, `ar-${artist.id}`]) {
+    const r = await f.rest('getCoverArt', { id, size: 300 });
+    assert.equal(r.headers.get('Content-Type'), 'image/png', id);
+    assert.deepEqual([...new Uint8Array(await r.arrayBuffer())], [6, 7, 8], id);
+    assert.equal(r.headers.get('Cache-Control'), 'private, no-store');
+  }
+  assert.equal((await f.rest('getCoverArt2', { id: 'cover_s1' }, { method: 'HEAD' })).headers.get('Content-Length'), '3');
+  const reads = f.mediaReads();
+  assert.equal((await body(await f.rest('stream', { id: 's1', u: null, t: null, s: null }))).status, 'failed');
+  assert.equal(f.mediaReads(), reads);
+});
+
+test('relative catalog normalization still rejects external and escaping media references before storage reads', async (t) => {
+  const f = await fixture(); t.after(f.close); await f.enable();
+  for (const path of ['https://other.example/audio/one.mp3', '//other.example/audio/one.mp3',
+    'users/private.png', 'audio/../secret', 'audio/%2e%2e/secret', 'audio/a%2fb.mp3',
+    'audio/a%5cb.mp3', 'audio/one.mp3?token=x', 'cover/one.png#fragment',
+    '/media/../secret', '/media/users/../../secret', 'audio/%00.mp3', 'audio//one.mp3']) {
+    f.sqlite.prepare('UPDATE Songs SET audio_url=?, cover_url=? WHERE id=?').run(path, path, 's1');
+    const reads = f.mediaReads();
+    for (const [method, id] of [['stream', 's1'], ['download', 's1'], ['getCoverArt', 'cover_s1']]) {
+      assert.equal((await body(await f.rest(method, { id }))).error.code, 70, `${method}: ${path}`);
+    }
+    assert.equal(f.mediaReads(), reads, path);
+  }
+});
+
+test('opt-in diagnostics identify failures without logging authentication, queries or storage exception text', async (t) => {
+  const f = await fixture(); t.after(f.close); await f.enable();
+  const messages = [];
+  t.mock.method(console, 'warn', value => messages.push(value));
+  await f.rest('stream', { id: 's1', maxBitRate: 320 });
+  assert.equal(messages.length, 0);
+  const env = { ...f.env, SUBSONIC_DIAGNOSTICS: 'true' };
+  await f.rest('stream', { id: 's1', maxBitRate: 320 }, { env });
+  assert.deepEqual(JSON.parse(messages.pop()), { event: 'subsonic_failure', endpoint: 'stream', code: 0, reason: 'bitrate_limit_requested' });
+  await f.rest('getSong', { id: 'private-song-reference', t: 'f'.repeat(32), s: 'private-salt' }, { env });
+  assert.deepEqual(JSON.parse(messages.pop()), { event: 'subsonic_failure', endpoint: 'getSong', code: 40, reason: 'authentication_rejected' });
+  const prepare = f.db.prepare.bind(f.db);
+  f.db.prepare = sql => {
+    if (sql.includes('FROM Songs WHERE id = ?')) throw new Error('private SQL or token details');
+    return prepare(sql);
+  };
+  await f.rest('getSong', { id: 's1' }, { env });
+  assert.deepEqual(JSON.parse(messages.pop()), { event: 'subsonic_failure', endpoint: 'getSong', code: 0, reason: 'service_unavailable' });
+  assert.deepEqual(messages, []);
+});
+
+test('binary endpoints report failures as text/xml independent of f, with empty HEAD bodies', async (t) => {
+  const f = await fixture(); t.after(f.close); await f.enable();
+  for (const [method, params, code] of [
+    ['stream', { id: 's1', t: 'f'.repeat(32) }, 40],
+    ['stream.view', { id: 'missing' }, 70],
+    ['stream', { id: 's1', maxBitRate: 320 }, 0],
+    ['stream', {}, 10],
+    ['download', { id: 'missing' }, 70],
+    ['getCoverArt', { id: 'missing' }, 70],
+    ['getCoverArt2', { id: 'missing' }, 70],
+    ['download.view', { id: 's1', maxBitRate: 320 }, 0],
+  ]) {
+    for (const format of ['json', 'xml']) {
+      const response = await f.rest(method, { ...params, f: format });
+      assert.equal(response.status, code === 70 ? 404 : code === 40 ? 403 : 400);
+      assert.equal(response.headers.get('content-type'), 'text/xml; charset=utf-8');
+      assert.equal(response.headers.get('cache-control'), 'private, no-store');
+      assert.match(await response.text(), new RegExp(`<error code="${code}"`));
+    }
+    const head = await f.rest(method, params, { method: 'HEAD' });
+    assert.equal(head.status, code === 70 ? 404 : code === 40 ? 403 : 400);
+    assert.equal(head.headers.get('content-type'), 'text/xml; charset=utf-8');
+    assert.equal(await head.text(), '');
+  }
+  const head = await f.rest('stream', { id: 'missing' }, { method: 'HEAD' });
+  assert.equal(head.status, 404);
+  assert.equal(head.headers.get('content-type'), 'text/xml; charset=utf-8');
+  assert.equal(await head.text(), '');
+  const metadata = await f.rest('getSong', { id: 'missing' });
+  assert.equal(metadata.status, 200);
+  assert.match(metadata.headers.get('content-type'), /^application\/json/);
+  assert.equal((await body(metadata)).error.code, 70);
+  const invalidFormat = await f.rest('download.view', { id: 's1', f: 'invalid' });
+  assert.equal(invalidFormat.status, 400);
+  assert.equal(invalidFormat.headers.get('content-type'), 'text/xml; charset=utf-8');
+  assert.match(await invalidFormat.text(), /<error code="0"/);
+});
+
+test('failed media can be retried as original bytes, without changing Range or metadata errors', async (t) => {
+  const f = await fixture(); t.after(f.close); await f.enable();
+  const object = f.objects.get('media/audio/one.mp3');
+  f.objects.delete('media/audio/one.mp3');
+  const missing = await f.rest('download', { id: 's1' });
+  assert.equal(missing.status, 404);
+  assert.match(await missing.text(), /<error code="70"/);
+  f.objects.set('media/audio/one.mp3', object);
+  for (const method of ['stream', 'download']) {
+    const retried = await f.rest(method, { id: 's1', maxBitRate: 0 });
+    assert.equal(retried.status, 200);
+    assert.equal(retried.headers.get('content-type'), 'audio/mpeg');
+    assert.deepEqual([...new Uint8Array(await retried.arrayBuffer())], [1, 2, 3, 4, 5]);
+    const range = await f.rest(method, { id: 's1' }, { headers: { Range: 'bytes=1-3' } });
+    assert.equal(range.status, 206);
+    assert.equal(range.headers.get('content-range'), 'bytes 1-3/5');
+    assert.deepEqual([...new Uint8Array(await range.arrayBuffer())], [2, 3, 4]);
+  }
+  const noStorage = await f.rest('stream', { id: 's1' }, { env: { ...f.env, MEDIA_BUCKET: null } });
+  assert.equal(noStorage.status, 503);
+  assert.equal(noStorage.headers.get('content-type'), 'text/xml; charset=utf-8');
+  assert.match(await noStorage.text(), /<error code="0"/);
+  const prepare = f.db.prepare.bind(f.db);
+  f.db.prepare = sql => {
+    if (sql.includes('FROM Songs WHERE id = ?')) throw new Error('storage unavailable');
+    return prepare(sql);
+  };
+  const unavailable = await f.rest('stream', { id: 's1' });
+  assert.equal(unavailable.status, 503);
+  assert.equal(unavailable.headers.get('content-type'), 'text/xml; charset=utf-8');
+  assert.match(await unavailable.text(), /<error code="0"/);
 });

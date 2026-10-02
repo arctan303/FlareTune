@@ -2,6 +2,7 @@ import { serveMediaObject, resolveMediaObjectKey } from '../routes/media.js';
 import { lyricArtifactStoreForEnv } from '../services/lyricAssetWorkflow.js';
 import { findSong, catalog } from './library.js';
 import { required, reject } from './response.js';
+import { structuredLyrics } from './lyrics.js';
 
 async function coverSong(db, id) {
   if (id.startsWith('cover_')) return findSong(db, id.slice(6));
@@ -14,6 +15,10 @@ async function coverSong(db, id) {
 export async function media(method, p, request, env) {
   const db = env.DB;
   if (['getLyrics', 'getLyricsBySongId'].includes(method)) {
+    const enhanced = method === 'getLyricsBySongId' && p.get('enhanced') === 'true';
+    if (method === 'getLyricsBySongId' && p.has('enhanced') && !['true', 'false'].includes(p.get('enhanced'))) {
+      reject(10, 'Invalid enhanced');
+    }
     let row;
     if (method === 'getLyricsBySongId') row = await findSong(db, required(p, 'id'));
     else {
@@ -28,17 +33,16 @@ export async function media(method, p, request, env) {
     const lines = artifact?.status === 'ready' ? artifact.original?.lines || [] : [];
     if (method === 'getLyrics') return { lyrics: { artist: row.artist || '', title: row.title,
       value: lines.map((line) => line.text).join('\n') } };
-    const synced = artifact?.original?.syncMode !== 'none' && lines.every((line) => Number.isFinite(line.time));
-    return { lyricsList: { structuredLyrics: lines.length ? [{ displayArtist: row.artist || '',
-      displayTitle: row.title, lang: 'und', synced, offset: 0,
-      line: lines.map((line) => ({ value: line.text,
-        ...(synced ? { start: Math.max(0, Math.round(line.time * 1000 + (artifact.offsetMs || 0))) } : {}) })) }] : [] } };
+    return structuredLyrics(artifact, row, enhanced);
   }
   const isCover = method === 'getCoverArt' || method === 'getCoverArt2';
   const row = isCover ? await coverSong(db, required(p, 'id')) : await findSong(db, required(p, 'id'));
-  const path = isCover ? row.cover_url : row.audio_url;
-  // Only catalog-referenced /media/ objects may be read. Never follow external
-  // URLs or accept a raw object key supplied by the caller.
+  const storedPath = isCover ? row.cover_url : row.audio_url;
+  // Imported catalog rows use audio/... and cover/...; newer writes use /media/.
+  // Both refer to the same private prefix. Normalize only known catalog forms,
+  // never external URLs or an object key supplied by the protocol caller.
+  const path = typeof storedPath === 'string' && /^(audio|cover)\//.test(storedPath)
+    ? `/media/${storedPath}` : storedPath;
   if (!path || !path.startsWith('/media/') || path.includes('?') || path.includes('#')
     || !resolveMediaObjectKey(path, env)) reject(70, 'Media was not found');
   if (!isCover) {

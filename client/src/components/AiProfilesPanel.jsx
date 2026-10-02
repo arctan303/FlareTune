@@ -6,9 +6,9 @@ import { AI_PROTOCOLS, AI_SOURCES } from '../../../shared/aiProtocols.js';
 import { providerDraft, changeProviderSource, providerNeedsKey, providerLabel, featureDraft, changeFeatureProvider, changeFeatureModel, modelListError } from '../services/aiProviderDraft.js';
 
 const inputClass = 'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)]';
-const buttonClass = 'primary-button min-h-11 rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50';
+const buttonClass = 'primary-button min-h-10 rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs';
 const cardClass = 'wallpaper-content-surface rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4';
-const sectionClass = 'wallpaper-content-surface space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-xs sm:p-7';
+const sectionClass = 'wallpaper-content-surface space-y-3.5 rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:p-5 shadow-2xs';
 
 function FeatureModelCard({ feature, label, data, csrfToken, refresh }) {
   const assignment = data.features[feature];
@@ -17,15 +17,48 @@ function FeatureModelCard({ feature, label, data, csrfToken, refresh }) {
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState('');
+  const [editorOpen, setEditorOpen] = React.useState(false);
+  const dialogRef = React.useRef(null);
   const requestRef = React.useRef(0);
   const modelFieldRef = React.useRef(null);
   const provider = data.providers.find(item => item.id === draft.providerId);
+
   React.useEffect(() => { setDraft(featureDraft(assignment)); }, [assignment.revision]);
   React.useEffect(() => {
     requestRef.current += 1; setModels([]); setLoading(false);
     return () => { requestRef.current += 1; };
   }, [draft.providerId, provider?.revision]);
+
+  React.useEffect(() => {
+    if (!editorOpen) return undefined;
+    const opener = document.activeElement;
+    const dialog = dialogRef.current;
+    if (editorOpen && dialog && !dialog.open) dialog.showModal();
+    return () => {
+      if (dialog?.open) dialog.close();
+      if (opener?.isConnected && !document.querySelector('dialog[open]')) opener.focus();
+    };
+  }, [editorOpen]);
+
   const disabled = !data.ready || saving;
+  const resetModelRequest = () => {
+    requestRef.current += 1;
+    setModels([]);
+    setLoading(false);
+  };
+  const openEditor = () => {
+    resetModelRequest();
+    setDraft(featureDraft(assignment));
+    setMessage('');
+    setEditorOpen(true);
+  };
+  const closeEditor = () => {
+    resetModelRequest();
+    setDraft(featureDraft(assignment));
+    setEditorOpen(false);
+    setMessage('');
+  };
+
   async function readModels() {
     const requestId = ++requestRef.current;
     setLoading(true); setMessage('');
@@ -37,33 +70,184 @@ function FeatureModelCard({ feature, label, data, csrfToken, refresh }) {
     } catch (error) { if (requestId === requestRef.current) setMessage(modelListError(error)); }
     finally { if (requestId === requestRef.current) setLoading(false); }
   }
+
   async function save(event) {
     event.preventDefault(); setSaving(true); setMessage('');
     try {
       await saveAiFeatureModel({ feature, ...draft, providerId: draft.providerId || null, expectedRevision: assignment.revision, providerRevision: provider?.revision || 0 }, csrfToken);
-      await refresh(); setMessage('功能使用方案已保存。');
+      await refresh();
+      resetModelRequest();
+      setEditorOpen(false);
+      setMessage('功能使用方案已保存。');
     } catch (error) { setMessage(error?.status === 409 ? '配置已更新，请刷新后确认再保存。' : '功能使用方案保存失败，请检查填写内容。'); }
     finally { setSaving(false); }
   }
-  return <form onSubmit={save} className={`${cardClass} space-y-3`}>
-    <h3 className="text-sm font-semibold text-[var(--ink)]">{t(label)}</h3>
-    <label className="block space-y-1 text-xs font-semibold">{t('供应商')}<SelectControl aria-label={`${t(label)} ${t('供应商')}`} className={inputClass} disabled={disabled} value={draft.providerId} onChange={event => { requestRef.current += 1; setDraft(changeFeatureProvider(draft, event.target.value)); setMessage(''); }}>
-      <option value="">{t('原有部署配置')}</option>{data.providers.map(item => <option value={item.id} key={item.id}>{providerLabel(item)} · {item.source === 'custom' ? t('自定义供应商') : AI_SOURCES[item.source].name}{!item.hasKey ? ` · ${t('密钥需重新录入')}` : ''}</option>)}
-    </SelectControl></label>
-    {draft.providerId && <>
-      <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold">{t('模型')}</span><button type="button" className="min-h-11 text-xs text-[var(--accent)] disabled:opacity-50" disabled={disabled || loading || !provider?.hasKey} onClick={() => void readModels()}>{loading ? t('正在获取模型…') : t('获取模型')}</button></div>
-      <div ref={modelFieldRef} className="model-input">
-        <input aria-label={`${t(label)} ${t('模型 ID')}`} className={`${inputClass}${models.length ? ' pr-12' : ''}`} required maxLength={160} disabled={disabled} value={draft.model} onChange={event => setDraft(changeFeatureModel(draft, event.target.value))} placeholder={t('获取模型后选择，或手动填写模型 ID')} />
-        {models.length > 0 && <SelectControl aria-label={`${t(label)} ${t('选择模型')}`} className="model-input__choices" menuAnchorRef={modelFieldRef} disabled={disabled} value={models.includes(draft.model) ? draft.model : ''} onChange={event => setDraft(changeFeatureModel(draft, event.target.value))}>
-          <option value="" disabled>{t('选择模型')}</option>{models.map(model => <option key={model} value={model}>{model}</option>)}
-        </SelectControl>}
+
+  return (
+    <>
+      <div className={`${cardClass} space-y-3`}>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-bold text-[var(--ink)]">{t(label)}</h3>
+          <button
+            type="button"
+            className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs"
+            disabled={!data.ready}
+            onClick={openEditor}
+          >
+            {t('配置方案')}
+          </button>
+        </div>
+
+        <dl className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <dt className="text-[var(--muted)]">{t('供应商')}</dt>
+            <dd className="font-semibold text-[var(--ink)] mt-0.5 truncate">
+              {provider ? providerLabel(provider) : t('原有部署配置')}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[var(--muted)]">{t('模型')}</dt>
+            <dd className="font-mono font-semibold text-[var(--ink)] mt-0.5 truncate">
+              {draft.model || t('未设置')}
+            </dd>
+          </div>
+          {(
+            <div className="col-span-2 pt-1 border-t border-[var(--line)] flex items-center justify-between text-xs">
+              <dt className="text-[var(--muted)]">{t('视觉支持')}</dt>
+              <dd className="font-medium text-[var(--ink)]">
+                {draft.supportsImages ? t('支持视觉') : t('仅文本')}
+              </dd>
+            </div>
+          )}
+        </dl>
+
+        {message && !editorOpen && <p role="status" className="text-xs text-[var(--muted)]">{t(message)}</p>}
       </div>
-      <label className="flex min-h-11 w-full items-center justify-between gap-3 text-sm text-[var(--ink)]"><span>{t('此模型支持视觉')}</span><input type="checkbox" role="switch" className="settings-switch" disabled={disabled || !draft.model.trim()} checked={draft.supportsImages} onChange={event => setDraft({ ...draft, supportsImages: event.target.checked })} /></label>
-      <p className="text-xs text-[var(--muted)]">{t('仅对当前模型声明视觉能力；更换模型后需重新确认。')}</p>
-    </>}
-    <button type="submit" className={buttonClass} disabled={disabled || Boolean(draft.providerId && (!provider || !draft.model.trim()))}>{saving ? t('保存中…') : t('保存配置')}</button>
-    {message && <p role="status" className="text-xs text-[var(--muted)]">{t(message)}</p>}
-  </form>;
+
+      {editorOpen && (
+        <dialog
+          ref={dialogRef}
+          aria-label={t('配置{p0}方案', { p0: t(label) })}
+          onCancel={(event) => { event.preventDefault(); if (!saving) closeEditor(); }}
+          className="fixed inset-0 m-auto w-[min(92vw,32rem)] max-h-[85vh] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+        >
+          <form onSubmit={save} className="max-h-[85vh] space-y-4 overflow-y-auto p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
+              <h3 className="text-base font-bold text-[var(--ink)]">{t('配置{p0}方案', { p0: t(label) })}</h3>
+              <button
+                type="button"
+                onClick={closeEditor}
+                disabled={saving}
+                className="p-1 rounded-lg text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-colors"
+              >
+                {t('关闭')}
+              </button>
+            </div>
+
+            <label className="block space-y-1 text-xs font-semibold">
+              {t('供应商')}
+              <SelectControl
+                aria-label={`${t(label)} ${t('供应商')}`}
+                className={inputClass}
+                disabled={disabled}
+                value={draft.providerId}
+                onChange={(event) => {
+                  requestRef.current += 1;
+                  setDraft(changeFeatureProvider(draft, event.target.value));
+                  setMessage('');
+                }}
+              >
+                <option value="">{t('原有部署配置')}</option>
+                {data.providers.map((item) => (
+                  <option value={item.id} key={item.id}>
+                    {providerLabel(item)} · {item.source === 'custom' ? t('自定义供应商') : AI_SOURCES[item.source].name}
+                    {!item.hasKey ? ` · ${t('密钥需重新录入')}` : ''}
+                  </option>
+                ))}
+              </SelectControl>
+            </label>
+
+            {draft.providerId && (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold">{t('模型')}</span>
+                  <button
+                    type="button"
+                    className="text-xs text-[var(--accent)] disabled:opacity-50 cursor-pointer hover:underline"
+                    disabled={disabled || loading || !provider?.hasKey}
+                    onClick={() => void readModels()}
+                  >
+                    {loading ? t('正在获取模型…') : t('获取模型')}
+                  </button>
+                </div>
+
+                <div ref={modelFieldRef} className="model-input">
+                  <input
+                    aria-label={`${t(label)} ${t('模型 ID')}`}
+                    className={`${inputClass}${models.length ? ' pr-12' : ''}`}
+                    required
+                    maxLength={160}
+                    disabled={disabled}
+                    value={draft.model}
+                    onChange={(event) => setDraft(changeFeatureModel(draft, event.target.value))}
+                    placeholder={t('获取模型后选择，或手动填写模型 ID')}
+                  />
+                  {models.length > 0 && (
+                    <SelectControl
+                      aria-label={`${t(label)} ${t('选择模型')}`}
+                      className="model-input__choices"
+                      menuAnchorRef={modelFieldRef}
+                      disabled={disabled}
+                      value={models.includes(draft.model) ? draft.model : ''}
+                      onChange={(event) => setDraft(changeFeatureModel(draft, event.target.value))}
+                    >
+                      <option value="" disabled>{t('选择模型')}</option>
+                      {models.map((model) => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
+                    </SelectControl>
+                  )}
+                </div>
+
+                {(
+                  <label className="flex min-h-11 w-full items-center justify-between gap-3 text-sm text-[var(--ink)]">
+                    <span>{t('此模型支持视觉')}</span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      className="settings-switch"
+                      disabled={disabled || !draft.model.trim()}
+                      checked={draft.supportsImages}
+                      onChange={(event) => setDraft({ ...draft, supportsImages: event.target.checked })}
+                    />
+                  </label>
+                )}
+              </>
+            )}
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={closeEditor}
+                disabled={saving}
+                className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
+              >
+                {t('取消')}
+              </button>
+              <button
+                type="submit"
+                className={buttonClass}
+                disabled={disabled || Boolean(draft.providerId && (!provider || !draft.model.trim()))}
+              >
+                {saving ? t('保存中…') : t('保存配置')}
+              </button>
+            </div>
+            {message && <p role="status" className="text-xs text-[var(--muted)]">{t(message)}</p>}
+          </form>
+        </dialog>
+      )}
+    </>
+  );
 }
 
 export default function AiProfilesPanel({ csrfToken }) {
@@ -78,9 +262,14 @@ export default function AiProfilesPanel({ csrfToken }) {
   const refresh = React.useCallback(async () => { const result = await getAiProviders(csrfToken); setData(result); }, [csrfToken]);
   React.useEffect(() => { void refresh().catch(() => setMessage('供应商配置暂时无法读取，请确认开发 Worker 已更新。')); }, [refresh]);
   React.useEffect(() => {
+    if (!editing) return undefined;
+    const opener = document.activeElement;
     const dialog = dialogRef.current;
     if (editing && dialog && !dialog.open) dialog.showModal();
-    return () => { if (dialog?.open) dialog.close(); };
+    return () => {
+      if (dialog?.open) dialog.close();
+      if (opener?.isConnected && !document.querySelector('dialog[open]')) opener.focus();
+    };
   }, [editing]);
   function startEdit(source, provider = null) { setMessage(''); setDraft(providerDraft(source, provider)); setEditing({ source, provider }); }
   const closeEditor = () => { setEditing(null); setDraft(null); };
@@ -105,26 +294,29 @@ export default function AiProfilesPanel({ csrfToken }) {
   }
   return <div className="space-y-6">
     <section className={sectionClass}>
-      <div className="flex items-center justify-between gap-3"><h2 className="text-base font-bold text-[var(--ink)]">{t('供应商配置')}</h2><button type="button" className={buttonClass} disabled={busy || !data?.ready} onClick={() => startEdit('deepseek')}>{t('添加供应商')}</button></div>
+      <div className="flex items-center justify-between gap-3"><h2 className="text-sm font-bold text-[var(--ink)]">{t('供应商配置')}</h2><button type="button" className={buttonClass} disabled={busy || !data?.ready} onClick={() => startEdit('deepseek')}>{t('添加供应商')}</button></div>
       {data && !data.credentialReady && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">{t('请先配置实例的初始化密钥（SETUP_SECRET）。')}</p>}
       {data?.ready === false && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">{t('请先在实例设置中升级数据库。旧配置仍可继续使用。')}</p>}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {data?.providers.map(provider => <div key={provider.id} className={`${cardClass} space-y-3`}>
           <strong className="block break-words text-sm text-[var(--ink)]">{providerLabel(provider)}</strong>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]"><span>{provider.source === 'custom' ? t('自定义供应商') : AI_SOURCES[provider.source].name}</span><span>{provider.hasKey ? t('密钥已配置') : t('密钥需重新录入')}</span></div>
-          <div className="flex gap-3 text-xs"><button type="button" className="min-h-11 text-[var(--accent)] disabled:opacity-50" disabled={busy || !data?.ready} onClick={() => startEdit(provider.source, provider)}>{t('编辑')}</button><button type="button" className="min-h-11 text-[var(--muted)] disabled:opacity-50" disabled={busy || !data?.ready} onClick={() => void remove(provider)}>{t('删除')}</button></div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-[var(--line)]">
+            <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" disabled={busy || !data?.ready} onClick={() => startEdit(provider.source, provider)}>{t('编辑')}</button>
+            <button type="button" className="rounded-xl px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-500/10 cursor-pointer transition-colors" disabled={busy || !data?.ready} onClick={() => void remove(provider)}>{t('删除')}</button>
+          </div>
         </div>)}
       </div>
       {data && !data.providers.length && <p className="text-xs text-[var(--muted)]">{t('尚未添加供应商，点击“添加供应商”开始配置。')}</p>}
     </section>
     <section className={sectionClass}>
-      <h2 className="text-base font-bold text-[var(--ink)]">{t('功能使用方案')}</h2>
+      <h2 className="text-sm font-bold text-[var(--ink)]">{t('功能使用方案')}</h2>
       <div className="grid gap-4 lg:grid-cols-2">{data && [['assistant', '音乐助手'], ['lyrics', '歌词 AI']].map(([feature, label]) => <FeatureModelCard key={feature} feature={feature} label={label} data={data} csrfToken={csrfToken} refresh={refresh} />)}</div>
     </section>
     {message && !editing && <p role="status" className="text-sm text-[var(--muted)]">{t(message)}</p>}
-    {editing && <dialog ref={dialogRef} aria-label={t('配置供应商')} onCancel={event => { event.preventDefault(); if (!busy) closeEditor(); }} className="w-[min(92vw,32rem)] max-h-[85vh] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/45">
+    {editing && <dialog ref={dialogRef} aria-label={t('配置供应商')} onCancel={event => { event.preventDefault(); if (!busy) closeEditor(); }} className="fixed inset-0 m-auto w-[min(92vw,32rem)] max-h-[85vh] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm">
       <form onSubmit={saveProvider} className="max-h-[85vh] space-y-4 overflow-y-auto p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3"><h3 className="text-lg font-semibold">{existing ? t('编辑供应商') : t('添加供应商')}</h3><button type="button" onClick={closeEditor} disabled={busy} className="min-h-11 text-sm text-[var(--muted)]">{t('关闭')}</button></div>
+        <div className="flex items-center justify-between gap-3"><h3 className="text-base font-bold text-[var(--ink)]">{existing ? t('编辑供应商') : t('添加供应商')}</h3><button type="button" onClick={closeEditor} disabled={busy} className="p-1 rounded-lg text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-colors">{t('关闭')}</button></div>
         <label className="block space-y-1 text-xs font-semibold">{t('接入方案')}<SelectControl aria-label={t('接入方案')} className={inputClass} disabled={busy || Boolean(existing)} value={draft.source} onChange={event => setDraft(changeProviderSource(draft, event.target.value))}>{Object.entries(AI_SOURCES).map(([source, preset]) => <option key={source} value={source}>{source === 'custom' ? t('自定义供应商') : preset.name}</option>)}</SelectControl></label>
         <label className="block space-y-1 text-xs font-semibold">{t('显示名称')}<input className={inputClass} disabled={busy} maxLength={80} value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder={draft.source === 'custom' ? t('自定义供应商') : AI_SOURCES[draft.source].name} /></label>
         {draft.source === 'custom' && <>
@@ -132,7 +324,10 @@ export default function AiProfilesPanel({ csrfToken }) {
           <label className="block space-y-1 text-xs font-semibold">{t('API 基础地址')}<input className={inputClass} type="url" required maxLength={2048} value={draft.baseUrl} onChange={event => setDraft({ ...draft, baseUrl: event.target.value })} placeholder="https://example.com/v1" /><span className="block font-normal text-[var(--muted)]">{t('填写 HTTPS 基础地址，包含版本前缀，不包含具体请求路径。')}</span></label>
         </>}
         <label className="block space-y-1 text-xs font-semibold">API Key<input className={inputClass} type="password" autoComplete="new-password" required={needsKey} maxLength={4096} value={draft.apiKey} onChange={event => setDraft({ ...draft, apiKey: event.target.value })} placeholder={needsKey ? t('请输入 API Key') : t('留空保留已保存的密钥')} /></label>
-        <div className="flex gap-3"><button type="submit" className={buttonClass} disabled={busy}>{busy ? t('保存中…') : t('保存配置')}</button><button type="button" disabled={busy} onClick={closeEditor} className="min-h-11 rounded-xl px-4 py-2 text-xs text-[var(--muted)]">{t('取消')}</button></div>
+        <div className="flex justify-end gap-2.5 pt-2 border-t border-[var(--line)]">
+          <button type="button" disabled={busy} onClick={closeEditor} className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer">{t('取消')}</button>
+          <button type="submit" className={buttonClass} disabled={busy}>{busy ? t('保存中…') : t('保存配置')}</button>
+        </div>
         {message && <p role="alert" className="text-sm text-rose-600">{t(message)}</p>}
       </form>
     </dialog>}
