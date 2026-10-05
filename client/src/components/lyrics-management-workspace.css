@@ -221,6 +221,11 @@ html.dark .lyric-studio__field-error { color: #ff8993; }
 .lyric-studio__search { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; padding: 16px; border-bottom: 1px solid var(--studio-line); }
 .lyric-studio__search label { display: grid; min-width: 0; gap: 5px; color: var(--studio-muted); font-size: 11px; }
 .lyric-studio__search input { width: 100%; }
+.lyric-studio__candidate-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 0; flex: 0 0 auto; }
+.lyric-studio__candidate-filters label { display: grid; gap: 4px; min-width: 0; font-size: 11px; color: var(--studio-muted); }
+.lyric-studio__candidate-filters .select-control { min-width: 0; }
+.lyric-studio__inspection-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 0; flex: 0 0 auto; font-size: 12px; color: var(--studio-muted); }
+.lyric-studio__inspection-status button { min-height: 36px; padding: 4px 10px; border: 1px solid var(--studio-line); border-radius: 8px; color: var(--studio-ink); background: var(--studio-raised); }
 .lyric-studio__candidate-list { display: grid; gap: 6px; padding: 12px 16px; }
 .lyric-studio__candidate {
   display: grid;
@@ -236,6 +241,7 @@ html.dark .lyric-studio__field-error { color: #ff8993; }
 .lyric-studio__candidate:hover, .lyric-studio__candidate.is-selected { border-color: var(--studio-accent); background: var(--studio-raised); }
 .lyric-studio__candidate strong { font-size: 13px; }
 .lyric-studio__candidate small, .lyric-studio__candidate span { color: var(--studio-muted); font-size: 11px; }
+.lyric-studio__candidate span.lyric-studio__match-warning { color: var(--studio-warn-ink); }
 .lyric-studio__candidate-preview { border-top: 1px solid var(--studio-line); }
 .lyric-studio__candidate-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }
 .lyric-studio__candidate-preview .lyric-studio__preview { padding: 0 16px 24px; }
@@ -465,3 +471,4 @@ html.dark .lyric-studio__field-error { color: #ff8993; }
 @media (prefers-reduced-motion: reduce) {
   .lyric-studio *, .lyric-studio *::before, .lyric-studio *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+.lyric-studio .lyric-studio__candidate-content[hidden] { display: none; }

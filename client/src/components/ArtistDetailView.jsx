@@ -17,6 +17,7 @@ import { useCatalogPage } from '../hooks/useCatalogPage.js';
 import { usePrivateMediaSource } from '../hooks/usePrivateMediaSource.js';
 import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
+import CatalogSkeleton from './catalog/CatalogSkeleton.jsx';
 import SectionHeading from './catalog/SectionHeading.jsx';
 import { hasPreviewOverflow } from './catalog/previewVisibility.js';
 import PageBackButton from './PageBackButton.jsx';
@@ -262,7 +263,7 @@ export default function ArtistDetailView({
               {artistPage.hasMore && <button type="button" className="secondary-button col-span-full mx-auto mt-6 px-4 py-2" onClick={loadMoreArtistSongs} disabled={artistPage.loadingMore}>{artistPage.loadingMore ? t("加载中…") : t("加载更多")}</button>}
             </div>
           ) : songsStatus === 'loading' ? (
-            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">{t("正在加载歌曲…")}</p>
+            <CatalogSkeleton type="songs" overview={false} trackGridClassName="full-song-grid" />
           ) : songsStatus === 'error' ? (
             <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
           ) : (
@@ -299,7 +300,7 @@ export default function ArtistDetailView({
               {albumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={albumResults.loadMore} disabled={albumResults.loadingMore}>{albumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
             </>
           ) : albumResults.status === 'loading' ? (
-            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">{t("正在加载专辑…")}</p>
+            <CatalogSkeleton type="albums" overview={false} />
           ) : albumResults.status === 'error' ? (
             <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("专辑加载失败")}</p>
           ) : (
@@ -480,7 +481,7 @@ export default function ArtistDetailView({
               ))}
             </SongColumnShelf>
           ) : songsStatus === 'loading' ? (
-            <p role="status" className="py-10 text-center text-sm text-[var(--muted)]">{t("正在加载歌曲…")}</p>
+            <CatalogSkeleton type="songs" />
           ) : songsStatus === 'error' ? (
             <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
           ) : (
@@ -491,7 +492,7 @@ export default function ArtistDetailView({
         </section>
 
         {/* 专辑预览最多两排，标题可进入完整列表。 */}
-        {albums.length > 0 && (
+        {(albums.length > 0 || albumResults.status === 'loading' || albumResults.status === 'error') && (
           <section aria-labelledby="artist-albums-title" className="space-y-4 pt-2">
             <div className="flex items-center justify-between pb-1">
               <SectionHeading id="artist-albums-title" title={t("专辑")}
@@ -502,8 +503,9 @@ export default function ArtistDetailView({
                 }) ? () => navigateSubView('albums') : null} />
             </div>
 
-            <AlbumPreviewGrid albums={visibleAlbums} onOpen={openAlbum}
-              onVisibleCountChange={setAlbumVisibleCount} />
+            {albums.length > 0 ? <AlbumPreviewGrid albums={visibleAlbums} onOpen={openAlbum}
+              onVisibleCountChange={setAlbumVisibleCount} /> : albumResults.status === 'loading' ? <CatalogSkeleton type="albums" />
+                : <p role="alert" className="text-sm text-[var(--muted)]">{t('专辑加载失败')}</p>}
           </section>
         )}
       </div>

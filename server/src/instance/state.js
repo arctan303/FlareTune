@@ -11,11 +11,11 @@ const REQUIRED_TABLES = ['ft_instance', 'ft_migrations', 'ft_migration_lock', 'f
   'music_chat_threads', 'music_chat_thread_messages', 'music_chat_turns',
   'music_assistant_configs', 'AI_Assistants', 'Artist_Photos'];
 
-async function hasCompatibleServingSchema(inventory, names, triggers) {
+async function hasCompatibleServingSchema(inventory, names, triggers, executionContext) {
   if (names.has('Playlists') || names.has('Playlist_Songs')) return false;
   for (const name of ['ft_migration_progress', 'ai_model_profiles', 'ai_feature_assignments',
     'assistant_memory_settings', 'assistant_memories']) if (!names.has(name)) return false;
-  const columns = await inventory.playlistColumns();
+  const columns = await inventory.playlistColumns(executionContext);
   if (!columns?.results?.some((row) => row.name === 'cached_song_count'
     && String(row.type).toUpperCase() === 'INTEGER' && Number(row.notnull) === 1)) return false;
   return ['ft_member_playlist_songs_insert_count', 'ft_member_playlist_songs_delete_count',
@@ -23,10 +23,10 @@ async function hasCompatibleServingSchema(inventory, names, triggers) {
     .every((name) => triggers.has(name));
 }
 
-async function inspectInstanceState(db, now, cacheSchema) {
+async function inspectInstanceState(db, now, cacheSchema, executionContext) {
   if (!db?.prepare) return state('recovery_required', 'database_unavailable');
 
-  const inventory = await readSchemaInventory(db, now, cacheSchema);
+  const inventory = await readSchemaInventory(db, now, cacheSchema, executionContext);
   const { schema } = inventory;
   if (!Array.isArray(schema?.results)) return state('recovery_required', 'control_plane_unavailable');
   const names = new Set(schema.results.filter((row) => row.type === 'table' && row.name !== '_cf_METADATA')
@@ -43,9 +43,17 @@ async function inspectInstanceState(db, now, cacheSchema) {
     return state('recovery_required', 'control_plane_missing');
   }
 
-  const instance = await db.prepare('SELECT schema_version, min_worker_schema, initialized_at, revision FROM ft_instance WHERE id = 1').first();
-    const migrations = await db.prepare('SELECT version, name, checksum, stage, state, started_at, completed_at, error_code FROM ft_migrations ORDER BY version').all();
-    const lock = await db.prepare('SELECT owner_token, lease_expires_at FROM ft_migration_lock WHERE id = 1').first();
+  // One database snapshot and one binding round trip. Only control-plane tables
+  // are read here; business credentials are still read after validation below.
+  const instance = await db.prepare(`SELECT schema_version, min_worker_schema, initialized_at, revision,
+    (SELECT json_group_array(json_object('version',version,'name',name,'checksum',checksum,
+      'stage',stage,'state',state,'started_at',started_at,'completed_at',completed_at,'error_code',error_code))
+      FROM (SELECT * FROM ft_migrations ORDER BY version)) AS migration_rows,
+    (SELECT json_object('owner_token',owner_token,'lease_expires_at',lease_expires_at)
+      FROM ft_migration_lock WHERE id=1) AS migration_lock
+    FROM ft_instance WHERE id = 1`).first();
+    const migrations = { results: instance ? JSON.parse(instance.migration_rows) : null };
+    const lock = instance ? JSON.parse(instance.migration_lock) : null;
     if (!instance || !lock || !Array.isArray(migrations?.results)) return state('recovery_required', 'control_plane_missing');
 
     const version = instance.schema_version;
@@ -115,18 +123,18 @@ async function inspectInstanceState(db, now, cacheSchema) {
       return { state: 'maintenance', reason: activeLock ? 'migration_running' : 'migration_interrupted', schemaVersion: version };
     }
     if (retryableFailure) return { state: 'maintenance', reason: 'migration_retryable', schemaVersion: version };
-    if (version === CURRENT_SCHEMA_VERSION && !await hasCompatibleServingSchema(inventory, names, triggers)) {
+    if (version === CURRENT_SCHEMA_VERSION && !await hasCompatibleServingSchema(inventory, names, triggers, executionContext)) {
       return state('recovery_required', 'schema_structure_invalid');
     }
     if (lock.owner_token !== null) return { state: 'maintenance',
       reason: activeLock ? 'migration_lock_held' : 'migration_lock_stale', schemaVersion: version };
     if (version === 1 && !names.has('Playlists')) {
-      const columns = await inventory.playlistColumns();
+      const columns = await inventory.playlistColumns(executionContext);
       if (!columns?.results?.some((row) => row.name === 'cached_song_count')) {
         return state('recovery_required', 'migration_schema_inconsistent');
       }
     }
-    const compatibleOldWorker = version === 1 && await hasCompatibleServingSchema(inventory, names, triggers);
+    const compatibleOldWorker = version === 1 && await hasCompatibleServingSchema(inventory, names, triggers, executionContext);
     if (version < CURRENT_SCHEMA_VERSION && !compatibleOldWorker) {
       return { state: 'maintenance', reason: 'migration_pending', schemaVersion: version };
     }
@@ -149,7 +157,7 @@ async function inspectInstanceState(db, now, cacheSchema) {
     return state('recovery_required', 'claim_state_inconsistent');
 }
 
-export async function resolveInstanceState(db, now = Date.now(), { cacheSchema = false } = {}) {
+export async function resolveInstanceState(db, now = Date.now(), { cacheSchema = false, executionContext } = {}) {
   // Explicit health checks, writes and upgrade flows always inspect fresh
   // metadata and discard any serving snapshot. No background timer is used.
   if (!cacheSchema) invalidateSchemaInventory(db);
@@ -157,7 +165,7 @@ export async function resolveInstanceState(db, now = Date.now(), { cacheSchema =
   // is returned immediately, so this cannot turn a failed ledger into ready.
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const result = await inspectInstanceState(db, now, cacheSchema);
+      const result = await inspectInstanceState(db, now, cacheSchema, executionContext);
       if (result.state !== 'ready') invalidateSchemaInventory(db);
       return result;
     }

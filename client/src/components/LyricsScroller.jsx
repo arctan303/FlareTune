@@ -6,6 +6,9 @@ import SyncedLyricText from './lyrics/SyncedLyricText';
 
 import { useLyricSurfacePresentation } from './lyrics/lyricSurfacePresentation.js';
 import { useMediaQuery } from './fullscreen/useMediaQuery';
+import { getLyricKeyboardTarget, getSeekableLyricIndices } from './lyricKeyboardNavigation.js';
+import { usePlayerInteractionLock } from '../hooks/usePlayerAutoHide.js';
+import { CLASSIC_LYRIC_SCROLL_MS, classicLyricEase } from './classicLyricMotion.js';
 
 const LYRIC_STATUS_LINES = new Set(['纯音乐，请欣赏', '暂无歌词', '歌词加载失败']);
 
@@ -25,12 +28,17 @@ export default function LyricsScroller({
     const [isVolumePanelOpen, setIsVolumePanelOpen] = React.useState(false);
     const [prevVolume, setPrevVolume] = React.useState(volume > 0 ? volume : 0.8);
     const volumeTimerRef = React.useRef(null);
+    const volumeRegionRef = React.useRef(null);
+    const volumeDraggingRef = React.useRef(false);
     const scrollTimeoutRef = React.useRef(null);
+    const lyricFocusRefs = React.useRef([]);
+    const [focusedLyricIndex, setFocusedLyricIndex] = React.useState(null);
     const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)', false);
     const iconStrokeWidth = 1.75;
     const resolvedTranslationState = translationState || (canTranslate ? 'ready' : 'unavailable');
     const translationPending = resolvedTranslationState === 'pending';
     const translationReady = resolvedTranslationState === 'ready';
+    usePlayerInteractionLock(surfaceVisible && isVolumePanelOpen);
 
     const openVolumePanel = React.useCallback(() => {
         if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
@@ -40,13 +48,22 @@ export default function LyricsScroller({
     const scheduleCloseVolumePanel = React.useCallback((delay = 2800) => {
         if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
         volumeTimerRef.current = setTimeout(() => {
+            volumeTimerRef.current = null;
+            if (volumeDraggingRef.current || volumeRegionRef.current?.contains(document.activeElement)) return;
             setIsVolumePanelOpen(false);
         }, delay);
     }, []);
 
     const cancelCloseVolumePanel = React.useCallback(() => {
         if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
+        volumeTimerRef.current = null;
     }, []);
+
+    const finishVolumeDrag = React.useCallback(() => {
+        if (!volumeDraggingRef.current) return;
+        volumeDraggingRef.current = false;
+        scheduleCloseVolumePanel(2500);
+    }, [scheduleCloseVolumePanel]);
 
     const handleVolumeButtonClick = React.useCallback((e) => {
         e?.stopPropagation?.();
@@ -86,8 +103,16 @@ export default function LyricsScroller({
     const displayedLyricIndex = lyricPresentation.index >= 0
         ? lyricPresentation.index
         : currentLyricIndex;
+    const seekableIndices = React.useMemo(() => getSeekableLyricIndices(lyrics), [lyrics]);
+    const preferredFocusIndex = focusedLyricIndex ?? displayedLyricIndex;
+    const rovingIndex = seekableIndices.includes(preferredFocusIndex)
+        ? preferredFocusIndex : (seekableIndices[0] ?? -1);
 
     const userInteractStart = () => {
+        if (scrollAnimRef.current) {
+            cancelAnimationFrame(scrollAnimRef.current);
+            scrollAnimRef.current = null;
+        }
         setIsUserScrolling(true);
         if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
@@ -115,9 +140,9 @@ export default function LyricsScroller({
         prevControlsHiddenRef.current = isControlsHidden;
     }, [isControlsHidden]);
 
-    const handleLineClick = React.useCallback((time) => {
+    const handleLineClick = React.useCallback((time, keyboard = false) => {
         const now = Date.now();
-        if (isControlsHidden || (now - lastWakeTimestampRef.current < 450)) {
+        if (!keyboard && (isControlsHidden || (now - lastWakeTimestampRef.current < 450))) {
             // 沉浸隐藏状态或刚唤醒保护期内：首击仅唤醒控件，不误触发时间跳转
             lastWakeTimestampRef.current = now;
             if (onWakeControls) onWakeControls();
@@ -131,6 +156,25 @@ export default function LyricsScroller({
             scrollTimeoutRef.current = null;
         }
     }, [audioRef, isControlsHidden, onWakeControls]);
+
+    const handleLyricKeyDown = (event, index) => {
+        if (event.target !== event.currentTarget) return;
+        const target = getLyricKeyboardTarget(seekableIndices, index, event.key);
+        if (target !== null) {
+            event.preventDefault();
+            event.stopPropagation();
+            userInteractStart();
+            setFocusedLyricIndex(target);
+            lyricFocusRefs.current[target]?.focus({ preventScroll: true });
+            lyricFocusRefs.current[target]?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            event.stopPropagation();
+            onWakeControls?.();
+            handleLineClick(lyrics[index]?.time, true);
+            userInteractStart();
+        }
+    };
 
     React.useEffect(() => {
         const handleGlobalMouseUp = () => {
@@ -193,20 +237,25 @@ export default function LyricsScroller({
                         return;
                     }
 
-                    // Apple Music 60FPS 丝滑阻尼单向插值连续过渡，零停顿断点
+                    // Move quickly at first, then ease into the next line.
+                    // Large seeks use a shorter version of the same monotonic curve.
                     const startTop = container.scrollTop;
                     const distance = targetTop - startTop;
                     if (Math.abs(distance) < 1) return;
 
-                    const startTime = performance.now();
-                    const duration = 680; // 680ms 极致平滑缓动
-                    const easeOutCubic = (t) => (--t) * t * t + 1;
+                    let startTime = null;
+                    const largeJump = Math.abs(distance) > container.clientHeight * 0.85;
+                    const duration = largeJump ? 420 : CLASSIC_LYRIC_SCROLL_MS;
+                    const easing = classicLyricEase;
 
                     const step = (currentTime) => {
                         if (isUserScrolling) return;
+                        // Begin with the first painted frame so a busy frame
+                        // does not consume the visible motion before it starts.
+                        if (startTime === null) startTime = currentTime;
                         const elapsed = currentTime - startTime;
                         const progress = Math.min(elapsed / duration, 1);
-                        container.scrollTop = startTop + (distance * easeOutCubic(progress));
+                        container.scrollTop = startTop + (distance * easing(progress));
                         if (progress < 1) {
                             scrollAnimRef.current = requestAnimationFrame(step);
                         } else {
@@ -351,7 +400,7 @@ export default function LyricsScroller({
                                         transition: 'all 600ms cubic-bezier(0.22, 1, 0.36, 1)',
                                     };
                                 } else {
-                                    lineClass = 'opacity-[0.5] translate-y-0 hover:opacity-[0.9]';
+                                    lineClass = 'opacity-[0.42] translate-y-0 hover:opacity-[0.85]';
                                     lineStyle = {
                                         filter: 'blur(0.6px) saturate(0.5)',
                                         transition: 'all 600ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -377,6 +426,26 @@ export default function LyricsScroller({
                                             surfaceVisible={surfaceVisible}
                                             syncMode={lyricSyncMode}
                                         >
+                                            <div
+                                                ref={(node) => { lyricFocusRefs.current[index] = node; }}
+                                                role={canSeek ? 'button' : undefined}
+                                                tabIndex={canSeek && surfaceVisible ? (index === rovingIndex ? 0 : -1) : undefined}
+                                                data-lyric-index={index}
+                                                data-player-interaction="keyboard"
+                                                aria-current={isActive ? 'true' : undefined}
+                                                className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80"
+                                                onKeyDown={canSeek ? (event) => handleLyricKeyDown(event, index) : undefined}
+                                                onFocus={canSeek ? (event) => {
+                                                    setFocusedLyricIndex(index);
+                                                    if (event.currentTarget.matches(':focus-visible')) userInteractStart();
+                                                } : undefined}
+                                                onBlur={canSeek ? (event) => {
+                                                    if (!lyricsContainerRef.current?.contains(event.relatedTarget)) {
+                                                        setFocusedLyricIndex(null);
+                                                        userInteractEnd();
+                                                    }
+                                                } : undefined}
+                                            >
                                             {lines.map((line, idx) => (
                                                  <p
                                                     key={idx}
@@ -406,6 +475,7 @@ export default function LyricsScroller({
                                                     {lrc.translation}
                                                 </p>
                                             )}
+                                            </div>
                                         </InterludeHost>
                                     </div>
                                 );
@@ -417,6 +487,7 @@ export default function LyricsScroller({
 
             <div
                 className="classic-lyrics__tools-wrapper w-full flex justify-start items-center flex-shrink-0 pt-0.5 pb-0.5 z-10"
+                data-player-interaction="controls"
                 onClick={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
                 onTouchEnd={(e) => e.stopPropagation()}
@@ -440,7 +511,7 @@ export default function LyricsScroller({
                                 e.stopPropagation();
                                 toggleTranslation?.();
                             }}
-                            className={`lyrics-translation-action classic-lyrics__tool classic-lyrics__tool--text relative h-6 px-2 inline-flex cursor-pointer items-center justify-center rounded-lg text-[11px] font-medium transition-all disabled:cursor-wait shrink-0 ${
+                            className={`lyrics-translation-action classic-lyrics__tool classic-lyrics__tool--text relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:h-6 px-2 inline-flex cursor-pointer items-center justify-center rounded-lg text-[11px] font-medium transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:cursor-wait shrink-0 ${
                                 translationReady && translationEnabled
                                     ? 'text-blue-300 bg-blue-500/20 font-semibold shadow-[0_0_6px_rgba(59,130,246,0.3)]'
                                     : translationReady
@@ -457,9 +528,14 @@ export default function LyricsScroller({
                         >{t("译")}</button>
                     )}
                     <div 
+                        ref={volumeRegionRef}
                         className="classic-lyrics__volume relative flex items-center justify-center"
                         onMouseEnter={openVolumePanel}
                         onMouseLeave={() => scheduleCloseVolumePanel(1200)}
+                        onFocusCapture={cancelCloseVolumePanel}
+                        onBlurCapture={(event) => {
+                            if (!event.currentTarget.contains(event.relatedTarget)) scheduleCloseVolumePanel(1200);
+                        }}
                         onWheel={(e) => {
                             e?.stopPropagation?.();
                             const delta = e.deltaY < 0 ? 0.05 : -0.05;
@@ -471,12 +547,13 @@ export default function LyricsScroller({
                         }}
                     >
                         <button
+                            type="button"
                             aria-label={volume === 0 ? t("恢复音量") : t("静音")}
                             onClick={(e) => {
                                 e?.stopPropagation?.();
                                 handleVolumeButtonClick(e);
                             }}
-                            className="classic-lyrics__tool hover:text-white hover:scale-110 transition-all focus:outline-none flex items-center justify-center p-1 cursor-pointer active:scale-95"
+                            className="classic-lyrics__tool min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 hover:text-white hover:scale-110 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white rounded-lg flex items-center justify-center p-1 cursor-pointer active:scale-95"
                             title={isVolumePanelOpen ? (volume === 0 ? t("点击恢复音量") : t("点击静音")) : t("当前音量 {p0}%（点击展开滑块）", { p0: (Math.round(volume * 100)) })}
                         >
                             {volume === 0 ? <VolumeX size={20} strokeWidth={iconStrokeWidth} /> : <Volume2 size={20} strokeWidth={iconStrokeWidth} />}
@@ -485,11 +562,13 @@ export default function LyricsScroller({
                         {/* 往右侧水平展开的音频调节浮层容器 (包含悬停桥接区，彻底防止中途断触消失) */}
                         <div 
                             className={`absolute left-full top-1/2 -translate-y-1/2 pl-2.5 flex items-center pointer-events-none transition-all duration-300 ${isVolumePanelOpen ? 'opacity-100 translate-x-0 pointer-events-auto' : 'opacity-0 -translate-x-2 pointer-events-none'}`}
+                            aria-hidden={!isVolumePanelOpen || undefined}
+                            inert={!isVolumePanelOpen ? '' : undefined}
                             onMouseEnter={cancelCloseVolumePanel}
                             onMouseLeave={() => scheduleCloseVolumePanel(1200)}
                         >
                             <div 
-                                className="h-7 px-2.5 bg-black/65 backdrop-blur-2xl rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.55)] flex items-center gap-2 select-none"
+                                className="h-11 lg:h-7 px-2.5 bg-black/65 backdrop-blur-2xl rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.55)] focus-within:ring-2 focus-within:ring-white/70 flex items-center gap-2 select-none"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 {/* 纯净的白色占比水平胶囊轨条：无圆点手柄，左到右填充 */}
@@ -505,10 +584,20 @@ export default function LyricsScroller({
                                     type="range"
                                     min="0" max="1" step="0.01"
                                     value={volume}
-                                    onPointerDown={cancelCloseVolumePanel}
-                                    onPointerUp={() => scheduleCloseVolumePanel(2500)}
-                                    onTouchStart={cancelCloseVolumePanel}
-                                    onTouchEnd={() => scheduleCloseVolumePanel(2500)}
+                                    onPointerDown={(event) => {
+                                        volumeDraggingRef.current = true;
+                                        event.currentTarget.setPointerCapture?.(event.pointerId);
+                                        cancelCloseVolumePanel();
+                                    }}
+                                    onPointerUp={finishVolumeDrag}
+                                    onPointerCancel={finishVolumeDrag}
+                                    onLostPointerCapture={finishVolumeDrag}
+                                    onTouchStart={() => {
+                                        volumeDraggingRef.current = true;
+                                        cancelCloseVolumePanel();
+                                    }}
+                                    onTouchEnd={finishVolumeDrag}
+                                    onTouchCancel={finishVolumeDrag}
                                     onChange={(e) => {
                                         const newVol = parseFloat(e.target.value);
                                         setVolume(newVol);

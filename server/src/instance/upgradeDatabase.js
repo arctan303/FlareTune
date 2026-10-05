@@ -2,6 +2,8 @@ import { MIGRATION_BUNDLE } from './migrationBundle.generated.js';
 import { requireExpandedSchema, requirePlaylistMigrationPreflight,
   runPlaylistCountMigration } from './playlistCountMigration.js';
 import { resolveInstanceState } from './state.js';
+import { hasHotpathObjects } from './hotpathSchema.js';
+import { invalidateSchemaInventory } from './schemaInventory.js';
 
 export class DatabaseUpgradeError extends Error {
   constructor(code, status = 503) {
@@ -29,6 +31,14 @@ async function googleAddonReady(db) {
   const tables = await Promise.all(['google_login_config', 'account_google_bindings', 'google_login_transactions'].map(name => objectExists(db, name)));
   if (tables.some(Boolean) && !tables.every(Boolean)) throw new DatabaseUpgradeError('migration_schema_inconsistent');
   return tables.every(Boolean);
+}
+
+async function ensureHotpaths(db) {
+  const objects = await db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table','index','trigger')").all();
+  if (hasHotpathObjects(objects.results)) return;
+  try { await db.batch(bundled(12).map(sql => db.prepare(sql))); }
+  catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
+  invalidateSchemaInventory(db);
 }
 
 async function ensureExpanded(db) {
@@ -114,6 +124,7 @@ export async function runKnownDatabaseUpgrade(db, { allowDestructive = false } =
       try { await db.batch(bundled(10).map((sql) => db.prepare(sql))); }
       catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
     }
+    await ensureHotpaths(db);
     return { status: 'current', schemaVersion: 2 };
   }
   const eligible = (before.state === 'ready' && before.reason === 'migration_available')
@@ -127,6 +138,7 @@ export async function runKnownDatabaseUpgrade(db, { allowDestructive = false } =
     await requirePlaylistMigrationPreflight(db,
       { verifyPrefix: await objectExists(db, 'Playlists') });
     await ensureSupplemental(db, allowDestructive);
+    await ensureHotpaths(db);
     const ownerToken = crypto.randomUUID().replaceAll('-', '');
     const step = await runPlaylistCountMigration(db, { ownerToken });
     return { ...step, schemaVersion: (await resolveInstanceState(db)).schemaVersion };

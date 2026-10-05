@@ -52,6 +52,20 @@ test('only admins can see and control a device; dev and production mailbox prefi
   assert.deepEqual(production.payload.data.devices, []);
 });
 
+test('updating transfer history retains the actual last scan time', async () => {
+  const storage = bucket();
+  await call(storage, `${root}/${id}/heartbeat`, { method: 'POST', body: { name: 'device', roots: ['music'] } });
+  const files = [{ id: 'b'.repeat(32), path: 'music/song.mp3', name: 'song.mp3', size: 8 }];
+  const manifestKey = `dist_music/ingest-devices/v1/${id}/manifest.json`;
+  storage.objects.set(manifestKey, { files, scannedAt: 12345 });
+  const update = await call(storage, `${root}/${id}/manifest`, { method: 'PUT',
+    body: { files: [{ ...files[0], ingest: { audio: { status: 'done' } } }], preserveScanTime: true } });
+  assert.equal(update.status, 200);
+  assert.equal((await call(storage, `${root}/${id}/manifest`)).payload.data.scannedAt, 12345);
+  await call(storage, `${root}/${id}/manifest`, { method: 'PUT', body: { files } });
+  assert.ok((await call(storage, `${root}/${id}/manifest`)).payload.data.scannedAt > 12345);
+});
+
 test('browser enqueues a selected scanned file; agent reports a media URL and the pending item is cleared', async () => {
   const storage = bucket();
   const fileId = 'b'.repeat(32);

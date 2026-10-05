@@ -101,7 +101,7 @@ test('touch tablets keep desktop visual quality while expensive work remains ser
   const motionProfileHook = readSource('./hooks/useVisualMotionProfile.js');
   const aura = readSource('./components/fullscreen/ImmersiveAudioAura.jsx');
 
-  assert.match(app, /const loadFullScreenPlayer = \(\) => import/);
+  assert.match(app, /const loadFullScreenPlayer = createRetryablePlayerImport\(\(\) => import/);
   assert.match(app, /requestIdleCallback\(warmPlayerCode/);
   assert.match(app, /loadFullScreenPlayer\(\)\.catch/);
   assert.match(app, /data-motion-phase=\{visualMotionPhase\}/);
@@ -202,7 +202,7 @@ test('the confirmed brand name is consistent across metadata, the unique sidebar
   assert.match(manifest, /"short_name": "Tune"/);
 });
 
-test('artist player removes video gating while PlayerBar consumes motionProfile', () => {
+test('artist player removes video gating and its transport uses the same width breakpoint', () => {
   const desktopPlayer = readSource('./components/fullscreen/DesktopImmersivePlayer.jsx');
   const background = readSource('./components/fullscreen/ImmersiveBackground.jsx');
   const playerBar = readSource('./components/PlayerBar.jsx');
@@ -212,7 +212,8 @@ test('artist player removes video gating while PlayerBar consumes motionProfile'
   assert.doesNotMatch(background, /<video|videoSrc/);
 
   assert.match(playerBar, /export default function PlayerBar\(\{\s*motionProfile\s*=\s*'full',\s*activePage\s*\}\)/);
-  assert.match(playerBar, /motionProfile !== VISUAL_MOTION_PROFILE\.COMPACT_TOUCH/);
+  assert.match(playerBar, /const isDesktop = useMediaQuery\('\(min-width: 1024px\)', false\)/);
+  assert.doesNotMatch(playerBar, /motionProfile !== VISUAL_MOTION_PROFILE\.COMPACT_TOUCH/);
   assert.match(playerBar, /case 'glass-invisible':/);
   assert.doesNotMatch(playerBar, /player-console--immersive/);
 });
@@ -299,7 +300,7 @@ test('assistant page follows rendered updates while preserving manual history sc
   assert.match(page, /const shouldFollowMessagesRef = React\.useRef\(true\)/);
   assert.match(page, /const pendingAutoScrollRef = React\.useRef\(false\)/);
   assert.match(page, /const scheduleScrollToLatest = React\.useCallback/);
-  assert.match(page, /if \(!pendingAutoScrollRef\.current\) \{/);
+  assert.match(page, /if \(updateFollowing && !pendingAutoScrollRef\.current\) \{/);
   assert.match(page, /if \(shouldFollowMessagesRef\.current\) \{\s*scrollToBottom\(\);/);
 });
 
@@ -319,7 +320,7 @@ test('assistant visitor template is retired in favor of the standalone instance 
   assert.match(page, /setMessages\(\[\]\);/);
   assert.match(page, /if \(!isAuthed\) \{\s*setPhase\('ready'\);/);
   assert.match(page, /abortControllerRef\.current\?\.abort\(\)/);
-  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| phase !== 'ready'\) return;/);
+  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| sendingRef\.current \|\| phase !== 'ready'\) return;/);
   assert.doesNotMatch(page, /localStorage|Turnstile|turnstile|captcha/i);
 });
 
@@ -431,7 +432,7 @@ test('Xiaoa chat and bootstrap are authenticated-only and no longer ship visitor
   const assistantRoute = readSource('../../server/src/routes/localAssistant.js');
 
   assert.match(page, /if \(!isAuthed\) return undefined;[\s\S]*?\/api\/ai\/bootstrap/);
-  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| phase !== 'ready'\) return;/);
+  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| sendingRef\.current \|\| phase !== 'ready'\) return;/);
   assert.doesNotMatch(page, /Turnstile|turnstile|captcha|cf_turnstile_response|PUBLIC_TURNSTILE_SITEKEY/i);
   assert.match(worker, /decideApiAccess\(\{ path, method: request\.method, instanceState: instance\.state, session \}\)/);
   assert.match(worker, /if \(!session && access\.category !== 'setup'/);
@@ -542,7 +543,8 @@ test('fullscreen lyric entry opens the shared workspace without a tools drawer',
   assert.match(lyricsWorkspace, /authenticated && managed\.aiCompletionEnabled && \(!editing \|\| isAdmin\) && <button/);
   assert.match(lyricsWorkspace, /managed\.isAiCompleting/);
   assert.doesNotMatch(lyricsWorkspace, /manageApi\.updateSong/);
-  assert.match(lyricsWorkspace, /lyricsWorkspaceApi\.getLyricsCandidates\(song\.id/);
+  assert.match(lyricsWorkspace, /<LyricsCandidatePanel key=\{song\.id\}/);
+  assert.match(readSource('./components/LyricsCandidatePanel.jsx'), /lyricsWorkspaceApi\.getLyricsCandidates\(song\.id/);
   assert.match(lyricsWorkspace, /managed\.completeTranslation\(\)/);
   assert.doesNotMatch(app, /PlayerToolsDrawer/);
   assert.match(readSource('./components/MainContent.jsx'), /<LyricsManagementWorkspace route=\{activeRoute\}/);
@@ -711,11 +713,11 @@ test('identity-aware song reads include credentials and rely on the global sessi
   assert.doesNotMatch(lyrics, /songUrl/);
   assert.match(lyrics, /songLanguageHasLyrics\(currentSong\?\.language\)/);
   assert.match(lyrics, /const url = `\$\{getApiBaseUrl\(\)\}\/api\/lyrics\?songId=/);
-  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include' \}\)/);
+  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include', cache: 'no-store', signal: requestOptions\.signal \}\)/);
   assert.doesNotMatch(lyrics, /\/api\/lyrics\/translation|source=/);
   assert.match(artistPhotos, /api\/artist-photo\?name=[\s\S]{0,120}credentials: 'include'/);
-  assert.match(artistPhotos, /ARTIST_PHOTO_IMAGE_CACHE\.set\(url, pending\)/);
-  assert.match(artistPhotos, /clearTimeout\(timeoutId\)/);
+  // Decode sharing, concurrency and timeout behaviour are exercised by
+  // artistPhotoResources.test.js; this contract only guards the session API.
   assert.doesNotMatch(drawer, /fetchSongById\(songId\)|music-play-song-id/);
   assert.doesNotMatch(drawer, /\/api\/songs\?id=/);
   assert.equal(existsSync(new URL('./utils/xiaoaSongResolver.js', import.meta.url)), false);

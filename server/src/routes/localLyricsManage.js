@@ -119,6 +119,7 @@ function safeCandidate(candidate) {
     matchedDuration: numeric(candidate.matchedDuration),
     durationDelta: numeric(candidate.durationDelta),
     score: numeric(candidate.score),
+    versionMismatch: candidate.versionMismatch === true,
     warnings: Array.isArray(candidate.warnings) ? candidate.warnings.map(String).slice(0, 8) : [],
   };
 }
@@ -255,13 +256,17 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       return failure(403, 'LYRIC_AI_DISABLED', 'Lyric AI completion is disabled', headers);
     }
     if (action === 'candidates') {
-      if ([...url.searchParams.keys()].some((key) => !['title', 'artist'].includes(key))) {
+      if ([...url.searchParams.keys()].some((key) => !['title', 'artist', 'source'].includes(key))) {
         return failure(400, 'INVALID_QUERY', 'Unexpected query', headers);
       }
       const target = searchSong(song, url.searchParams.get('title') ?? undefined, url.searchParams.get('artist') ?? undefined);
       if (!target) return failure(400, 'INVALID_QUERY', 'Invalid search override', headers);
+      const source = url.searchParams.get('source') || 'all';
+      if (source !== 'all' && (!SOURCE.has(source) || source === 'auto')) {
+        return failure(400, 'INVALID_QUERY', 'Invalid lyric source filter', headers);
+      }
       const found = await (deps.listCandidates || listLyricsResolutionCandidates)(target, {
-        signal: request.signal, listCandidates: deps.listSourceCandidates || listSourceLyricCandidates,
+        source, signal: request.signal, listCandidates: deps.listSourceCandidates || listSourceLyricCandidates,
       });
       return success({ candidates: (found.candidates || []).map(safeCandidate).filter(Boolean),
         warnings: found.warnings || [] }, 200, headers);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePageVisibility } from '../../hooks/usePageVisibility.js';
 import {
     hasAudioAnalyserEnteredPlaying,
     invalidateAudioAnalyser,
@@ -46,6 +47,7 @@ export default function ImmersiveAudioAura({
     renderPaused = false,
     onModeCollapsed,
 }) {
+    const pageVisible = usePageVisibility();
     const canvasRef = React.useRef(null);
     const analyserRef = React.useRef(null);
     const analyserResourceRef = React.useRef(null);
@@ -66,7 +68,7 @@ export default function ImmersiveAudioAura({
 
     const isNoLyricsMode = visualMode === 'no-lyrics';
     const isNoLyricsContext = isNoLyricsMode || visualMode === 'no-lyrics-idle';
-    const analysisEnabled = !prefersReducedMotion && !suspended && (enabled || isNoLyricsMode);
+    const analysisEnabled = pageVisible && !prefersReducedMotion && !suspended && (enabled || isNoLyricsMode);
     const analyserActive = analysisEnabled && isPlaying && !isBuffering;
     analysisEnabledRef.current = analysisEnabled;
     analyserActiveRef.current = analyserActive;
@@ -129,9 +131,9 @@ export default function ImmersiveAudioAura({
                 // captured stream must not enqueue AudioContext work on every
                 // media progress event.
                 if (isAudioAnalyserCurrent(previousResource, audio)) {
-                    if (analyserActiveRef.current
-                        && previousResource.resource.context.state !== 'running') {
-                        setAudioAnalyserActive(previousResource, true);
+                    if (previousResource.active !== analyserActiveRef.current
+                        || (analyserActiveRef.current && previousResource.resource.context.state !== 'running')) {
+                        setAudioAnalyserActive(previousResource, analyserActiveRef.current);
                     }
                     return;
                 }
@@ -219,6 +221,9 @@ export default function ImmersiveAudioAura({
     React.useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return undefined;
+
+        // Keep the last visible frame; hidden tabs need neither sampling nor decay frames.
+        if (!pageVisible) return undefined;
 
         const context = canvas.getContext('2d');
         if (renderPaused) {
@@ -410,7 +415,7 @@ export default function ImmersiveAudioAura({
                 animationRef.current = null;
             }
         };
-    }, [analysisEnabled, analysisVersion, canvasVersion, containerRef, enabled, intensity, isBuffering, isNoLyricsContext, isNoLyricsMode, isPlaying, onModeCollapsed, prefersReducedMotion, renderPaused, suspended]);
+    }, [analysisEnabled, analysisVersion, canvasVersion, containerRef, enabled, intensity, isBuffering, isNoLyricsContext, isNoLyricsMode, isPlaying, onModeCollapsed, prefersReducedMotion, renderPaused, suspended, pageVisible]);
 
     const visible = presentationReady && !renderPaused && (enabled || isNoLyricsContext || modeProgressRef.current > 0.002);
 

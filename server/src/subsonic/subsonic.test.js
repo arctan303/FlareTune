@@ -6,7 +6,7 @@ import { md5 } from './md5.js';
 import { ownStatus, setEnabled, settingKey } from './credentials.js';
 import { changePassword } from '../auth/local/index.js';
 import { resetAccountPassword } from '../instanceAdmin/accounts.js';
-import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
+import { buildNotFoundLyricArtifact, buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { parseLrcDocument } from '../utils/lyricDocument.js';
 import packageMetadata from '../../../package.json' with { type: 'json' };
 
@@ -131,10 +131,11 @@ test('library, empty-query sync pagination, XML, discovery and authorization env
   const album = (await body(await f.rest('getAlbum', { id: artist.album[0].id }))).album;
   assert.deepEqual(album.song.map((s) => s.id), ['s1','s2']);
   const warmStart = f.db.rowsRead;
+  const warmQueries = f.db.queries.length;
   const search = await body(await f.rest('search3', { query: '', artistCount: 0, albumCount: 0, songOffset: 1, songCount: 1 }));
   assert.deepEqual(search.searchResult3.song.map((s) => s.id), ['s2']);
   assert.ok(f.db.rowsRead - warmStart < 15); // Warm catalog avoids reading Songs again.
-  assert.ok(!f.db.queries.slice(-10).some((q) => /FROM Songs WHERE audio_url/.test(q)));
+  assert.ok(!f.db.queries.slice(warmQueries).some((q) => /FROM Songs WHERE audio_url/.test(q)));
   assert.equal((await body(await f.rest('search3', { query: 'night' }))).searchResult3.song[0].id, 's2');
   const xml = await (await f.rest('getSong', { id: 's1', f: 'xml' })).text();
   assert.match(xml, /One &amp; &lt;two&gt;/);
@@ -241,10 +242,11 @@ test('private media supports bytes, Range and HEAD; no-cookie protocol requests 
   assert.equal((await body(await f.rest('scrobble', { id: 's2' }))).status, 'failed');
   assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM Member_Play_Events').get().n, 0);
 });
-test('stored canonical lyrics preserve synchronization and XML text; absent lyrics are an empty result', async (t) => {
+test('stored canonical lyrics preserve synchronization and XML text; recent source misses are an empty result', async (t) => {
   const f = await fixture(); t.after(f.close); await f.enable();
   const { artifact } = await buildReadyLyricArtifact({ id: 's1', title: 'One', artist: 'Artist' }, parseLrcDocument('[00:01.00]Hello & world\n[00:02.00]Second line', { source: 'manual' }), { offsetMs: 500 });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(artifact)), type: 'application/json' });
+  f.objects.set('media/lyrics/s2.json', { bytes: new TextEncoder().encode(JSON.stringify(buildNotFoundLyricArtifact('s2'))), type: 'application/json' });
   const lyrics = await body(await f.rest('getLyricsBySongId', { id: 's1' }));
   assert.equal(lyrics.status, 'ok');
   assert.equal(lyrics.lyricsList.structuredLyrics[0].line[0].start, 1500);

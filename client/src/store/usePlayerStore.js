@@ -1,7 +1,7 @@
 import { appendRollingRoam } from '../rollingRoam.js';
 import { t } from '../i18n/index.js';
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { useUIStore, showToast } from './useUIStore.js';
 import { isPlayableSong } from '../utils.js';
 import { planInsertNext, reorderQueue, sanitizePlayableQueue } from './playerQueue.js';
@@ -12,6 +12,7 @@ import {
 } from '../randomRoam.js';
 import { isPlaybackMode, PLAYBACK_MODE_NAMES, PLAYBACK_MODES } from '../constants/playbackModes.js';
 import { throttledLocalStorage } from './throttledStorage.js';
+import { createPlayerPersistenceStorage } from './playerPersistence.js';
 
 export const usePlayerStore = create(
   persist(
@@ -800,7 +801,7 @@ export const usePlayerStore = create(
       name: 'musicPlayer_player',
       version: 1,
       migrate: () => undefined,
-      storage: createJSONStorage(() => throttledLocalStorage),
+      storage: createPlayerPersistenceStorage(() => throttledLocalStorage),
       partialize: (state) => ({
         currentSong: state.currentSong,
         playlist: state.playlist,

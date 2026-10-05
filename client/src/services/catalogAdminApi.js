@@ -22,8 +22,8 @@ const mediaTypes = Object.freeze({
   m4a: 'audio/mp4', aac: 'audio/aac', wma: 'audio/x-ms-wma',
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
 });
-export const listCatalogSongs = ({ page = 1, q = '' } = {}, fetchImpl) =>
-  catalog(`songs?page=${page}&limit=30&q=${encodeURIComponent(q)}`, {}, fetchImpl);
+export const listCatalogSongs = ({ page = 1, q = '', limit = 30 } = {}, fetchImpl) =>
+  catalog(`songs?page=${page}&limit=${limit}&q=${encodeURIComponent(q)}`, {}, fetchImpl);
 export const getCatalogSong = (id, fetchImpl) => catalog(`songs/${encodeURIComponent(id)}`, {}, fetchImpl);
 export const createCatalogSong = (value, fetchImpl) => catalog('songs', { method: 'POST', body: body(value) }, fetchImpl);
 export const updateCatalogSong = (id, value, fetchImpl) =>

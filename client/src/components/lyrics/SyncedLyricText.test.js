@@ -9,13 +9,14 @@ test('synced lyric text only subscribes an active visible word-timed projection'
   assert.match(source, /active[\s\S]*?&& visible[\s\S]*?&& syncMode === 'word'[\s\S]*?&& projectionMatches[\s\S]*?&& hasReliableWordTiming/);
   assert.match(source, /resolveLineWordProgress\(line, 0\)\.hasWordTiming/);
   assert.match(source, /words\.map\(\(word\) => String\(word\?\.text \|\| ''\)\)\.join\(''\) === displayText/);
-  assert.match(source, /clock\.subscribe\(\(snapshot\) => applySnapshot\(snapshot\)\)/);
+  assert.match(source, /clock\.subscribe\(\(snapshot\) => applySnapshot\(snapshot\), \{/);
+  assert.match(source, /animationFrames: \(snapshot\) => !prefersReducedMotion/);
   assert.doesNotMatch(source, /usePlayerStore|setState|useState/);
 });
 
 test('the initial word state is applied before paint and malformed timing stays static', () => {
   assert.match(source, /React\.useLayoutEffect\(\(\) =>/);
-  assert.match(source, /if \(!shouldSync\) return undefined/);
+  assert.match(source, /if \(!shouldObserve\)/);
   assert.match(source, /data-synced=\{shouldSync \? 'word' : 'static'\}/);
 });
 
@@ -59,7 +60,7 @@ test('reduced motion changes words at their start without continuous local progr
   assert.match(source, /prefers-reduced-motion: reduce/);
   assert.match(source, /const progress = prefersReducedMotion \? 1 : resolved\.wordProgress/);
   assert.match(source, /if \(!prefersReducedMotion && !crossedBoundary/);
-  assert.doesNotMatch(css, /animation:/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?data-surface='classic'[\s\S]*?animation: none !important/);
 });
 
 test('surface CSS preserves inline metrics and gives the player bar its own color tokens', () => {
@@ -87,4 +88,3 @@ test('playerbar surface tracks word-by-word horizontal scroll offset via CSS var
   assert.match(css, /\.synced-lyric-text\[data-surface='playerbar'\]\[data-synced='word'\]\s*\{[\s\S]*?transform:\s*translateX\(var\(--synced-scroll-x,\s*0px\)\)/);
   assert.match(css, /transition:\s*transform\s+120ms/);
 });
-

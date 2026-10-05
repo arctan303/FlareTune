@@ -138,3 +138,35 @@ test('Japanese kana titles match romaji with stable pagination and language filt
       ['en-1', 'ja-1', 'ja-2']);
   } finally { sqlite.close(); }
 });
+
+test('romanized keyset pages preserve NULL/empty artists and do not repeat candidate OFFSET scans', async () => {
+  const sqlite=new DatabaseSync(':memory:');
+  sqlite.exec(`CREATE TABLE Songs(id TEXT PRIMARY KEY,title TEXT,artist TEXT,album TEXT,duration INTEGER,audio_url TEXT,cover_url TEXT,language TEXT)`);
+  const insert=sqlite.prepare('INSERT INTO Songs(id,title,artist,audio_url,language) VALUES (?,?,?,?,?)');
+  for(let i=0;i<2500;i++)insert.run(String(i).padStart(5,'0'),'はいよろこんで',i%2?null:'','/audio','ja');
+  try{
+    const expected=sqlite.prepare('SELECT id FROM Songs ORDER BY LOWER(title),LOWER(artist),id LIMIT 3 OFFSET 1100').all().map(r=>r.id);
+    const queries=[];const adapter=createD1Adapter(sqlite);
+    const db={prepare(sql){queries.push(sql);return adapter.prepare(sql);}};
+    const result=await querySongs(db,'haiyorokonde',3,1100);
+    assert.deepEqual(result.map(r=>r.id),expected);
+    assert.equal(queries.filter(sql=>sql.includes('GLOB')).length,2);
+    assert.ok(queries.filter(sql=>sql.includes('GLOB')).every(sql=>!sql.includes('OFFSET')));
+    assert.ok(result.every(row=>Object.keys(row).every(key=>!key.startsWith('search_key_'))));
+  }finally{sqlite.close();}
+});
+
+test('exhausted romanized pages retain the chosen candidate and partial direct hits never duplicate', async () => {
+  const sqlite=new DatabaseSync(':memory:');
+  sqlite.exec(`CREATE TABLE Songs(id TEXT PRIMARY KEY,title TEXT,artist TEXT,album TEXT,duration INTEGER,audio_url TEXT,cover_url TEXT,language TEXT);
+    INSERT INTO Songs(id,title,artist,audio_url,language) VALUES
+    ('specific','はいよろこんで remix',NULL,'/a','ja'),('broad','はいよろこんで',NULL,'/b','ja');`);
+  try{
+    const db=createD1Adapter(sqlite);
+    assert.deepEqual((await querySongs(db,'haiyorokonde - remix',1)).map(r=>r.id),['specific']);
+    assert.deepEqual(await querySongs(db,'haiyorokonde - remix',1,1),[]);
+    sqlite.exec("INSERT INTO Songs(id,title,artist,audio_url,language) VALUES ('both','haiyorokonde はいよろこんで',NULL,'/c','ja')");
+    assert.deepEqual((await querySongs(db,'haiyorokonde',10)).map(r=>r.id),['both','broad','specific']);
+    assert.deepEqual((await querySongs(db,'haiyorokonde',2,1)).map(r=>r.id),['broad','specific']);
+  }finally{sqlite.close();}
+});

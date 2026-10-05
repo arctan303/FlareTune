@@ -9,6 +9,7 @@ import {
 import { askResponses, chatResponses } from './aiResponses.js';
 import { askAnthropic, chatAnthropic } from './aiAnthropic.js';
 import { AI_PROTOCOLS, AI_SOURCES, legacyProtocol, normalizeGenerationOptions, sourceFromProvider } from '../../../shared/aiProtocols.js';
+import { setAiConnectionTimeout } from './aiTransport.js';
 
 export {
   AI_STREAM_IDLE_TIMEOUT_MS,
@@ -70,7 +71,12 @@ export async function getAIAssistantConfig(db, assistantId) {
 
 const withAiTimeout = async (env, options, execute) => {
   const controller = new AbortController();
-  const timer = setTimeout(
+  const abort = () => controller.abort();
+  options?.signal?.addEventListener('abort', abort, { once: true });
+  if (options?.signal?.aborted) abort();
+  if (options?.timeoutPolicy === 'idle') setAiConnectionTimeout(controller.signal,
+    getTimeoutMs(env, options?.connectionTimeoutMs));
+  const timer = options?.timeoutPolicy === 'idle' ? null : setTimeout(
     () => controller.abort(),
     getTimeoutMs(env, options?.timeoutMs),
   );
@@ -82,6 +88,7 @@ const withAiTimeout = async (env, options, execute) => {
     throw new Error('AI_UPSTREAM_FAILURE');
   } finally {
     clearTimeout(timer);
+    options?.signal?.removeEventListener('abort', abort);
   }
 };
 
@@ -94,7 +101,7 @@ const withAiTimeout = async (env, options, execute) => {
  */
 export async function askAI(messages, configInput = {}, env = {}, options = {}) {
   const config = resolveAIConfig(configInput);
-  return withAiTimeout(env, options, (signal) => {
+  return withAiTimeout(env, { ...options, timeoutPolicy: 'total' }, (signal) => {
     if (config.protocol === 'gemini_native') return askGemini(messages, config, env, signal);
     if (config.protocol === 'responses') return askResponses(messages, config, env, signal);
     if (config.protocol === 'anthropic_messages') return askAnthropic(messages, config, env, signal);

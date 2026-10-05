@@ -6,8 +6,7 @@ const source = readFileSync(new URL('./LyricsScroller.jsx', import.meta.url), 'u
 
 test('translation/line-wrap layout changes re-center the whole active row on the next frame', () => {
   assert.match(source, /window\.requestAnimationFrame/);
-  assert.match(source, /const duration = 680/);
-  assert.match(source, /const easeOutCubic = \(t\) => \(--t\) \* t \* t \+ 1/);
+  assert.match(source, /CLASSIC_LYRIC_SCROLL_MS, classicLyricEase/);
   assert.match(source, /activeEl\.offsetHeight \/ 2/);
   assert.match(
     source,

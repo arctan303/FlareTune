@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLyricPlaybackClock } from './lyricPlaybackClock.js';
+import { findActiveLyricLineIndex, getNextLyricBoundary } from '../utils/lyricTimeline.js';
 
 class FakeEventTarget {
     constructor() {
@@ -82,13 +83,28 @@ const makeClockHarness = () => {
     const frames = createFrameHarness();
     const document = new FakeDocument();
     const errors = [];
+    const timers = new Map();
+    let nextTimer = 1;
     const clock = createLyricPlaybackClock({
         raf: (callback) => frames.raf(callback),
         caf: (id) => frames.caf(id),
         document,
         onListenerError: (error) => errors.push(error),
+        setTimeout: (callback, delay) => {
+            const id = nextTimer++;
+            timers.set(id, { callback, delay });
+            return id;
+        },
+        clearTimeout: (id) => timers.delete(id),
     });
-    return { clock, document, frames, errors };
+    const fireTimer = () => {
+        const [id, timer] = timers.entries().next().value || [];
+        if (!timer) return false;
+        timers.delete(id);
+        timer.callback();
+        return true;
+    };
+    return { clock, document, frames, errors, timers, fireTimer };
 };
 
 test('subscribe immediately receives the complete snapshot and idle clocks schedule no frame', () => {
@@ -122,8 +138,8 @@ test('multiple subscribers share at most one RAF and the final unsubscribe stops
 
     const first = [];
     const second = [];
-    const unsubscribeFirst = clock.subscribe((snapshot) => first.push(snapshot.reason));
-    const unsubscribeSecond = clock.subscribe((snapshot) => second.push(snapshot.reason));
+    const unsubscribeFirst = clock.subscribe((snapshot) => first.push(snapshot.reason), { animationFrames: true });
+    const unsubscribeSecond = clock.subscribe((snapshot) => second.push(snapshot.reason), { animationFrames: true });
     assert.equal(frames.pendingCount, 1);
 
     clock.sample('manual');
@@ -145,7 +161,7 @@ test('audio and visibility events synchronously sample, stop, and restart the lo
     const audio = new FakeAudio();
     const received = [];
     clock.attach(audio);
-    clock.subscribe((snapshot) => received.push(snapshot));
+    clock.subscribe((snapshot) => received.push(snapshot), { animationFrames: true });
 
     audio.paused = false;
     audio.dispatch('play');
@@ -205,7 +221,7 @@ test('buffering can recover from a healthy timeupdate and load lifecycle remains
     const audio = new FakeAudio();
     audio.paused = false;
     clock.attach(audio);
-    clock.subscribe(() => {});
+    clock.subscribe(() => {}, { animationFrames: true });
     assert.equal(frames.pendingCount, 1);
 
     audio.dispatch('loadstart');
@@ -235,7 +251,7 @@ test('a new media resource clears stale seeking and ended state before it become
     const audio = new FakeAudio();
     audio.paused = false;
     clock.attach(audio);
-    clock.subscribe(() => {});
+    clock.subscribe(() => {}, { animationFrames: true });
 
     audio.seeking = true;
     audio.dispatch('seeking');
@@ -269,7 +285,7 @@ test('idempotent attach does not duplicate listeners and stale detach cannot rem
     assert.equal(firstAudio.listenerCount('play'), 1);
     assert.equal(document.listenerCount('visibilitychange'), 1);
 
-    clock.subscribe(() => {});
+    clock.subscribe(() => {}, { animationFrames: true });
     clock.attach(secondAudio);
     assert.equal(firstAudio.listenerCount('play'), 0);
     assert.equal(secondAudio.listenerCount('play'), 1);
@@ -296,7 +312,7 @@ test('one failing listener does not prevent other listeners or future frames', (
     let healthyCalls = 0;
     clock.subscribe(() => {
         throw new Error('listener failure');
-    });
+    }, { animationFrames: true });
     clock.subscribe(() => {
         healthyCalls += 1;
     });
@@ -308,4 +324,99 @@ test('one failing listener does not prevent other listeners or future frames', (
     assert.equal(errors.length, 2);
     assert.equal(healthyCalls, 2);
     assert.equal(frames.pendingCount, 1);
+});
+
+test('line-only listeners use exact next boundaries with zero RAF and adapt to seek, rate and visibility', () => {
+    const { clock, document, frames, timers, fireTimer } = makeClockHarness();
+    const audio = new FakeAudio();
+    audio.paused = false;
+    const lines = [{ time: 0, endTime: 2 }, { time: 3.125, endTime: 5 }, { time: 7, endTime: 8 }];
+    const received = [];
+    clock.attach(audio);
+    const stop = clock.subscribe((snapshot) => received.push({ time: snapshot.currentTime,
+        index: findActiveLyricLineIndex(lines, snapshot.currentTime), reason: snapshot.reason }), {
+        getNextBoundary: (snapshot) => getNextLyricBoundary(lines, snapshot.currentTime),
+    });
+    const delay = () => timers.values().next().value?.delay;
+    assert.equal(frames.pendingCount, 0);
+    assert.equal(timers.size, 1);
+    assert.equal(delay(), 2000);
+    audio.currentTime = 2;
+    fireTimer();
+    assert.equal(delay(), 1125);
+    audio.currentTime = 3.125;
+    fireTimer();
+    assert.deepEqual(received.at(-1), { time: 3.125, index: 1, reason: 'boundary' });
+    assert.equal(frames.pendingCount, 0);
+    audio.currentTime = 4;
+    audio.playbackRate = 2;
+    audio.dispatch('ratechange');
+    assert.equal(delay(), 500);
+    audio.seeking = true;
+    audio.dispatch('seeking');
+    assert.equal(timers.size, 0);
+    audio.currentTime = 7.5;
+    audio.seeking = false;
+    audio.dispatch('seeked');
+    assert.equal(received.at(-1).index, 2);
+    assert.equal(delay(), 250);
+    document.visibilityState = 'hidden';
+    document.dispatch('visibilitychange');
+    assert.equal(timers.size, 0);
+    audio.currentTime = 1;
+    document.visibilityState = 'visible';
+    document.dispatch('visibilitychange');
+    assert.equal(received.at(-1).index, 0);
+    assert.equal(delay(), 500);
+    audio.paused = true;
+    audio.dispatch('pause');
+    assert.equal(timers.size, 0);
+    audio.paused = false;
+    audio.dispatch('play');
+    assert.equal(timers.size, 1);
+    stop();
+    assert.equal(timers.size, 0);
+    assert.equal(frames.pendingCount, 0);
+});
+
+test('word consumers alone opt into RAF and the last word unmount resumes the boundary timer', () => {
+    const { clock, frames, timers } = makeClockHarness();
+    const audio = new FakeAudio();
+    audio.paused = false;
+    clock.attach(audio);
+    const stopLines = clock.subscribe(() => {}, { getNextBoundary: () => 10 });
+    assert.equal(frames.pendingCount, 0);
+    assert.equal(timers.size, 1);
+    const stopWords = clock.subscribe(() => {}, { animationFrames: true });
+    assert.equal(frames.pendingCount, 1);
+    assert.equal(timers.size, 0);
+    audio.currentTime = 4;
+    stopWords();
+    assert.equal(frames.pendingCount, 0);
+    assert.equal(timers.size, 1);
+    assert.equal(timers.values().next().value.delay, 6000);
+    stopLines();
+    assert.equal(timers.size, 0);
+});
+
+test('an early boundary wake resamples audio and re-arms remaining media time instead of advancing early', () => {
+    const { clock, frames, timers, fireTimer } = makeClockHarness();
+    const audio = new FakeAudio();
+    audio.paused = false;
+    const lines = [{ time: 0 }, { time: 1 }];
+    const indices = [];
+    clock.attach(audio);
+    clock.subscribe((snapshot) => indices.push(findActiveLyricLineIndex(lines, snapshot.currentTime)), {
+        getNextBoundary: (snapshot) => getNextLyricBoundary(lines, snapshot.currentTime),
+    });
+    audio.currentTime = 0.998;
+    fireTimer();
+    assert.equal(indices.at(-1), 0);
+    assert.ok(timers.values().next().value.delay < 3);
+    audio.currentTime = 1.002;
+    fireTimer();
+    assert.equal(indices.at(-1), 1);
+    assert.equal(frames.pendingCount, 0);
+    clock.detach(audio);
+    assert.equal(timers.size, 0);
 });

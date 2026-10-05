@@ -1,12 +1,13 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { Transform } from 'node:stream';
 import { RemoteCatalog } from '../batch-ingest/remote.mjs';
 import { LocalFolder } from '../batch-ingest/localFolder.mjs';
 import { mediaType, targetUrl } from '../batch-ingest/core.mjs';
+import { openIngestHistory } from './history.mjs';
 
 const API = '/api/admin/ingest/devices';
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
@@ -68,9 +69,11 @@ export async function configureAgent({ path = defaultAgentPath(), ask, print = c
 }
 
 export class IngestAgent {
-  constructor({ config, remote, log = console.log, delay = wait, heartbeatIntervalMs = 20_000 } = {}) {
+  constructor({ config, remote, history = null, log = console.log, delay = wait, heartbeatIntervalMs = 20_000 } = {}) {
     this.config = config;
     this.remote = remote;
+    this.history = history;
+    this.manifest = [];
     this.log = log;
     this.delay = delay;
     this.heartbeatIntervalMs = heartbeatIntervalMs;
@@ -90,15 +93,27 @@ export class IngestAgent {
     for (let index = 0; index < this.folders.length; index += 1) {
       const result = await this.folders[index].scan(this.config.roots[index]);
       for (const file of result.files) {
-        files.push({ ...file, rootIndex: index, rootLabel: basename(this.config.roots[index]) });
+        files.push({ ...file, rootIndex: index, rootLabel: basename(this.config.roots[index]),
+          localLocation: resolve(this.config.roots[index], file.path.split('/').slice(1).join('/')) });
         fileFolders.set(file.id, this.folders[index]);
       }
     }
-    await this.remote.json(this.path('/manifest'), { method: 'PUT',
-      body: JSON.stringify({ files }), headers: { 'Content-Type': 'application/json' } });
+    this.history?.observe(files);
+    if (this.history) {
+      try { this.history.reconcile(await this.remote.listSongs()); }
+      catch (error) { this.log(`Catalog history check failed: ${connectionError(error)}. The admin page will check again.`); }
+    }
+    this.manifest = files;
+    await this.publishManifest();
     this.fileFolders = fileFolders;
     this.log(`Scanned ${files.length} audio files.`);
-    return files;
+    return this.history ? this.history.filesWithHistory(files) : files.map(({ localLocation, ...file }) => file);
+  }
+  async publishManifest(preserveScanTime = false) {
+    const files = this.history ? this.history.filesWithHistory(this.manifest)
+      : this.manifest.map(({ localLocation, ...file }) => file);
+    await this.remote.json(this.path('/manifest'), { method: 'PUT',
+      body: JSON.stringify({ files, preserveScanTime }), headers: { 'Content-Type': 'application/json' } });
   }
   async upload(job) {
     const folder = this.fileFolders.get(job.fileId);
@@ -172,8 +187,14 @@ export class IngestAgent {
       status = 'error';
       message = error.cause?.message || error.message || 'Device operation failed.';
     }
+    // Persist even if the final job receipt is lost. The same pending job can be
+    // recovered via its fixed media ID; media success is not catalog success.
+    this.history?.record(job, { status, url, message });
     await this.remote.json(this.path(`/jobs/${job.id}`), { method: 'PUT',
       body: JSON.stringify({ status, url, message }), headers: { 'Content-Type': 'application/json' } });
+    if (this.history && job.kind !== 'refresh') {
+      await this.publishManifest(true).catch((error) => this.log(`History refresh failed: ${connectionError(error)}`));
+    }
     if (status === 'error') this.log(`Job ${job.id} failed: ${message}`);
   }
   async start() {
@@ -236,14 +257,28 @@ export async function startConfiguredAgent({ path = defaultAgentPath() } = {}) {
   for (;;) {
     try {
       await remote.login(config.username, config.password);
+      if (agent.historyAccount !== remote.account.accountId) {
+        agent.history?.close();
+        agent.history = null;
+        try {
+          agent.history = await openIngestHistory(join(dirname(path), 'ingest-history.sqlite'),
+            config.baseUrl, remote.account.accountId, config.deviceId);
+          agent.historyAccount = remote.account.accountId;
+        } catch (error) { error.code = 'INGEST_HISTORY_ERROR'; throw error; }
+      }
       await agent.start();
       break;
     }
     catch (error) {
+      if (error.code === 'INGEST_HISTORY_ERROR') {
+        await remote.logout().catch(() => {});
+        throw error;
+      }
       if (agent.stopped) break;
       console.error('Device connection failed: ' + connectionError(error) + '. Retrying in 10 seconds.');
       await wait(10_000);
     }
   }
   await remote.logout().catch(() => {});
+  agent.history?.close();
 }

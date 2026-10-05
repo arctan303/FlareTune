@@ -27,9 +27,9 @@ npm.cmd run dev:worker
 npm.cmd run dev
 ```
 
-前端地址是 `http://127.0.0.1:3000`，本地 Worker 默认在 `http://127.0.0.1:8789`。前端同源 `/api`、`/auth` 和 `/media` 请求默认代理到本机 Worker。需要连接自己管理的其他隔离 Worker 时，可显式设置 `FLARETUNE_DEV_WORKER_ORIGIN`；不要把陌生实例用于本地测试。
+前端地址是 `http://127.0.0.1:3000`，本地 Worker 默认在 `http://127.0.0.1:8789`。前端同源 `/api`、`/auth`、`/media` 和 `/rest` 请求默认代理到本机 Worker；端口被占用时前端会报错，不自动换端口。需要连接自己管理的其他隔离 Worker 时，可显式设置 `FLARETUNE_DEV_WORKER_ORIGIN`；不要把陌生实例用于本地测试。
 
-只开发前端并连接本项目线上**开发** Worker 时，先停止已经占用 3000 端口的本地前端，再在仓库根目录运行 `npm.cmd run dev:cloud`，打开 `http://127.0.0.1:3000`。此命令将 `/api`、`/auth`、`/media` 代理至 `https://flaretune-dev.arctan.workers.dev`，无需启动本地 Wrangler；登录使用开发实例的管理员账号。默认 `npm.cmd run dev` 仍连接本地模拟 Worker，避免无意中修改开发云数据。需要更换端口可设置 `FLARETUNE_DEV_CLIENT_PORT` 后启动 `dev:cloud`。
+只开发前端并连接本项目线上**开发** Worker 时，先停止已经占用 3000 端口的本地前端，再在仓库根目录运行 `npm.cmd run dev:cloud`，打开 `http://127.0.0.1:3000`。此命令将 `/api`、`/auth`、`/media`、`/rest` 代理至 `https://flaretune-dev.arctan.workers.dev`，无需启动本地 Wrangler；登录使用开发实例的管理员账号。默认 `npm.cmd run dev` 仍连接本地模拟 Worker。需要更换端口可设置 `FLARETUNE_DEV_CLIENT_PORT` 后启动 `dev:cloud`；云端模式也支持 `FLARETUNE_DEV_WORKER_ORIGIN`，但要求 HTTPS。登录、上传和设置操作作用于选定的云端实例，云端开发数据不与本地模拟数据同步。
 
 首次访问先验证 `SETUP_SECRET`，再填写管理员用户名和密码。密钥验证不写 D1；最终提交会安装当前内置数据库结构。
 
@@ -41,12 +41,39 @@ npm.cmd run dev
 
 Cloudflare 的分支 Preview 也需要单独配置变量及 D1/R2 绑定，不会继承生产 Worker 的资源；见[官方 Preview 配置说明](https://developers.cloudflare.com/workers/previews/configuration/)。
 
+## 代码入口
+
+| 目录或文件 | 职责 |
+| --- | --- |
+| `client/src/instance/`、`client/src/app.jsx` | 实例/登录门禁与应用壳层 |
+| `client/src/components/`、`hooks/`、`store/`、`services/` | 页面组件、播放与状态、Worker API 调用 |
+| `client/src/i18n/`、`client/src/styles/` | 中英文目录与主题样式 |
+| `server/src/flaretune.js` | Worker：`/rest` → Subsonic，`/media` → 媒体，`/api` 和 `/auth` → 应用路由，其余 → 静态资产 |
+| `server/src/instance/`、`auth/`、`routes/` | 实例状态/迁移、账号鉴权与业务路由 |
+| `server/src/services/`、`subsonic/` | AI、歌词、媒体、音乐数据服务和客户端协议 |
+| `server/db/migrations-flaretune/` | 当前安装/升级 SQL；历史目录用途见[数据库说明](../server/db/README.md) |
+| `tooling/ingest-agent/` | 现行无网页入库设备 CLI；`npm run ingest` 不启动旧本地网页工具 |
+| `tooling/dev/`、`verify/`、`release/`、`deploy/` | 开发预览、产物/HTTP 检查、Release 门禁及分支部署脚本 |
+
+本地 `dev:worker` 的 D1/R2 状态统一保存在 `worker/.wrangler/state`。`preview:worker` 使用独立的 `server/.wrangler/state-preview` 状态及虚构媒体，不连接开发/生产绑定；它用于产物预览，不能代替空库安装验收。
+
+## 数据库变更
+
+应用运行时使用 `server/src/instance/migrationBundle.generated.js`，不会直接读取 SQL 目录。修改迁移集合后运行 `node tooling/build/generate-migration-bundle.mjs` 更新 bundle，并同步生成器的迁移列表、schema/功能迁移识别与相关测试。不要改写已执行的迁移来修补已有实例；新增步骤需定义兼容、失败及续接行为。
+
+`db:migrations:list:local` 和 `db:migrations:apply:local` 是低层本地 Wrangler 命令；`apply` 会写入本地数据库，不能替代应用初始化/升级及其账本控制。新空库仍从应用初始化进入，不预先应用 SQL。
+
 ## 验证
 
 ```powershell
 npm.cmd test
 npm.cmd run build
+npm.cmd run verify:i18n
+npm.cmd run verify:dist-css
 npm.cmd run verify:worker
+npm.cmd run verify:worker:preview
 ```
 
-`verify:worker` 使用标准配置做 dry run，不执行线上发布。`npm.cmd run preview:worker` 可运行本地整站预览。开发脚本和本地 D1 状态不会替代全新 Cloudflare 实例的安装验收。
+按改动范围选验证：`npm test` 是 Node 测试；定向运行可用 `node --test <测试文件>`，需要串行时加 `--test-concurrency=1`。`build` 构建前端并检查 Worker 静态资产；`verify:i18n` 检查语言目录和公开文档链接，`verify:dist-css` 检查已有构建的 CSS。
+
+`verify:worker` 会先构建，再用标准配置做 dry run，不执行线上发布；`verify:worker:preview` 会先构建，再运行隔离的本地 Worker HTTP 冒烟并清理该次临时状态。`preview:worker` 启动本地整站预览。`verify:worker-http` 检查已运行的预览 Worker，默认 `http://127.0.0.1:8790`；其他本地地址使用 `npm.cmd run verify:worker-http -- http://127.0.0.1:端口`，该命令不会启动 Worker。诊断工具及旧本地网页的边界见[诊断说明](../tooling/diagnostics/README.md)。开发脚本和本地 D1 结果不替代全新 Cloudflare 实例的安装验收。

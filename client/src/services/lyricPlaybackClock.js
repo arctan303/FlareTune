@@ -42,7 +42,8 @@ const finiteOr = (value, fallback) => (
 /**
  * Create a clock whose only high-frequency fact source is an attached audio
  * element. Dependencies are injectable so lifecycle behavior is testable in
- * Node without a browser or timer fallback.
+ * Node without a browser. Ordinary listeners use events and exact media-time
+ * boundaries; only visible active word renderers opt into animation frames.
  */
 export function createLyricPlaybackClock(deps = {}) {
     const requestFrame = deps.raf
@@ -51,6 +52,8 @@ export function createLyricPlaybackClock(deps = {}) {
     const cancelFrame = deps.caf
         || deps.cancelAnimationFrame
         || ((frameId) => globalThis.cancelAnimationFrame?.(frameId));
+    const setTimer = deps.setTimeout || globalThis.setTimeout;
+    const clearTimer = deps.clearTimeout || globalThis.clearTimeout;
     const documentTarget = Object.hasOwn(deps, 'document')
         ? deps.document
         : globalThis.document;
@@ -59,6 +62,7 @@ export function createLyricPlaybackClock(deps = {}) {
 
     let audio = null;
     let frameId = null;
+    let boundaryTimer = null;
     let buffering = false;
     let seeking = false;
     let ended = false;
@@ -69,6 +73,12 @@ export function createLyricPlaybackClock(deps = {}) {
         if (frameId === null || frameId === undefined) return;
         cancelFrame(frameId);
         frameId = null;
+    };
+
+    const cancelBoundaryTimer = () => {
+        if (boundaryTimer === null) return;
+        clearTimer(boundaryTimer);
+        boundaryTimer = null;
     };
 
     const refreshSnapshot = (reason) => {
@@ -104,7 +114,7 @@ export function createLyricPlaybackClock(deps = {}) {
         }
     };
 
-    const shouldRun = () => (
+    const shouldAdvance = () => (
         Boolean(audio)
         && subscriptions.size > 0
         && !snapshot.paused
@@ -112,8 +122,18 @@ export function createLyricPlaybackClock(deps = {}) {
         && !snapshot.buffering
         && !snapshot.ended
         && snapshot.visible
-        && typeof requestFrame === 'function'
     );
+    const needsFrames = () => {
+        for (const subscription of subscriptions) {
+            try {
+                if (typeof subscription.animationFrames === 'function'
+                    ? subscription.animationFrames(snapshot) : subscription.animationFrames) return true;
+            } catch (error) {
+                reportListenerError(error);
+            }
+        }
+        return false;
+    };
 
     let reconcileFrame = () => {};
 
@@ -126,18 +146,44 @@ export function createLyricPlaybackClock(deps = {}) {
 
     const handleAnimationFrame = () => {
         frameId = null;
-        if (!shouldRun()) return;
+        if (!shouldAdvance() || !needsFrames()) return;
         sample('animation-frame');
     };
 
     reconcileFrame = () => {
-        if (!shouldRun()) {
+        cancelBoundaryTimer();
+        if (!shouldAdvance()) {
             cancelScheduledFrame();
             return;
         }
-        if (frameId === null || frameId === undefined) {
-            const scheduledId = requestFrame(handleAnimationFrame);
-            frameId = scheduledId === undefined ? null : scheduledId;
+        if (needsFrames()) {
+            if (frameId === null || frameId === undefined) {
+                const scheduledId = requestFrame(handleAnimationFrame);
+                frameId = scheduledId === undefined ? null : scheduledId;
+            }
+            return;
+        }
+        cancelScheduledFrame();
+        let boundary = snapshot.duration > snapshot.currentTime ? snapshot.duration : Infinity;
+        for (const subscription of subscriptions) {
+            try {
+                const candidate = subscription.getNextBoundary?.(snapshot);
+                if (Number.isFinite(candidate) && candidate > snapshot.currentTime) {
+                    boundary = Math.min(boundary, candidate);
+                }
+            } catch (error) {
+                reportListenerError(error);
+            }
+        }
+        if (Number.isFinite(boundary)) {
+            // Re-sample the audio at the deadline rather than extrapolating its
+            // position. Rate changes, seeks, pauses and buffering cancel/rearm.
+            const delay = Math.max(1, Math.min(2_147_483_647,
+                (boundary - snapshot.currentTime) * 1000 / snapshot.playbackRate));
+            boundaryTimer = setTimer(() => {
+                boundaryTimer = null;
+                sample('boundary');
+            }, delay);
         }
     };
 
@@ -218,6 +264,7 @@ export function createLyricPlaybackClock(deps = {}) {
 
         const previousAudio = audio;
         cancelScheduledFrame();
+        cancelBoundaryTimer();
         if (previousAudio) removeEventListeners(previousAudio);
         audio = null;
         buffering = false;
@@ -234,6 +281,7 @@ export function createLyricPlaybackClock(deps = {}) {
 
         if (audio) {
             cancelScheduledFrame();
+            cancelBoundaryTimer();
             removeEventListeners(audio);
         }
 
@@ -245,12 +293,12 @@ export function createLyricPlaybackClock(deps = {}) {
         return sample('attach');
     };
 
-    const subscribe = (listener) => {
+    const subscribe = (listener, { animationFrames = false, getNextBoundary } = {}) => {
         if (typeof listener !== 'function') {
             throw new TypeError('Lyric clock listener must be a function');
         }
 
-        const subscription = { listener };
+        const subscription = { listener, animationFrames, getNextBoundary };
         subscriptions.add(subscription);
         const currentSnapshot = refreshSnapshot('subscribe');
         try {
@@ -265,6 +313,7 @@ export function createLyricPlaybackClock(deps = {}) {
             if (!active) return;
             active = false;
             subscriptions.delete(subscription);
+            refreshSnapshot('unsubscribe');
             reconcileFrame();
         };
     };

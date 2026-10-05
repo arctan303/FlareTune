@@ -9,8 +9,8 @@ export default {
       return new Response('Service unavailable', { status: 503, headers: { 'Cache-Control': 'no-store' } });
     }
     const path = new URL(request.url).pathname;
-    if (path === '/rest' || path.startsWith('/rest/')) return handleSubsonic(request, env);
-    if (path.startsWith('/media/')) return handleMediaRoute(request, path, env);
+    if (path === '/rest' || path.startsWith('/rest/')) return handleSubsonic(request, env, ctx);
+    if (path.startsWith('/media/')) return handleMediaRoute(request, path, env, ctx);
     if (path === '/api' || path === '/auth') return json({ error: 'not_found' }, 404);
     if (path.startsWith('/api/') || path.startsWith('/auth/')) {
       return handleApi(request, env, path, ctx);

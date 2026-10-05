@@ -16,6 +16,7 @@ import { resolveCoverUrl } from '../../utils';
 import { imageLoadRegistry } from '../../utils/imageLoadRegistry.js';
 import { songLanguageHasLyrics } from '../../constants/language';
 import { useFullscreenTransition } from '../../hooks/useFullscreenTransition.js';
+import { usePlayerAutoHide } from '../../hooks/usePlayerAutoHide.js';
 import { requestLyricsTranslationCompletion } from '../../hooks/useLyricsFetcher.js';
 import './classic-player.css';
 import './classic-mobile.css';
@@ -84,10 +85,8 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
     const controlsRef = React.useRef(null);
     const exitLyricsTimerRef = React.useRef(null);
     const expandSongTimerRef = React.useRef(null);
-    const autoHideTimerRef = React.useRef(null);
     const [isExitingLyrics, setIsExitingLyrics] = React.useState(false);
     const [isExpandingToSong, setIsExpandingToSong] = React.useState(false);
-    const [controlsVisible, setControlsVisible] = React.useState(true);
     const [palette, setPalette] = React.useState({
         dominant: 'rgb(48, 44, 40)',
         secondary: 'rgb(76, 70, 64)',
@@ -166,37 +165,11 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
     });
     const showMobilePhotos = isMobile && showPhotos;
 
-    // 多行歌词页面下底部播放控件自动隐藏与触控唤醒计时器
-    const resetAutoHideTimer = React.useCallback(() => {
-        setControlsVisible(true);
-        if (autoHideTimerRef.current) {
-            clearTimeout(autoHideTimerRef.current);
-            autoHideTimerRef.current = null;
-        }
-        if (isMobile && fullScreenMobileView === 'lyrics' && isPlaying && !isBuffering && !isPlaylistOpen) {
-            autoHideTimerRef.current = setTimeout(() => {
-                setControlsVisible(false);
-            }, 4200);
-        }
-    }, [isMobile, fullScreenMobileView, isPlaying, isBuffering, isPlaylistOpen]);
-
-    React.useEffect(() => {
-        if (isMobile && fullScreenMobileView === 'lyrics' && isPlaying && !isBuffering && !isPlaylistOpen) {
-            resetAutoHideTimer();
-        } else {
-            setControlsVisible(true);
-            if (autoHideTimerRef.current) {
-                clearTimeout(autoHideTimerRef.current);
-                autoHideTimerRef.current = null;
-            }
-        }
-        return () => {
-            if (autoHideTimerRef.current) {
-                clearTimeout(autoHideTimerRef.current);
-                autoHideTimerRef.current = null;
-            }
-        };
-    }, [isMobile, fullScreenMobileView, isPlaying, isBuffering, isPlaylistOpen, resetAutoHideTimer]);
+    const { visible: controlsVisible, reveal: resetAutoHideTimer } = usePlayerAutoHide({
+        enabled: isMobile && fullScreenMobileView === 'lyrics' && isPlaying && !isBuffering && !isPlaylistOpen,
+        delay: 4200,
+        surfaceRef: contentRef,
+    });
 
     // 进入多行歌词视图 (平滑入场动效)
     const handleEnterLyricsView = React.useCallback(() => {

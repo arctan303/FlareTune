@@ -55,6 +55,7 @@ export const lyricsWorkspaceApi = {
     const params = new URLSearchParams();
     if (options.title) params.set('title', options.title);
     if (options.artist) params.set('artist', options.artist);
+    if (options.source && options.source !== 'all') params.set('source', options.source);
     const queryString = params.toString();
     const query = queryString ? `?${queryString}` : '';
     return requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}/candidates${query}`, {

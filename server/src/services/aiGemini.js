@@ -243,13 +243,13 @@ export async function chatGemini(
   let response;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (signal?.aborted) throw new Error('AI_TIMEOUT');
-    response = await fetch(url, {
+    response = await fetchAi(url, {
       method: 'POST',
       headers: aiHeaders('gemini_native', apiKey),
       redirect: 'manual', // Workers-compatible; the status check below rejects redirects.
       body: JSON.stringify(payload),
       signal,
-    });
+    }, { allowErrorResponse: true });
     if (response.ok) break;
 
     if ((response.status === 503 || response.status === 429) && attempt === 0 && !signal?.aborted) {

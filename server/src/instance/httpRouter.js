@@ -90,11 +90,12 @@ function attachCors(response, origin) {
 
 export async function handleApi(request, env, path, ctx) {
   if (path === '/api/auth/recovery') return json({ error: 'not_found' }, 404);
-  const cacheSchema = request.method === 'GET'
+  const cacheSchema = (request.method === 'GET'
     && !['/api/health', '/api/instance/status'].includes(path)
     && !path.startsWith('/api/admin/') && !path.startsWith('/api/manage/')
-    && !path.startsWith('/api/instance/');
-  const instance = await resolveInstanceState(env?.DB, Date.now(), { cacheSchema });
+    && !path.startsWith('/api/instance/')) || (request.method === 'POST'
+      && ['/api/songs/roam', '/api/songs/resolve'].includes(path));
+  const instance = await resolveInstanceState(env?.DB, Date.now(), { cacheSchema, executionContext: ctx });
   const origin = request.headers.get('Origin');
   const sameOrigin = new URL(request.url).origin;
   const crossOrigin = origin && origin !== sameOrigin
@@ -349,13 +350,13 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
         body.patch, body.expectedRevision));
     }
     const musicRead = await handleLocalMusicReadRoute(request, new URL(request.url), env.DB,
-      {}, actorAccountId);
+      {}, actorAccountId, { schemaVersion: instance.schemaVersion });
     if (musicRead) return musicRead;
     const albumRead = await handleLocalAlbumReadRoute(request, new URL(request.url), env.DB,
       {}, actorAccountId);
     if (albumRead) return albumRead;
     const musicDiscovery = await handleLocalMusicDiscoveryRoute(request, new URL(request.url), env.DB,
-      {}, actorAccountId);
+      {}, actorAccountId, { executionContext: ctx });
     if (musicDiscovery) return musicDiscovery;
     const accountMusic = await handleLocalAccountMusicRoute(request, new URL(request.url), env.DB,
       {}, session);

@@ -17,9 +17,9 @@ import CoinFlipCover from './playerbar/CoinFlipCover';
 import PlayerBarLyricPreview from './playerbar/PlayerBarLyricPreview.jsx';
 import ScrollingText from './playerbar/ScrollingText.jsx';
 import { useShallow } from 'zustand/react/shallow';
-import { VISUAL_MOTION_PROFILE } from '../utils/motionPerformance';
 import { requestLyricsTranslationCompletion } from '../hooks/useLyricsFetcher.js';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
+import './fullscreen/player-interactions.css';
 
 const formatTime = (time) => {
     if (!time || !Number.isFinite(time)) return '00:00';
@@ -139,8 +139,8 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         return () => clearTimeout(timer);
     }, [isBuffering, isPlaying]);
 
-    const isDesktopViewport = useMediaQuery('(min-width: 1024px)', false);
-    const isDesktop = isDesktopViewport && motionProfile !== VISUAL_MOTION_PROFILE.COMPACT_TOUCH;
+    // Match FullScreenPlayer's layout breakpoint; effect budgets must not hide transport controls.
+    const isDesktop = useMediaQuery('(min-width: 1024px)', false);
     const activeFullScreen = isFullScreen && !isFullScreenClosing;
     const isImmersiveMode = playerMode === 'cinematic';
     // 沉浸形态全屏时保留沉浸式底部控制栏（PlayerBar 展开态）；经典形态全屏时由播放器内部控制栏接管
@@ -204,13 +204,14 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
     return (
         <>
             {isExpanded && (
-                <div className={`fixed bottom-0 left-0 w-full z-[70] animate-[fade-in_0.4s_ease-out] transition-opacity duration-500 ${immersiveControlsShown ? 'opacity-100' : 'opacity-35'}`}>
+                <div data-player-interaction="controls" className={`fixed bottom-0 left-0 w-full z-[70] animate-[fade-in_0.4s_ease-out] transition-opacity duration-500 ${immersiveControlsShown ? 'opacity-100' : 'opacity-35'}`}>
                     <ProgressBar isImmersiveBottom={true} />
                 </div>
             )}
             <div 
-                aria-hidden={isHidden ? true : undefined}
-                inert={isHidden ? '' : undefined}
+                data-player-interaction={isExpanded ? 'controls' : undefined}
+                aria-hidden={isHidden || !immersiveControlsShown ? true : undefined}
+                inert={isHidden || !immersiveControlsShown ? '' : undefined}
                 className={`player-dock ${isExpanded ? 'player-dock--immersive' : ''} fixed left-1/2 z-[60] flex -translate-x-1/2 justify-center transition-[transform,width,max-width] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
                     (isHidden || !immersiveControlsShown) ? 'translate-y-[180px] pointer-events-none' : 'translate-y-0'
                 } ${isExpanded ? 'w-[92%] md:w-[88%] lg:w-[80%] max-w-[960px]' : 'w-[95%] md:w-[70%] max-w-3xl'}`}

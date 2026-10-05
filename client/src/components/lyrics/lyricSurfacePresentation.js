@@ -3,6 +3,7 @@ import { lyricPlaybackClock } from '../../services/lyricPlaybackClock.js';
 import {
     findActiveLyricLineIndex,
     getLyricVocalStart,
+    getNextLyricBoundary,
 } from '../../utils/lyricTimeline.js';
 
 const finiteTime = (value) => (
@@ -92,8 +93,10 @@ export function useLyricSurfacePresentation({
             if (nextKey === lastKey) return;
             lastKey = nextKey;
             notify();
+        }, {
+            getNextBoundary: (snapshot) => getNextLyricBoundary(lyrics, snapshot.currentTime, lyricSyncMode),
         });
-    }, [clock, getKey, resolveFromSnapshot, shouldUseClock]);
+    }, [clock, getKey, resolveFromSnapshot, shouldUseClock, lyrics, lyricSyncMode]);
 
     const key = React.useSyncExternalStore(subscribe, getKey, getKey);
     const separatorIndex = key.lastIndexOf(':');

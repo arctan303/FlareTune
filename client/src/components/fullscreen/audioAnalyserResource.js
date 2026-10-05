@@ -1,6 +1,7 @@
 const analyserResources = new WeakMap();
 const analyserGraphs = new WeakMap();
 const playingMediaKeys = new WeakMap();
+export const AUDIO_ANALYSER_IDLE_MS = 30000;
 
 const getAudioSourceKey = (audio) => String(
     audio?.currentSrc
@@ -55,6 +56,7 @@ const getOrCreateAnalyserGraph = (audio) => {
             analyser,
             context,
             stateQueue: Promise.resolve(),
+            idleTimer: null,
         };
         analyserGraphs.set(audio, graph);
         return { graph, created: true };
@@ -66,12 +68,33 @@ const getOrCreateAnalyserGraph = (audio) => {
 
 const disposeAnalyserGraph = (graph) => {
     if (!graph) return;
+    if (graph.idleTimer !== null) clearTimeout(graph.idleTimer);
+    graph.idleTimer = null;
     if (analyserGraphs.get(graph.audio) === graph) {
         analyserGraphs.delete(graph.audio);
     }
     if (graph.context.state !== 'closed') {
         graph.context.close().catch(() => {});
     }
+};
+
+const reconcileGraphIdle = (graph) => {
+    const current = analyserResources.get(graph.audio);
+    if (current?.graph === graph && shouldRun(current)) {
+        if (graph.idleTimer !== null) clearTimeout(graph.idleTimer);
+        graph.idleTimer = null;
+        return;
+    }
+    if (graph.idleTimer !== null || graph.context.state === 'closed') return;
+    graph.idleTimer = setTimeout(() => {
+        graph.idleTimer = null;
+        const latest = analyserResources.get(graph.audio);
+        if (latest?.graph === graph && shouldRun(latest)) return;
+        if (latest?.graph === graph) disposeResource(latest);
+        disposeAnalyserGraph(graph);
+    }, AUDIO_ANALYSER_IDLE_MS);
+    // Node diagnostics must not stay alive solely for an idle browser resource.
+    graph.idleTimer?.unref?.();
 };
 
 const disposeResource = (resource) => {
@@ -105,12 +128,14 @@ export const hasAudioAnalyserEnteredPlaying = (audio) => (
 const queueContextReconcile = (resource) => {
     if (!resource || resource.context.state === 'closed') return;
     const graph = resource.graph;
+    reconcileGraphIdle(graph);
     graph.stateQueue = graph.stateQueue
         .catch(() => {})
         .then(async () => {
             for (let pass = 0; pass < 4; pass++) {
                 if (resource.context.state === 'closed') break;
-                const wantsRunning = shouldRun(resource);
+                const current = analyserResources.get(graph.audio);
+                const wantsRunning = current?.graph === graph && shouldRun(current);
                 if (wantsRunning && resource.context.state !== 'running') {
                     await resource.context.resume().catch(() => {});
                     continue;
@@ -162,10 +187,16 @@ export const acquireAudioAnalyser = (audio) => {
     let graphResult = null;
     try {
         stream = captureStream.call(audio);
-        if (stream.getAudioTracks().length === 0) return null;
+        if (stream.getAudioTracks().length === 0) {
+            stream.getTracks?.().forEach(track => track.stop?.());
+            return null;
+        }
 
         graphResult = getOrCreateAnalyserGraph(audio);
-        if (!graphResult) return null;
+        if (!graphResult) {
+            stream.getTracks?.().forEach(track => track.stop?.());
+            return null;
+        }
         const { graph } = graphResult;
         source = graph.context.createMediaStreamSource(stream);
         source.connect(graph.analyser);
@@ -184,9 +215,14 @@ export const acquireAudioAnalyser = (audio) => {
         };
         const tracks = stream.getAudioTracks();
         const handleTrackEnded = () => disposeResource(resource);
+        const handleSourceChanged = () => invalidateAudioAnalyser(audio);
         tracks.forEach((track) => track.addEventListener?.('ended', handleTrackEnded));
+        audio.addEventListener?.('loadstart', handleSourceChanged);
+        audio.addEventListener?.('emptied', handleSourceChanged);
         resource.detachTrackListeners = () => {
             tracks.forEach((track) => track.removeEventListener?.('ended', handleTrackEnded));
+            audio.removeEventListener?.('loadstart', handleSourceChanged);
+            audio.removeEventListener?.('emptied', handleSourceChanged);
         };
         analyserResources.set(audio, resource);
         return createConsumer(resource);

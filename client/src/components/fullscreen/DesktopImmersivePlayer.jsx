@@ -15,6 +15,7 @@ import { useMediaQuery } from './useMediaQuery';
 import { useShallow } from 'zustand/react/shallow';
 import { VISUAL_MOTION_PHASE } from '../../utils/motionPerformance';
 import { useFullscreenTransition } from '../../hooks/useFullscreenTransition.js';
+import { usePlayerAutoHide } from '../../hooks/usePlayerAutoHide.js';
 
 // 调试面板按需加载：生产环境（未开启 VITE_ENABLE_THEME_DEBUGGER）下不打包进主包、也不发起请求
 const ThemeDebugger = import.meta.env.VITE_ENABLE_THEME_DEBUGGER === 'true'
@@ -80,17 +81,14 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
         setImmersiveAmbientIntensity: state.setImmersiveAmbientIntensity,
     })));
     const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)', false);
-    const [isChromeVisible, setIsChromeVisible] = React.useState(true);
     const [hasCurrentSongPlayed, setHasCurrentSongPlayed] = React.useState(false);
     const [isVisualResetPending, setIsVisualResetPending] = React.useState(false);
-    const chromeTimerRef = React.useRef(null);
     const stageRef = React.useRef(null);
     const initialVisualSongKey = `${currentSong?.id || ''}|${currentSong?.audio_url || ''}`;
     const visualSongKeyRef = React.useRef(initialVisualSongKey);
     const expectedVisualSrcRef = React.useRef('');
     const loadedDeclaredSrcRef = React.useRef('');
-    // 记录已写入默认设置的沉浸主题 id：仅在主题切换/首次进入时写入，
-    // 避免每次进入全屏都用 defaultSettings 覆盖 useThemeStore，导致手动调试值被重置。
+    // 本次挂载内只应用一次舞台样式；持久化的音乐呼吸偏好由 UI store 管理。
     const appliedThemeDefaultsRef = React.useRef('');
 
     const { 
@@ -213,30 +211,15 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
             setAccentColor(activeTheme.defaultSettings.accentColor);
             setFontFamily(activeTheme.defaultSettings.fontFamily);
             setLyricShadow(activeTheme.defaultSettings.lyricShadow);
-            if (activeTheme.defaultSettings.ambientIntensity) {
-                setImmersiveAmbientIntensity(activeTheme.defaultSettings.ambientIntensity);
-            }
         }
-    }, [activeTheme, setAccentColor, setFontFamily, setGlassMaterial, setImmersiveAmbientIntensity, setLyricShadow]);
-    const revealChrome = React.useCallback(() => {
-        setIsChromeVisible(true);
-        setImmersiveControlsVisible(true);
-        if (chromeTimerRef.current) clearTimeout(chromeTimerRef.current);
-
-        chromeTimerRef.current = setTimeout(() => {
-            setIsChromeVisible(false);
-            if (!immersiveControlsPinned) {
-                setImmersiveControlsVisible(false);
-            }
-        }, 2600);
-    }, [immersiveControlsPinned, setImmersiveControlsVisible]);
-
-    React.useEffect(() => {
-        revealChrome();
-        return () => {
-            if (chromeTimerRef.current) clearTimeout(chromeTimerRef.current);
-        };
-    }, [revealChrome, currentSong?.id]);
+    }, [activeTheme, setAccentColor, setFontFamily, setGlassMaterial, setLyricShadow]);
+    const { visible: isChromeVisible, reveal: revealChrome } = usePlayerAutoHide({
+        enabled: isFullScreen && !isClosing && !isPlaylistOpen,
+        delay: 2600,
+        surfaceRef: stageRef,
+        wakeKey: currentSong?.id,
+        onVisibleChange: visible => setImmersiveControlsVisible(visible || immersiveControlsPinned),
+    });
 
     React.useEffect(() => {
         if (immersiveControlsPinned) {

@@ -1,8 +1,6 @@
 import { parseArtistNames } from '../utils/artistParser.js';
 import { LyricArtifactStoreError } from '../services/lyricArtifactStore.js';
-import { lyricArtifactStoreForEnv, projectLyricArtifact, readOrCreateLyricArtifact, shouldAiCompleteLyrics } from '../services/lyricAssetWorkflow.js';
-import { beginLyricAssetAiCompletion, resolveLegacyLyricCleanup } from '../services/lyricAssetTranslation.js';
-import { loadLyricAiProcessingSettings } from '../services/lyricAiConfig.js';
+import { PlaybackLyricsError, readPlaybackLyrics } from '../services/playbackLyrics.js';
 import { LyricSourceError } from '../services/lyricSourceLoader.js';
 import { fetchArtistPhotosFromSources } from '../services/artistPhotoSources.js';
 import { saveArtistPhotoToDb } from '../services/artistPhotoStore.js';
@@ -100,75 +98,14 @@ async function readLyrics(url, db, headers, env, accountId, deps = {}) {
     return json({ code: 503, message: 'Database unavailable' }, 503, headers);
   }
   if (!song) return json({ code: 404, message: 'Song not found', reason: 'song_not_found' }, 404, headers);
-  if (song.language === 'instrumental') {
-    return json({ code: 200, data: {
-      version: 2, source: null, format: null, syncMode: 'none', lrc: '', lines: [], tlyric: '',
-      translation: null, translationAvailable: false, translationState: 'unavailable',
-      translationStartedAt: null, offsetMs: 0, reason: 'instrumental',
-    } }, 200, headers);
-  }
-
   try {
-    const store = deps.store || lyricArtifactStoreForEnv(env);
-    let read = await (deps.readOrCreateLyricArtifact || readOrCreateLyricArtifact)({
-      env, song, store, signal: deps.signal,
-      songStillExists: async () => Boolean(await db.prepare('SELECT id FROM Songs WHERE id = ?').bind(songId).first()),
-      ...(deps.fetchDocument ? { fetchDocument: deps.fetchDocument } : {}),
-      ...(deps.now ? { now: deps.now } : {}),
-    });
+    const read = await readPlaybackLyrics({ env, db, song, accountId,
+      executionContext: deps.ctx, signal: deps.signal, deps });
     if (read.state === 'song_deleted') return json({ code: 404, message: 'Song not found', reason: 'song_not_found' }, 404, headers);
-    if (!read.artifact || read.artifact.status === 'not_found') {
-      return json({ code: 404, data: null, message: 'No lyrics found', reason: 'lyrics_not_found' }, 404, headers);
-    }
-    if (read.artifact.status !== 'ready') {
-      return json({ code: 503, message: 'Lyric asset is not ready' }, 503, headers);
-    }
-    read = await resolveLegacyLyricCleanup(store, song, read, deps.now || Date.now);
-    const { targetLanguage, processingKey, completionEnabled, automaticCompletionEnabled } =
-      await loadLyricAiProcessingSettings(db);
-    let projected = projectLyricArtifact(read.artifact, { song, targetLanguage });
-    for (let attempt = 0; read.artifact.translation && !projected.translationAvailable; attempt += 1) {
-      if (attempt >= 3) {
-        return json({ code: 503, message: 'Lyric asset changed during translation update' }, 503, headers);
-      }
-      const updatedAt = new Date((deps.now || Date.now)()).toISOString();
-      const cleared = await store.putIfMatch(song.id, {
-        ...read.artifact, translation: null, aiCompletion: null, updatedAt,
-      }, read.etag);
-      read = cleared.state === 'updated' ? { ...cleared, state: 'found' } : await store.get(song.id);
-      if (read.state !== 'found' || read.artifact.status !== 'ready') {
-        return json({ code: 503, message: 'Lyric asset is not ready' }, 503, headers);
-      }
-      projected = projectLyricArtifact(read.artifact, { song, targetLanguage });
-    }
-    const needsAutomaticAi = completionEnabled && automaticCompletionEnabled
-      && shouldAiCompleteLyrics(read.artifact.original, song, { targetLanguage })
-      && !projected.translationAvailable
-      && (['created', 'updated'].includes(read.state)
-      || (read.state === 'found'
-        && (read.artifact.aiCompletion === null
-          || read.artifact.aiCompletion?.status === 'completed'
-            && read.artifact.aiCompletion.processingKey !== processingKey)));
-    if (needsAutomaticAi) {
-      try {
-        const started = await (deps.beginCompletion || beginLyricAssetAiCompletion)({
-          env, db, song, store, actorAccountId: accountId, force: true, targetLanguage,
-          deps: deps.aiDeps || {},
-        });
-        if (started.artifact?.status === 'ready') read = started;
-        if (started.task) {
-          if (deps.ctx?.waitUntil) deps.ctx.waitUntil(started.task);
-          else void started.task.catch((error) => console.error('Automatic lyric AI failed:', error));
-        }
-      } catch (error) {
-        console.error('Automatic lyric AI could not start:', error);
-      }
-    }
-    const currentLyrics = projectLyricArtifact(read.artifact, { song, targetLanguage });
-    return json({ code: 200, data: !completionEnabled && !currentLyrics.translationAvailable
-      ? { ...currentLyrics, translationState: 'unavailable', translationStartedAt: null }
-      : currentLyrics }, 200, headers);
+    if (!read.lyrics) return json({ code: 404, data: null, message: 'No lyrics found', reason: 'lyrics_not_found' }, 404, headers);
+    return json({ code: 200, data: read.lyrics }, 200, headers);
   } catch (error) {
+    if (error instanceof PlaybackLyricsError) return json({ code: 503, message: error.message }, 503, headers);
     if (error instanceof LyricSourceError) {
       return json({ code: 503, message: 'Lyric source temporarily unavailable' }, 503, headers);
     }

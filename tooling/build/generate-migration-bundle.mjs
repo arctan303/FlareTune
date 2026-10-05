@@ -16,6 +16,7 @@ const names = [
   '0010_user_images.sql',
   '0011_ai_feature_models.sql',
   '0012_google_login.sql',
+  '0013_hotpath_indexes_and_counts.sql',
 ];
 
 // Split checked-in SQL once at build time. A trigger body contains semicolons;

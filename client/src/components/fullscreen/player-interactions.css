@@ -1,0 +1,51 @@
+.classic-controls__menu [role='menuitem']:focus-visible,
+.classic-controls__menu [role='menuitemradio']:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.classic-controls__progress:focus-within .classic-controls__track {
+  outline: 2px solid rgb(255 255 255 / 75%);
+  outline-offset: 4px;
+}
+
+.player-progress-control:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.player-progress-control--immersive:has(input:focus-visible) {
+  height: 8px;
+  outline-color: rgb(255 255 255 / 90%);
+  outline-offset: -2px;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .paper-classic-player .classic-controls__metadata-actions > button,
+  .paper-classic-player [aria-haspopup='menu'],
+  .paper-classic-player .classic-controls__transport button,
+  .paper-classic-player .classic-controls__menu button,
+  .player-dock--immersive button {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .paper-classic-player .classic-controls__transport {
+    padding-inline: 0;
+  }
+
+  .paper-classic-player .classic-controls__playback-buttons {
+    gap: clamp(4px, 3vw, 12px);
+  }
+
+  .paper-classic-player .classic-controls__progress {
+    height: 44px;
+  }
+
+  [data-player-interaction='controls'] > .player-volume-panel {
+    min-width: 44px;
+  }
+}

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { sortLyricsCandidates, projectProviderWarnings } from './LyricsManagementWorkspace.state.js';
 
 const source = readFileSync(new URL('./LyricsManagementWorkspace.jsx', import.meta.url), 'utf8');
+const candidates = readFileSync(new URL('./LyricsCandidatePanel.jsx', import.meta.url), 'utf8');
 const css = readFileSync(new URL('./lyrics-management-workspace.css', import.meta.url), 'utf8');
 const menu = readFileSync(new URL('./PlayerMoreMenu.jsx', import.meta.url), 'utf8');
 const entry = readFileSync(new URL('./LyricsWorkspaceEntry.jsx', import.meta.url), 'utf8');
@@ -27,7 +28,8 @@ test('workspace edits and imports shared lyrics with visible word timing caveat'
   assert.match(source, /逐行同步/);
   assert.match(source, /managed\.completeTranslation\(\)/);
   assert.doesNotMatch(source, /managed\.adoptCandidate/);
-  assert.match(source, /导入当前歌词草稿/);
+  assert.match(candidates, /导入当前歌词草稿/);
+  assert.match(source, /<LyricsCandidatePanel key=\{song.id\}/);
   assert.match(source, /editingEtagRef\.current = managed\.etag/);
   assert.match(source, /isAdmin &&/);
 });
@@ -44,7 +46,7 @@ test('workspace follows app page scrolling and light and dark themes', () => {
 
 test('candidate quality ordering and safe warnings stay available', () => {
   const candidates = [{ source: 'kugou', providerLyricId: 'a', score: 100 },
-    { source: 'lrclib', providerLyricId: 'b', score: 10 }];
+    { source: 'lrclib', providerLyricId: 'b', score: 100 }];
   assert.equal(sortLyricsCandidates(candidates, {
     'kugou:a': { state: 'ready', syncMode: 'line' },
     'lrclib:b': { state: 'ready', syncMode: 'word' },

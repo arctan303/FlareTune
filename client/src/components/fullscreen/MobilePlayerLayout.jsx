@@ -36,12 +36,13 @@ export default function MobilePlayerLayout({
           <div className="absolute top-4 sm:top-5 left-1/2 -translate-x-1/2 z-40 lg:hidden flex items-center justify-center pointer-events-auto">
             <button
               type="button"
+              data-player-interaction="controls"
               aria-label={t("退出全屏")}
               onClick={handleClose}
-              className="w-12 h-7 rounded-full bg-white/[0.08] hover:bg-white/[0.18] active:scale-90 text-white/75 hover:text-white transition-all flex items-center justify-center backdrop-blur-md focus:outline-none cursor-pointer group shadow-[0_2px_10px_rgba(0,0,0,0.15)]"
+              className="w-12 h-11 flex items-center justify-center text-white/75 hover:text-white active:scale-90 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 cursor-pointer group"
               title={t("退出全屏")}
             >
-              <ClassicCloseChevron size={18} className="transition-transform group-hover:translate-y-0.5" />
+              <span className="w-12 h-7 rounded-full bg-white/[0.08] group-hover:bg-white/[0.18] flex items-center justify-center backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.15)]"><ClassicCloseChevron size={18} className="transition-transform group-hover:translate-y-0.5" /></span>
             </button>
           </div>
           {fullScreenMobileView === 'lyrics' ? (

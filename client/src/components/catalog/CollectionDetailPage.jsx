@@ -1,9 +1,9 @@
 import React from 'react';
 import PageBackButton from '../PageBackButton.jsx';
 
-export default function CollectionDetailPage({ kind, title, subtitle, cover, actions, children, onBack }) {
+export default function CollectionDetailPage({ kind, title, subtitle, cover, actions, children, onBack, className = '' }) {
   return (
-    <div className="app-page collection-detail-page max-w-6xl mx-auto pb-24">
+    <div className={`app-page collection-detail-page max-w-6xl mx-auto pb-24 ${className}`}>
       <PageBackButton onClick={onBack} className="mb-7" />
       <header className="collection-detail-page__header flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-8">
         <div className="collection-detail-page__cover w-48 h-48 sm:w-60 sm:h-60 shrink-0 overflow-hidden rounded-xl bg-[var(--surface-raised)]">

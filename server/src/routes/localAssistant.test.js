@@ -586,9 +586,9 @@ test('oversized tool batches fail before any catalog query runs', async () => {
 test('thread clear requires matching revision and preserves another account', async () => {
   const { sqlite, route } = fixture();
   try {
-    await route('/api/ai/chat', 'POST', chatBody(), 'account-A', {
+    await streamEvents(await route('/api/ai/chat', 'POST', chatBody(), 'account-A', {
       chat: async () => ({ type: 'content', content: '答复' }),
-    });
+    }));
     const stale = await route('/api/ai/thread', 'DELETE', { revision: 0 });
     assert.equal(stale.status, 409);
     assert.equal((await stale.json()).revision, 2);

@@ -126,9 +126,9 @@ export default function ProgressBar({ isImmersiveBottom = false }) {
 
     return (
         <div 
-            className={`relative flex-1 cursor-pointer group transition-all duration-300 ${
+            className={`player-progress-control relative flex-1 cursor-pointer group transition-all duration-300 ${
                 isImmersiveBottom 
-                    ? 'h-1 hover:h-2 bg-white/10 rounded-none w-full' 
+                    ? 'player-progress-control--immersive h-1 hover:h-2 bg-white/10 rounded-none w-full'
                     : 'player-progress h-[3px] hover:h-[5px] w-full rounded-none'
             }`}
             onClick={handleSeek}
@@ -136,25 +136,25 @@ export default function ProgressBar({ isImmersiveBottom = false }) {
             onMouseLeave={handleMouseLeave}
             ref={progressRef}
         >
-            {!isImmersiveBottom && (
-                <input
-                    type="range"
-                    min="0"
-                    max={duration || 1}
-                    step="0.1"
-                    value={Math.min(displayedProgress, duration || 1)}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => scheduleSeek(Number(event.target.value))}
-                    onPointerUp={flushPendingSeek}
-                    onPointerCancel={flushPendingSeek}
-                    onKeyUp={(event) => {
-                        if (RANGE_SEEK_KEYS.has(event.key)) flushPendingSeek();
-                    }}
-                    onBlur={flushPendingSeek}
-                    className="absolute bottom-0 inset-x-0 z-10 h-3 w-full cursor-pointer opacity-0"
-                    aria-label={t("播放进度")}
-                />
-            )}
+            <input
+                type="range"
+                min="0"
+                max={duration || 1}
+                step="0.1"
+                value={Math.min(displayedProgress, duration || 1)}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => scheduleSeek(Number(event.target.value))}
+                onPointerUp={flushPendingSeek}
+                onPointerCancel={flushPendingSeek}
+                onKeyUp={(event) => {
+                    if (RANGE_SEEK_KEYS.has(event.key)) flushPendingSeek();
+                }}
+                onBlur={flushPendingSeek}
+                className="absolute bottom-0 inset-x-0 z-10 h-3 w-full cursor-pointer opacity-0"
+                // Keep the immersive bar's existing pointer-to-position click behavior.
+                style={isImmersiveBottom ? { pointerEvents: 'none' } : undefined}
+                aria-label={t("播放进度")}
+            />
             <div 
                 className={`absolute top-0 left-0 h-full transition-[width] duration-100 ease-linear rounded-r-sm`}
                 style={{ 

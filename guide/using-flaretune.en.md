@@ -25,6 +25,10 @@ Use the star on a song to add or remove it from Favorites. You can also create p
 
 Open Assistant from the sidebar to ask about the library or the currently playing song. The assistant can find and queue songs and help organize your playlists. Actions such as deleting an entire playlist require confirmation in the page. The instance administrator chooses the AI model; playback and the personal library work independently when the model is unavailable.
 
+Click Stop during generation. An unfinished turn with an empty composer offers Continue; you can also enter a new request. Received answers, thought progress and tool results are retained, and successful actions are not automatically repeated on continuation. Drafts and attachments survive switching to memory and back; signing out or changing accounts clears them.
+
+Memory is off by default. When enabled, the assistant can save lasting information and preferences, list entries, update, delete or merge them. Deleting or merging reclaims the 30-entry capacity. Changing play counts and rankings are queried through tools. Entries you manually edit remain under your control and cannot be overwritten or deleted by the assistant. Disabling memory stops assistant access and maintenance while retaining saved entries.
+
 ## Appearance and personal settings
 
 In Settings, follow the system appearance or choose light or dark mode, a background, and a player style. Personal settings show account details and password controls. You can set the interface language for your account to Follow browser, Simplified Chinese, or English; the choice follows your account across devices. Before sign-in, pages follow the browser language, with English as the fallback for unsupported languages. Administrators also see library, accounts, AI, and instance settings; members do not see these admin areas.
@@ -32,6 +36,10 @@ In Settings, follow the system appearance or choose light or dark mode, a backgr
 ## Lyrics and translation
 
 The player reads lyrics saved by the instance and shows synchronized source lyrics and translations when available. Administrators can use the lyrics workspace to review sources, correct lyrics and timing, and apply AI translation according to instance settings. Saved shared lyrics are available to members. The interface language does not translate song titles, lyrics, or user content.
+
+The player automatically searches when a song has no saved lyrics, preferring word timing when the recording and duration match reliably. Manual search supports source, timing and translation filters. Timing and translation require inspecting candidate contents; continue checking remaining candidates or retry failed inspections. Edited search text takes effect when you search again. Selecting a candidate creates a draft; saving applies it.
+
+New automatically saved plain or line-timed lyrics can be checked for an upgrade in the background on later reads, at most once per song every six hours. A reliable higher-precision result takes effect on the next playback, keeping the current playback stable. Manually selected, imported, edited, shifted or restored lyrics are protected, as are older lyrics whose editing history cannot be established.
 
 ## Installation
 

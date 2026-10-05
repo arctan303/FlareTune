@@ -14,7 +14,7 @@ const hash = Buffer.alloc(32, 2).toString('base64url');
 const now = 1_800_000_000_000;
 const password = 'a long private password!';
 
-function fixture() {
+function fixture({ totalChanges = false } = {}) {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   sqlite.exec(baseline);
@@ -38,6 +38,12 @@ function fixture() {
     (account_id, kdf, kdf_version, kdf_params_json, salt, password_hash, must_change_password, updated_at)
     VALUES ('a1', 'pbkdf2-sha256-chain', 2, '{"iterations":100000,"rounds":6}', ?, ?, 0, 1)`).run(salt, hash);
   sqlite.exec('UPDATE ft_instance SET initialized_at = 1 WHERE id = 1');
+  const run = (sql, values) => {
+    const before = sqlite.prepare('SELECT total_changes() AS count').get().count;
+    const result = sqlite.prepare(sql).run(...values);
+    const count = totalChanges ? sqlite.prepare('SELECT total_changes() AS count').get().count - before : result.changes;
+    return { success: true, meta: { changes: count } };
+  };
   const db = {
     prepare(sql) {
       let values = [];
@@ -45,8 +51,8 @@ function fixture() {
         bind(...args) { values = args; return this; },
         async first() { return sqlite.prepare(sql).get(...values) ?? null; },
         async all() { return { results: sqlite.prepare(sql).all(...values) }; },
-        async run() { return { success: true, meta: { changes: sqlite.prepare(sql).run(...values).changes } }; },
-        _run() { return { success: true, meta: { changes: sqlite.prepare(sql).run(...values).changes } }; },
+        async run() { return run(sql, values); },
+        _run() { return run(sql, values); },
       };
     },
     async batch(statements) {
@@ -67,6 +73,27 @@ function fixture() {
 async function rejectsCode(callback, code) {
   await assert.rejects(callback, (error) => error?.code === code);
 }
+
+test('D1 trigger-inclusive changes report account updates and password resets as successful while rejecting stale revisions', async () => {
+  const { sqlite, db, close } = fixture({ totalChanges: true });
+  try {
+    sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0012_google_login.sql', import.meta.url), 'utf8'));
+    const second = await createAccount({ db, actorAccountId: 'a1', username: 'trigger-member',
+      temporaryPassword: password, now });
+    const accountId = second.account.accountId;
+    const epoch = sqlite.prepare('SELECT auth_epoch FROM google_login_config WHERE id = 1').get().auth_epoch;
+    const updated = await updateAccount({ db, actorAccountId: 'a1', accountId,
+      status: 'disabled', expectedUpdatedAt: now, now: now + 1 });
+    assert.equal(updated.account.status, 'disabled');
+    assert.equal(sqlite.prepare('SELECT auth_epoch FROM google_login_config WHERE id = 1').get().auth_epoch, epoch + 1);
+    await rejectsCode(() => updateAccount({ db, actorAccountId: 'a1', accountId,
+      status: 'active', expectedUpdatedAt: now, now: now + 2 }), 'revision_conflict');
+    assert.equal(sqlite.prepare('SELECT status FROM accounts WHERE account_id = ?').get(accountId).status, 'disabled');
+    const reset = await resetAccountPassword({ db, actorAccountId: 'a1', accountId,
+      temporaryPassword: password + 'new', now: now + 3 });
+    assert.equal(reset.ok, true);
+  } finally { close(); }
+});
 
 test('admin boundary rechecks active role; member and disabled admin cannot manage accounts', async () => {
   const { sqlite, db, close } = fixture();

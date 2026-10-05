@@ -10,10 +10,12 @@ const processFields = (message) => ({
     .filter(image => typeof image?.id === 'string' && typeof image?.url === 'string')
     .map(({ id, url }) => ({ id, url })) } : {}),
   ...(typeof message?.clientMessageId === 'string' ? { clientMessageId: message.clientMessageId } : {}),
+  ...(typeof message?.turnId === 'string' ? { turnId: message.turnId } : {}),
   ...(Array.isArray(message?.processEntries) ? { processEntries: message.processEntries } : {}),
   ...(Array.isArray(message?.toolSummaries) ? { toolSummaries: message.toolSummaries } : {}),
   ...(message?.thinkingRequested === true ? { thinkingRequested: true } : {}),
   ...(message?.isError === true ? { isError: true, errorCode: message.errorCode } : {}),
+  ...(typeof message?.partialContent === 'string' ? { partialContent: message.partialContent } : {}),
 });
 
 export function normalizeCloudThreadMessages(messages) {

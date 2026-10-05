@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createLyricArtifactStore } from './lyricArtifactStore.js';
+import { createMemoryR2Bucket } from '../test/lyricAssetFixtures.js';
 import {
   beginLyricAssetAiCompletion,
   runLyricAssetAiCompletion,
@@ -69,6 +71,20 @@ test('asset AI completion writes aligned translation and clears pending state', 
   assert.equal(store.current().translation.source, 'ai');
   assert.deepEqual(store.current().translation.lines, ['你好']);
   assert.equal(store.current().aiCompletion, null);
+});
+
+test('automatic AI retains server ownership through completion while manual AI revokes it', async t => {
+  for (const automatic of [true, false]) await t.test(String(automatic), async () => {
+    const store = createLyricArtifactStore({ MEDIA_BUCKET: createMemoryR2Bucket() });
+    await store.createIfAbsent('song-1', makeReadyArtifact(), { automation: { checkedAt: STARTED_AT } });
+    const result = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+      automatic, force: true, deps: successDeps() });
+    assert.equal(result.state, 'started');
+    await result.task;
+    const final = await store.get('song-1');
+    assert.equal(final.artifact.translation.source, 'ai');
+    assert.deepEqual(final.automation, automatic ? { checkedAt: STARTED_AT } : undefined);
+  });
 });
 
 test('lyric completion uses its assigned profile while retaining lyric-specific rules', async () => {

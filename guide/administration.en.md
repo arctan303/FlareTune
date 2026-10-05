@@ -6,7 +6,7 @@
 
 After signing in, administrators can open Library management, Song ingest, AI and assistant, Account management, and Instance settings from the Settings sidebar. Instance settings brings together the instance name, allowed origins, ingest devices, runtime status, and database upgrades. Members cannot access these areas. Administrators import their own music files. The Worker reads media from private R2 and checks session access.
 
-Instance settings shows the app version, instance status, and current and target database schema versions. Administrators can apply a compatible upgrade or the supplemental AI connection migration when available; the database is current only when no migration is pending. The former `/settings/admin/instance` URL redirects to Instance settings. Interface language is an account choice in Personal settings, not an instance-wide admin setting.
+Instance settings shows the app version, instance status, base schema version, and individual feature migrations. Administrators can apply compatible pending updates; the database is current only when no migration is pending. The former `/settings/admin/instance` URL redirects to Instance settings. Interface language is an account choice in Personal settings, not an instance-wide admin setting.
 
 ## AI connections
 
@@ -20,7 +20,7 @@ Under Feature configuration, select a provider separately for the music assistan
 
 In Song ingest, select files from the browser or folders on a connected [local ingest device](../tooling/ingest-agent/README.en.md). Adding songs switches to the ingest list; you can return to selection without losing the list. Both sources share editing, duplicate review, and saving. Device songs appear as paginated metadata cards; their original artwork is not loaded by default. For large scans, filter first, map language by folder, and select only the songs you need. Folder language can come from the folder name, audio tags and text detection, or an explicit choice. A mapping only affects songs added afterward; entries in the list remain editable. Review similar tracks before choosing Skip, Add another version, or Replace. Before replacement, the page checks whether the target song has changed. During a batch, Pause waits for the current song to finish. Continue processes only the remaining songs; failed entries can be retried separately.
 
-Before deleting a song, review the impact on personal playlists, lyrics, play history, and media. Media still referenced by other songs is retained. Back up any data you need to keep. If the result reports file cleanup failure, the song record may already be deleted. Check the reported R2 path and other track references before removing leftover files manually; clicking Delete again is not a file retry.
+The current web library's Delete button requires confirmation and rejects songs still referenced by playlists, listening data, or lyrics. Successful deletion removes only song metadata and retains audio and artwork. The web page has no option to remove references or clean up media. The old manually started local web tool has a separate impact-preview and cleanup flow; it is not part of the ingest-device program and does not describe the current web button.
 
 ## Database upgrades
 

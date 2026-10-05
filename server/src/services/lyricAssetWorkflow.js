@@ -7,6 +7,7 @@ import { applyLyricOffset } from './lyricResolution.js';
 import { createLyricDocument, projectCanonicalLrc } from '../utils/lyricDocument.js';
 import { analyzeLrcLanguage, computeHash } from '../utils/lyricsParsing.js';
 import { resolveSongTranslationNeed } from '../utils/songLanguage.js';
+import { scheduleLyricAssetUpgrade } from './lyricAssetUpgrade.js';
 
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/u;
 export const LYRIC_AI_PENDING_FRESH_MS = 30_000;
@@ -160,6 +161,7 @@ export async function readOrCreateLyricArtifact({
   env,
   song,
   signal,
+  executionContext,
   store,
   fetchDocument = fetchSourceLyricsDocument,
   songStillExists,
@@ -188,9 +190,15 @@ export async function readOrCreateLyricArtifact({
   );
 
   const current = ensureReadable(await artifactStore.get(song.id));
-  if (isTerminalArtifact(current)) return current;
+  if (isTerminalArtifact(current)) {
+    scheduleLyricAssetUpgrade({ store: artifactStore, song, read: current, executionContext,
+      buildArtifact: buildReadyLyricArtifact, songStillExists, now,
+      ...(fetchDocument !== fetchSourceLyricsDocument ? { fetchDocument } : {}),
+    });
+    return current;
+  }
 
-  return artifactStore.singleflight(song.id, async () => {
+  return artifactStore.singleflight(song.id, async ({ signal: sharedSignal = signal } = {}) => {
     const afterWait = ensureReadable(await artifactStore.get(song.id));
     if (isTerminalArtifact(afterWait)) return afterWait;
 
@@ -198,7 +206,7 @@ export async function readOrCreateLyricArtifact({
       'auto',
       song,
       fetchDocument,
-      { signal },
+      { signal: sharedSignal, executionContext },
     );
     const built = document
       ? await buildReadyLyricArtifact(song, document, { now: now() })
@@ -206,10 +214,12 @@ export async function readOrCreateLyricArtifact({
     if (songStillExists && !await songStillExists()) {
       return { state: 'song_deleted', artifact: null, etag: null };
     }
+    const writeOptions = built.artifact.status === 'ready'
+      ? { automation: { checkedAt: nowIso(now()) } } : {};
     const written = afterWait.state === 'legacy'
       || (afterWait.state === 'found' && ['reset', 'not_found'].includes(afterWait.artifact.status))
-      ? await artifactStore.putIfMatch(song.id, built.artifact, afterWait.etag)
-      : await artifactStore.createIfAbsent(song.id, built.artifact);
+      ? await artifactStore.putIfMatch(song.id, built.artifact, afterWait.etag, writeOptions)
+      : await artifactStore.createIfAbsent(song.id, built.artifact, writeOptions);
     if (written.state === 'created' || written.state === 'updated') {
       return written;
     }
@@ -222,7 +232,7 @@ export async function readOrCreateLyricArtifact({
       );
     }
     return winner;
-  });
+  }, { signal, executionContext });
 }
 
 export function isFreshLyricAiPending(aiCompletion, now = Date.now()) {

@@ -62,11 +62,13 @@ async function personalSongs(db, accountId, playlistId) {
     ORDER BY ps.sort_order ASC, s.id ASC`).bind(playlistId, accountId).all());
 }
 
-async function readInit(db, accountId, headers) {
+async function readInit(db, accountId, headers, options) {
   const favorite = await favoriteRow(db, accountId);
   const favoriteSongs = favorite ? await personalSongs(db, accountId, favorite.id) : [];
   const personal = rows(await db.prepare(`SELECT p.id, p.name, p.description, p.kind, p.created_at,
-      (SELECT COUNT(*) FROM Member_Playlist_Songs ps WHERE ps.playlist_id = p.id) AS songCount
+      ${options.schemaVersion === 1
+        ? '(SELECT COUNT(*) FROM Member_Playlist_Songs ps WHERE ps.playlist_id = p.id)'
+        : 'p.cached_song_count'} AS songCount
     FROM Member_Playlists p WHERE p.account_id = ? AND p.kind = 'regular'
     ORDER BY p.created_at ASC, p.id ASC`).bind(accountId).all());
   return success({
@@ -153,14 +155,14 @@ async function readSongCollection(db, url, headers) {
 
 // Called only after the outer router has verified a normal local-account session.
 // The account id remains mandatory here to avoid an accidental cross-account read.
-export async function handleLocalMusicReadRoute(request, url, db, headers = {}, accountId) {
+export async function handleLocalMusicReadRoute(request, url, db, headers = {}, accountId, options = {}) {
   const path = url.pathname;
   if (request.method !== 'GET') return null;
   if (!(path === '/api/init' || path === '/api/songs' || path === '/api/songs/search'
     || /^\/api\/(songs|playlists)\/[^/]+$/u.test(path))) return null;
   if (!accountId || typeof accountId !== 'string') return json({ code: 401, message: 'Authentication required' }, 401, headers);
   if (!db?.prepare) return json({ code: 503, message: 'Database unavailable' }, 503, headers);
-  if (path === '/api/init') return readInit(db, accountId, headers);
+  if (path === '/api/init') return readInit(db, accountId, headers, options);
   if (path === '/api/songs') return readSongCollection(db, url, headers);
   if (path === '/api/songs/search') return searchSongs(db, url, headers);
   const match = path.match(/^\/api\/(songs|playlists)\/([^/]+)$/u);

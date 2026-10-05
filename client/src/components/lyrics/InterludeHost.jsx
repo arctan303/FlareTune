@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { lyricPlaybackClock } from '../../services/lyricPlaybackClock';
-import { getInterludeDotTimes, getInterludeState } from '../../utils/interludeState';
+import { getInterludeDotTimes, getInterludeState, getNextInterludeBoundary, resolveInterludeWindow } from '../../utils/interludeState';
 import InterludeDots from './InterludeDots';
 
 const INACTIVE_STATE = Object.freeze({ isInterlude: false, stage: 0, progress: 0 });
@@ -80,7 +80,12 @@ export default function InterludeHost({
             });
         };
 
-        const unsubscribe = lyricPlaybackClock.subscribe(updateFromClock);
+        const unsubscribe = lyricPlaybackClock.subscribe(updateFromClock, {
+            getNextBoundary: (snapshot) => getNextInterludeBoundary({
+                currentTime: snapshotTime(snapshot), lyrics, currentLyricIndex,
+                lineIndex, isUserScrolling, syncMode,
+            }),
+        });
         return typeof unsubscribe === 'function' ? unsubscribe : undefined;
     }, [isCandidate, lyrics, currentLyricIndex, lineIndex, isUserScrolling, syncMode]);
 
@@ -134,6 +139,9 @@ export default function InterludeHost({
         ? renderInterludeState.stage
         : lastActiveStageRef.current;
     const animDuration = isInterlude ? '500ms' : '1000ms';
+    const interludeWindow = isInterlude ? resolveInterludeWindow({
+        currentTime: renderTime, lyrics, currentLyricIndex, lineIndex, syncMode,
+    }) : null;
 
     return (
         <div className="classic-lyrics__interlude-host relative w-full">
@@ -172,6 +180,8 @@ export default function InterludeHost({
             >
                 <InterludeDots
                     stage={displayStage}
+                    active={isInterlude}
+                    window={interludeWindow}
                     dotTimes={dotTimes}
                     onSeekDot={isInterlude ? handleSeekDot : null}
                 />

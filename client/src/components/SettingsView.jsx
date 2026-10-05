@@ -25,6 +25,10 @@ import { AVAILABLE_PLAYER_MODES, PLAYER_MODE_META } from '../constants/playerMod
 import { resolveCoverUrl } from '../utils.js';
 import AccountSettings from './AccountSettings.jsx';
 import PrivateCoverImage from './PrivateCoverImage.jsx';
+import SettingsSection from './SettingsSection.jsx';
+import SettingsEditDialog from './SettingsEditDialog.jsx';
+import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
+import SettingsSkeleton from './SettingsSkeleton.jsx';
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
 
@@ -164,6 +168,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
   const coverUrl = resolveCoverUrl(currentSong?.cover_url || '');
 
   // 本地组件状态
+  const [wallpaperEditorOpen, setWallpaperEditorOpen] = useState(false);
   const [wallpaperTab, setWallpaperTab] = useState('preset'); // 'preset' | 'custom' | 'upload'
   const [customInput, setCustomInput] = useState(customUrl || '');
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -297,10 +302,10 @@ export default function SettingsView({ section, themePreference = 'system', sele
                     const Icon = meta.icon;
 
                     return (
-                      <div
+                      <button type="button" aria-pressed={active}
                         key={mode}
                         onClick={() => setPlayerMode(mode)}
-                        className={`wallpaper-content-surface ${active ? 'wallpaper-content-surface--selected' : ''} group flex items-center gap-3.5 rounded-2xl p-3 border transition-all cursor-pointer ${
+                        className={`wallpaper-content-surface ${active ? 'wallpaper-content-surface--selected' : ''} group flex w-full text-left items-center gap-3.5 rounded-2xl p-3 border transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${
                           active
                             ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_6%,var(--surface-raised))] shadow-2xs'
                             : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)]'
@@ -337,42 +342,23 @@ export default function SettingsView({ section, themePreference = 'system', sele
                           </div>
 
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
               </section>
 
               {/* 模块 3：全站壁纸与质感调节 */}
-              <section aria-labelledby="settings-wallpaper-title" className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 id="settings-wallpaper-title" className="text-sm font-bold text-[var(--ink)]">{t("全站壁纸与质感")}</h2>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-[var(--muted)]">
-                      {enabled ? t("已开启") : t("已关闭")}
-                    </span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-label={t("启用全站壁纸")}
-                      aria-checked={enabled}
-                      onClick={toggleEnabled}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none ${
-                        enabled ? 'bg-[var(--accent)]' : 'bg-[var(--line)]'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                          enabled ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
+              <SettingsSection title={t("全站壁纸与质感")} action={<SettingsActions>
+                <SettingsButton disabled={!enabled} onClick={() => setWallpaperEditorOpen(true)}>{t("配置壁纸")}</SettingsButton>
+                <input type="checkbox" role="switch" className="settings-switch" aria-label={t("启用全站壁纸")}
+                  checked={enabled} onChange={toggleEnabled} />
+              </SettingsActions>}>
+                <p className="break-all text-sm text-[var(--muted)]">{enabled
+                  ? activeSource === 'local' ? (localImageName || t("本地已上传壁纸"))
+                    : activeSource === 'custom' ? customUrl
+                      : t(WALLPAPER_PRESETS.find(preset => preset.id === activePresetId)?.name || '精选壁纸')
+                  : t("已关闭")}</p>
                 {enabled && imageStatus === 'loading' && (
                   <p role="status" className="text-xs text-[var(--muted)]">{t("正在加载背景图片…")}</p>
                 )}
@@ -387,8 +373,11 @@ export default function SettingsView({ section, themePreference = 'system', sele
                 )}
 
                 {/* 壁纸配置面板 */}
-                {enabled && (
-                  <div className="wallpaper-content-surface rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:p-5 space-y-4 shadow-2xs">
+                {wallpaperEditorOpen && (
+                  <SettingsEditDialog title={t("配置壁纸")} busy={isProcessingFile}
+                    onClose={() => { setCustomInput(customUrl || ''); setWallpaperEditorOpen(false); }}>
+                  <p className="mb-4 text-xs text-[var(--muted)]">{t("更改会立即生效。")}</p>
+                  <div className="space-y-4">
                     {/* 来源切换 Tabs */}
                     <div className="flex items-center gap-1 p-0.5 rounded-xl bg-current/5 border border-[var(--line)] max-w-xs">
                       <button
@@ -466,10 +455,11 @@ export default function SettingsView({ section, themePreference = 'system', sele
                     {wallpaperTab === 'custom' && (
                       <form onSubmit={handleApplyCustomUrl} className="space-y-2.5 max-w-md">
                         <div className="flex gap-2">
-                          <div className="relative flex-1">
+                          <div className="relative min-w-0 flex-1">
                             <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
                             <input
                               type="url"
+                              aria-label={t('网络图片链接')}
                               required
                               value={customInput}
                               onChange={(e) => setCustomInput(e.target.value)}
@@ -477,10 +467,9 @@ export default function SettingsView({ section, themePreference = 'system', sele
                               className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] placeholder:text-[var(--muted)] focus-visible:outline-none focus-visible:border-[var(--accent)]"
                             />
                           </div>
-                          <button
+                          <SettingsButton variant="primary"
                             type="submit"
-                            className="primary-button py-1.5 px-3.5 rounded-lg text-xs font-semibold shrink-0"
-                          >{t("应用链接")}</button>
+                          >{t("应用链接")}</SettingsButton>
                         </div>
                       </form>
                     )}
@@ -679,8 +668,12 @@ export default function SettingsView({ section, themePreference = 'system', sele
                       </div>
                     </div>
                   </div>
+                  <SettingsActions className="mt-5 border-t border-[var(--line)] pt-4">
+                    <SettingsButton closeDialog disabled={isProcessingFile}>{t("完成")}</SettingsButton>
+                  </SettingsActions>
+                  </SettingsEditDialog>
                 )}
-              </section>
+              </SettingsSection>
             </div>
           )}
 
@@ -695,7 +688,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                   {{ 'admin-assistant': t("AI 与助手"), 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("实例设置") }[activeSection] || t("站点管理")}
                 </h1>
               </header>
-              <React.Suspense fallback={<p role="status" className="py-8 text-sm text-[var(--muted)]">{t("正在打开站点管理…")}</p>}>
+              <React.Suspense fallback={<SettingsSkeleton cards={3} rows={2} label="正在打开站点管理…" />}>
                 <AdminView
                   embeddedTab={activeSection.replace('admin-', '')}
                 />

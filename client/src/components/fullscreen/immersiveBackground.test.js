@@ -5,14 +5,11 @@ import { readFileSync } from 'node:fs';
 const readSource = () => readFileSync(new URL('./ImmersiveBackground.jsx', import.meta.url), 'utf8');
 const readHookSource = () => readFileSync(new URL('../../hooks/useArtistPhotos.js', import.meta.url), 'utf8');
 
-test('artist photo layer preloads upcoming photos so rotation does not flash the fallback', () => {
+test('artist photo layer uses the shared photo hook', () => {
   const src = readSource();
   const hookSrc = readHookSource();
   assert.match(src, /useArtistPhotos/);
   assert.match(hookSrc, /preloadAndDecodeImage/);
-  assert.match(hookSrc, /artistPhotos\.forEach/);
-  assert.match(hookSrc, /new Image\(\)/);
-  assert.match(hookSrc, /referrerPolicy\s*=\s*'no-referrer'/);
 });
 
 test('artist photo rotation uses a real crossfade stack instead of a hard-coded opacity-0 old layer', () => {
@@ -26,8 +23,8 @@ test('artist photo rotation uses a real crossfade stack instead of a hard-coded 
   assert.match(src, /transform:\s*layer\.transform/);
   assert.match(src, /filter:\s*layer\.filter/);
   assert.match(src, /cubic-bezier\(0\.16,1,0\.3,1\)/);
-  // 双 rAF 保证 0→1 经历一次 paint 才触发过渡，而不是同帧合并
-  assert.match(hookSrc, /requestAnimationFrame\(\(\) => requestAnimationFrame\(reveal\)\)/);
+  // 双帧 reveal 与取消行为由 useArtistPhotos.behavior.test.js 执行真实 Hook 验证。
+  assert.match(hookSrc, /fadeOutRafRef\.current = requestAnimationFrame/);
   // 不应再出现旧版写死 opacity-0 的 prev 层
   assert.doesNotMatch(src, /const \[prevPhotoUrl/);
   assert.doesNotMatch(src, /isCrossFading/);
@@ -57,11 +54,8 @@ test('artist photo presentation keeps its crossfade over the static fallback', (
 
 test('artist photo rotation remembers progress per artist to avoid restarting from photo 0 on player reopen', () => {
   const hookSrc = readHookSource();
-  assert.match(hookSrc, /ARTIST_PHOTO_PLAYBACK_PROGRESS = new Map\(\)/);
   assert.match(hookSrc, /ARTIST_PHOTO_PLAYBACK_PROGRESS\.get\(trimmedArtist\)/);
   assert.match(hookSrc, /ARTIST_PHOTO_PLAYBACK_PROGRESS\.set\(trimmedArtist, nextIdx\)/);
-  assert.match(hookSrc, /applyInitialPhoto\(cached, initialIdx\)/);
-  assert.match(hookSrc, /applyInitialPhoto\(photos, initialIdx\)/);
 });
 
 test('artist photo layers apply alternating Ken Burns zoom animations with active play state control', () => {

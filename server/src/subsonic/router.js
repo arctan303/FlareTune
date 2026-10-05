@@ -4,6 +4,9 @@ import { reply, reject, ProtocolError, required } from './response.js';
 import { library } from './library.js';
 import { state } from './state.js';
 import { media } from './media.js';
+import { LyricSourceError } from '../services/lyricSourceError.js';
+import { LyricArtifactStoreError } from '../services/lyricArtifactStore.js';
+import { PlaybackLyricsError } from '../services/playbackLyrics.js';
 
 const MEDIA = new Set(['stream', 'download', 'getCoverArt', 'getCoverArt2', 'getLyrics', 'getLyricsBySongId']);
 const BINARY = new Set(['stream', 'download', 'getCoverArt', 'getCoverArt2']);
@@ -33,7 +36,7 @@ function failureBucket(request) {
   return bucket;
 }
 
-export async function handleSubsonic(request, env) {
+export async function handleSubsonic(request, env, executionContext) {
   const url = new URL(request.url); const p = url.searchParams;
   const format = p.get('f') === 'json' ? 'json' : 'xml';
   const binary = BINARY.has(/^\/rest\/([A-Za-z0-9]+)(?:\.view)?$/.exec(url.pathname)?.[1]);
@@ -66,7 +69,7 @@ export async function handleSubsonic(request, env) {
     method = match[1];
     if (request.method === 'HEAD' && !['stream', 'download', 'getCoverArt', 'getCoverArt2'].includes(method)) reject(0, 'HEAD is only supported for media');
     // Subsonic mutates through GET: writes must validate the current structure.
-    const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: !MUTATIONS.has(method) });
+    const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: !MUTATIONS.has(method), executionContext });
     if (instance.state !== 'ready') return failure({ code: 0, message: 'Instance is unavailable' }, 503);
     // The OpenSubsonic specification requires unauthenticated discovery.
     // This advertises code capabilities only, never account opt-in or music.
@@ -85,9 +88,9 @@ export async function handleSubsonic(request, env) {
         jukeboxRole: false, shareRole: false, videoConversionRole: false, folder: [1] } }, format);
     }
     if (method === 'scrobble') reject(0, 'Playback reporting is not supported');
-    const result = MEDIA.has(method) ? await media(method, p, request, env)
+    const result = MEDIA.has(method) ? await media(method, p, request, env, executionContext, account.accountId)
       : STATE.has(method) ? await state(method, p, env.DB, account)
-        : await library(method, p, env.DB, account.accountId);
+        : await library(method, p, env.DB, account.accountId, executionContext);
     if (binary && result instanceof Response && result.status === 503) {
       return failure({ code: 0, message: 'Service unavailable' }, 503);
     }
@@ -101,6 +104,10 @@ export async function handleSubsonic(request, env) {
       reason: error instanceof ProtocolError ? DIAGNOSTIC_REASONS.get(error.message) || 'request_rejected' : 'service_unavailable',
     }));
     if (error instanceof ProtocolError) return failure({ code: error.code, message: error.message });
+    if (error instanceof LyricSourceError) return failure({ code: 0, message: 'Lyric source temporarily unavailable' }, 503);
+    if (error instanceof LyricArtifactStoreError || error instanceof PlaybackLyricsError) {
+      return failure({ code: 0, message: 'Lyric storage temporarily unavailable' }, 503);
+    }
     if (typeof error.code === 'string' && typeof error.status === 'number') {
       return failure({ code: error.status === 404 ? 70 : error.status === 403 ? 50 : 0,
         message: error.status === 409 ? 'Conflict or quota exceeded; refresh and retry' : 'Request could not be completed' });

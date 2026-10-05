@@ -432,6 +432,24 @@ test('ready refresh injects translation without replacing original lyric timing'
   assert.equal(harness.state.isLyricsLoading, false);
 });
 
+test('background precision upgrades wait for the next playback instead of replacing a polling timeline', async () => {
+  const song = { id: 'upgrading', title: 'Song', language: 'ja' };
+  const harness = createPlayerHarness(song);
+  const baseline = createLyricsResultFromResponse(canonicalPayload({ source: 'netease', translation: null,
+    translationState: 'pending', translationStartedAt: '2026-09-11T00:00:00Z' }));
+  seedHarnessDocument(harness, baseline, baseline.lyrics);
+  const previous = harness.state.lyrics;
+  const upgraded = createLyricsResultFromResponse(canonicalPayload());
+  await loadLyricsDocumentIntoStore({ currentSong: song, resolvedHasLyrics: true,
+    getPlayerState: harness.getPlayerState, preserveExisting: true, fetchLyrics: async () => upgraded });
+  assert.equal(harness.state.lyrics, previous);
+  assert.equal(harness.state.lyricSyncMode, 'line');
+  assert.equal(harness.state.translationState, 'unavailable');
+  await loadLyricsDocumentIntoStore({ currentSong: song, resolvedHasLyrics: true,
+    getPlayerState: harness.getPlayerState, fetchLyrics: async () => upgraded });
+  assert.equal(harness.state.lyricSyncMode, 'word');
+});
+
 test('pending refresh atomically replaces the full document when any original identity field changes', async () => {
   const song = { id: 'loaded', title: '歌', artist: '歌手', language: 'ja' };
   const startedAt = '2026-09-11T00:00:00.000Z';

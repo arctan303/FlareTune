@@ -61,9 +61,7 @@ export async function state(method, p, db, account) {
   }
   if (['getStarred', 'getStarred2', 'star', 'unstar'].includes(method)) {
     if (p.has('albumId') || p.has('artistId')) reject(0, 'Only song favorites are supported');
-    const list = await music.listPlaylists(db, id, now);
-    const favorite = list.playlists.find((r) => r.kind === 'favorite');
-    const row = await music.getPlaylist(db, id, favorite.id);
+    const row = await music.getFavorite(db, id, now);
     if (method.startsWith('get')) return { [method === 'getStarred' ? 'starred' : 'starred2']: {
       artist: [], album: [], song: row.songs.map((s) => song({ ...s, starred: s.addedAt })) } };
     const ids = p.getAll('id');

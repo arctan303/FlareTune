@@ -29,6 +29,25 @@ const route = (req, { session = admin, db = makeSongDb(), store = createMemoryLy
   req, new URL(req.url), db, {}, session, env, { store, ...deps },
 );
 
+test('manual search source filter limits provider calls and preserves match warnings', async () => {
+  const calls = [];
+  const deps = { listSourceCandidates: async source => {
+    calls.push(source);
+    return [{ source, providerLyricId: 'one', matchedTitle: 'Night Song (Live)',
+      matchedArtist: 'Singer', versionMismatch: true, durationDelta: 20 }];
+  } };
+  const response = await route(request(path('/candidates?source=netease')), { deps });
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ['netease']);
+  assert.equal(payload.data.candidates[0].versionMismatch, true);
+  assert.equal(payload.data.candidates[0].durationDelta, 20);
+  for (const source of ['auto', 'invalid']) {
+    assert.equal((await route(request(path(`/candidates?source=${source}`)), { deps })).status, 400);
+  }
+  assert.deepEqual(calls, ['netease']);
+});
+
 test('only new workspace path is dispatched and a verified normal local account is mandatory', async () => {
   const store = createMemoryLyricStore(makeReadyArtifact());
   assert.equal(await route(request('/api/manage/lyrics/song-1'), { store }), null);

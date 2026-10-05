@@ -6,6 +6,8 @@ import { basename, join, resolve, sep } from 'node:path';
 import { startPreview } from '../dev/preview-worker.mjs';
 import { RemoteCatalog } from '../batch-ingest/remote.mjs';
 import { IngestAgent, configureAgent, readAgentConfig } from './agent.mjs';
+import { openIngestHistory } from './history.mjs';
+import { classifyDeviceFiles } from '../../client/src/utils/deviceIngestClassification.js';
 
 const setupSecret = 'local-preview-only-claim-secret-not-for-deployment-2026';
 const password = 'a private local test passphrase 2026';
@@ -16,6 +18,7 @@ test('one selected file travels from local Node to the existing catalog while an
   assert.ok(resolve(directory).startsWith(resolve(tmpdir()) + sep));
   const preview = await startPreview({ ephemeral: true, seedEmpty: true,
     workerTestBindings: { SETUP_SECRET: setupSecret } });
+  let history;
   try {
     const mp3 = Uint8Array.of(0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00);
     await writeFile(join(directory, 'selected.mp3'), mp3);
@@ -39,6 +42,8 @@ test('one selected file travels from local Node to the existing catalog while an
 
     const remote = new RemoteCatalog(preview.origin);
     await remote.login('owner', password);
+    const historyPath = join(directory, 'history.sqlite');
+    history = await openIngestHistory(historyPath, preview.origin, remote.account.accountId);
     const originalJson = remote.json.bind(remote);
     let progressUpdates = 0;
     remote.json = async (path, options) => {
@@ -46,7 +51,7 @@ test('one selected file travels from local Node to the existing catalog while an
       return originalJson(path, options);
     };
     const agent = new IngestAgent({ config: { deviceId, name: '测试设备', roots: [directory] },
-      remote, log: () => {} });
+      remote, history, log: () => {} });
     await agent.heartbeat();
     const files = await agent.scan();
     assert.equal(files.length, 2);
@@ -61,8 +66,10 @@ test('one selected file travels from local Node to the existing catalog while an
       method: 'POST', body: JSON.stringify({ kind: 'audio', fileId: selected.id }),
       headers: { 'Content-Type': 'application/json' },
     });
+    history.close();
+    history = await openIngestHistory(historyPath, preview.origin, remote.account.accountId);
     const restarted = new IngestAgent({ config: { deviceId, name: '测试设备', roots: [directory] },
-      remote, log: () => {} });
+      remote, history, log: () => {} });
     const rescanned = await restarted.scan();
     assert.equal(rescanned.find((file) => file.name === 'selected.mp3')?.id, selected.id,
       'unchanged files must keep the same ID after a device process restart');
@@ -72,15 +79,25 @@ test('one selected file travels from local Node to the existing catalog while an
     assert.equal(result.job.status, 'done', JSON.stringify(result));
     assert.match(result.job.url, /^\/media\/audio\/[a-f0-9]{16}\.mp3$/);
     assert.equal((await remote.mediaHead('audio', job.mediaId, 'mp3')).status, 200);
+    const afterTransfer = await remote.json(`/api/admin/ingest/devices/${deviceId}/manifest`);
+    const transferred = afterTransfer.files.find((file) => file.id === selected.id);
+    assert.equal(transferred.ingest.audio.id, job.id);
+    assert.equal(classifyDeviceFiles([transferred], [])[0].ingestStatus, 'unfinished');
     const songId = 'agent-selected';
     await remote.createSong({ id: songId, title: basename(selected.name, '.mp3'),
       audio_url: result.job.url, artist: null, album: null, duration: null, cover_url: null,
       language: null });
     assert.equal((await remote.getSong(songId)).title, 'selected');
+    history.close();
+    history = await openIngestHistory(historyPath, preview.origin, remote.account.accountId);
+    const finalAgent = new IngestAgent({ config: { deviceId, name: '测试设备', roots: [directory] }, remote, history, log: () => {} });
+    const finalFiles = await finalAgent.scan();
+    assert.equal(classifyDeviceFiles(finalFiles, await remote.listSongs()).find((file) => file.id === selected.id).ingestStatus, 'saved');
     assert.equal((await remote.json(`/api/admin/ingest/devices/${deviceId}/poll`)).jobs.length, 0);
     assert.ok(!(await remote.listSongs()).some((song) => song.title === 'untouched'));
     await remote.logout();
   } finally {
+    history?.close();
     await preview.stop();
     await rm(directory, { recursive: true, force: true });
   }

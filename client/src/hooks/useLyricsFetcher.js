@@ -22,6 +22,17 @@ const TRANSLATION_POLL_INTERVAL_MS = 2_000;
 const TRANSLATION_POLL_WINDOW_MS = 30_000;
 const pendingTranslationCompletions = new Map();
 
+const waitForLyricsRetry = (delayMs, signal) => new Promise((resolve) => {
+    if (signal?.aborted) { resolve(); return; }
+    const finish = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', finish);
+        resolve();
+    };
+    const timer = setTimeout(finish, delayMs);
+    signal?.addEventListener('abort', finish, { once: true });
+});
+
 const normalizeSongId = (songId) => (
     songId === undefined || songId === null ? '' : String(songId)
 );
@@ -486,8 +497,9 @@ export async function loadLyricsDocumentIntoStore({
     isCancelled = () => false,
     lyricsRefreshRevision = null,
     preserveExisting = false,
+    signal = null,
     reportError = (...args) => console.error(...args),
-    waitBeforeRetry = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+    waitBeforeRetry = waitForLyricsRetry,
 }) {
     const store = getPlayerState;
     const resetDocumentMetadata = () => {
@@ -518,6 +530,7 @@ export async function loadLyricsDocumentIntoStore({
     const requestIdentity = { songId: currentSong.id, lyricsRefreshRevision };
     const isCurrent = () => (
         !isCancelled()
+        && !signal?.aborted
         && store().currentSong?.id === requestIdentity.songId
         && (requestIdentity.lyricsRefreshRevision === null
             || store().lyricsRefreshRevision === requestIdentity.lyricsRefreshRevision)
@@ -537,7 +550,7 @@ export async function loadLyricsDocumentIntoStore({
         for (let attempt = 0; ; attempt += 1) {
             if (!isCurrent()) return null;
             try {
-                result = await fetchLyrics(currentSong);
+                result = await fetchLyrics(currentSong, signal ? { signal } : undefined);
                 break;
             } catch (error) {
                 const status = Number(error?.status);
@@ -546,11 +559,23 @@ export async function loadLyricsDocumentIntoStore({
                 if (preserveExisting || !retryable || attempt >= LYRICS_RETRY_DELAYS_MS.length || !isCurrent()) {
                     throw error;
                 }
-                await waitBeforeRetry(LYRICS_RETRY_DELAYS_MS[attempt]);
+                await waitBeforeRetry(LYRICS_RETRY_DELAYS_MS[attempt], signal);
             }
         }
         if (!isCurrent()) return null;
         const currentState = store();
+        const syncQuality = { none: 0, line: 1, word: 2 };
+        if (preserveExisting && currentState.lyrics?.length > 0
+            && (syncQuality[result.syncMode] ?? 0) > (syncQuality[currentState.lyricSyncMode] ?? 0)) {
+            // A background upgrade belongs to the next playback. In-flight
+            // translation polling must not replace this playback's timeline.
+            setTranslationSnapshot(currentState, {
+                available: Boolean(currentState.translationAvailable),
+                state: currentState.translationAvailable ? 'ready' : 'unavailable',
+                startedAt: null,
+            });
+            return result;
+        }
         if (preserveExisting && hasSameOriginalDocument(currentState, result)) {
             const currentLyrics = currentState.lyrics;
             const mergedLyrics = mergeTranslationIntoExistingLyrics(currentLyrics, result.lyrics, {
@@ -590,14 +615,14 @@ export function useLyricsFetcher({ enabled = true } = {}) {
 
     useEffect(() => {
         if (!enabled) return undefined;
-        let cancelled = false;
+        const controller = new AbortController();
         void loadLyricsDocumentIntoStore({
             currentSong,
             resolvedHasLyrics,
             lyricsRefreshRevision,
-            isCancelled: () => cancelled,
+            signal: controller.signal,
         });
-        return () => { cancelled = true; };
+        return () => controller.abort();
     }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision]);
 
     useEffect(() => {

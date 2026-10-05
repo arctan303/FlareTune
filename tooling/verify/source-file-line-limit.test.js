@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx']);
 const EXCLUDED_DIRECTORIES = new Set([
   '.git',
+  '.tmp',
   '.playwright-cli',
   '.wrangler',
   'coverage',
@@ -78,7 +79,7 @@ test('line-limit scanner fails a 1000-line fixture and ignores generated directo
     };
     await writeLines(join(fixtureRoot, 'small.js'), 999);
     await writeLines(join(fixtureRoot, 'too-large.tsx'), 1_000);
-    for (const excluded of ['node_modules', 'dist', 'output', 'music-data', '.wrangler', '.playwright-cli']) {
+    for (const excluded of ['node_modules', 'dist', 'output', 'music-data', '.tmp', '.wrangler', '.playwright-cli']) {
       await writeLines(join(fixtureRoot, excluded, 'generated.js'), 1_001);
     }
 

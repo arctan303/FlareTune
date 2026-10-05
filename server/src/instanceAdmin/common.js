@@ -29,7 +29,10 @@ export async function atomic(db, statements) {
 }
 
 export function changed(result) {
-  return result?.meta?.changes === 1;
+  // D1 reports sqlite3_total_changes(), including writes performed by triggers.
+  // Each caller's SQL limits its target and checks ownership/revision itself.
+  const count = result?.meta?.changes;
+  return Number.isSafeInteger(count) && count > 0;
 }
 
 export function validAccountId(value) {
