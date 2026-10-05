@@ -51,6 +51,7 @@
 }
 
 .catalog-skeleton__track-text { flex: 1; min-width: 0; }
+.track-list--detail .catalog-skeleton__track-cover { width: 52px; height: 52px; }
 .catalog-skeleton__title { height: 14px; width: 65%; margin-top: 12px; }
 .catalog-skeleton__subtitle { height: 10px; width: 42%; margin-top: 8px; }
 .catalog-skeleton__track-text .catalog-skeleton__title { margin-top: 0; }

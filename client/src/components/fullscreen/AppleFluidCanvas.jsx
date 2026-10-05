@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { imageLoadRegistry } from '../../utils/imageLoadRegistry.js';
 import { usePrivateMediaRouteRevision } from '../../hooks/usePrivateMediaRouteRevision.js';
 import { isTextureAuthorized } from '../../utils/privateTextureAuthorization.js';
+import { usePageVisibility } from '../../hooks/usePageVisibility.js';
 
 /* ==========================================================================
    Apple Music 调色提取器
@@ -290,16 +291,20 @@ export default function AppleFluidCanvas({
     isPlaying = true,
     isBuffering = false,
     suspended = false,
+    prefersReducedMotion = false,
     className = '',
 }) {
     const routeRevision = usePrivateMediaRouteRevision();
+    const pageVisible = usePageVisibility();
     const [textureAuthorization, setTextureAuthorization] = useState(null);
     const canvasRef = useRef(null);
     const glRef = useRef(null);
     const programRef = useRef(null);
+    const uniformsRef = useRef(null);
     const texturesRef = useRef({ current: null, prev: null });
     const crossfadeRef = useRef({ startTime: 0, progress: 1.0 });
     const timeRef = useRef(0);
+    const lastFrameTimeRef = useRef(null);
     const animFrameRef = useRef(null);
     const lastCoverUrlRef = useRef('');
     const lastRouteRevisionRef = useRef(routeRevision);
@@ -309,38 +314,43 @@ export default function AppleFluidCanvas({
     const isPlayingRef = useRef(isPlaying);
     const isBufferingRef = useRef(isBuffering);
     const suspendedRef = useRef(suspended);
+    const prefersReducedMotionRef = useRef(prefersReducedMotion);
     isPlayingRef.current = isPlaying;
     isBufferingRef.current = isBuffering;
-    suspendedRef.current = suspended;
+    suspendedRef.current = suspended || !pageVisible;
+    prefersReducedMotionRef.current = prefersReducedMotion;
 
     // 渲染循环（内部始终读取最新的 Ref 状态）
-    const renderLoop = () => {
+    const renderLoop = (timestamp) => {
         const gl = glRef.current;
         const program = programRef.current;
         const canvas = canvasRef.current;
         if (!gl || !program || !canvas || suspendedRef.current) {
+            lastFrameTimeRef.current = null;
             animFrameRef.current = null;
             return;
         }
 
         gl.useProgram(program);
 
-        const playing = isPlayingRef.current && !isBufferingRef.current;
+        const reducedMotion = prefersReducedMotionRef.current;
+        const playing = isPlayingRef.current && !isBufferingRef.current && !reducedMotion;
         if (playing) {
-            timeRef.current += 0.008; // 黄金均衡流速 (沉静、丝滑且清晰可辨)
-        }
+            const previous = lastFrameTimeRef.current;
+            // 原 60Hz 每帧 0.008；首帧/恢复帧仅建立时间基准，长间隔不跳跃。
+            const elapsed = previous === null ? 0 : Math.max(0, timestamp - previous);
+            timeRef.current += elapsed <= 250 ? elapsed * 0.00048 : 0;
+            lastFrameTimeRef.current = timestamp;
+        } else lastFrameTimeRef.current = null;
 
-        if (crossfadeRef.current.progress < 1.0) {
+        if (reducedMotion) {
+            crossfadeRef.current.progress = 1.0;
+        } else if (crossfadeRef.current.progress < 1.0) {
             const elapsed = performance.now() - crossfadeRef.current.startTime;
             crossfadeRef.current.progress = Math.min(1.0, elapsed / 850);
         }
 
-        const uTime = gl.getUniformLocation(program, 'u_time');
-        const uCrossfade = gl.getUniformLocation(program, 'u_crossfade');
-        const uResolution = gl.getUniformLocation(program, 'u_resolution');
-        const uAspect = gl.getUniformLocation(program, 'u_aspect');
-        const uTexCurrent = gl.getUniformLocation(program, 'u_tex_current');
-        const uTexPrev = gl.getUniformLocation(program, 'u_tex_prev');
+        const { uTime, uCrossfade, uResolution, uAspect, uTexCurrent, uTexPrev } = uniformsRef.current;
 
         gl.uniform1f(uTime, timeRef.current);
         gl.uniform1f(uCrossfade, crossfadeRef.current.progress);
@@ -362,6 +372,7 @@ export default function AppleFluidCanvas({
             animFrameRef.current = requestAnimationFrame(renderLoop);
         } else {
             animFrameRef.current = null;
+            lastFrameTimeRef.current = null;
         }
     };
 
@@ -388,6 +399,14 @@ export default function AppleFluidCanvas({
         const program = createProgram(gl, VS_SOURCE, FS_SOURCE);
         if (!program) return;
         programRef.current = program;
+        uniformsRef.current = {
+            uTime: gl.getUniformLocation(program, 'u_time'),
+            uCrossfade: gl.getUniformLocation(program, 'u_crossfade'),
+            uResolution: gl.getUniformLocation(program, 'u_resolution'),
+            uAspect: gl.getUniformLocation(program, 'u_aspect'),
+            uTexCurrent: gl.getUniformLocation(program, 'u_tex_current'),
+            uTexPrev: gl.getUniformLocation(program, 'u_tex_prev'),
+        };
 
         const positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -423,6 +442,8 @@ export default function AppleFluidCanvas({
                 canvas.width = w;
                 canvas.height = h;
                 gl.viewport(0, 0, w, h);
+                // 改尺寸会清空缓冲；暂停状态也必须补一帧。
+                triggerRender();
             }
         };
 
@@ -433,10 +454,14 @@ export default function AppleFluidCanvas({
         return () => {
             window.removeEventListener('resize', handleResize);
             if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+            animFrameRef.current = null;
             if (texturesRef.current.current) gl.deleteTexture(texturesRef.current.current);
             if (texturesRef.current.prev) gl.deleteTexture(texturesRef.current.prev);
             if (program) gl.deleteProgram(program);
             if (positionBuffer) gl.deleteBuffer(positionBuffer);
+            glRef.current = null;
+            programRef.current = null;
+            uniformsRef.current = null;
         };
     }, []);
 
@@ -520,19 +545,11 @@ export default function AppleFluidCanvas({
         };
     }, [coverUrl, routeRevision]);
 
-    // 播放/缓冲状态变化时触发渲染循环检查
+    // 恢复时先补静态帧；是否继续动画由循环读取最新偏好与播放状态决定。
     useEffect(() => {
-        if ((isPlaying && !isBuffering) || crossfadeRef.current.progress < 1.0) {
-            triggerRender();
-        }
-    }, [isPlaying, isBuffering]);
-
-    // 挂起状态恢复时重新启动渲染循环（保留当前帧与纹理，不重新初始化）
-    useEffect(() => {
-        if (!suspended && ((isPlaying && !isBuffering) || crossfadeRef.current.progress < 1.0)) {
-            triggerRender();
-        }
-    }, [suspended, isPlaying, isBuffering]);
+        lastFrameTimeRef.current = null;
+        if (!suspended && pageVisible) triggerRender();
+    }, [suspended, isPlaying, isBuffering, prefersReducedMotion, pageVisible]);
 
     const textureVisible = isTextureAuthorized(coverUrl, routeRevision, textureAuthorization, imageLoadRegistry);
 

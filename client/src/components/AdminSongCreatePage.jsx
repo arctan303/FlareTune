@@ -9,6 +9,7 @@ import { catalogSaveApplied } from '../utils/catalogSaveVerification.js';
 import { compareSongIdentity, duplicateReviewSignature, findCatalogDuplicates, findQueueDuplicates } from '../utils/songDuplicateCheck.js';
 import { suggestSongLanguage } from '../utils/songLanguageSuggestion.js';
 import { resolveDeviceLanguage } from '../utils/deviceFolderLanguage.js';
+import { excludeUnreviewedDuplicates } from '../utils/deviceIngestClassification.js';
 import { createCatalogSong as createSong, getCatalogSong as getSong, listCatalogSongs as listSongs,
   updateCatalogSong as updateSong, uploadCatalogMedia as uploadMedia } from '../services/catalogAdminApi.js';
 import { useUIStore } from '../store/useUIStore.js';
@@ -343,7 +344,8 @@ export default function AdminSongCreatePage() {
           album: common.album?.trim() || '', duration: file.duration || '',
           language: languageGuess.code },
         selected: true, languageGuess, languageEdited: false,
-        deviceJobs: {},
+        deviceJobs: Object.fromEntries(['audio', 'cover'].filter((kind) => file.ingest?.[kind]?.id)
+          .map((kind) => [kind, file.ingest[kind].id])),
         duplicateMatches: [], duplicateState: 'unchecked', allowDuplicate: false,
         replaceTarget: null, reviewStale: false, checkToken: 0,
         uploaded: { audio: null, cover: null }, status: 'ready',
@@ -632,7 +634,7 @@ export default function AdminSongCreatePage() {
             className={'rounded-xl px-4 py-2 text-sm font-semibold ' +
               (source === 'device' ? 'primary-button' : 'border border-[var(--line)]')}>{t("已连接设备目录")}</button>
         </div>
-        {source === 'device' ? <div className="mt-4"><IngestDeviceSource disabled={saving} onAdd={addDeviceFiles} sessionGuardRef={sessionGuardRef} /></div> : <div
+        {source === 'device' ? <div className="mt-4"><IngestDeviceSource disabled={saving} onAdd={addDeviceFiles} sessionGuardRef={sessionGuardRef} queueEntries={entries} /></div> : <div
           className={'mt-3 rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-colors ' +
             (dragging ? 'border-[var(--accent)] bg-[var(--surface)]' : 'border-[var(--line)]')}
           onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
@@ -730,6 +732,12 @@ export default function AdminSongCreatePage() {
             commitEntries((current) => current.map((entry) => entry.status === 'saved' || !keys.has(entry.key)
               ? entry : { ...entry, selected: false }));
           }}>{t("取消筛选勾选")}</button>
+          <button type="button" disabled={saving || hasChecking || !duplicateCount} onClick={() => {
+            const before = entriesRef.current.length;
+            commitEntries(excludeUnreviewedDuplicates);
+            setMessage(t('已从清单移除 {count} 首疑似重复。', { count: before - entriesRef.current.length }));
+            refreshLaterQueueMatches(0);
+          }}>{t('排除重复')}</button>
         </div>
 
         <div className="mt-4 space-y-2">

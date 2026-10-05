@@ -7,8 +7,24 @@ import {
     getInterludeDotTimes,
     INTERLUDE_CONFIG,
     resolveInterludeWindow,
+    getNextInterludeBoundary,
 } from './interludeState.js';
 import { findActiveLyricLineIndex } from './lyricTimeline.js';
+
+test('boundary scheduling visits interlude entry, every dot stage and exit without continuous frames', () => {
+    const lyrics = [{ time: 0, endTime: 4, text: 'First' }, { time: 24, endTime: 26, text: 'Second' }];
+    const params = { lyrics, currentLyricIndex: 0, lineIndex: 0, syncMode: 'line', currentTime: 0 };
+    const states = [];
+    for (let index = 0; index < 5; index += 1) {
+        const next = getNextInterludeBoundary(params);
+        assert.ok(next > params.currentTime);
+        params.currentTime = next;
+        const state = getInterludeState(params);
+        states.push([state.isInterlude, state.stage]);
+    }
+    assert.deepEqual(states, [[true, 0], [true, 1], [true, 2], [true, 3], [false, 0]]);
+    assert.equal(getNextInterludeBoundary({ ...params, isUserScrolling: true }), null);
+});
 
 test('getLyricSingDuration: scales proportionally with character count', () => {
     const shortDur = getLyricSingDuration('你好', 12);

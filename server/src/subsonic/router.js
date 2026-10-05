@@ -69,7 +69,7 @@ export async function handleSubsonic(request, env, executionContext) {
     method = match[1];
     if (request.method === 'HEAD' && !['stream', 'download', 'getCoverArt', 'getCoverArt2'].includes(method)) reject(0, 'HEAD is only supported for media');
     // Subsonic mutates through GET: writes must validate the current structure.
-    const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: !MUTATIONS.has(method) });
+    const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: !MUTATIONS.has(method), executionContext });
     if (instance.state !== 'ready') return failure({ code: 0, message: 'Instance is unavailable' }, 503);
     // The OpenSubsonic specification requires unauthenticated discovery.
     // This advertises code capabilities only, never account opt-in or music.
@@ -90,7 +90,7 @@ export async function handleSubsonic(request, env, executionContext) {
     if (method === 'scrobble') reject(0, 'Playback reporting is not supported');
     const result = MEDIA.has(method) ? await media(method, p, request, env, executionContext, account.accountId)
       : STATE.has(method) ? await state(method, p, env.DB, account)
-        : await library(method, p, env.DB, account.accountId);
+        : await library(method, p, env.DB, account.accountId, executionContext);
     if (binary && result instanceof Response && result.status === 503) {
       return failure({ code: 0, message: 'Service unavailable' }, 503);
     }

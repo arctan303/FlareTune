@@ -3,6 +3,7 @@
 // determines the account used in a query.
 import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
 import { imageUrl, userImagesReady } from '../services/userImages.js';
+import { hotpathSchemaReady } from '../instance/hotpathSchema.js';
 
 const MAX_REGULAR_PLAYLISTS = 50;
 const MAX_PLAYLIST_SONGS = 500;
@@ -153,6 +154,21 @@ const getPlaylist = async (db, accountId, playlistId) => {
   return { ...current, songs: rows(result).map(({ sort_order, added_at, ...song }) => ({
     ...song, sortOrder: Number(sort_order), addedAt: Number(added_at),
   })) };
+};
+const getFavorite = async (db, accountId, now) => {
+  const read = () => db.prepare(`SELECT p.id AS favorite_id, p.revision,
+    s.id, s.title, s.artist, s.album, s.duration, s.audio_url, s.cover_url, s.language,
+    ps.sort_order, ps.added_at FROM Member_Playlists p
+    LEFT JOIN Member_Playlist_Songs ps ON ps.playlist_id = p.id
+    LEFT JOIN Songs s ON s.id = ps.song_id
+    WHERE p.account_id = ? AND p.kind = 'favorite' ORDER BY ps.sort_order, ps.song_id`).bind(accountId).all();
+  let result = rows(await read());
+  if (!result.length) { await ensureFavorite(db, accountId, now); result = rows(await read()); }
+  if (!result.length) throw new Error('Favorite playlist unavailable');
+  return { id: result[0].favorite_id, revision: Number(result[0].revision),
+    songs: result.filter(row => row.id !== null).map(({ favorite_id, revision, sort_order, added_at, ...song }) => ({
+      ...song, sortOrder: Number(sort_order), addedAt: Number(added_at),
+    })) };
 };
 const listPlaylists = async (db, accountId, now) => {
   await ensureFavorite(db, accountId, now);
@@ -453,6 +469,15 @@ const cleanEvents = (events) => {
 const recordPlays = async (db, accountId, input, now) => {
   const events = cleanEvents(input.events);
   if (!events.length) return { recorded: 0, acceptedEventIds: [] };
+  const cachedReceipts = await hotpathSchemaReady(db);
+  if (cachedReceipts) {
+    // New accounts need a row; existing accounts avoid evaluating COUNT.
+    // Also repairs an absent counter before any quota decision or cleanup.
+    await db.prepare(`INSERT INTO Member_Play_Receipt_Counts(account_id, receipt_count)
+      SELECT ?, (SELECT COUNT(*) FROM Member_Play_Events WHERE account_id = ?)
+      WHERE NOT EXISTS (SELECT 1 FROM Member_Play_Receipt_Counts WHERE account_id = ?)`)
+      .bind(accountId, accountId, accountId).run();
+  }
   await db.prepare('DELETE FROM Member_Play_Events WHERE account_id = ? AND received_at < ?')
     .bind(accountId, now - RECEIPT_RETENTION_MS).run();
   const inventory = await db.prepare(`WITH incoming(event_id, song_id) AS
@@ -466,8 +491,15 @@ const recordPlays = async (db, accountId, input, now) => {
     const item = available.get(event.eventId);
     return Boolean(item?.song_exists) && !item?.already_received;
   });
-  const current = Number((await db.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
-    WHERE account_id = ? AND received_at >= ?`).bind(accountId, now - RECEIPT_RETENTION_MS).first())?.count || 0);
+  const receiptCount = async () => {
+    const row = cachedReceipts
+      ? await db.prepare('SELECT receipt_count AS count FROM Member_Play_Receipt_Counts WHERE account_id = ?').bind(accountId).first()
+      : await db.prepare('SELECT COUNT(*) AS count FROM Member_Play_Events WHERE account_id = ?')
+        .bind(accountId).first();
+    if (!Number.isSafeInteger(row?.count) || row.count < 0) throw new Error('Invalid receipt count');
+    return row.count;
+  };
+  const current = await receiptCount();
   if (current + fresh.length > MAX_PLAY_EVENT_RECEIPTS) {
     fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
   }
@@ -476,12 +508,17 @@ const recordPlays = async (db, accountId, input, now) => {
   // This deliberately conflicts with an existing receipt when the quota is
   // exhausted, rolling back the whole batch (the same guard pattern used for
   // playlist revisions above).
-  const statements = [db.prepare(`INSERT INTO Member_Play_Events
+  const quotaGuard = cachedReceipts ? db.prepare(`INSERT INTO Member_Play_Receipt_Counts(account_id, receipt_count)
+    SELECT account_id, receipt_count FROM Member_Play_Receipt_Counts
+    WHERE account_id = ? AND receipt_count + ? > ?`).bind(accountId, fresh.length, MAX_PLAY_EVENT_RECEIPTS)
+    : db.prepare(`INSERT INTO Member_Play_Events
     (account_id, event_id, song_id, played_at, received_at)
     SELECT e.account_id, e.event_id, e.song_id, e.played_at, e.received_at
-    FROM Member_Play_Events e WHERE e.account_id = ?
-      AND (SELECT COUNT(*) FROM Member_Play_Events WHERE account_id = ?) + ? > ?
-    LIMIT 1`).bind(accountId, accountId, fresh.length, MAX_PLAY_EVENT_RECEIPTS)];
+    FROM (SELECT account_id,event_id,song_id,played_at,received_at FROM Member_Play_Events
+      WHERE account_id = ? LIMIT 1) e
+    WHERE (SELECT COUNT(*) FROM Member_Play_Events WHERE account_id = ?) + ? > ?`)
+      .bind(accountId, accountId, fresh.length, MAX_PLAY_EVENT_RECEIPTS);
+  const statements = [quotaGuard];
   fresh.forEach((event) => statements.push(db.prepare(`INSERT INTO Member_Play_Events
     (account_id, event_id, song_id, played_at, received_at)
     SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM Songs WHERE id = ?)
@@ -492,8 +529,7 @@ const recordPlays = async (db, accountId, input, now) => {
     try {
       results = (await db.batch(statements)).slice(1);
     } catch (error) {
-      const latest = Number((await db.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
-        WHERE account_id = ?`).bind(accountId).first())?.count || 0);
+      const latest = await receiptCount();
       if (latest + fresh.length > MAX_PLAY_EVENT_RECEIPTS) {
         fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
       }
@@ -542,7 +578,7 @@ const ACCOUNT_PATHS = /^\/api\/account\/(?:playlists(?:\/|$)|playlist-songs$|pla
 
 // Internal adapters must provide a verified account id; never export an HTTP
 // bypass. All writes retain the same quotas, ownership and revision guards.
-export const accountMusic = Object.freeze({ listPlaylists, getPlaylist, createPlaylist,
+export const accountMusic = Object.freeze({ listPlaylists, getPlaylist, getFavorite, createPlaylist,
   replaceSongs, deletePlaylist });
 
 // Assistant tools call the same account-scoped operations after the outer

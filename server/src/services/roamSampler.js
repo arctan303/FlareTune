@@ -1,12 +1,13 @@
 // Cache only shared catalog IDs/languages. Every sampled song is rechecked in D1.
 import { buildSongLanguageFilter } from '../utils/songLanguage.js';
 import { runtimeSongColumns } from '../utils/songProjection.js';
+import { keepTaskAlive } from '../utils/sharedRequestTask.js';
 
 export function createRoamSampler({ ttlMs = 3_600_000, maxIds = 100_000 } = {}) {
   const snapshots = new WeakMap();
-  async function directory(db, now, measure) {
+  async function directory(db, now, measure, executionContext) {
     const cached = snapshots.get(db);
-    if (cached && now - cached.startedAt < ttlMs) return cached.promise;
+    if (cached && now - cached.startedAt < ttlMs) return keepTaskAlive(cached.promise, executionContext);
     const entry = { startedAt: now };
     entry.promise = (async () => {
       const result = await db.prepare(`SELECT id, language FROM Songs
@@ -16,6 +17,7 @@ export function createRoamSampler({ ttlMs = 3_600_000, maxIds = 100_000 } = {}) 
       if (result.results.length > maxIds && snapshots.get(db) === entry) snapshots.delete(db);
       return result.results;
     })();
+    keepTaskAlive(entry.promise, executionContext);
     snapshots.set(db, entry);
     try { return await entry.promise; }
     catch (error) {
@@ -26,7 +28,7 @@ export function createRoamSampler({ ttlMs = 3_600_000, maxIds = 100_000 } = {}) 
   return {
     clear(db) { snapshots.delete(db); },
     async sample(db, { language = null, recent = [], queued = [], buffered = [], limit = 10,
-      recentRatio = 0.2, now = Date.now(), random = Math.random, measure } = {}) {
+      recentRatio = 0.2, now = Date.now(), random = Math.random, measure, executionContext } = {}) {
       const filter = buildSongLanguageFilter(language === 'all' ? null : language);
       if (!filter || !Number.isInteger(limit) || limit < 1 || limit > 50) throw new Error('INVALID_SAMPLE');
       if (recentRatio !== null && (!Number.isFinite(recentRatio) || recentRatio < 0 || recentRatio > 1)) throw new Error('INVALID_RATIO');
@@ -34,7 +36,7 @@ export function createRoamSampler({ ttlMs = 3_600_000, maxIds = 100_000 } = {}) 
       // Recent IDs are ordered oldest to newest. Queue/buffer exclusions never relax.
       const history = [...new Set([...recent].reverse().map(String))].reverse();
       for (let attempt = 0; attempt < 2; attempt++) {
-        const catalog = await directory(db, now, measure);
+        const catalog = await directory(db, now, measure, executionContext);
         const range = catalog.filter((song) => !filter.bindings.length || filter.bindings.includes(song.language));
         const windowSize = recentRatio === null ? 200 : Math.min(5000, Math.floor(range.length * recentRatio));
         const candidates = range.filter((song) => !hard.has(String(song.id))).map((song) => String(song.id));

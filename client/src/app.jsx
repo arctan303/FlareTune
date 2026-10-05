@@ -9,6 +9,8 @@ import AppSidebar from './components/AppSidebar.jsx';
 import ShellEnvironment from './components/ShellEnvironment.jsx';
 import MainContent from './components/MainContent.jsx';
 import PlayerBar from './components/PlayerBar.jsx';
+import FullscreenPlayerSurface from './components/FullscreenPlayerSurface.jsx';
+import { createRetryablePlayerImport } from './utils/retryablePlayerImport.js';
 import AddToPlaylistModal from './components/AddToPlaylistModal.jsx';
 import QuickSongEditDialog from './components/QuickSongEditDialog.jsx';
 import { usePlayerStore } from './store/usePlayerStore';
@@ -40,11 +42,12 @@ const retryDynamicImport = (importer, retries = 2, delayMs = 600) => async () =>
     }
 };
 
-const loadFullScreenPlayer = () => import('./components/FullScreenPlayer.jsx').catch((err) => {
-    console.warn('全屏播放器组件加载重试中...', err);
-    return import('./components/FullScreenPlayer.jsx');
-});
-const FullScreenPlayer = React.lazy(loadFullScreenPlayer);
+const loadFullScreenPlayer = createRetryablePlayerImport(() => import('./components/FullScreenPlayer.jsx'));
+const closeFullScreenPlayer = () => {
+    const state = useUIStore.getState();
+    state.setIsFullScreenClosing(false);
+    state.setIsFullScreen(false);
+};
 const PlaylistDrawer = React.lazy(retryDynamicImport(() => import('./components/PlaylistDrawer.jsx')));
 const AccountPlaylistDrawer = React.lazy(retryDynamicImport(() => import('./components/AccountPlaylistDrawer.jsx')));
 const BackgroundDrawer = React.lazy(retryDynamicImport(() => import('./components/BackgroundDrawer.jsx')));
@@ -80,38 +83,6 @@ const useOpenedOnce = (isOpen) => {
     }, [isOpen]);
     return opened || isOpen;
 };
-
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, errorInfo) {
-    console.error('[ErrorBoundary] Lazy component crashed:', error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="theme-fatal-error fixed inset-0 z-[200] flex items-center justify-center px-6" role="alert">
-          <div className="state-panel state-panel--error w-full max-w-md px-8 py-7 text-center">
-            <p className="state-panel__eyebrow">PLAYER INTERRUPTED</p>
-            <h2 className="mb-2 text-lg font-semibold">{t("播放器加载失败")}</h2>
-            <p className="state-panel__copy mb-5 text-sm">{t(this.state.error?.message || '播放器组件暂时不可用')}</p>
-            <button
-              type="button"
-              onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-              className="primary-button min-h-11 px-5 py-2 text-sm font-semibold"
-            >{t("刷新页面")}</button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 class DrawerErrorBoundary extends React.Component {
   constructor(props) {
@@ -659,11 +630,7 @@ export default function App({ validatedSession }) {
                 inert={secondaryModalOpen ? '' : undefined}
             >
                 {playbackSessionReady && <PlayerBar motionProfile={motionProfile} activePage={activePage} />}
-                <ErrorBoundary>
-                  <Suspense fallback={null}>
-                      {playbackSessionReady && isFullScreen && <FullScreenPlayer motionProfile={motionProfile} />}
-                  </Suspense>
-                </ErrorBoundary>
+                {playbackSessionReady && isFullScreen && <FullscreenPlayerSurface loader={loadFullScreenPlayer} motionProfile={motionProfile} onClose={closeFullScreenPlayer} />}
             </div>
             <DrawerErrorBoundary title={t("播放列表")} isOpen={isPlaylistOpen} onClose={() => useUIStore.getState().setIsPlaylistOpen(false)}>
               <Suspense fallback={null}>

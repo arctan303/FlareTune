@@ -41,7 +41,7 @@ export default function ImmersiveChrome({
                 : '音乐呼吸：轻';
 
     return (
-        <div className={`absolute left-8 right-8 top-6 z-30 flex items-center justify-between transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'}`}>
+        <div data-player-interaction="controls" aria-hidden={!isVisible || undefined} inert={!isVisible ? '' : undefined} className={`absolute left-8 right-8 top-6 z-30 flex items-center justify-between transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'}`}>
             <div className="flex items-center gap-2">
                 <button
                     onClick={(event) => {

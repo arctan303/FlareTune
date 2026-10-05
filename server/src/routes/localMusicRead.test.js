@@ -15,6 +15,7 @@ function createDb() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8'));
+  sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0002_expand_playlist_count.sql', import.meta.url), 'utf8'));
   const db = { sqlite, prepare(sql) { return new Statement(sqlite, sql); } };
   return db;
 }
@@ -43,10 +44,18 @@ function seed(db) {
   `);
 }
 
-async function call(db, path, accountId = 'owner-a', method = 'GET') {
+async function call(db, path, accountId = 'owner-a', method = 'GET', options = {}) {
   const request = new Request(`https://tune.example${path}`, { method });
-  return handleLocalMusicReadRoute(request, new URL(request.url), db, { 'X-Test': 'read' }, accountId);
+  return handleLocalMusicReadRoute(request, new URL(request.url), db, { 'X-Test': 'read' }, accountId, options);
 }
+
+test('compatible v1 init counts membership before the v2 count backfill', async () => {
+  const db = createDb();
+  seed(db);
+  db.sqlite.exec('UPDATE Member_Playlists SET cached_song_count = 0');
+  const response = await call(db, '/api/init', 'owner-a', 'GET', { schemaVersion: 1 });
+  assert.equal((await response.json()).data.other_playlists[0].songCount, 1);
+});
 
 test('empty local catalog returns stable private init shape', async () => {
   const db = createDb();

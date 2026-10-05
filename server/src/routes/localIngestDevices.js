@@ -102,7 +102,8 @@ export async function handleLocalIngestDevicesRoute(request, url, _db, _options,
             || file.cover && (!Number.isSafeInteger(file.cover.size) || file.cover.size < 1))) {
           return fail('扫描清单无效。');
         }
-        const manifest = { files: value.files, scannedAt: Date.now() };
+        const previous = value.preserveScanTime === true ? await read(bucket, key(id, 'manifest.json')) : null;
+        const manifest = { files: value.files, scannedAt: previous?.scannedAt || Date.now() };
         await put(bucket, key(id, 'manifest.json'), manifest);
         await put(bucket, deviceKey(id), { ...record, scannedAt: manifest.scannedAt });
         return json({ count: value.files.length, scannedAt: manifest.scannedAt });

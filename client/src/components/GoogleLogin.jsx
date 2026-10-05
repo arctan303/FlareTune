@@ -5,10 +5,11 @@ import { useUIStore } from '../store/useUIStore.js';
 import { t, useLocale } from '../i18n/index.js';
 import SettingsSection from './SettingsSection.jsx';
 import SettingsEditDialog from './SettingsEditDialog.jsx';
+import SettingsSkeleton from './SettingsSkeleton.jsx';
+import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
+import { useSettingsResource } from '../hooks/useSettingsResource.js';
 
 const inputClass = 'mt-1.5 block min-h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 text-xs text-[var(--ink)] outline-none focus:border-[var(--accent)] transition-colors';
-const buttonClass = 'primary-button rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs';
-const secondaryButtonClass = 'rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs';
 
 export function googleReturnMessage() {
   const tag = new URLSearchParams(window.location.search).get('google');
@@ -68,20 +69,14 @@ export function GoogleSignInButton() {
 
 export function GoogleAccountSettings({ session }) {
   useLocale();
-  const [status, setStatus] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [action, setAction] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [message, setMessage] = React.useState(() => googleReturnMessage());
-  const dialog = React.useRef(null);
   const accountId = session.user.accountId;
-  React.useEffect(() => {
-    let active = true;
-    instanceRequest('account/google').then(result => { if (active) setStatus(result); }).catch(() => { if (active) setMessage('无法读取 Google 绑定状态，请刷新重试。'); });
-    return () => { active = false; };
-  }, [accountId]);
-  React.useEffect(() => { if (action) dialog.current?.showModal(); }, [action]);
-  const close = () => { if (busy) return; dialog.current?.close(); setAction(''); setPassword(''); };
+  const load = React.useCallback(() => instanceRequest('account/google'), [accountId]);
+  const { data: status, loading, error: loadError, refresh } = useSettingsResource(load);
+  const close = () => { if (busy) return; setAction(''); setPassword(''); setMessage(''); };
   const submit = async event => {
     event.preventDefault(); if (busy) return;
     setBusy(true); setMessage('');
@@ -98,52 +93,50 @@ export function GoogleAccountSettings({ session }) {
     }
   };
   return <SettingsSection title={t('Google 登录')}>
-    {!status ? <p role="status" className="text-xs text-[var(--muted)]">{t('正在读取…')}</p> : <>
+    {!status && loading ? <SettingsSkeleton compact rows={1} label="正在读取…" /> : status && <div className="settings-content-enter">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <p className="min-w-0 break-all text-xs text-[var(--muted)]">{status.bound ? (status.email || t('已绑定 Google 账号')) : t('尚未绑定 Google 账号')}</p>
-        <button
-          type="button"
-          className={`${status.bound ? 'rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors' : buttonClass} shrink-0`}
+        <SettingsButton variant={status.bound ? 'danger' : 'secondary'}
           disabled={busy || !status.ready || (!status.bound && !status.configured)}
           onClick={() => { setMessage(''); setAction(status.bound ? 'unbind' : 'bind'); }}
         >
           {t(status.bound ? '解绑 Google' : '绑定 Google')}
-        </button>
+        </SettingsButton>
       </div>
       {!status.ready && <p className="mt-2 text-xs text-[var(--muted)]">{t('请管理员先完成数据库补充迁移。')}</p>}
       {status.ready && !status.configured && <p className="mt-2 text-xs text-[var(--muted)]">{t('管理员尚未配置此地址的 Google 登录。')}</p>}
-    </>}
+    </div>}
+    {loadError && <div role="alert" className="mt-3 space-y-2 text-xs text-red-600">
+      <p>{t('无法读取 Google 绑定状态，请重试。')}</p>
+      <SettingsButton disabled={loading} onClick={() => void refresh().catch(() => {})}>{t('重试')}</SettingsButton>
+    </div>}
     {message && <p role="status" className="mt-3 text-xs">{t(message)}</p>}
-    {action && <dialog ref={dialog} onCancel={event => { event.preventDefault(); close(); }} aria-label={t('验证当前密码')}
-      className="fixed inset-0 m-auto max-h-[85dvh] w-[min(92vw,28rem)] overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-6 text-[var(--ink)] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
+    {action && <SettingsEditDialog title={t('验证当前密码')} onClose={close} busy={busy} size="small">
       <form onSubmit={submit} className="space-y-4">
-        <h2 className="text-base font-bold">{t('验证当前密码')}</h2>
         <p className="text-xs text-[var(--muted)] leading-relaxed">{t(action === 'unbind' ? '解绑后将退出所有设备，需要重新登录。' : '验证本站密码后，前往 Google 绑定此账号。')}</p>
         <label className="block text-xs font-semibold">{t('当前密码')}<input autoFocus type="password" required autoComplete="current-password"
           className={inputClass} value={password} disabled={busy} onChange={event => setPassword(event.target.value)} /></label>
         {message && <p role="alert" className="text-xs text-red-600">{t(message)}</p>}
-        <div className="flex justify-end items-center gap-2.5 pt-3 border-t border-[var(--line)]">
-          <button type="button" onClick={close} disabled={busy} className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer">{t('取消')}</button>
-          <button className={buttonClass} disabled={busy}>{t(busy ? '正在验证…' : '继续')}</button>
-        </div>
+        <SettingsActions className="pt-3 border-t border-[var(--line)]">
+          <SettingsButton closeDialog variant="quiet" disabled={busy}>{t('取消')}</SettingsButton>
+          <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? '正在验证…' : '继续')}</SettingsButton>
+        </SettingsActions>
       </form>
-    </dialog>}
+    </SettingsEditDialog>}
   </SettingsSection>;
 }
 
 export function GoogleAdminSettings({ session }) {
   useLocale();
-  const [config, setConfig] = React.useState(null);
   const [draft, setDraft] = React.useState(null);
   const [secret, setSecret] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState('');
-  React.useEffect(() => {
-    let active = true;
-    instanceRequest('admin/google').then(result => { if (active) setConfig({ ...result, callbackOrigin: result.callbackOrigin || window.location.origin }); })
-      .catch(() => { if (active) setMessage('无法读取 Google 登录配置，请刷新重试。'); });
-    return () => { active = false; };
+  const load = React.useCallback(async () => {
+    const result = await instanceRequest('admin/google');
+    return { ...result, callbackOrigin: result.callbackOrigin || window.location.origin };
   }, [session.user.accountId]);
+  const { data: config, setData: setConfig, loading, error: loadError, refresh } = useSettingsResource(load);
   const close = () => { if (!busy) { setDraft(null); setSecret(''); setMessage(''); } };
   const edit = (enabled = config.enabled) => { setMessage(''); setSecret(''); setDraft({ ...config, enabled }); };
   const persist = async (next, clientSecret = '') => {
@@ -164,15 +157,16 @@ export function GoogleAdminSettings({ session }) {
     else persist({ ...config, enabled });
   };
   const update = (field, value) => setDraft(current => ({ ...current, [field]: value }));
-  return <SettingsSection title={<div className="flex min-h-11 items-center justify-between gap-4">
-    <span className="min-w-0">{t('Google 登录')}</span>
-    <div className="flex shrink-0 items-center gap-3">
-    {config?.ready && <button type="button" disabled={busy} className={secondaryButtonClass} onClick={() => edit()}>{t('修改配置')}</button>}
-    <input type="checkbox" role="switch" aria-label={t('启用 Google 登录')} className="settings-switch"
-      checked={Boolean(config?.enabled)} disabled={!config?.ready || busy || Boolean(draft)} onChange={event => toggle(event.target.checked)} />
-    </div>
-  </div>}>
-    {!config ? <p role="status" className="text-xs text-[var(--muted)]">{t('正在读取…')}</p> : !config.ready && <p className="text-xs text-[var(--muted)]">{t('请管理员先完成数据库补充迁移。')}</p>}
+  return <SettingsSection title={t('Google 登录')} action={config && <SettingsActions>
+    {config?.ready && <SettingsButton disabled={busy} onClick={() => edit()}>{t('修改配置')}</SettingsButton>}
+    {config && <input type="checkbox" role="switch" aria-label={t('启用 Google 登录')} className="settings-switch"
+      checked={Boolean(config?.enabled)} disabled={!config?.ready || busy || Boolean(draft)} onChange={event => toggle(event.target.checked)} />}
+  </SettingsActions>}>
+    {!config && loading ? <SettingsSkeleton compact rows={1} label="正在读取…" /> : config && !config.ready && <p className="text-xs text-[var(--muted)]">{t('请管理员先完成数据库补充迁移。')}</p>}
+    {loadError && <div role="alert" className="mt-3 space-y-2 text-xs text-red-600">
+      <p>{t('无法读取 Google 登录配置，请重试。')}</p>
+      <SettingsButton disabled={loading} onClick={() => void refresh().catch(() => {})}>{t('重试')}</SettingsButton>
+    </div>}
     {message && !draft && <p role="alert" className="mt-3 text-xs text-red-600">{t(message)}</p>}
     {draft && <SettingsEditDialog title={t('修改 Google 登录配置')} message={message} busy={busy} onClose={close}>
       <form onSubmit={event => { event.preventDefault(); persist(draft, secret); }} className="space-y-4">
@@ -187,10 +181,10 @@ export function GoogleAdminSettings({ session }) {
           onChange={event => update('callbackOrigin', event.target.value)} /></label>
         <p className="text-xs text-[var(--muted)] leading-relaxed">{t('将以下完整地址添加到 Google 控制台的 Authorized redirect URIs。')}</p>
         <code className="block break-all rounded-xl bg-[var(--surface)] p-3 text-xs font-mono">{draft.callbackOrigin.replace(/\/+$/, '')}/auth/google/callback</code>
-        <div className="flex justify-end items-center gap-2.5 pt-3 border-t border-[var(--line)]">
-          <button type="button" disabled={busy} className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer" onClick={close}>{t('取消')}</button>
-          <button type="submit" disabled={busy} className={buttonClass}>{t(busy ? '正在保存…' : '保存 Google 配置')}</button>
-        </div>
+        <SettingsActions className="pt-3 border-t border-[var(--line)]">
+          <SettingsButton closeDialog variant="quiet" disabled={busy}>{t('取消')}</SettingsButton>
+          <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? '正在保存…' : '保存 Google 配置')}</SettingsButton>
+        </SettingsActions>
       </form>
     </SettingsEditDialog>}
   </SettingsSection>;

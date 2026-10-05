@@ -154,5 +154,34 @@ export const MIGRATION_BUNDLE = Object.freeze([
       "CREATE TRIGGER google_binding_added AFTER INSERT ON account_google_bindings\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;",
       "CREATE TRIGGER google_binding_removed AFTER DELETE ON account_google_bindings\nBEGIN\n  UPDATE google_login_config SET auth_epoch=auth_epoch+1 WHERE id=1;\nEND;"
     ]
+  },
+  {
+    "name": "0013_hotpath_indexes_and_counts.sql",
+    "sha256": "649e6f19c9cebf48b3f9144baadf29bb711c32f97343e1cbe98143e1ed9737f2",
+    "statements": [
+      "-- Compatible supplemental optimization; existing base schema/ledger stays v2.\nCREATE INDEX IF NOT EXISTS idx_member_playlist_preview\nON Member_Playlist_Songs(playlist_id, added_at DESC, sort_order DESC, song_id);",
+      "CREATE INDEX IF NOT EXISTS idx_songs_title_artist_id ON Songs(title, artist, id);",
+      "CREATE INDEX IF NOT EXISTS idx_songs_title_id ON Songs(title, id, artist);",
+      "CREATE INDEX IF NOT EXISTS idx_songs_artist_id ON Songs(artist, id, title);",
+      "-- Presence ranks preserve SQLite's NULL-before-empty ordering during keyset paging.\nCREATE INDEX IF NOT EXISTS idx_songs_search_order ON Songs(\n    LOWER(title),\n    CASE WHEN artist IS NULL THEN 0 ELSE 1 END, LOWER(COALESCE(artist, '')), id\n) WHERE audio_url IS NOT NULL AND TRIM(audio_url) <> '';",
+      "CREATE INDEX IF NOT EXISTS idx_songs_romanized_order ON Songs(\n    LOWER(title),\n    CASE WHEN artist IS NULL THEN 0 ELSE 1 END, LOWER(COALESCE(artist, '')), id\n) WHERE audio_url IS NOT NULL AND TRIM(audio_url) <> ''\n    AND (title GLOB '*[ぁ-ゖァ-ヺ]*' OR artist GLOB '*[ぁ-ゖァ-ヺ]*'\n      OR album GLOB '*[ぁ-ゖァ-ヺ]*');",
+      "-- Repair once before switching maintenance from full recounts to deltas.\nUPDATE Member_Playlists SET cached_song_count = (\n    SELECT COUNT(*) FROM Member_Playlist_Songs WHERE playlist_id = Member_Playlists.id\n);",
+      "DROP TRIGGER IF EXISTS ft_member_playlist_songs_insert_count;",
+      "DROP TRIGGER IF EXISTS ft_member_playlist_songs_delete_count;",
+      "DROP TRIGGER IF EXISTS ft_member_playlist_songs_move_count;",
+      "DROP TRIGGER IF EXISTS ft_member_playlist_owner_count;",
+      "CREATE TRIGGER ft_member_playlist_songs_insert_count\nAFTER INSERT ON Member_Playlist_Songs BEGIN\n    UPDATE Member_Playlists SET cached_song_count = cached_song_count + 1 WHERE id = NEW.playlist_id;\nEND;",
+      "CREATE TRIGGER ft_member_playlist_songs_delete_count\nAFTER DELETE ON Member_Playlist_Songs BEGIN\n    UPDATE Member_Playlists SET cached_song_count = cached_song_count - 1 WHERE id = OLD.playlist_id;\nEND;",
+      "CREATE TRIGGER ft_member_playlist_songs_move_count\nAFTER UPDATE OF playlist_id, song_id ON Member_Playlist_Songs\nWHEN OLD.playlist_id <> NEW.playlist_id BEGIN\n    UPDATE Member_Playlists SET cached_song_count = cached_song_count - 1 WHERE id = OLD.playlist_id;\n    UPDATE Member_Playlists SET cached_song_count = cached_song_count + 1 WHERE id = NEW.playlist_id;\nEND;",
+      "-- Changing an owner never changes membership. Retain the required trigger name.\nCREATE TRIGGER ft_member_playlist_owner_count\nAFTER UPDATE OF account_id ON Member_Playlists BEGIN\n    SELECT 1;\nEND;",
+      "CREATE TABLE IF NOT EXISTS Member_Play_Receipt_Counts (\n    account_id TEXT PRIMARY KEY REFERENCES accounts(account_id) ON DELETE CASCADE,\n    receipt_count INTEGER NOT NULL DEFAULT 0 CHECK (receipt_count >= 0)\n);",
+      "INSERT INTO Member_Play_Receipt_Counts(account_id, receipt_count)\nSELECT a.account_id, COUNT(e.event_id) FROM accounts a\nLEFT JOIN Member_Play_Events e ON e.account_id = a.account_id GROUP BY a.account_id\nON CONFLICT(account_id) DO UPDATE SET receipt_count = excluded.receipt_count;",
+      "DROP TRIGGER IF EXISTS ft_play_receipts_insert_count;",
+      "DROP TRIGGER IF EXISTS ft_play_receipts_delete_count;",
+      "DROP TRIGGER IF EXISTS ft_play_receipts_move_count;",
+      "CREATE TRIGGER ft_play_receipts_insert_count AFTER INSERT ON Member_Play_Events BEGIN\n    INSERT INTO Member_Play_Receipt_Counts(account_id, receipt_count) VALUES (NEW.account_id, 1)\n    ON CONFLICT(account_id) DO UPDATE SET receipt_count = receipt_count + 1;\nEND;",
+      "CREATE TRIGGER ft_play_receipts_delete_count AFTER DELETE ON Member_Play_Events BEGIN\n    UPDATE Member_Play_Receipt_Counts SET receipt_count = receipt_count - 1 WHERE account_id = OLD.account_id;\nEND;",
+      "CREATE TRIGGER ft_play_receipts_move_count AFTER UPDATE OF account_id ON Member_Play_Events\nWHEN OLD.account_id <> NEW.account_id BEGIN\n    UPDATE Member_Play_Receipt_Counts SET receipt_count = receipt_count - 1 WHERE account_id = OLD.account_id;\n    INSERT INTO Member_Play_Receipt_Counts(account_id, receipt_count) VALUES (NEW.account_id, 1)\n    ON CONFLICT(account_id) DO UPDATE SET receipt_count = receipt_count + 1;\nEND;"
+    ]
   }
 ]);

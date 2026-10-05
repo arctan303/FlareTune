@@ -1,10 +1,12 @@
 import React from 'react';
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
 import { changePassword, logout, messageForError, updateOwnProfile, updateOwnUiLanguage } from '../instance/api.js';
 import { validLocalPassword } from '../instance/state.js';
 import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
 import SettingsSection from './SettingsSection.jsx';
+import SettingsEditDialog from './SettingsEditDialog.jsx';
+import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import AccountAvatar from './AccountAvatar.jsx';
 import UserImageEditor from './UserImageEditor.jsx';
 import SubsonicSettings from './SubsonicSettings.jsx';
@@ -28,8 +30,6 @@ export default function AccountSettings() {
   const [currentPassword, setCurrentPassword] = React.useState('');
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
-  const passwordDialogRef = React.useRef(null);
-  const profileDialogRef = React.useRef(null);
   const profileButtonRef = React.useRef(null);
   const user = authSession.user;
   const name = user?.displayName || user?.username || t('已登录用户');
@@ -68,16 +68,6 @@ export default function AccountSettings() {
     } finally { setNicknameBusy(false); }
   };
 
-  React.useEffect(() => {
-    if (!isProfileDialogOpen) return undefined;
-    const opener = profileButtonRef.current;
-    const dialog = profileDialogRef.current;
-    dialog?.showModal();
-    return () => {
-      if (dialog?.open) dialog.close();
-      if (opener?.isConnected && !document.querySelector('dialog[open]')) opener.focus();
-    };
-  }, [isProfileDialogOpen]);
 
   const closeProfileDialog = () => {
     if (nicknameBusy) return;
@@ -86,14 +76,6 @@ export default function AccountSettings() {
     setNicknameError('');
   };
 
-  React.useEffect(() => {
-    if (!isPasswordDialogOpen) return undefined;
-    const dialog = passwordDialogRef.current;
-    dialog?.showModal();
-    return () => {
-      if (dialog?.open) dialog.close();
-    };
-  }, [isPasswordDialogOpen]);
 
   const closePasswordDialog = () => {
     if (busy) return;
@@ -173,31 +155,28 @@ export default function AccountSettings() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 pt-2 sm:pt-0 shrink-0">
-            <button
+          <SettingsActions className="pt-2 sm:pt-0">
+            <SettingsButton variant="primary"
               type="button"
               ref={profileButtonRef}
               onClick={() => { setNickname(user?.displayName || ''); setNicknameError(''); setIsProfileDialogOpen(true); }}
-              className="primary-button min-h-10 rounded-xl px-4 text-xs font-semibold cursor-pointer shadow-xs"
             >
               {t('编辑个人信息')}
-            </button>
-            <button
+            </SettingsButton>
+            <SettingsButton
               type="button"
               onClick={() => { setError(''); setIsPasswordDialogOpen(true); }}
-              className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] min-h-10 px-3.5 text-xs font-semibold text-[var(--ink)] transition-colors cursor-pointer shadow-2xs"
             >
               {t('修改密码')}
-            </button>
-            <button
+            </SettingsButton>
+            <SettingsButton variant="danger"
               type="button"
               onClick={handleLogout}
               disabled={busy}
-              className="min-h-10 rounded-xl px-3 text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-60 dark:text-red-400 transition-colors cursor-pointer"
             >
               {t(busy && errorContext === 'logout' ? '正在退出…' : '退出登录')}
-            </button>
-          </div>
+            </SettingsButton>
+          </SettingsActions>
         </div>
         {error && errorContext === 'logout' && <p role="alert" className="mt-3 text-xs text-red-600 dark:text-red-400">{t(error)}</p>}
       </SettingsSection>
@@ -218,15 +197,7 @@ export default function AccountSettings() {
       </SettingsSection>
 
       {isPasswordDialogOpen && (
-        <dialog
-          ref={passwordDialogRef}
-          aria-labelledby="change-password-title"
-          className="fixed inset-0 !m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
-          onCancel={(event) => { if (busy) event.preventDefault(); else closePasswordDialog(); }}
-          onClick={(event) => { if (event.target === event.currentTarget) closePasswordDialog(); }}
-        >
-          <div className="p-6 sm:p-7">
-            <h2 id="change-password-title" className="text-lg font-semibold">{t('修改密码')}</h2>
+        <SettingsEditDialog title={t('修改密码')} onClose={closePasswordDialog} busy={busy} size="small" closeOnBackdrop>
             <p className="mt-2 text-sm text-[var(--muted)]">{t('修改后所有设备的会话都会失效，请用新密码重新登录。')}</p>
             <form className="mt-6 space-y-4" onSubmit={handlePasswordChange}>
               <label className="block text-sm font-medium">{t('当前密码')}<input autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
@@ -234,37 +205,16 @@ export default function AccountSettings() {
               <p className="text-sm text-[var(--muted)]">{t('至少 8 个字符。')}</p>
               <label className="block text-sm font-medium">{t('确认新密码')}<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
               {error && errorContext === 'password' && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(error)}</p>}
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closePasswordDialog} disabled={busy} className="min-h-11 rounded-xl px-4 text-sm font-medium text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-60">{t('取消')}</button>
-                <button type="submit" disabled={busy} className="primary-button min-h-11 rounded-xl px-5 text-sm font-semibold disabled:opacity-60">{t(busy ? '正在更新…' : '保存新密码')}</button>
-              </div>
+              <SettingsActions className="pt-2">
+                <SettingsButton closeDialog variant="quiet" disabled={busy}>{t('取消')}</SettingsButton>
+                <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? '正在更新…' : '保存新密码')}</SettingsButton>
+              </SettingsActions>
             </form>
-          </div>
-        </dialog>
+        </SettingsEditDialog>
       )}
 
       {isProfileDialogOpen && (
-        <dialog
-          ref={profileDialogRef}
-          aria-labelledby="edit-profile-title"
-          className="fixed inset-0 !m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
-          onCancel={(event) => { if (nicknameBusy) event.preventDefault(); else closeProfileDialog(); }}
-          onClick={(event) => { if (event.target === event.currentTarget) closeProfileDialog(); }}
-        >
-          <div className="p-6 sm:p-7 space-y-5">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3.5">
-              <h2 id="edit-profile-title" className="text-base font-bold text-[var(--ink)]">{t('编辑个人信息')}</h2>
-              <button
-                type="button"
-                onClick={closeProfileDialog}
-                disabled={nicknameBusy}
-                className="p-1 rounded-lg text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer"
-                aria-label={t('关闭')}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
+        <SettingsEditDialog title={t('编辑个人信息')} onClose={closeProfileDialog} busy={nicknameBusy} size="small" closeOnBackdrop>
             {/* 头像调整 */}
             <div className="flex items-center gap-4 p-3.5 rounded-xl bg-[var(--surface)] border border-[var(--line)]">
               <AccountAvatar user={user} className="!h-16 !w-16 !text-2xl rounded-full border border-[var(--line)] shadow-2xs shrink-0" />
@@ -297,26 +247,20 @@ export default function AccountSettings() {
                 {nicknameError && <p role="alert" className="mt-1.5 text-xs text-red-600">{t(nicknameError)}</p>}
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-2 border-t border-[var(--line)]">
-                <button
-                  type="button"
-                  onClick={closeProfileDialog}
+              <SettingsActions className="pt-2 border-t border-[var(--line)]">
+                <SettingsButton closeDialog variant="quiet"
                   disabled={nicknameBusy}
-                  className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
                 >
                   {t('取消')}
-                </button>
-                <button
-                  type="submit"
+                </SettingsButton>
+                <SettingsButton type="submit" variant="primary"
                   disabled={nicknameBusy}
-                  className="primary-button rounded-xl px-5 py-2 text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs"
                 >
                   {t(nicknameBusy ? '正在保存…' : '保存')}
-                </button>
-              </div>
+                </SettingsButton>
+              </SettingsActions>
             </form>
-          </div>
-        </dialog>
+        </SettingsEditDialog>
       )}
     </div>
   );

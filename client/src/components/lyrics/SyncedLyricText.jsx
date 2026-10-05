@@ -202,11 +202,22 @@ export default function SyncedLyricText({
         };
 
         applySnapshot(clock.getSnapshot(), true);
-        const unsubscribe = clock.subscribe((snapshot) => applySnapshot(snapshot));
+        const frameStart = words[0].startTime - (surface === 'immersive' ? getWordLeadIn(words[0]) : 0);
+        const frameEnd = words.at(-1).endTime;
+        const unsubscribe = clock.subscribe((snapshot) => applySnapshot(snapshot), {
+            animationFrames: (snapshot) => !prefersReducedMotion
+                && snapshot.currentTime >= frameStart && snapshot.currentTime < frameEnd,
+            getNextBoundary: (snapshot) => {
+                const future = [frameStart, ...words.flatMap((word) => [word.startTime, word.endTime])]
+                    .filter((time) => time > snapshot.currentTime);
+                return future.length ? Math.min(...future) : null;
+            },
+        });
         const handleMotionChange = (event) => {
             prefersReducedMotion = event.matches === true;
             lastBoundaryRef.current = null;
             applySnapshot(clock.getSnapshot(), true);
+            clock.sample?.('motion-preference-change');
         };
         const handleResize = () => {
             if (surface === 'playerbar') {

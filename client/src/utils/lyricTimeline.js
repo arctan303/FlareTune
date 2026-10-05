@@ -8,6 +8,7 @@ const EMPTY_WORD_PROGRESS = Object.freeze({
 });
 
 const TIME_BOUNDARY_TOLERANCE_SECONDS = 0.002;
+const timedWordCache = new WeakMap();
 
 const defaultSegmenter = (() => {
     try {
@@ -92,6 +93,22 @@ export function findActiveLyricLineIndex(lines, currentTime, syncMode = 'line') 
 const normalizeTimedWords = (line) => {
     if (!Array.isArray(line?.words) || line.words.length === 0) return null;
 
+    const cached = timedWordCache.get(line);
+    if (cached
+        && Object.is(cached.lineTime, line.time)
+        && Object.is(cached.lineEndTime, line.endTime)
+        && cached.sourceWords === line.words
+        && cached.words.length === line.words.length
+        && cached.words.every((word, index) => (
+            word.text === line.words[index]?.text
+            && word.startTime === line.words[index]?.startTime
+            && word.endTime === line.words[index]?.endTime
+        ))) return cached;
+
+    // Playback documents and editor projections normally replace changed rows.
+    // Check the timing-bearing values too, so a mutable caller cannot reuse a
+    // stale axis. The cheap comparison avoids repeating grapheme segmentation
+    // and allocations on every clock sample. Weak keys release old documents.
     const lineTime = getValidLineTime(line);
     const lineEndTime = isFiniteTimestamp(line?.endTime) ? line.endTime : null;
     let previousStart = -1;
@@ -132,11 +149,21 @@ const normalizeTimedWords = (line) => {
     }
 
     if (totalGraphemeWeight <= 0) return null;
-    return {
+    const normalized = {
         words,
         totalGraphemeWeight,
         endTime: Math.max(...words.map((word) => word.endTime)),
+        lineTime: line.time,
+        lineEndTime: line.endTime,
+        sourceWords: line.words,
     };
+    const vocalWords = words.filter((word) => word.text.trim());
+    normalized.vocalBounds = vocalWords.length > 0 ? {
+        startTime: vocalWords[0].startTime,
+        endTime: Math.max(...vocalWords.map((word) => word.endTime)),
+    } : null;
+    timedWordCache.set(line, normalized);
+    return normalized;
 };
 
 /**
@@ -146,17 +173,27 @@ const normalizeTimedWords = (line) => {
  */
 export function getReliableLyricWordBounds(line) {
     const normalized = normalizeTimedWords(line);
-    if (!normalized) return null;
-    const vocalWords = normalized.words.filter((word) => word.text.trim());
-    if (vocalWords.length === 0) return null;
-    return {
-        startTime: vocalWords[0].startTime,
-        endTime: Math.max(...vocalWords.map((word) => word.endTime)),
-    };
+    return normalized?.vocalBounds ? { ...normalized.vocalBounds } : null;
 }
 
 export function getLyricVocalStart(line) {
     return getReliableLyricWordBounds(line)?.startTime ?? getValidLineTime(line);
+}
+
+/** Next observable line/intro/completion boundary, in audio seconds. */
+export function getNextLyricBoundary(lines, currentTime, syncMode = 'line') {
+    const index = findActiveLyricLineIndex(lines, currentTime, syncMode);
+    if (index < 0) return null;
+    const line = lines[index];
+    const normalized = normalizeTimedWords(line);
+    const candidates = [
+        getLineActivationTime(line, syncMode),
+        getLineActivationTime(lines[index + 1], syncMode),
+        getLyricVocalStart(lines[0]),
+        normalized?.endTime,
+        isFiniteTimestamp(line?.endTime) ? line.endTime : null,
+    ].filter((time) => Number.isFinite(time) && time > currentTime);
+    return candidates.length ? Math.min(...candidates) : null;
 }
 
 const resolveWordLocalProgress = (word, currentTime) => {

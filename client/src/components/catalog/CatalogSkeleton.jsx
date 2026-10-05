@@ -17,11 +17,11 @@ const album = ({ id }) => <div key={id}>
   {block('catalog-skeleton__album-cover')}{block('catalog-skeleton__title')}{block('catalog-skeleton__subtitle')}
 </div>;
 
-export default function CatalogSkeleton({ type, overview = true }) {
+export default function CatalogSkeleton({ type, overview = true, trackGridClassName = 'home-track-grid' }) {
   let content;
   if (type === 'songs') content = overview
     ? <SongColumnShelf>{slots.map(track)}</SongColumnShelf>
-    : <div className="home-track-grid">{slots.map(track)}</div>;
+    : <div className={trackGridClassName}>{slots.map(track)}</div>;
   else if (type === 'artists') content = overview
     ? <ArtistPreviewRow artists={slots.slice(0, 6)} renderCard={artist} />
     : <div className="artist-full-grid">{slots.slice(0, 6).map(artist)}</div>;

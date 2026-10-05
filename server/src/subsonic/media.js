@@ -5,10 +5,10 @@ import { findSong, catalog } from './library.js';
 import { required, reject } from './response.js';
 import { structuredLyrics } from './lyrics.js';
 
-async function coverSong(db, id) {
+async function coverSong(db, id, executionContext) {
   if (id.startsWith('cover_')) return findSong(db, id.slice(6));
   const key = id.replace(/^(al-|ar-)/, '');
-  const c = await catalog(db); const item = c.albums.get(key) || c.artists.get(key);
+  const c = await catalog(db, executionContext); const item = c.albums.get(key) || c.artists.get(key);
   if (!item?.coverArt) reject(70, 'Cover was not found');
   return findSong(db, item.coverArt.slice(6));
 }
@@ -65,7 +65,7 @@ export async function media(method, p, request, env, executionContext, accountId
     return structuredLyrics(artifact, row, enhanced);
   }
   const isCover = method === 'getCoverArt' || method === 'getCoverArt2';
-  const row = isCover ? await coverSong(db, required(p, 'id')) : await findSong(db, required(p, 'id'));
+  const row = isCover ? await coverSong(db, required(p, 'id'), executionContext) : await findSong(db, required(p, 'id'));
   const storedPath = isCover ? row.cover_url : row.audio_url;
   // Imported catalog rows use audio/... and cover/...; newer writes use /media/.
   // Both refer to the same private prefix. Normalize only known catalog forms,

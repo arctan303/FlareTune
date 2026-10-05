@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useShallow } from 'zustand/react/shallow';
+import { usePlayerInteractionLock } from '../../hooks/usePlayerAutoHide.js';
 
 export default function VolumeControl({ isExpanded = false }) {
     const { volume, setVolume, audioRef } = usePlayerStore(useShallow((state) => ({
@@ -16,7 +17,10 @@ export default function VolumeControl({ isExpanded = false }) {
     const [isVolumePanelOpen, setIsVolumePanelOpen] = React.useState(false);
     const [coords, setCoords] = React.useState({ left: 0, bottom: 0 });
     const buttonRef = React.useRef(null);
+    const panelRef = React.useRef(null);
+    const draggingRef = React.useRef(false);
     const volumeTimerRef = React.useRef(null);
+    usePlayerInteractionLock(isExpanded && isVolumePanelOpen);
 
     const updateCoords = React.useCallback(() => {
         if (buttonRef.current) {
@@ -37,6 +41,8 @@ export default function VolumeControl({ isExpanded = false }) {
     const scheduleCloseVolumePanel = React.useCallback((delay = 2800) => {
         if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
         volumeTimerRef.current = setTimeout(() => {
+            if (draggingRef.current || panelRef.current?.contains(document.activeElement)
+                || buttonRef.current === document.activeElement) return;
             setIsVolumePanelOpen(false);
         }, delay);
     }, []);
@@ -97,10 +103,17 @@ export default function VolumeControl({ isExpanded = false }) {
 
     return (
         <div 
+            data-player-interaction={isExpanded ? 'controls' : undefined}
             className={`relative flex items-center justify-center ${isExpanded ? 'text-white/70 hover:text-white' : ''}`}
             onMouseEnter={openVolumePanel}
             onMouseLeave={() => scheduleCloseVolumePanel(1200)}
             onWheel={handleWheel}
+            onFocusCapture={(event) => {
+                if (event.target.matches?.(':focus-visible')) openVolumePanel();
+            }}
+            onBlurCapture={(event) => {
+                if (!panelRef.current?.contains(event.relatedTarget)) scheduleCloseVolumePanel(1200);
+            }}
         >
             <button 
                 ref={buttonRef}
@@ -118,6 +131,10 @@ export default function VolumeControl({ isExpanded = false }) {
             {/* 通过 Portal 渲染到 body，彻底摆脱父级 overflow-hidden 裁切 */}
             {typeof document !== 'undefined' && createPortal(
                 <div 
+                    ref={panelRef}
+                    data-player-interaction={isExpanded ? 'controls' : undefined}
+                    aria-hidden={!isVolumePanelOpen || undefined}
+                    inert={!isVolumePanelOpen ? '' : undefined}
                     className={`fixed -translate-x-1/2 flex flex-col items-center pointer-events-none transition-all duration-200 z-[99999] select-none ${
                         isVolumePanelOpen ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-2 scale-95 pointer-events-none'
                     }`}
@@ -128,9 +145,13 @@ export default function VolumeControl({ isExpanded = false }) {
                     onMouseEnter={cancelCloseVolumePanel}
                     onMouseLeave={() => scheduleCloseVolumePanel(1200)}
                     onClick={(e) => e.stopPropagation()}
+                    onFocusCapture={cancelCloseVolumePanel}
+                    onBlurCapture={(event) => {
+                        if (!panelRef.current?.contains(event.relatedTarget)) scheduleCloseVolumePanel(1200);
+                    }}
                 >
                     <div 
-                        className={`w-9 h-[112px] py-2.5 rounded-full flex flex-col items-center select-none relative ${
+                        className={`player-volume-panel w-9 h-[112px] py-2.5 rounded-full flex flex-col items-center select-none relative ${
                             isExpanded
                                 ? 'bg-black/80 backdrop-blur-2xl text-white shadow-[0_12px_32px_rgba(0,0,0,0.6)] border border-white/15'
                                 : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl text-[var(--ink)] shadow-[0_16px_36px_rgba(0,0,0,0.3)] border border-black/10 dark:border-white/15'
@@ -156,8 +177,13 @@ export default function VolumeControl({ isExpanded = false }) {
                             type="range"
                             min="0" max="1" step="0.01"
                             value={volume}
-                            onPointerDown={cancelCloseVolumePanel}
-                            onPointerUp={() => scheduleCloseVolumePanel(2500)}
+                            onPointerDown={(event) => {
+                                draggingRef.current = true;
+                                event.currentTarget.setPointerCapture?.(event.pointerId);
+                                cancelCloseVolumePanel();
+                            }}
+                            onPointerUp={() => { draggingRef.current = false; scheduleCloseVolumePanel(2500); }}
+                            onPointerCancel={() => { draggingRef.current = false; scheduleCloseVolumePanel(2500); }}
                             onTouchStart={cancelCloseVolumePanel}
                             onTouchEnd={() => scheduleCloseVolumePanel(2500)}
                             onChange={handleVolumeChange}

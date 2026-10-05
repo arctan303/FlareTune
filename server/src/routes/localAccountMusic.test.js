@@ -23,11 +23,12 @@ class Statement {
   }
 }
 
-function createDb() {
+function createDb({ hotpaths = true } = {}) {
   const database = new DatabaseSync(':memory:');
   database.exec('PRAGMA foreign_keys = ON');
   database.exec(readFileSync(new URL('../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8'));
   database.exec(readFileSync(new URL('../../db/migrations-flaretune/0002_expand_playlist_count.sql', import.meta.url), 'utf8'));
+  if (hotpaths) database.exec(readFileSync(new URL('../../db/migrations-flaretune/0013_hotpath_indexes_and_counts.sql', import.meta.url), 'utf8'));
   database.exec(`
     INSERT INTO accounts(account_id, username, role, created_at, updated_at) VALUES
       ('account-a', 'account-a', 'admin', 1, 1),
@@ -434,8 +435,8 @@ test('a song deleted after preflight is acknowledged as a no-op', async () => {
     WHERE account_id = 'account-a'`).get().count, 0);
 });
 
-test('the last quota slot accepts one new event and then rejects another', async () => {
-  const db = createDb();
+for (const hotpaths of [true, false]) test(`last quota slot, duplicate and overflow stay correct (hotpaths=${hotpaths})`, async () => {
+  const db = createDb({ hotpaths });
   const now = Date.now();
   db.database.prepare(`WITH RECURSIVE sequence(value) AS (
     SELECT 1 UNION ALL SELECT value + 1 FROM sequence WHERE value < ?
@@ -455,6 +456,27 @@ test('the last quota slot accepts one new event and then rejects another', async
   assert.equal(rejected.response.status, 429);
   assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
     WHERE account_id = 'account-a'`).get().count, 10_000);
+  if (hotpaths) assert.equal(db.database.prepare(`SELECT receipt_count FROM Member_Play_Receipt_Counts
+    WHERE account_id = 'account-a'`).get().receipt_count, 10_000);
+});
+
+test('an absent receipt counter is initialized from existing receipts before quota and cleanup', async () => {
+  const db = createDb();
+  const now = Date.now();
+  db.database.prepare(`INSERT INTO Member_Play_Events VALUES ('account-a', 'old', 'song-1', ?, ?)`)
+    .run(now, now - 31 * 86400_000);
+  db.database.prepare(`INSERT INTO Member_Play_Events VALUES ('account-a', 'recent', 'song-1', ?, ?)`)
+    .run(now, now);
+  db.database.exec('DELETE FROM Member_Play_Receipt_Counts');
+  const result = await call(db, '/api/account/play-stats', { method: 'POST', body: { events: [
+    { event_id: 'new', song_id: 'song-2', played_at: now },
+  ] } });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.recorded, 1);
+  assert.equal(db.database.prepare(`SELECT receipt_count FROM Member_Play_Receipt_Counts
+    WHERE account_id = 'account-a'`).get().receipt_count, 2);
+  assert.equal(db.database.prepare(`SELECT COUNT(*) AS count FROM Member_Play_Events
+    WHERE account_id = 'account-a'`).get().count, 2);
 });
 
 test('batch acknowledges existing receipts and absent songs without adding extra plays', async () => {

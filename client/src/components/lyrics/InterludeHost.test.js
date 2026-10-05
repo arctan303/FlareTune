@@ -8,7 +8,8 @@ const classicCss = readFileSync(new URL('../fullscreen/classic-player.css', impo
 test('InterludeHost consumes the shared playback clock without owning audio events or RAF', () => {
     assert.match(source, /import \{ lyricPlaybackClock \} from '\.\.\/\.\.\/services\/lyricPlaybackClock'/);
     assert.match(source, /lyricPlaybackClock\.getSnapshot\(\)/);
-    assert.match(source, /lyricPlaybackClock\.subscribe\(updateFromClock\)/);
+    assert.match(source, /lyricPlaybackClock\.subscribe\(updateFromClock, \{/);
+    assert.match(source, /getNextBoundary:[\s\S]*getNextInterludeBoundary/);
     assert.match(source, /surfaceVisible\s*&&/);
     assert.doesNotMatch(source, /requestAnimationFrame|cancelAnimationFrame/);
     assert.doesNotMatch(source, /audio\.addEventListener|audio\.removeEventListener/);

@@ -9,7 +9,8 @@ test('synced lyric text only subscribes an active visible word-timed projection'
   assert.match(source, /active[\s\S]*?&& visible[\s\S]*?&& syncMode === 'word'[\s\S]*?&& projectionMatches[\s\S]*?&& hasReliableWordTiming/);
   assert.match(source, /resolveLineWordProgress\(line, 0\)\.hasWordTiming/);
   assert.match(source, /words\.map\(\(word\) => String\(word\?\.text \|\| ''\)\)\.join\(''\) === displayText/);
-  assert.match(source, /clock\.subscribe\(\(snapshot\) => applySnapshot\(snapshot\)\)/);
+  assert.match(source, /clock\.subscribe\(\(snapshot\) => applySnapshot\(snapshot\), \{/);
+  assert.match(source, /animationFrames: \(snapshot\) => !prefersReducedMotion/);
   assert.doesNotMatch(source, /usePlayerStore|setState|useState/);
 });
 
@@ -87,4 +88,3 @@ test('playerbar surface tracks word-by-word horizontal scroll offset via CSS var
   assert.match(css, /\.synced-lyric-text\[data-surface='playerbar'\]\[data-synced='word'\]\s*\{[\s\S]*?transform:\s*translateX\(var\(--synced-scroll-x,\s*0px\)\)/);
   assert.match(css, /transition:\s*transform\s+120ms/);
 });
-

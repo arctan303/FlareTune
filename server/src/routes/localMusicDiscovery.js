@@ -97,7 +97,7 @@ async function resolveSongs(request, db, headers) {
   }, headers);
 }
 
-async function roamSongs(request, db, headers) {
+async function roamSongs(request, db, headers, options) {
   const parsed = await bodyJson(request, headers, 1024 * 1024);
   if (parsed.response) return parsed.response;
   if (parsed.body.strategy === 'recent') {
@@ -107,7 +107,7 @@ async function roamSongs(request, db, headers) {
     const language = parsed.body.language ?? 'all';
     if (!recent || !queued || limit === null || typeof language !== 'string'
       || !buildSongLanguageFilter(language === 'all' ? null : language)) return invalid('Invalid roam parameters', headers);
-    const result = await roamSampler.sample(db, { recent, queued, limit, language });
+    const result = await roamSampler.sample(db, { recent, queued, limit, language, executionContext: options?.executionContext });
     return success({ songs: result.songs, strategy: 'recent', language, limit,
       totalPlayable: result.rangeSize, remainingPlayable: Math.max(0, result.eligible - result.songs.length),
       recentWindow: result.windowSize, relaxed: result.relaxed,
@@ -177,7 +177,7 @@ async function spotlightArtist(url, db, headers) {
 
 // The outer router must verify a normal local-account session before calling this.
 // Requiring the account ID again keeps accidental direct invocation closed.
-export async function handleLocalMusicDiscoveryRoute(request, url, db, headers = {}, accountId) {
+export async function handleLocalMusicDiscoveryRoute(request, url, db, headers = {}, accountId, options = {}) {
   const { pathname } = url;
   const isRandom = pathname === '/api/songs/random' && request.method === 'GET';
   const isResolve = pathname === '/api/songs/resolve' && request.method === 'POST';
@@ -190,6 +190,6 @@ export async function handleLocalMusicDiscoveryRoute(request, url, db, headers =
   if (!db?.prepare) return json({ code: 503, message: 'Database unavailable' }, 503, headers);
   if (isRandom) return randomSongs(url, db, headers);
   if (isResolve) return resolveSongs(request, db, headers);
-  if (isRoam) return roamSongs(request, db, headers);
+  if (isRoam) return roamSongs(request, db, headers, options);
   return spotlightArtist(url, db, headers);
 }

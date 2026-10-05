@@ -19,7 +19,7 @@ export function getDrawerFocusableElements(container) {
 
 export function getTopmostModal(documentRef = globalThis.document) {
   if (!documentRef?.querySelectorAll) return null;
-  const visibleModals = Array.from(documentRef.querySelectorAll('[role="dialog"][aria-modal="true"]')).filter((dialog) => (
+  const visibleModals = Array.from(documentRef.querySelectorAll('dialog[open], [role="dialog"][aria-modal="true"]')).filter((dialog) => (
     dialog.getAttribute?.('aria-hidden') !== 'true'
     && (typeof dialog.getClientRects !== 'function' || dialog.getClientRects().length > 0)
   ));

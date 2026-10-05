@@ -10,7 +10,7 @@ import {
     markAudioAnalyserPlaying,
 } from '../components/fullscreen/audioAnalyserResource.js';
 import { lyricPlaybackClock } from '../services/lyricPlaybackClock.js';
-import { findActiveLyricLineIndex } from '../utils/lyricTimeline.js';
+import { findActiveLyricLineIndex, getNextLyricBoundary } from '../utils/lyricTimeline.js';
 
 const HAVE_CURRENT_DATA = 2;
 
@@ -160,10 +160,16 @@ export function useAudioEngine({
         lyricPlaybackClock.attach(audio);
         const unsubscribeClock = lyricPlaybackClock.subscribe((snapshot) => {
             syncCurrentLyricIndex(usePlayerStore.getState(), snapshot.currentTime);
+        }, {
+            getNextBoundary: (snapshot) => {
+                const state = usePlayerStore.getState();
+                return getNextLyricBoundary(state.lyrics, snapshot.currentTime, state.lyricSyncMode);
+            },
         });
         const unsubscribeLyrics = usePlayerStore.subscribe((state, previousState) => {
             if (
                 state.lyrics !== previousState.lyrics
+                || state.lyricSyncMode !== previousState.lyricSyncMode
                 || state.currentSong?.id !== previousState.currentSong?.id
             ) {
                 lyricPlaybackClock.sample('lyrics-state-change');

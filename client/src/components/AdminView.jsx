@@ -10,6 +10,8 @@ import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
 import Section from './SettingsSection.jsx';
 import SettingsEditDialog from './SettingsEditDialog.jsx';
+import SettingsSkeleton from './SettingsSkeleton.jsx';
+import { SettingsActions, SettingsButton, SettingsToggle } from './SettingsControls.jsx';
 import DatabaseMigrationStatus from './DatabaseMigrationStatus.jsx';
 import IngestDevicesPanel from './IngestDevicesPanel.jsx';
 import { GoogleAdminSettings } from './GoogleLogin.jsx';
@@ -24,7 +26,7 @@ const tabs = [
   ['accounts', '账号'], ['system', '系统'],
 ];
 const inputClass = 'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-xs text-[var(--ink)] placeholder:text-[var(--muted)] outline-none focus:border-[var(--accent)] transition-colors';
-const buttonClass = 'primary-button rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs';
+const buttonClass = 'settings-button settings-button--primary primary-button';
 
 function Field({ label, hint, children }) {
   return (
@@ -225,6 +227,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
   const [lyricAiEditorOpen, setLyricAiEditorOpen] = React.useState(false);
   const [nameEditorOpen, setNameEditorOpen] = React.useState(false);
   const [originsEditorOpen, setOriginsEditorOpen] = React.useState(false);
+  const editorState = React.useRef({});
+  editorState.current = { assistantEditorOpen, lyricAiEditorOpen, nameEditorOpen, originsEditorOpen };
+  const refreshRequest = React.useRef(0);
+  const settingRevision = React.useRef({});
   const closeLyricAiEditor = () => {
     setDraft((current) => ({ ...current, 'lyrics.ai': overview.settings['lyrics.ai'].value }));
     setMessage('');
@@ -244,20 +250,30 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
   };
 
   const refresh = React.useCallback(async () => {
+    const request = ++refreshRequest.current;
     setLoading(true);
     setMessage('');
     try {
       const [next, nextStatus] = await Promise.all([getAdminOverview(csrfToken), getAdminMigrationStatus(csrfToken)]);
+      if (request !== refreshRequest.current) return;
       setOverview(next);
-      setDraft(Object.fromEntries(Object.entries(next.settings).map(([key, item]) =>
-        [key, key === 'cors.allowed_origins' ? item.value.join('\n') : item.value])));
-      setAssistantDraft(next.assistant);
+      setDraft(current => Object.fromEntries(Object.entries(next.settings).map(([key, item]) => {
+        const editing = key === 'lyrics.ai' ? editorState.current.lyricAiEditorOpen
+          : key === 'instance.name' ? editorState.current.nameEditorOpen
+            : key === 'cors.allowed_origins' && editorState.current.originsEditorOpen;
+        return [key, editing ? current[key] : key === 'cors.allowed_origins' ? item.value.join('\n') : item.value];
+      })));
+      if (!editorState.current.assistantEditorOpen) setAssistantDraft(next.assistant);
       setStatus(nextStatus);
-    } catch (error) { setMessage(adminErrorMessage(error)); }
-    finally { setLoading(false); }
+    } catch (error) { if (request === refreshRequest.current) setMessage(adminErrorMessage(error)); }
+    finally { if (request === refreshRequest.current) setLoading(false); }
   }, [csrfToken]);
 
-  React.useEffect(() => { if (authSession.user?.role === 'admin') void refresh(); else setLoading(false); }, [authSession.user?.role, refresh]);
+  React.useEffect(() => {
+    setOverview(null);
+    if (authSession.user?.role === 'admin') void refresh(); else setLoading(false);
+    return () => { refreshRequest.current += 1; };
+  }, [authSession.user?.accountId, authSession.user?.role, refresh]);
 
   async function upgradeDatabase() {
     setBusy(true);
@@ -283,7 +299,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     setMessage('');
     try {
       const value = override !== undefined ? override : key === 'cors.allowed_origins' ? parseExactHttpsOrigins(draft[key] || '') : draft[key];
-      const result = await putAdminSetting(key, value, overview.settings[key].revision, csrfToken);
+      const expectedRevision = settingRevision.current[key] ?? overview.settings[key].revision;
+      const result = await putAdminSetting(key, value, expectedRevision, csrfToken);
+      refreshRequest.current += 1;
+      setLoading(false);
       setOverview((current) => ({ ...current, settings: { ...current.settings, [key]: result } }));
       setMessage(t("设置已成功保存。"));
       if (key === 'lyrics.ai') setLyricAiEditorOpen(false);
@@ -318,6 +337,8 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     try {
       const { revision, ...patch } = assistantDraft;
       const result = await putAssistant({ ...patch, temperature: Number(patch.temperature) }, revision, csrfToken);
+      refreshRequest.current += 1;
+      setLoading(false);
       setAssistantDraft(result);
       setOverview((current) => ({ ...current, assistant: result }));
       setMessage(t("助手配置已成功保存。"));
@@ -368,9 +389,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           />
         )}
       </Field>
-      <div className="flex justify-end pt-3 border-t border-[var(--line)]">
-        <button className={buttonClass} type="submit" disabled={busy}>{t("保存设置")}</button>
-      </div>
+      <SettingsActions className="pt-3 border-t border-[var(--line)]">
+        <SettingsButton closeDialog variant="quiet" disabled={busy}>{t('取消')}</SettingsButton>
+        <SettingsButton variant="primary" type="submit" disabled={busy}>{t(busy ? "正在保存…" : "保存设置")}</SettingsButton>
+      </SettingsActions>
     </form>
   );
 
@@ -387,26 +409,24 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
             )}
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[var(--ink)]">{t("系统管理")}</h1>
           </div>
-          <button
+          <SettingsButton
             type="button"
             onClick={() => void refresh()}
             disabled={loading || busy}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--surface)] disabled:opacity-50 cursor-pointer shadow-2xs"
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />{t("刷新数据")}</button>
+            >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />{t("刷新数据")}</SettingsButton>
         </div>
       )}
 
       {/* 嵌入设置页时的小顶栏（带刷新） */}
       {isEmbedded && (
         <div className="flex justify-end">
-          <button
+          <SettingsButton
             type="button"
             onClick={() => void refresh()}
             disabled={loading || busy}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)] disabled:opacity-50 cursor-pointer"
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{t("刷新")}</button>
+            >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{t("刷新")}</SettingsButton>
         </div>
       )}
 
@@ -418,8 +438,8 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
 
       {authSession.user?.role !== 'admin' ? (
         <Section title={t("无权访问")}>{t("只有管理员可以打开系统管理。")}</Section>
-      ) : loading ? (
-        <p role="status" className="text-xs text-[var(--muted)] py-8 text-center">{t("正在加载实例设置…")}</p>
+      ) : loading && !overview ? (
+        <SettingsSkeleton cards={3} rows={2} label="正在加载实例设置…" />
       ) : !overview ? (
         <Section title={t("无法加载")}>{t("请确认服务可用后刷新重试。")}</Section>
       ) : (
@@ -439,7 +459,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       : 'text-[var(--muted)] hover:text-[var(--ink)]'
                   }`}
                 >
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </nav>
@@ -449,7 +469,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {(tab === 'general' || tab === 'instance') && (
             <div className="space-y-6">
               <Section title={t("实例名称")}>
-                <div className="flex flex-wrap items-center justify-between gap-4"><strong className="text-base text-[var(--ink)]">{overview.settings['instance.name']?.value || t("未命名实例")}</strong><button type="button" className={buttonClass} onClick={() => { setMessage(''); setNameEditorOpen(true); }}>{t("修改名称")}</button></div>
+                <div className="flex flex-wrap items-center justify-between gap-4"><strong className="text-base text-[var(--ink)]">{overview.settings['instance.name']?.value || t("未命名实例")}</strong><SettingsButton type="button" onClick={() => { setMessage(''); settingRevision.current['instance.name'] = overview.settings['instance.name'].revision; setNameEditorOpen(true); }}>{t("修改名称")}</SettingsButton></div>
               </Section>
               {nameEditorOpen && <SettingsEditDialog title={t("修改实例名称")} message={message} busy={busy} onClose={() => { setDraft((current) => ({ ...current, 'instance.name': overview.settings['instance.name']?.value || '' })); setNameEditorOpen(false); }}>
                 {setting('instance.name', t("名称"), t("最多 80 个字符。"))}
@@ -461,7 +481,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
           {(tab === 'access' || tab === 'instance') && (
             <div className="space-y-6">
               <Section title={t("附加允许来源")}>
-                <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0 text-sm text-[var(--ink)]">{overview.settings['cors.allowed_origins']?.value?.length ? <><strong>{overview.settings['cors.allowed_origins'].value.length}{' '}{t("个来源")}</strong><p className="mt-1 break-all text-xs text-[var(--muted)]">{overview.settings['cors.allowed_origins'].value.slice(0, 2).join(' · ')}</p></> : <span className="text-[var(--muted)]">{t("没有附加来源")}</span>}</div><button type="button" className={buttonClass} onClick={() => { setMessage(''); setOriginsEditorOpen(true); }}>{t("管理来源")}</button></div>
+                <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0 text-sm text-[var(--ink)]">{overview.settings['cors.allowed_origins']?.value?.length ? <><strong>{overview.settings['cors.allowed_origins'].value.length}{' '}{t("个来源")}</strong><p className="mt-1 break-all text-xs text-[var(--muted)]">{overview.settings['cors.allowed_origins'].value.slice(0, 2).join(' · ')}</p></> : <span className="text-[var(--muted)]">{t("没有附加来源")}</span>}</div><SettingsButton type="button" onClick={() => { setMessage(''); settingRevision.current['cors.allowed_origins'] = overview.settings['cors.allowed_origins'].revision; setOriginsEditorOpen(true); }}>{t("管理来源")}</SettingsButton></div>
               </Section>
               {originsEditorOpen && <SettingsEditDialog title={t("管理附加允许来源")} message={message} busy={busy} onClose={() => { setDraft((current) => ({ ...current, 'cors.allowed_origins': (overview.settings['cors.allowed_origins']?.value || []).join('\n') })); setOriginsEditorOpen(false); }}>
                 {setting('cors.allowed_origins', t("精确 HTTPS Origin（每行一个）"), t("例如 https://music.example.com；不接受通配符、路径或末尾斜杠。"), true)}
@@ -474,17 +494,14 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
             <div className="space-y-6">
               <AiProfilesPanel csrfToken={csrfToken} />
               <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:p-5 shadow-2xs">
-                <label className="flex min-h-11 w-full items-center justify-between gap-3 text-sm font-semibold">
-                  <span>{t('允许助手图片输入')}</span>
-                  <input type="checkbox" role="switch" className="settings-switch" disabled={busy} checked={overview.settings['assistant.images_enabled']?.value === true}
-                    onChange={event => void saveSetting(event, 'assistant.images_enabled', event.target.checked)} />
-                </label>
+                <SettingsToggle label={t('允许助手图片输入')} disabled={busy} checked={overview.settings['assistant.images_enabled']?.value === true}
+                  onChange={event => void saveSetting(event, 'assistant.images_enabled', event.target.checked)} />
               </section>
 
               <Section title={t("助手资料")}>
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1.5 text-sm"><p><span className="text-[var(--muted)]">{t("名称：")}</span><strong>{overview.assistant?.name || t("小A")}</strong></p><p className="line-clamp-2 max-w-xl text-xs text-[var(--muted)]">{t(overview.assistant?.description || '暂无描述')}</p></div>
-                  <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setAssistantDraft({ ...overview.assistant }); setAssistantEditorOpen(true); }}>{t("编辑助手资料")}</button>
+                  <SettingsButton type="button" onClick={() => { setMessage(''); setAssistantDraft({ ...overview.assistant }); setAssistantEditorOpen(true); }}>{t("编辑助手资料")}</SettingsButton>
                 </div>
               </Section>
               {assistantEditorOpen && <SettingsEditDialog title={t("编辑助手资料")} message={message} busy={busy} onClose={() => { setAssistantDraft({ ...overview.assistant }); setAssistantEditorOpen(false); }}>
@@ -540,10 +557,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       </div>
                     </Field>
                   </div>
-                  <div className="sm:col-span-2 flex justify-end items-center gap-2.5 pt-3 border-t border-[var(--line)]">
-                    <button type="button" onClick={() => setAssistantEditorOpen(false)} disabled={busy} className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer">{t("取消")}</button>
-                    <button type="submit" className={buttonClass} disabled={busy}>{t("保存助手配置")}</button>
-                  </div>
+                  <SettingsActions className="sm:col-span-2 pt-3 border-t border-[var(--line)]">
+                    <SettingsButton closeDialog variant="quiet" disabled={busy}>{t("取消")}</SettingsButton>
+                    <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? "正在保存…" : "保存助手配置")}</SettingsButton>
+                  </SettingsActions>
                 </form>
               </SettingsEditDialog>}
 
@@ -559,7 +576,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       draft['lyrics.ai']?.detectLanguage && t("识别歌曲语言"),
                     ].filter(Boolean).map((value) => t(value)).join(' · ')}</p>
                   </div>
-                  <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setLyricAiEditorOpen(true); }}>{t("编辑歌词 AI")}</button>
+                  <SettingsButton type="button" onClick={() => { setMessage(''); settingRevision.current['lyrics.ai'] = overview.settings['lyrics.ai'].revision; setLyricAiEditorOpen(true); }}>{t("编辑歌词 AI")}</SettingsButton>
                 </div>
               </Section>
               {lyricAiEditorOpen && <SettingsEditDialog title={t("编辑歌词 AI")} message={message} busy={busy} onClose={closeLyricAiEditor}>
@@ -583,13 +600,14 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                         ['translateLyrics', t("生成目标语言译文")],
                         ['detectLanguage', t("识别并更新歌曲语言")],
                         ['referenceExistingTranslation', t("将同语言旧译文作为翻译参考")],
-                      ].map(([key, label]) => <label key={key} className="flex items-start gap-2.5"><input type="checkbox" className="mt-0.5" checked={Boolean(draft['lyrics.ai']?.[key])} onChange={(event) => setLyricAiField(key, event.target.checked)} /><span>{label}</span></label>)}
+                      ].map(([key, label]) => <SettingsToggle key={key} label={label} checked={Boolean(draft['lyrics.ai']?.[key])} disabled={busy}
+                        onChange={(event) => setLyricAiField(key, event.target.checked)} />)}
                     </div>
                   </fieldset>
-                  <div className="flex justify-end items-center gap-2.5 border-t border-[var(--line)] pt-4 sm:col-span-2">
-                    <button type="button" onClick={closeLyricAiEditor} disabled={busy} className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer">{t("取消")}</button>
-                    <button type="submit" className={buttonClass} disabled={busy}>{t("保存歌词 AI 设置")}</button>
-                  </div>
+                  <SettingsActions className="border-t border-[var(--line)] pt-4 sm:col-span-2">
+                    <SettingsButton closeDialog variant="quiet" disabled={busy}>{t("取消")}</SettingsButton>
+                    <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? "正在保存…" : "保存歌词 AI 设置")}</SettingsButton>
+                  </SettingsActions>
                 </form>
               </SettingsEditDialog>}
             </div>
@@ -707,7 +725,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       <span className="block text-xs font-semibold text-[var(--muted)]">{t("实例名称")}</span>
                       <strong className="text-sm font-bold text-[var(--ink)] mt-0.5 block">{overview.settings['instance.name']?.value || t("未命名实例")}</strong>
                     </div>
-                    <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setNameEditorOpen(true); }}>{t("修改名称")}</button>
+                    <SettingsButton type="button" onClick={() => { setMessage(''); settingRevision.current['instance.name'] = overview.settings['instance.name'].revision; setNameEditorOpen(true); }}>{t("修改名称")}</SettingsButton>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-4 py-3 last:pb-0">
                     <div className="min-w-0">
@@ -723,7 +741,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                         )}
                       </div>
                     </div>
-                    <button type="button" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs" onClick={() => { setMessage(''); setOriginsEditorOpen(true); }}>{t("管理来源")}</button>
+                    <SettingsButton type="button" onClick={() => { setMessage(''); settingRevision.current['cors.allowed_origins'] = overview.settings['cors.allowed_origins'].revision; setOriginsEditorOpen(true); }}>{t("管理来源")}</SettingsButton>
                   </div>
                 </div>
               </Section>

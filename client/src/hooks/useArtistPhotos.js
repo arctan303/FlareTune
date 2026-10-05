@@ -2,60 +2,18 @@ import React from 'react';
 import { getApiBaseUrl } from '../services/apiBase.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
 import { useUIStore } from '../store/useUIStore.js';
+import { isPageVisible, usePageVisibility } from './usePageVisibility.js';
+import { createArtistImagePreloader, ExpiringLruMap } from '../utils/artistPhotoResources.js';
 
 export const ARTIST_PHOTO_ROTATE_INTERVAL = 16000; // 16 秒平滑轮播下一张写真
-export const ARTIST_PHOTO_CACHE = new Map(); // 客户端内存缓存写真元数据
-export const ARTIST_PHOTO_IMAGE_CACHE = new Map(); // 预载解码就绪缓存 (url -> boolean)
-export const ARTIST_PHOTO_PLAYBACK_PROGRESS = new Map(); // 记录每个歌手上次轮播到的写真索引
+export const ARTIST_PHOTO_CACHE = new ExpiringLruMap({ maxEntries: 64, ttlMs: 30 * 60 * 1000 });
+export const ARTIST_PHOTO_IMAGE_CACHE = new ExpiringLruMap({ maxEntries: 128, ttlMs: 5 * 60 * 1000 });
+export const ARTIST_PHOTO_PLAYBACK_PROGRESS = new ExpiringLruMap({ maxEntries: 64, ttlMs: 24 * 60 * 60 * 1000 });
 
 export const getArtistPhotoApiBase = () => getApiBaseUrl();
 
-/**
- * 提前将图片下载并在浏览器后台内存中完全解码 (Fully Decoded Bitmap)
- * 严格使用 onload + img.decode() 双重保障，确保切换时位图 100% 存在于内存中，
- * 杜绝在 DOM 挂载时出现任何从上到下的逐行扫描 (Progressive/Scanline) 流式加载。
- */
-export function preloadAndDecodeImage(url) {
-    if (!url) return Promise.resolve(false);
-    const cached = ARTIST_PHOTO_IMAGE_CACHE.get(url);
-    if (cached === true) return Promise.resolve(true);
-    if (cached && typeof cached.then === 'function') return cached;
-
-    const pending = new Promise((resolve) => {
-        const image = new Image();
-        image.referrerPolicy = 'no-referrer';
-        let settled = false;
-        let timeoutId = null;
-
-        const finish = (success) => {
-            if (settled) return;
-            settled = true;
-            if (timeoutId !== null) clearTimeout(timeoutId);
-            ARTIST_PHOTO_IMAGE_CACHE.set(url, success);
-            resolve(success);
-        };
-
-        image.onload = async () => {
-            try {
-                if (typeof image.decode === 'function') {
-                    await image.decode();
-                }
-                finish(true);
-            } catch {
-                // onload 已经成功，说明资源已在浏览器缓存中
-                finish(true);
-            }
-        };
-
-        image.onerror = () => finish(false);
-        image.src = url;
-
-        // 12 秒超时保护
-        timeoutId = setTimeout(() => finish(false), 12000);
-    });
-    ARTIST_PHOTO_IMAGE_CACHE.set(url, pending);
-    return pending;
-}
+// 全站写真请求共享两路加载/解码，布尔缓存仅表示近期成功，不持有位图。
+export const preloadAndDecodeImage = createArtistImagePreloader(ARTIST_PHOTO_IMAGE_CACHE);
 
 /**
  * 歌手写真加载与轮播 Hook：
@@ -69,17 +27,30 @@ export function useArtistPhotos({
     suspendEffects = false,
     prefersReducedMotion = false,
 }) {
+    const pageVisible = usePageVisibility();
     const authenticated = useUIStore((state) => Boolean(state.authSession?.authenticated));
     const canLoadPhotos = enabled && authenticated;
     const [artistPhotos, setArtistPhotos] = React.useState([]);
     const [photoIndex, setPhotoIndex] = React.useState(0);
     const [photoLayers, setPhotoLayers] = React.useState([]);
     const [isPhotoLoading, setIsPhotoLoading] = React.useState(false);
+    const [readyArtist, setReadyArtist] = React.useState('');
     const rotationTimerRef = React.useRef(null);
     const crossFadeTimerRef = React.useRef(null);
     const fadeOutRafRef = React.useRef(null);
     const layerIdRef = React.useRef(0);
     const photoIndexRef = React.useRef(0);
+    const requestGenerationRef = React.useRef(0);
+    const shownPhotoRef = React.useRef(null);
+
+    const clearPhotoTransition = React.useCallback(() => {
+        if (crossFadeTimerRef.current) clearTimeout(crossFadeTimerRef.current);
+        if (fadeOutRafRef.current) cancelAnimationFrame(fadeOutRafRef.current);
+        crossFadeTimerRef.current = null;
+        fadeOutRafRef.current = null;
+    }, []);
+
+    React.useEffect(() => clearPhotoTransition, [clearPhotoTransition]);
 
     // 保持 photoIndexRef 同步
     React.useEffect(() => {
@@ -88,6 +59,9 @@ export function useArtistPhotos({
 
     const showPhoto = React.useCallback((url, index = 0) => {
         if (!url) return;
+        if (shownPhotoRef.current?.url === url && shownPhotoRef.current.reduced === prefersReducedMotion) return;
+        shownPhotoRef.current = { url, reduced: prefersReducedMotion };
+        clearPhotoTransition();
         const id = ++layerIdRef.current;
 
         if (prefersReducedMotion) {
@@ -143,42 +117,74 @@ export function useArtistPhotos({
                     : layer
             )));
         };
-        const frame = requestAnimationFrame(() => requestAnimationFrame(reveal));
-        fadeOutRafRef.current = frame;
+        fadeOutRafRef.current = requestAnimationFrame(() => {
+            fadeOutRafRef.current = requestAnimationFrame(() => {
+                fadeOutRafRef.current = null;
+                reveal();
+            });
+        });
 
         if (crossFadeTimerRef.current) clearTimeout(crossFadeTimerRef.current);
         crossFadeTimerRef.current = setTimeout(() => {
+            crossFadeTimerRef.current = null;
             setPhotoLayers((prev) => prev.filter((layer) => layer.id === id));
         }, 1600);
-    }, [prefersReducedMotion]);
+    }, [clearPhotoTransition, prefersReducedMotion]);
 
-    const applyInitialPhoto = React.useCallback(async (photos, initialIndex = 0) => {
+    const preloadNextPhoto = React.useCallback((photos, index, isCurrent) => {
+        if (!isCurrent() || photos.length <= 1) return;
+        void preloadAndDecodeImage(photos[(index + 1) % photos.length]?.url, { isCurrent, priority: 'prefetch' });
+    }, []);
+
+    const applyInitialPhoto = React.useCallback(async (photos, initialIndex, isCurrent, artist) => {
+        if (!isCurrent()) return;
         if (!photos || photos.length === 0) {
+            clearPhotoTransition();
+            shownPhotoRef.current = null;
             setPhotoLayers([]);
             return;
         }
         const idx = (initialIndex >= 0 && initialIndex < photos.length) ? initialIndex : 0;
-        const firstPhoto = photos[idx];
-        if (firstPhoto?.url) {
-            // 首张图片先等待后台完全下载并解码完成，再挂载并展示
-            await preloadAndDecodeImage(firstPhoto.url);
-            showPhoto(firstPhoto.url, idx);
+        // 只加载当前候选；坏图依次跳过，成功后再准备下一张。
+        for (let offset = 0; offset < photos.length; offset++) {
+            const nextIdx = (idx + offset) % photos.length;
+            const ready = await preloadAndDecodeImage(photos[nextIdx]?.url, { isCurrent });
+            if (!isCurrent()) return;
+            if (ready) {
+                photoIndexRef.current = nextIdx;
+                setPhotoIndex(nextIdx);
+                setReadyArtist(artist);
+                ARTIST_PHOTO_PLAYBACK_PROGRESS.set(artist, nextIdx);
+                showPhoto(photos[nextIdx].url, nextIdx);
+                preloadNextPhoto(photos, nextIdx, isCurrent);
+                return;
+            }
         }
-        // 后台并发预载所有其余写真
-        photos.forEach((p, i) => {
-            if (i !== idx) preloadAndDecodeImage(p.url);
-        });
-    }, [showPhoto]);
+        clearPhotoTransition();
+        shownPhotoRef.current = null;
+        setPhotoLayers([]);
+    }, [clearPhotoTransition, preloadNextPhoto, showPhoto]);
 
     // 请求歌手写真数据
     React.useEffect(() => {
+        const generation = ++requestGenerationRef.current;
+        let isCancelled = false;
+        const isCurrent = () => !isCancelled && requestGenerationRef.current === generation && isPageVisible();
+        const cancel = () => { isCancelled = true; };
         if (!canLoadPhotos || !artistName.trim()) {
             setArtistPhotos([]);
+            clearPhotoTransition();
+            shownPhotoRef.current = null;
             setPhotoLayers([]);
-            return;
+            setReadyArtist('');
+            setIsPhotoLoading(false);
+            return cancel;
         }
 
+        if (!pageVisible) { setIsPhotoLoading(false); return cancel; }
+
         const trimmedArtist = artistName.trim();
+        setReadyArtist('');
         const getSavedIndex = (count) => {
             if (!count) return 0;
             const saved = ARTIST_PHOTO_PLAYBACK_PROGRESS.get(trimmedArtist);
@@ -191,18 +197,19 @@ export function useArtistPhotos({
             const initialIdx = getSavedIndex(cached.length);
             setPhotoIndex(initialIdx);
             photoIndexRef.current = initialIdx;
-            applyInitialPhoto(cached, initialIdx);
-            return;
+            setIsPhotoLoading(false);
+            void applyInitialPhoto(cached, initialIdx, isCurrent, trimmedArtist);
+            return cancel;
         }
 
-        let isCancelled = false;
+        setArtistPhotos([]);
         setIsPhotoLoading(true);
 
         const apiBase = getArtistPhotoApiBase();
         authenticatedFetch(`${apiBase}/api/artist-photo?name=${encodeURIComponent(trimmedArtist)}`, { credentials: 'include' })
             .then(res => res.json())
-            .then(async (data) => {
-                if (isCancelled) return;
+            .then((data) => {
+                if (!isCurrent()) return;
                 const photos = data?.data?.photos || [];
                 ARTIST_PHOTO_CACHE.set(trimmedArtist, photos);
                 setArtistPhotos(photos);
@@ -210,54 +217,59 @@ export function useArtistPhotos({
                 setPhotoIndex(initialIdx);
                 photoIndexRef.current = initialIdx;
 
-                applyInitialPhoto(photos, initialIdx);
+                void applyInitialPhoto(photos, initialIdx, isCurrent, trimmedArtist);
             })
             .catch(err => {
                 console.error('Failed to fetch artist photos:', err);
-                if (!isCancelled) applyInitialPhoto([]);
+                if (isCurrent()) void applyInitialPhoto([], 0, isCurrent, trimmedArtist);
             })
             .finally(() => {
-                if (!isCancelled) setIsPhotoLoading(false);
+                if (isCurrent()) setIsPhotoLoading(false);
             });
 
-        return () => {
-            isCancelled = true;
-        };
-    }, [canLoadPhotos, artistName, applyInitialPhoto]);
+        return cancel;
+    }, [canLoadPhotos, artistName, applyInitialPhoto, clearPhotoTransition, pageVisible]);
 
     // 歌手写真多图自动轮播：严格在后台完全下载与完全解码位图后再触发 showPhoto 动画
     React.useEffect(() => {
-        if (!canLoadPhotos || artistPhotos.length <= 1 || !isPlaying || isBuffering || suspendEffects || prefersReducedMotion) {
+        if (!canLoadPhotos || !pageVisible || readyArtist !== artistName.trim() || artistPhotos.length <= 1 || !isPlaying || isBuffering || suspendEffects || prefersReducedMotion) {
             if (rotationTimerRef.current) clearInterval(rotationTimerRef.current);
             return;
         }
 
         const trimmedArtist = artistName.trim();
-        artistPhotos.forEach((p) => preloadAndDecodeImage(p.url));
+        const generation = requestGenerationRef.current;
+        let isCancelled = false;
+        let rotationPending = false;
+        const isCurrent = () => !isCancelled && requestGenerationRef.current === generation && isPageVisible();
 
         rotationTimerRef.current = setInterval(async () => {
+            if (rotationPending || !isCurrent()) return;
+            rotationPending = true;
             const currentIdx = photoIndexRef.current;
-            const nextIdx = (currentIdx + 1) % artistPhotos.length;
-            const nextPhoto = artistPhotos[nextIdx];
-
-            if (nextPhoto?.url) {
-                // 关键点：在触发转场动画前，先强制完成下一张图片的后台预载与完全解码
-                const success = await preloadAndDecodeImage(nextPhoto.url);
-                if (success) {
-                    ARTIST_PHOTO_PLAYBACK_PROGRESS.set(trimmedArtist, nextIdx);
-                    photoIndexRef.current = nextIdx;
-                    setPhotoIndex(nextIdx);
-                    showPhoto(nextPhoto.url, nextIdx);
+            try {
+                for (let offset = 1; offset < artistPhotos.length; offset++) {
+                    const nextIdx = (currentIdx + offset) % artistPhotos.length;
+                    const nextPhoto = artistPhotos[nextIdx];
+                    const success = await preloadAndDecodeImage(nextPhoto?.url, { isCurrent });
+                    if (!isCurrent()) return;
+                    if (success) {
+                        ARTIST_PHOTO_PLAYBACK_PROGRESS.set(trimmedArtist, nextIdx);
+                        photoIndexRef.current = nextIdx;
+                        setPhotoIndex(nextIdx);
+                        showPhoto(nextPhoto.url, nextIdx);
+                        preloadNextPhoto(artistPhotos, nextIdx, isCurrent);
+                        return;
+                    }
                 }
-            }
+            } finally { rotationPending = false; }
         }, ARTIST_PHOTO_ROTATE_INTERVAL);
 
         return () => {
+            isCancelled = true;
             if (rotationTimerRef.current) clearInterval(rotationTimerRef.current);
-            if (crossFadeTimerRef.current) clearTimeout(crossFadeTimerRef.current);
-            if (fadeOutRafRef.current) cancelAnimationFrame(fadeOutRafRef.current);
         };
-    }, [canLoadPhotos, artistName, artistPhotos, isPlaying, isBuffering, suspendEffects, prefersReducedMotion, showPhoto]);
+    }, [canLoadPhotos, artistName, artistPhotos, isPlaying, isBuffering, suspendEffects, prefersReducedMotion, showPhoto, preloadNextPhoto, pageVisible, readyArtist]);
 
     return {
         artistPhotos,

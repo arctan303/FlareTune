@@ -6,7 +6,7 @@ import LyricsScroller from '../LyricsScroller.jsx';
 import PlayerControls from '../PlayerControls.jsx';
 import PlayerMoreMenu from '../PlayerMoreMenu.jsx';
 import { useFavoriteSongAction } from '../../hooks/useFavoriteSongAction.js';
-import { getPrimaryLyricLine, getTranslationLyricLine } from './mobileLyricPreview.js';
+import { getMobileLyricWindow, getPrimaryLyricLine, getTranslationLyricLine } from './mobileLyricPreview.js';
 import SyncedLyricText from '../lyrics/SyncedLyricText.jsx';
 import { useLyricSurfacePresentation } from '../lyrics/lyricSurfacePresentation.js';
 import ClassicArtwork from './ClassicArtwork.jsx';
@@ -41,7 +41,7 @@ export function MobileLyricsPane({
 
   return (
     <div className="lg:hidden flex flex-col w-full h-full min-h-0">
-      <div className="flex items-center gap-3 w-full pb-2 pt-1 shrink-0 relative">
+      <div className="flex items-center gap-3 w-full pb-2 pt-1 shrink-0 relative" data-player-interaction="controls">
         <button type="button" onClick={onExit} className="relative w-12 h-12 sm:w-14 sm:h-14 min-w-[48px] min-h-[48px] sm:min-w-[56px] sm:min-h-[56px] rounded-xl overflow-hidden shadow-md flex-shrink-0 active:scale-95 transition-transform group focus:outline-none bg-white/10 animate-mini-cover-pop" title={t("点击返回大封面视图")}>
           <LazyImage src={coverUrl} fallback="/placeholder-album.svg" className="w-full h-full object-cover" />
           <div className="absolute inset-0 ring-1 ring-inset ring-white/15 rounded-xl pointer-events-none" />
@@ -56,7 +56,7 @@ export function MobileLyricsPane({
                 title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                 onClick={(event) => toggleFavorite(currentSong, event)}
                 aria-busy={isPendingFavorite}
-                className={`h-6 w-6 inline-flex items-center justify-center transition-all hover:scale-110 active:scale-90 focus:outline-none cursor-pointer shrink-0 ${
+                className={`h-11 w-11 inline-flex items-center justify-center transition-all hover:scale-110 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white rounded-lg cursor-pointer shrink-0 ${
                   isInFavorite
                     ? 'text-rose-400'
                     : 'text-white/60 hover:text-white'
@@ -76,7 +76,7 @@ export function MobileLyricsPane({
       <div className={`classic-lyrics__pane-motion flex-1 min-h-0 w-full overflow-hidden flex flex-col my-0 ${isExitingLyrics ? 'animate-lyrics-slide-out' : 'animate-lyrics-slide-in'}`} onClick={wakeUnlessTool} onTouchStart={wakeUnlessTool}>
         <LyricsScroller {...lyricsScrollerProps} controlsBottomOffset={0} isControlsHidden={!controlsVisible} onWakeControls={onWakeControls} surfaceVisible={surfaceVisible} />
       </div>
-      <div className={`mobile-lyrics-controls-container w-full pb-1 sm:pb-1.5 shrink-0 ${!controlsVisible ? 'is-hidden' : ''}`}>
+      <div className={`mobile-lyrics-controls-container w-full pb-1 sm:pb-1.5 shrink-0 ${!controlsVisible ? 'is-hidden' : ''}`} aria-hidden={!controlsVisible || undefined} inert={!controlsVisible ? '' : undefined}>
         <PlayerControls {...playerControlsProps} hideMetadata showPlayerModes />
       </div>
     </div>
@@ -119,16 +119,25 @@ export function MobileSongPane({
   const viewportHeight = hasAnyTranslation ? 96 : 68;
   const centerOffset = (viewportHeight - rowHeight) / 2;
   const safeLyricIndex = Math.max(0, Math.min(lyricPresentation.index, lyrics.length - 1));
+  const lyricWindow = getMobileLyricWindow(lyrics.length, safeLyricIndex, rowHeight);
+  const previousPreview = React.useRef({ index: safeLyricIndex, rowHeight });
+  const animatePreview = previousPreview.current.rowHeight === rowHeight
+    && Math.abs(previousPreview.current.index - safeLyricIndex) <= 1;
+  React.useEffect(() => {
+    previousPreview.current = { index: safeLyricIndex, rowHeight };
+  }, [safeLyricIndex, rowHeight]);
 
   return (
     <>
       <div role={isMobile && canShowLyrics ? 'button' : undefined} tabIndex={isMobile && canShowLyrics ? 0 : undefined} aria-label={isMobile && canShowLyrics ? t("点击进入多行歌词模式") : undefined} onClick={() => { if (isMobile && canShowLyrics) onEnterLyrics(); }} onKeyDown={enterWithKeyboard} className={`w-full flex-1 lg:flex-initial flex flex-col items-center justify-center min-h-0 relative mb-3 lg:mb-6 select-none ${isMobile && canShowLyrics ? 'cursor-pointer focus:outline-none' : ''}`} title={isMobile && canShowLyrics ? t("点击切换多行歌词") : undefined}>
         {artwork || <ClassicArtwork coverUrl={coverUrl} isPlaying={isPlaying} isBuffering={isBuffering} isExpandingToSong={isExpandingToSong} />}
-        {canShowLyrics && hasValidLyrics && (
+        {isMobile && canShowLyrics && hasValidLyrics && (
           <div className={`paper-mobile-lyric-preview lg:hidden cursor-pointer hover:opacity-95 transition-all select-none mt-5 sm:mt-7 mb-1 ${isExpandingToSong ? 'animate-large-cover-expand' : ''}`} title={t("点击展开完整多行歌词")}>
             <div className="paper-mobile-lyric-preview__viewport" style={{ height: `${viewportHeight}px` }}>
-              <div className="paper-mobile-lyric-preview__roller" style={{ transform: `translateY(${-(safeLyricIndex * rowHeight - centerOffset)}px)` }}>
-                {lyrics.map((lyric, index) => {
+              <div className="paper-mobile-lyric-preview__roller" style={{ transform: `translateY(${-(safeLyricIndex * rowHeight - centerOffset)}px)`, transition: animatePreview ? undefined : 'none' }}>
+                {lyricWindow.beforeHeight > 0 && <div aria-hidden="true" style={{ height: `${lyricWindow.beforeHeight}px`, flexShrink: 0 }} />}
+                {lyrics.slice(lyricWindow.start, lyricWindow.end).map((lyric, windowIndex) => {
+                  const index = lyricWindow.start + windowIndex;
                   const isActive = index === safeLyricIndex;
                   const isIntroRow = lyricPresentation.kind === 'intro' && index === 0;
                   const displayLine = isIntroRow ? lyricPresentation.line : lyric;
@@ -141,6 +150,7 @@ export function MobileSongPane({
                   const translation = !isIntroRow && translationEnabled ? getTranslationLyricLine(lyric) : '';
                   return <div key={index} className={`paper-mobile-lyric-preview__row${isActive ? ' is-active' : ''}`} style={{ height: `${rowHeight}px` }}><div className="paper-mobile-lyric-preview__primary truncate"><SyncedLyricText line={displayLine} text={displayText} active={isActive} visible={surfaceVisible} syncMode={lyricSyncMode} surface="mobile-preview" /></div>{translation && <div className="paper-mobile-lyric-preview__translation truncate">{translation}</div>}</div>;
                 })}
+                {lyricWindow.afterHeight > 0 && <div aria-hidden="true" style={{ height: `${lyricWindow.afterHeight}px`, flexShrink: 0 }} />}
               </div>
             </div>
           </div>

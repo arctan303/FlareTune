@@ -1,6 +1,7 @@
 import { buildSongLanguageFilter } from '../utils/songLanguage.js';
 import { queryRomanizedSongs } from './romanizedSongSearch.js';
 import { isRomanizedSearchQuery } from '../utils/japaneseRomanization.js';
+import { songSearchOrder } from '../utils/songSearchOrder.js';
 
 const escapeLikePattern = (value) => value.replace(/[\\%_]/g, '\\$&');
 
@@ -57,12 +58,25 @@ export async function querySongs(db, rawQuery, limit, offset = 0, { language = n
         )`;
 
   let selectedPatterns = null;
+  let direct;
+  const readPage = async (patterns) => (await db.prepare(`
+    SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url, s.cover_url, s.language
+    FROM Songs s WHERE ${searchWhereSql(languageFilter.sql)}
+    ORDER BY ${songSearchOrder()} LIMIT ? OFFSET ?`)
+    .bind(...languageFilter.bindings, ...patterns, lim, off).all()).results || [];
   for (const qStr of queryCandidates) {
     const q = `%${escapeLikePattern(qStr.toLowerCase())}%`;
     const compactQuery = normalizeSearchQuery(qStr);
     const compactPattern = `%${escapeLikePattern(compactQuery)}%`;
     if (!compactQuery) continue;
     const patterns = [q, q, q, compactPattern, compactPattern, compactPattern];
+    // Page zero establishes existence itself; later pages must still select the
+    // original candidate even after its last result, rather than widen matching.
+    if (off === 0) {
+      const page = await readPage(patterns);
+      if (page.length) { selectedPatterns = patterns; direct = page; break; }
+      continue;
+    }
     const existence = await db.prepare(`
       SELECT 1 AS found
       FROM Songs s
@@ -77,32 +91,22 @@ export async function querySongs(db, rawQuery, limit, offset = 0, { language = n
 
   if (!selectedPatterns) {
     for (const candidate of queryCandidates) {
-      const existence = await queryRomanizedSongs(db, candidate, 1, 0, { languageFilter });
-      if (existence.length === 0) continue;
-      const romanized = await queryRomanizedSongs(db, candidate, lim, off, { languageFilter });
-      return romanized;
+      let hasMatch = false;
+      const romanized = await queryRomanizedSongs(db, candidate, lim, off,
+        { languageFilter, onMatch: () => { hasMatch = true; } });
+      if (hasMatch) return romanized;
     }
     return [];
   }
-  const rows = await db.prepare(`
-      SELECT s.id, s.title, s.artist, s.album, s.duration, s.audio_url, s.cover_url, s.language
-      FROM Songs s
-      WHERE ${searchWhereSql(languageFilter.sql)}
-      ORDER BY LOWER(s.title) ASC, LOWER(s.artist) ASC, s.id ASC
-      LIMIT ? OFFSET ?
-    `).bind(...languageFilter.bindings, ...selectedPatterns, lim, off).all();
-  const direct = rows.results || [];
+  direct ??= await readPage(selectedPatterns);
   if (direct.length === lim || !isRomanizedSearchQuery(q0)) return direct;
-  const countRows = await db.prepare(`
-    SELECT COUNT(*) AS total FROM Songs s WHERE ${searchWhereSql(languageFilter.sql)}
-  `).bind(...languageFilter.bindings, ...selectedPatterns).all();
-  const directCount = Number(countRows.results?.[0]?.total) || 0;
-  const directIds = await db.prepare(`
-    SELECT s.id FROM Songs s WHERE ${searchWhereSql(languageFilter.sql)}
-  `).bind(...languageFilter.bindings, ...selectedPatterns).all();
+  const directIds = off === 0 ? direct : (await db.prepare(`
+    SELECT s.id FROM Songs s WHERE ${searchWhereSql(languageFilter.sql)}`)
+    .bind(...languageFilter.bindings, ...selectedPatterns).all()).results || [];
+  const directCount = directIds.length;
   const romanized = await queryRomanizedSongs(db, q0, lim - direct.length,
     Math.max(0, off - directCount), {
-      languageFilter, excludeIds: (directIds.results || []).map((song) => song.id),
+      languageFilter, excludeIds: directIds.map(song => song.id),
     });
   return [...direct, ...romanized];
 }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+    AUDIO_ANALYSER_IDLE_MS,
     acquireAudioAnalyser,
     invalidateAudioAnalyser,
     isAudioAnalyserCurrent,
@@ -67,9 +68,16 @@ const withAudioEnvironment = async (run) => {
             let currentSrc = initialSrc;
             let captureCalls = 0;
             const tracks = [];
+            const audioListeners = new Map();
             const audio = {
                 get currentSrc() { return currentSrc; },
                 set currentSrc(value) { currentSrc = value; },
+                addEventListener(type, listener) {
+                    if (!audioListeners.has(type)) audioListeners.set(type, new Set());
+                    audioListeners.get(type).add(listener);
+                },
+                removeEventListener(type, listener) { audioListeners.get(type)?.delete(listener); },
+                dispatch(type) { [...(audioListeners.get(type) || [])].forEach(listener => listener()); },
                 captureStream() {
                     captureCalls += 1;
                     const listeners = new Set();
@@ -214,6 +222,97 @@ test('audio analyser never reroutes the media element output', () => {
             delete globalThis.window;
         }
     }
+});
+
+test('analyser stops its captured tracks and closes the graph after 30 seconds idle', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    await withAudioEnvironment(async ({ contexts, createAudio }) => {
+        const fixture = createAudio();
+        markAudioAnalyserPlaying(fixture.audio);
+        const consumer = acquireAudioAnalyser(fixture.audio);
+        releaseAudioAnalyser(consumer);
+        await consumer.resource.stateQueue;
+        t.mock.timers.tick(AUDIO_ANALYSER_IDLE_MS - 1);
+        assert.equal(contexts[0].state, 'suspended');
+        assert.equal(fixture.tracks[0].readyState, 'live');
+        t.mock.timers.tick(1);
+        assert.equal(contexts[0].state, 'closed');
+        assert.equal(fixture.tracks[0].readyState, 'ended');
+        assert.equal(consumer.resource.disposed, true);
+    });
+});
+
+test('quick reopen cancels idle disposal and reuses one capture and graph', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    await withAudioEnvironment(async ({ contexts, createAudio }) => {
+        const fixture = createAudio();
+        markAudioAnalyserPlaying(fixture.audio);
+        const first = acquireAudioAnalyser(fixture.audio);
+        releaseAudioAnalyser(first);
+        await first.resource.stateQueue;
+        t.mock.timers.tick(20000);
+        const second = acquireAudioAnalyser(fixture.audio);
+        await second.resource.stateQueue;
+        t.mock.timers.tick(20000);
+        assert.equal(second.resource, first.resource);
+        assert.equal(fixture.captureCalls, 1);
+        assert.equal(contexts[0].state, 'running');
+        assert.equal(fixture.tracks[0].readyState, 'live');
+        releaseAudioAnalyser(second);
+        t.mock.timers.tick(AUDIO_ANALYSER_IDLE_MS);
+        assert.equal(contexts[0].state, 'closed');
+    });
+});
+
+test('an inactive mounted consumer can reacquire after idle disposal', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    await withAudioEnvironment(async ({ contexts, createAudio }) => {
+        const fixture = createAudio();
+        markAudioAnalyserPlaying(fixture.audio);
+        const first = acquireAudioAnalyser(fixture.audio);
+        setAudioAnalyserActive(first, false);
+        await first.resource.stateQueue;
+        t.mock.timers.tick(AUDIO_ANALYSER_IDLE_MS);
+        assert.equal(first.released, true);
+        const second = refreshAudioAnalyser(first, fixture.audio);
+        await second.resource.stateQueue;
+        assert.equal(contexts.length, 2);
+        assert.equal(fixture.captureCalls, 2);
+        assert.equal(contexts[1].state, 'running');
+        releaseAudioAnalyser(second);
+        t.mock.timers.tick(AUDIO_ANALYSER_IDLE_MS);
+    });
+});
+
+test('one active consumer prevents idle disposal even if another consumer is released', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    await withAudioEnvironment(async ({ contexts, createAudio }) => {
+        const fixture = createAudio();
+        markAudioAnalyserPlaying(fixture.audio);
+        const first = acquireAudioAnalyser(fixture.audio);
+        const second = acquireAudioAnalyser(fixture.audio);
+        releaseAudioAnalyser(first);
+        await second.resource.stateQueue;
+        t.mock.timers.tick(AUDIO_ANALYSER_IDLE_MS * 3);
+        assert.equal(contexts[0].state, 'running');
+        assert.equal(fixture.tracks[0].readyState, 'live');
+        releaseAudioAnalyser(second);
+        t.mock.timers.tick(AUDIO_ANALYSER_IDLE_MS);
+    });
+});
+
+test('a source change immediately disposes a retained stream after its UI consumer leaves', async () => {
+    await withAudioEnvironment(async ({ createAudio }) => {
+        const fixture = createAudio();
+        markAudioAnalyserPlaying(fixture.audio);
+        const consumer = acquireAudioAnalyser(fixture.audio);
+        releaseAudioAnalyser(consumer);
+        fixture.audio.currentSrc = 'https://media.example.test/audio/new.mp3';
+        fixture.audio.dispatch('loadstart');
+        assert.equal(fixture.tracks[0].readyState, 'ended');
+        assert.equal(consumer.resource.disposed, true);
+        assert.equal(acquireAudioAnalyser(fixture.audio), null);
+    });
 });
 test('audio analyser replaces the captured stream but preserves its graph when the media element changes source', () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');

@@ -25,7 +25,7 @@ test('useArtistPhotos hook source implements preloading, crossfade stack and pro
     assert.match(src, /authenticatedFetch\(`\$\{apiBase\}\/api\/artist-photo\?name=/);
     assert.match(src, /ARTIST_PHOTO_PLAYBACK_PROGRESS\.set/);
     assert.match(src, /ARTIST_PHOTO_PLAYBACK_PROGRESS\.get/);
-    assert.match(src, /requestAnimationFrame\(\(\) => requestAnimationFrame\(reveal\)\)/);
+    assert.match(src, /fadeOutRafRef\.current = requestAnimationFrame/);
     assert.match(src, /preloadAndDecodeImage/);
 });
 

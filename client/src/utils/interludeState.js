@@ -194,14 +194,22 @@ export function resolveInterludeWindow({
     return noWindow(null, 'window-unavailable');
 }
 
-const stageForProgress = (progress, duration) => {
+const getStageTimes = ({ start, duration }) => {
     const stage3Threshold = Math.max(
         0.75,
         1 - (INTERLUDE_CONFIG.STAGE_3_LEAD_SECONDS / duration),
     );
-    if (progress >= stage3Threshold) return 3;
-    if (progress >= (2 / 3)) return 2;
-    if (progress >= (1 / 3)) return 1;
+    return [start + duration / 3, start + duration * 2 / 3,
+        start + duration * stage3Threshold];
+};
+
+const stageAtTime = (currentTime, window) => {
+    const [first, second, third] = getStageTimes(window);
+    // Compare the same absolute boundaries used by the scheduler. Dividing
+    // back into progress can round an exact stage wake just below its threshold.
+    if (currentTime >= third) return 3;
+    if (currentTime >= second) return 2;
+    if (currentTime >= first) return 1;
     return 0;
 };
 
@@ -233,7 +241,7 @@ export function getInterludeState({
     );
     return {
         isInterlude: true,
-        stage: stageForProgress(progress, window.duration),
+        stage: stageAtTime(validCurrentTime, window),
         progress,
     };
 }
@@ -257,13 +265,22 @@ export function getInterludeDotTimes({
         syncMode,
     });
     if (window.basis === 'none') return null;
-    const stage3Threshold = Math.max(
-        0.75,
-        1 - (INTERLUDE_CONFIG.STAGE_3_LEAD_SECONDS / window.duration),
-    );
+    const [first, second, third] = getStageTimes(window);
     return {
-        t1: window.start + (window.duration / 3) + 0.05,
-        t2: window.start + (window.duration * 2 / 3) + 0.05,
-        t3: window.start + (window.duration * stage3Threshold) + 0.05,
+        t1: first + 0.05,
+        t2: second + 0.05,
+        t3: third + 0.05,
     };
+}
+
+/** Schedule only the next visibility/stage change when no word renderer runs. */
+export function getNextInterludeBoundary(params) {
+    if (params.isUserScrolling) return null;
+    const window = resolveInterludeWindow(params);
+    const candidates = [firstVocalStart(params.lyrics?.[0])];
+    if (window.basis !== 'none') {
+        candidates.push(window.start, ...getStageTimes(window), window.end);
+    }
+    const future = candidates.filter((time) => Number.isFinite(time) && time > params.currentTime);
+    return future.length ? Math.min(...future) : null;
 }

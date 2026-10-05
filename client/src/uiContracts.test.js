@@ -101,7 +101,7 @@ test('touch tablets keep desktop visual quality while expensive work remains ser
   const motionProfileHook = readSource('./hooks/useVisualMotionProfile.js');
   const aura = readSource('./components/fullscreen/ImmersiveAudioAura.jsx');
 
-  assert.match(app, /const loadFullScreenPlayer = \(\) => import/);
+  assert.match(app, /const loadFullScreenPlayer = createRetryablePlayerImport\(\(\) => import/);
   assert.match(app, /requestIdleCallback\(warmPlayerCode/);
   assert.match(app, /loadFullScreenPlayer\(\)\.catch/);
   assert.match(app, /data-motion-phase=\{visualMotionPhase\}/);
@@ -202,7 +202,7 @@ test('the confirmed brand name is consistent across metadata, the unique sidebar
   assert.match(manifest, /"short_name": "Tune"/);
 });
 
-test('artist player removes video gating while PlayerBar consumes motionProfile', () => {
+test('artist player removes video gating and its transport uses the same width breakpoint', () => {
   const desktopPlayer = readSource('./components/fullscreen/DesktopImmersivePlayer.jsx');
   const background = readSource('./components/fullscreen/ImmersiveBackground.jsx');
   const playerBar = readSource('./components/PlayerBar.jsx');
@@ -212,7 +212,8 @@ test('artist player removes video gating while PlayerBar consumes motionProfile'
   assert.doesNotMatch(background, /<video|videoSrc/);
 
   assert.match(playerBar, /export default function PlayerBar\(\{\s*motionProfile\s*=\s*'full',\s*activePage\s*\}\)/);
-  assert.match(playerBar, /motionProfile !== VISUAL_MOTION_PROFILE\.COMPACT_TOUCH/);
+  assert.match(playerBar, /const isDesktop = useMediaQuery\('\(min-width: 1024px\)', false\)/);
+  assert.doesNotMatch(playerBar, /motionProfile !== VISUAL_MOTION_PROFILE\.COMPACT_TOUCH/);
   assert.match(playerBar, /case 'glass-invisible':/);
   assert.doesNotMatch(playerBar, /player-console--immersive/);
 });
@@ -712,11 +713,11 @@ test('identity-aware song reads include credentials and rely on the global sessi
   assert.doesNotMatch(lyrics, /songUrl/);
   assert.match(lyrics, /songLanguageHasLyrics\(currentSong\?\.language\)/);
   assert.match(lyrics, /const url = `\$\{getApiBaseUrl\(\)\}\/api\/lyrics\?songId=/);
-  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include' \}\)/);
+  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include', cache: 'no-store', signal: requestOptions\.signal \}\)/);
   assert.doesNotMatch(lyrics, /\/api\/lyrics\/translation|source=/);
   assert.match(artistPhotos, /api\/artist-photo\?name=[\s\S]{0,120}credentials: 'include'/);
-  assert.match(artistPhotos, /ARTIST_PHOTO_IMAGE_CACHE\.set\(url, pending\)/);
-  assert.match(artistPhotos, /clearTimeout\(timeoutId\)/);
+  // Decode sharing, concurrency and timeout behaviour are exercised by
+  // artistPhotoResources.test.js; this contract only guards the session API.
   assert.doesNotMatch(drawer, /fetchSongById\(songId\)|music-play-song-id/);
   assert.doesNotMatch(drawer, /\/api\/songs\?id=/);
   assert.equal(existsSync(new URL('./utils/xiaoaSongResolver.js', import.meta.url)), false);

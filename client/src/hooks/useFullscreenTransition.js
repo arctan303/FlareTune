@@ -1,5 +1,6 @@
 import React from 'react';
 import { VISUAL_MOTION_PHASE } from '../utils/motionPerformance.js';
+import { canHandlePlayerEscape } from '../utils/playerOverlayKeyboard.js';
 
 const ENTER_FALLBACK_MS = 720;
 const CLOSE_FALLBACK_MS = 700;
@@ -99,13 +100,14 @@ export function useFullscreenTransition({
 
   React.useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (!canHandlePlayerEscape(focusTargetRef?.current, document)) return;
       event.preventDefault();
       handleClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose]);
+  }, [focusTargetRef, handleClose]);
 
   return { hasMounted, hasEntered, isClosing, handleClose, handleStageTransitionEnd };
 }

@@ -14,7 +14,7 @@ test('instance management replaces the retired Admin Key console', () => {
 });
 
 test('setting, assistant and account mutations use the local session CSRF token', () => {
-  assert.match(source, /putAdminSetting\(key, value, overview\.settings\[key\]\.revision, csrfToken\)/);
+  assert.match(source, /putAdminSetting\(key, value, expectedRevision, csrfToken\)/);
   assert.match(source, /putAssistant\([^;]+revision, csrfToken\)/s);
   assert.match(source, /createManagedAccount\([^;]+csrfToken\)/s);
   assert.match(source, /patchManagedAccount\([^;]+csrfToken\)/s);

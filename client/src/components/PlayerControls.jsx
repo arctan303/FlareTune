@@ -10,6 +10,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { usePlaybackButtonAnimations } from '../hooks/usePlaybackButtonAnimations.js';
 import { useFavoriteSongAction } from '../hooks/useFavoriteSongAction.js';
 import PlayerMoreMenu from './PlayerMoreMenu';
+import { usePlayerMenu } from '../hooks/usePlayerMenu.js';
+import './fullscreen/player-interactions.css';
 
 // 现代化实心圆角播放
 const SolidRoundedPlay = ({ size = 28, className = "" }) => (
@@ -96,9 +98,43 @@ export default React.memo(function PlayerControls({
         isBuffering: state.isBuffering,
     })));
     const [showModeMenu, setShowModeMenu] = React.useState(false);
-    const [showMoreMenu, setShowMoreMenu] = React.useState(false);
+    const modeButtonRef = React.useRef(null);
+    const modeMenuRef = React.useRef(null);
     const [isDragging, setIsDragging] = React.useState(false);
     const [dragProgress, setDragProgress] = React.useState(0);
+    const dragSongKeyRef = React.useRef(null);
+    const activeSongKey = `${currentSong?.id ?? ''}:${currentSong?.audio_url ?? ''}`;
+    const activeSongKeyRef = React.useRef(activeSongKey);
+    activeSongKeyRef.current = activeSongKey;
+
+    React.useEffect(() => {
+        setIsDragging(false);
+    }, [activeSongKey]);
+
+    const modeMenu = usePlayerMenu({ isOpen: showModeMenu, setIsOpen: setShowModeMenu,
+        triggerRef: modeButtonRef, menuRef: modeMenuRef });
+
+    const commitSeek = (targetTime) => {
+        if (!Number.isFinite(targetTime)) return;
+        setProgress(targetTime);
+        if (audioRef.current) audioRef.current.currentTime = targetTime;
+    };
+    const beginSeek = () => {
+        dragSongKeyRef.current = activeSongKey;
+        setIsDragging(true);
+        setDragProgress(progress);
+    };
+    const finishSeek = (event) => {
+        if (dragSongKeyRef.current === activeSongKeyRef.current) {
+            commitSeek(Number(event.target.value));
+        }
+        dragSongKeyRef.current = null;
+        setIsDragging(false);
+    };
+    const cancelSeek = () => {
+        dragSongKeyRef.current = null;
+        setIsDragging(false);
+    };
     const {
         isFavorite,
         pendingSongIds: pendingFavoriteSongIds,
@@ -123,7 +159,7 @@ export default React.memo(function PlayerControls({
     const iconStrokeWidth = 1.75;
 
     return (
-        <div ref={layoutRef} className="classic-controls w-full sm:max-w-[440px] lg:max-w-[390px] xl:max-w-[420px] 2xl:max-w-[440px] mx-auto flex flex-col mt-2 flex-shrink-0">
+        <div ref={layoutRef} data-player-interaction="controls" className="classic-controls w-full sm:max-w-[440px] lg:max-w-[390px] xl:max-w-[420px] 2xl:max-w-[440px] mx-auto flex flex-col mt-2 flex-shrink-0">
             {!hideMetadata && (
                 <div className="classic-controls__metadata mb-3 min-w-0">
                     <div className="classic-controls__title-row flex items-center gap-3 mb-0.5">
@@ -180,29 +216,22 @@ export default React.memo(function PlayerControls({
                 <div className="classic-controls__progress flex-1 h-4 bg-transparent flex items-center relative group">
                     <input 
                         type="range" min="0" max={duration || 100} step="0.1" value={displayProgress} 
-                        onMouseDown={() => {
-                            setIsDragging(true);
-                            setDragProgress(progress);
-                        }}
-                        onTouchStart={() => {
-                            setIsDragging(true);
-                            setDragProgress(progress);
-                        }}
+                        onMouseDown={beginSeek}
+                        onTouchStart={beginSeek}
                         onChange={(e) => {
-                            setDragProgress(Number(e.target.value));
-                        }}
-                        onMouseUp={(e) => {
-                            setIsDragging(false);
                             const targetTime = Number(e.target.value);
-                            setProgress(targetTime);
-                            if (audioRef.current) audioRef.current.currentTime = targetTime;
+                            if (dragSongKeyRef.current !== null) {
+                                if (dragSongKeyRef.current === activeSongKeyRef.current) setDragProgress(targetTime);
+                                return;
+                            }
+                            // Native range keyboard changes have no mouse/touch end event.
+                            commitSeek(targetTime);
                         }}
-                        onTouchEnd={(e) => {
-                            setIsDragging(false);
-                            const targetTime = Number(e.target.value);
-                            setProgress(targetTime);
-                            if (audioRef.current) audioRef.current.currentTime = targetTime;
-                        }}
+                        onMouseUp={finishSeek}
+                        onTouchEnd={finishSeek}
+                        onTouchCancel={cancelSeek}
+                        onBlur={cancelSeek}
+                        aria-label={t("播放进度")}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
                     <div className="classic-controls__track w-full h-1 group-hover:h-1.5 bg-white/20 rounded-full overflow-hidden pointer-events-none transition-all duration-200">
@@ -214,15 +243,15 @@ export default React.memo(function PlayerControls({
 
             <div className="classic-controls__transport flex items-center justify-between px-2 text-gray-400">
                 <div className="relative">
-                    <button data-active={playMode !== 'sequence'} aria-label={t("选择播放模式")} onClick={() => setShowModeMenu(!showModeMenu)} className={`classic-controls__icon transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${playMode !== 'sequence' ? 'text-blue-500 hover:text-blue-400' : 'hover:text-white'}`} title={t("选择播放模式")}>
+                    <button ref={modeButtonRef} data-active={playMode !== 'sequence'} aria-label={t("选择播放模式")} aria-haspopup="menu" aria-expanded={showModeMenu} onKeyDown={modeMenu.onTriggerKeyDown} onClick={() => setShowModeMenu(!showModeMenu)} className={`classic-controls__icon transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${playMode !== 'sequence' ? 'text-blue-500 hover:text-blue-400' : 'hover:text-white'}`} title={t("选择播放模式")}>
                         <PlaybackModeIcon mode={playMode} size={22} strokeWidth={iconStrokeWidth} />
                     </button>
                     
                     {/* 播放模式选择菜单 */}
                     {showModeMenu && (
                         <>
-                            <div className="fixed inset-0 z-40" onClick={() => setShowModeMenu(false)}></div>
-                            <div className="classic-controls__menu absolute bottom-full left-0 mb-4 glass-panel !rounded-2xl p-2 flex flex-col gap-1 w-36 shadow-2xl z-50">
+                            <div className="fixed inset-0 z-40" onClick={() => modeMenu.closeMenu()}></div>
+                            <div ref={modeMenuRef} role="menu" aria-label={t("选择播放模式")} {...modeMenu.menuProps} className="classic-controls__menu absolute bottom-full left-0 mb-4 glass-panel !rounded-2xl p-2 flex flex-col gap-1 w-36 shadow-2xl z-50">
                                 {[
                                     { id: 'sequence', label: t("顺序播放") },
                                     { id: 'loop', label: t("列表循环") },
@@ -231,8 +260,12 @@ export default React.memo(function PlayerControls({
                                 ].map(mode => (
                                     <button 
                                         key={mode.id}
+                                        type="button"
+                                        role="menuitemradio"
+                                        aria-checked={playMode === mode.id}
+                                        tabIndex={-1}
                                         data-active={playMode === mode.id}
-                                        onClick={() => { handleModeChange(mode.id); setShowModeMenu(false); }}
+                                        onClick={() => { handleModeChange(mode.id); modeMenu.closeMenu(); }}
                                         className={`classic-controls__menu-item flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all focus:outline-none ${playMode === mode.id ? 'bg-white/15 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                                     >
                                         <div className={`classic-controls__menu-icon shrink-0 ${playMode === mode.id ? 'text-blue-400' : 'opacity-70'}`}>
@@ -245,7 +278,7 @@ export default React.memo(function PlayerControls({
                         </>
                     )}
                 </div>
-                <div className="flex items-center gap-6 md:gap-8">
+                <div className="classic-controls__playback-buttons flex items-center gap-6 md:gap-8">
                     <button
                         aria-label={t("上一首")}
                         onClick={handlePlayPrev}

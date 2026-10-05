@@ -47,7 +47,7 @@ export default function InterludeDots({
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="group/dot relative p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
+                className="group/dot relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
             >
                 <span
                     className={`block w-4 h-4 md:w-4.5 md:h-4.5 rounded-full transition-all duration-400 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover/dot:scale-125 group-active/dot:scale-95 ${
@@ -66,7 +66,7 @@ export default function InterludeDots({
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="group/dot relative p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
+                className="group/dot relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
             >
                 <span
                     className={`block w-4 h-4 md:w-4.5 md:h-4.5 rounded-full transition-all duration-400 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover/dot:scale-125 group-active/dot:scale-95 ${
@@ -85,7 +85,7 @@ export default function InterludeDots({
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="group/dot relative p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
+                className="group/dot relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
             >
                 <span
                     className={`block w-4 h-4 md:w-4.5 md:h-4.5 rounded-full transition-all duration-400 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover/dot:scale-125 group-active/dot:scale-95 ${

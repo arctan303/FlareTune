@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     findActiveLyricLineIndex,
     getReliableLyricWordBounds,
+    getNextLyricBoundary,
     resolveLineWordProgress,
     resolveLyricTimelineSnapshot,
     segmentLyricGraphemes,
@@ -220,4 +221,75 @@ test('snapshot handles empty input and invalid current time without throwing', (
         isComplete: false,
         hasWordTiming: false,
     });
+});
+
+test('repeated timeline samples reuse grapheme weights and refresh changed word timing or text', () => {
+    const nativeSegment = Intl.Segmenter.prototype.segment;
+    let segmentCalls = 0;
+    Intl.Segmenter.prototype.segment = function (text) {
+        segmentCalls += 1;
+        return nativeSegment.call(this, text);
+    };
+    try {
+        const line = makeLine(0, [
+            { text: 'A', startTime: 0, endTime: 1 },
+            { text: 'B', startTime: 1, endTime: 2 },
+        ], { endTime: 3 });
+        for (let sample = 0; sample < 120; sample += 1) {
+            assert.equal(findActiveLyricLineIndex([line], 0.5, 'word'), 0);
+            assert.equal(resolveLineWordProgress(line, 0.5).lineProgress, 0.25);
+            assert.deepEqual(getReliableLyricWordBounds(line), { startTime: 0, endTime: 2 });
+        }
+        assert.equal(segmentCalls, 2, 'unchanged samples must not re-segment the words');
+
+        line.words[1].text = 'BC';
+        assert.equal(resolveLineWordProgress(line, 0.5).lineProgress, 1 / 6);
+        line.words[1].endTime = 3;
+        assert.deepEqual(getReliableLyricWordBounds(line), { startTime: 0, endTime: 3 });
+        line.words[0].startTime = 0.25;
+        assert.equal(resolveLineWordProgress(line, 0).hasStarted, false);
+        assert.deepEqual(getReliableLyricWordBounds(line), { startTime: 0.25, endTime: 3 });
+        assert.equal(segmentCalls, 8);
+    } finally {
+        Intl.Segmenter.prototype.segment = nativeSegment;
+    }
+});
+
+test('cached axes respect line bounds, array edits, invalid repairs and independent returned bounds', () => {
+    const line = makeLine(0, [{ text: 'A', startTime: 0, endTime: 1 }], { endTime: 3 });
+    const bounds = getReliableLyricWordBounds(line);
+    bounds.endTime = 99;
+    assert.deepEqual(getReliableLyricWordBounds(line), { startTime: 0, endTime: 1 });
+
+    line.time = 0.5;
+    assert.equal(resolveLineWordProgress(line, 0.75).hasWordTiming, false);
+    line.time = 0;
+    line.endTime = 0.5;
+    assert.equal(resolveLineWordProgress(line, 0.25).hasWordTiming, false);
+    line.endTime = 3;
+    line.words.push({ text: 'B', startTime: 1, endTime: 2 });
+    assert.equal(resolveLineWordProgress(line, 1.5).lineProgress, 0.75);
+    line.words[1].startTime = 0.5;
+    assert.equal(resolveLineWordProgress(line, 1.5).hasWordTiming, false);
+    line.words[1] = { text: 'B', startTime: 1, endTime: 2 };
+    assert.equal(resolveLineWordProgress(line, 1.5).hasWordTiming, true);
+    line.words = [{ text: 'C', startTime: 2, endTime: 3 }];
+    assert.deepEqual(getReliableLyricWordBounds(line), { startTime: 2, endTime: 3 });
+    const shifted = { ...line, time: 4, endTime: 5,
+        words: [{ text: 'C', startTime: 4, endTime: 5 }] };
+    assert.deepEqual(getReliableLyricWordBounds(shifted), { startTime: 4, endTime: 5 });
+    assert.deepEqual(getReliableLyricWordBounds(line), { startTime: 2, endTime: 3 });
+});
+
+test('next lyric boundary follows intro vocals, line activation and completion without sampling intermediate seconds', () => {
+    const lines = [
+        makeLine(5, [{ text: 'First', startTime: 6.125, endTime: 8.25 }], { endTime: 8.5 }),
+        makeLine(9, [{ text: 'Second', startTime: 11.75, endTime: 12.5 }], { endTime: 12.5 }),
+    ];
+    assert.equal(getNextLyricBoundary(lines, 0, 'word'), 6.125);
+    assert.equal(getNextLyricBoundary(lines, 6.125, 'word'), 8.25);
+    assert.equal(getNextLyricBoundary(lines, 8.5, 'word'), 11.75);
+    assert.equal(getNextLyricBoundary(lines, 8.5, 'line'), 9);
+    assert.equal(getNextLyricBoundary(lines, 12.5, 'word'), null);
+    assert.equal(getNextLyricBoundary([], 0, 'word'), null);
 });

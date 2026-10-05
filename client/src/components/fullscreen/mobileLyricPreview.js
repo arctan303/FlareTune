@@ -1,5 +1,13 @@
 const NON_LYRIC_LINE_PATTERN = /^(暂无歌词|纯音乐[，,\s]*请欣赏|歌词加载失败)$/u;
 
+export function getMobileLyricWindow(length, currentIndex, rowHeight) {
+    const count = Math.max(0, Number.isInteger(length) ? length : 0);
+    const index = Math.max(0, Math.min(Number.isInteger(currentIndex) ? currentIndex : 0, count - 1));
+    const start = Math.max(0, index - 3);
+    const end = Math.min(count, index + 4);
+    return { start, end, beforeHeight: start * rowHeight, afterHeight: (count - end) * rowHeight };
+}
+
 export function getPrimaryLyricLine(lyric) {
     if (typeof lyric?.text !== 'string') return '';
 

@@ -46,6 +46,11 @@ export async function readCatalog(type, { query = '', language = '', artist = ''
   return { items: data[endpoint] || [], hasMore: Boolean(data.hasMore), total: data.total };
 }
 
+export function peekCachedAlbum(id) {
+  const cached = albumDetailCache.get(JSON.stringify([getApiBaseUrl(), id]));
+  return cached && Date.now() - cached.savedAt < ALBUM_DETAIL_TTL_MS ? cached.album : null;
+}
+
 export async function readAlbum(id, signal) {
   const key = JSON.stringify([getApiBaseUrl(), id]);
   const cached = albumDetailCache.get(key);

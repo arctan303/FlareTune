@@ -15,7 +15,14 @@ export default function MobileClassicBackground({
 }) {
   if (!showPhotos) {
     return coverUrl && hasEntered ? (
-      <AppleFluidCanvas coverUrl={coverUrl} palette={palette} isPlaying={isPlaying} isBuffering={isBuffering} />
+      <AppleFluidCanvas
+        coverUrl={coverUrl}
+        palette={palette}
+        isPlaying={isPlaying}
+        isBuffering={isBuffering}
+        suspended={suspendPlayerEffects}
+        prefersReducedMotion={prefersReducedMotion}
+      />
     ) : null;
   }
 

@@ -1,5 +1,6 @@
 import { encodeAlbumId } from '../routes/localAlbumRead.js';
 import { integer, required, reject } from './response.js';
+import { keepTaskAlive } from '../utils/sharedRequestTask.js';
 
 const caches = new WeakMap();
 const playable = (s) => typeof s.audio_url === 'string' && s.audio_url.trim();
@@ -21,9 +22,9 @@ export function song(s) {
     starred: s.starred ? iso(s.starred) : undefined };
 }
 
-export async function catalog(db) {
+export async function catalog(db, executionContext) {
   const old = caches.get(db); const now = Date.now();
-  if (old && now < old.expires) return old.promise;
+  if (old && now < old.expires) return keepTaskAlive(old.promise, executionContext);
   const entry = { expires: now + 60_000 };
   entry.promise = (async () => {
     const rows = (await db.prepare(`SELECT id, title, artist, album, duration, audio_url, cover_url, created_at
@@ -43,6 +44,7 @@ export async function catalog(db) {
     }
     return { songs, artists, albums, lastModified: now };
   })();
+  keepTaskAlive(entry.promise, executionContext);
   caches.set(db, entry);
   try { return await entry.promise; } catch (error) { if (caches.get(db) === entry) caches.delete(db); throw error; }
 }
@@ -56,12 +58,16 @@ export async function findSong(db, id) {
   if (!row || !playable(row)) reject(70, 'Song was not found');
   return row;
 }
-export async function library(method, p, db, accountId) {
+export async function library(method, p, db, accountId, executionContext) {
   if (p.has('musicFolderId') && p.get('musicFolderId') !== '1') reject(70, 'Music folder was not found');
   if (method === 'getMusicFolders') return { musicFolders: { musicFolder: [{ id: '1', name: 'Music' }] } };
   if (method === 'getGenres') return { genres: { genre: [] } };
   if (method === 'getSong') return { song: song(await findSong(db, required(p, 'id'))) };
-  const c = await catalog(db);
+  if (!['getScanStatus', 'getArtists', 'getIndexes', 'getArtist', 'getAlbum',
+    'getMusicDirectory', 'search3', 'search2', 'getRandomSongs', 'getAlbumList2', 'getAlbumList'].includes(method)) {
+    reject(70, 'Endpoint was not found');
+  }
+  const c = await catalog(db, executionContext);
   if (method === 'getScanStatus') return { scanStatus: { scanning: false, count: c.songs.size } };
   if (method === 'getArtists' || method === 'getIndexes') {
     const list = [...c.artists.values()].sort((a, b) => a.name.localeCompare(b.name)).map(artist);

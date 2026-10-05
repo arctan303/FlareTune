@@ -39,10 +39,18 @@ Keep the terminal running. The process signs in, scans the configured folders, a
 
 1. Sign in as an administrator and open **Settings → System management**. Check that the device appears online under Ingest devices and review its last scan time.
 2. Open **Settings → Song ingest → Select songs → Connected device folders**, then select the device. Refresh the device list or choose Rescan to read new folder changes.
-3. Filter by song, artist, album, or path, or limit results to a folder. Select individual songs or all filtered results, then add them to the ingest list. You do not need to add every scanned file.
+3. The page checks the current catalog and initially shows **New**. Switch between suspected duplicates, imported files, changed files, unfinished transfers, and all files. Combine categories with text and folder filters. **Select new only** selects new candidates within those text/folder filters; **Exclude duplicates** deselects suspected duplicates. Add your selection to the ingest list. To retain another version, add it from the duplicate category and review it in the queue.
 4. In the ingest list, review titles, albums, artwork, and language. Edit entries as needed. Review similar songs and choose Skip, Add, or Replace before importing. Batch ingest can pause after the current song and resume the remaining songs. Retry failures individually.
 
 Scanning, filtering, selecting, and adding to the preview list do not upload audio. Files are read and transferred only during ingest. Device cards do not load every original cover by default; preview an individual cover when needed.
+
+### Local ingest history
+
+The tool maintains `ingest-history.sqlite` beside its configuration file. It stores scan metadata, file identities, media jobs, and errors; rescanning reconciles media references with the current catalog. Records are isolated by instance, administrator identity, and device identity. Audio, artwork bytes, and passwords are not stored in this database. A successful media transfer remains unfinished until a current catalog song references that audio. After a restart or page reload, reselecting an unfinished file reuses its original device job rather than uploading completed media again. Changed files require another review.
+
+Duplicate detection keeps the existing title, artist, and duration rules. It does not distinguish audio quality or reliably identify every alternate version. The queue's **Exclude duplicates** removes only unapproved suspected duplicates and retains completed imports and explicit Add/Replace choices; it deletes no local files or catalog songs. Older imports without local records can still be detected through catalog metadata matching.
+
+Closing the browser does not continue saving songs. Directory watching and automatic ingest are not enabled. Rescan to discover new files; use **Check again** after catalog changes.
 
 ### Folder language mapping
 
