@@ -551,6 +551,18 @@ export async function loadLyricsDocumentIntoStore({
         }
         if (!isCurrent()) return null;
         const currentState = store();
+        const syncQuality = { none: 0, line: 1, word: 2 };
+        if (preserveExisting && currentState.lyrics?.length > 0
+            && (syncQuality[result.syncMode] ?? 0) > (syncQuality[currentState.lyricSyncMode] ?? 0)) {
+            // A background upgrade belongs to the next playback. In-flight
+            // translation polling must not replace this playback's timeline.
+            setTranslationSnapshot(currentState, {
+                available: Boolean(currentState.translationAvailable),
+                state: currentState.translationAvailable ? 'ready' : 'unavailable',
+                startedAt: null,
+            });
+            return result;
+        }
         if (preserveExisting && hasSameOriginalDocument(currentState, result)) {
             const currentLyrics = currentState.lyrics;
             const mergedLyrics = mergeTranslationIntoExistingLyrics(currentLyrics, result.lyrics, {

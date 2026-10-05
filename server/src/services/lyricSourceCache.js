@@ -1,51 +1,16 @@
+import { createRequestSingleFlight } from '../utils/sharedRequestTask.js';
+
 export function createSingleFlightDocumentFetcherCore(fetcher, { optionsKey, createAbortError }) {
-  const inFlight = new Map();
-  return (provider, song, { signal, providerLyricId, cacheScope, cacheEpoch } = {}) => {
+  const flight = createRequestSingleFlight();
+  return (provider, song, { signal, providerLyricId, cacheScope, cacheEpoch, executionContext } = {}) => {
     if (signal?.aborted) return Promise.reject(createAbortError(provider, 'singleflight'));
     const key = [
       provider, song?.id, song?.title, song?.artist, song?.album, song?.duration,
       optionsKey({ providerLyricId, cacheScope, cacheEpoch }),
     ].join('\u0000');
-    let entry = inFlight.get(key);
-    if (!entry) {
-      const controller = new AbortController();
-      entry = { controller, waiters: new Set(), settled: false, request: null };
-      entry.request = Promise.resolve().then(() => fetcher(provider, song, {
-        signal: controller.signal, providerLyricId, cacheScope, cacheEpoch,
-      }));
-      inFlight.set(key, entry);
-      const clear = () => {
-        entry.settled = true;
-        if (inFlight.get(key) === entry) inFlight.delete(key);
-      };
-      entry.request.then(clear, clear);
-    }
-
-    const waiter = Symbol(key);
-    entry.waiters.add(waiter);
-    return new Promise((resolve, reject) => {
-      let finished = false;
-      const finish = () => {
-        if (finished) return false;
-        finished = true;
-        signal?.removeEventListener('abort', onAbort);
-        entry.waiters.delete(waiter);
-        return true;
-      };
-      const onAbort = () => {
-        if (!finish()) return;
-        reject(createAbortError(provider, 'singleflight'));
-        if (!entry.settled && entry.waiters.size === 0) {
-          if (inFlight.get(key) === entry) inFlight.delete(key);
-          entry.controller.abort(signal?.reason || new DOMException('Aborted', 'AbortError'));
-        }
-      };
-      signal?.addEventListener('abort', onAbort, { once: true });
-      entry.request.then(
-        (value) => { if (finish()) resolve(value); },
-        (error) => { if (finish()) reject(error); },
-      );
-    });
+    return flight(key, ({ signal: sharedSignal }) => fetcher(provider, song, {
+      signal: sharedSignal, providerLyricId, cacheScope, cacheEpoch,
+    }), { signal, executionContext, abortError: () => createAbortError(provider, 'singleflight') });
   };
 }
 

@@ -211,7 +211,7 @@ test('Kugou query variants remove translated/version suffixes and normalize mult
   ]);
 });
 
-test('Kugou retries a simplified query and keeps a large duration mismatch as a warning', async () => {
+test('manual Kugou selection retries a simplified query and keeps a large duration mismatch as a warning', async () => {
   const urls = [];
   const content = encodeKrc('[1000,1000]<0,1000,0>Я вижу луну');
   const loader = createLyricSourceLoader({
@@ -232,7 +232,7 @@ test('Kugou retries a simplified query and keeps a large duration mismatch as a 
   });
   const document = await loader.getKugouDocument({
     title: 'Под луной (月下)', artist: 'Miyagi & Andy Panda', duration: 255,
-  });
+  }, { providerLyricId: 'short-duration' });
   assert.equal(urls.length, 3);
   assert.equal(new URL(urls[0]).searchParams.get('keyword'), 'Miyagi & Andy Panda-Под луной (月下)');
   assert.equal(new URL(urls[1]).searchParams.get('keyword'), 'Miyagi & Andy Panda-Под луной');
@@ -406,7 +406,7 @@ lines:
   assert.equal(incomplete.lines[0].words, undefined);
 });
 
-test('LRCLIB adapter prefers exact get Lyricsfile and sends album/duration/client identity', async () => {
+test('LRCLIB retains exact get Lyricsfile when search adds no better lyrics and sends client identity', async () => {
   const seen = [];
   const loader = createLyricSourceLoader({
     fetchImpl: async (url, init) => {
@@ -423,7 +423,8 @@ test('LRCLIB adapter prefers exact get Lyricsfile and sends album/duration/clien
   });
   const document = await loader.getLrclibDocument(SONG);
   assert.equal(document.syncMode, 'word');
-  assert.equal(seen.length, 1);
+  assert.equal(seen.length, 2);
+  assert.equal(new URL(seen[1].url).pathname, '/api/search');
   const url = new URL(seen[0].url);
   assert.equal(url.pathname, '/api/get');
   assert.equal(url.searchParams.get('album_name'), '夜航集');

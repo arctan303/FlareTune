@@ -61,7 +61,7 @@ test('candidate discovery returns configured providers and isolates a provider f
   assert.deepEqual(result.warnings, [{ source: 'lrclib', code: 'unavailable' }]);
 });
 
-test('candidate discovery globally ranks providers before the workspace takes its first 12', async () => {
+test('candidate discovery globally ranks providers and retains every summary', async () => {
   const song = { id: 'song-1', title: 'Song', artist: 'Artist' };
   const calls = [];
   const kugouCandidates = Array.from({ length: 13 }, (_, index) => ({
@@ -81,8 +81,18 @@ test('candidate discovery globally ranks providers before the workspace takes it
 
   assert.deepEqual(calls, ['kugou', 'netease', 'lrclib']);
   assert.equal(result.candidates[0].providerLyricId, 'netease-best');
-  assert.equal(result.candidates.slice(0, 12).some(({ providerLyricId }) => providerLyricId === 'netease-best'), true);
-  assert.equal(result.candidates.slice(0, 12).some(({ providerLyricId }) => providerLyricId === 'kg-11'), false);
+  assert.equal(result.candidates.length, 15);
+  assert.equal(result.candidates.some(({ providerLyricId }) => providerLyricId === 'kg-12'), true);
+});
+
+test('source filter only queries the selected provider and rejects unsupported sources', async () => {
+  const calls = [];
+  const listCandidates = async source => { calls.push(source); return [{ source, providerLyricId: 'one' }]; };
+  const result = await listLyricsResolutionCandidates({}, { source: 'netease', listCandidates });
+  assert.deepEqual(calls, ['netease']);
+  assert.equal(result.candidates[0].source, 'netease');
+  await assert.rejects(listLyricsResolutionCandidates({}, { source: 'unknown', listCandidates }), RangeError);
+  assert.deepEqual(calls, ['netease']);
 });
 
 test('candidate merge deduplicates provider identities and has deterministic cross-provider ties', () => {

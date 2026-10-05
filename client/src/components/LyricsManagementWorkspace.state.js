@@ -133,11 +133,9 @@ export function sortLyricsCandidates(candidates, inspections = {}) {
   indexed.sort((a, b) => {
     const keyA = candidateKey(a.candidate);
     const keyB = candidateKey(b.candidate);
-    const tierA = getCandidateQualityTier(inspections[keyA]);
-    const tierB = getCandidateQualityTier(inspections[keyB]);
-    if (tierA !== tierB) {
-      return tierB - tierA;
-    }
+    const matchDifference = getCandidateMatchTier(b.candidate, inspections[keyB])
+      - getCandidateMatchTier(a.candidate, inspections[keyA]);
+    if (matchDifference) return matchDifference;
     const scoreA = Number(a.candidate?.score);
     const scoreB = Number(b.candidate?.score);
     const hasScoreA = Number.isFinite(scoreA);
@@ -145,14 +143,29 @@ export function sortLyricsCandidates(candidates, inspections = {}) {
     if (hasScoreA && hasScoreB && scoreA !== scoreB) {
       return scoreB - scoreA;
     }
+    const tierA = getCandidateQualityTier(inspections[keyA]);
+    const tierB = getCandidateQualityTier(inspections[keyB]);
+    // An unknown body must stay discoverable among equally matched summaries.
+    // Use an explicit rank to keep comparison transitive as inspection arrives.
+    const rankA = tierA < 0 ? 5 : tierA;
+    const rankB = tierB < 0 ? 5 : tierB;
+    if (rankA !== rankB) return rankB - rankA;
     return a.index - b.index;
   });
   return indexed.map((item) => item.candidate);
 }
 
-export function filterLyricsCandidates(candidates, inspections = {}, filter = 'all') {
+export function getCandidateMatchTier(candidate, inspection) {
+  if (candidate?.versionMismatch || candidate?.warnings?.includes('version_mismatch')
+    || inspection?.warnings?.includes('version_mismatch')) return 0;
+  if (candidate?.durationDelta !== null && candidate?.durationDelta !== undefined
+    && Number(candidate.durationDelta) > 15) return 1;
+  return 2;
+}
+
+export function filterLyricsCandidates(candidates, inspections = {}, filter = 'all', translation = 'all') {
   if (!Array.isArray(candidates)) return [];
-  if (!filter || filter === 'all') return candidates;
+  if ((!filter || filter === 'all') && translation === 'all') return candidates;
   const candidateKey = (c) => `${c?.source || ''}:${c?.providerLyricId || ''}`;
   return candidates.filter((candidate) => {
     const key = candidateKey(candidate);
@@ -169,9 +182,10 @@ export function filterLyricsCandidates(candidates, inspections = {}, filter = 'a
       || inspection.document?.translationAvailable
       || (Array.isArray(inspection.document?.tlyric) && inspection.document.tlyric.some((l) => String(l || '').trim()))
     );
-    if (filter === 'word') return syncMode === 'word';
+    if (['word', 'line', 'none'].includes(filter) && syncMode !== filter) return false;
     if (filter === 'translation') return translationAvailable;
+    if (translation === 'yes' && !translationAvailable) return false;
+    if (translation === 'no' && translationAvailable) return false;
     return true;
   });
 }
-

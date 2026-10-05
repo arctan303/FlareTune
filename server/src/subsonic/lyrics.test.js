@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
+import { buildNotFoundLyricArtifact, buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { structuredLyrics } from './lyrics.js';
 import { reply } from './response.js';
 import { fixture } from './test-support.js';
@@ -110,6 +110,7 @@ test('authenticated HTTP opt-in returns stored word and translation layers while
   const artifact = await make([{ time: 1, text: '눈', tlyric: '眼睛', words:
     [{ text: '눈', startTime: 1, endTime: 2 }] }], { targetLanguage: 'zh' });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(artifact)), type: 'application/json' });
+  f.objects.set('media/lyrics/s2.json', { bytes: new TextEncoder().encode(JSON.stringify(buildNotFoundLyricArtifact('s2'))), type: 'application/json' });
   const read = async (method, params) => (await (await f.rest(method, params)).json())['subsonic-response'];
   const discovery = await read('getOpenSubsonicExtensions', { u: null, t: null, s: null });
   assert.deepEqual(discovery.openSubsonicExtensions, [{ name: 'songLyrics', versions: [1, 2] }]);

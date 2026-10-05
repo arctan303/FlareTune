@@ -26,6 +26,10 @@ export async function fixture() {
         if (db.fail?.test(sql)) throw new Error('injected failure');
         db.queries.push(sql);
         if (/^\s*(SELECT|WITH)\b/i.test(sql)) return { results: sqlite.prepare(sql).all(...values) };
+        if (/\bRETURNING\b/i.test(sql)) {
+          const results = sqlite.prepare(sql).all(...values);
+          return { results, meta: { changes: results.length } };
+        }
         return { meta: { changes: sqlite.prepare(sql).run(...values).changes } };
       };
       return { bind(...args) { values.push(...args); return this; },
@@ -54,18 +58,28 @@ export async function fixture() {
     ['media/audio/one.mp3', { bytes: new Uint8Array([1,2,3,4,5]), type: 'audio/mpeg' }],
     ['media/cover/one.png', { bytes: new Uint8Array([6,7,8]), type: 'image/png' }],
   ]);
-  let reads = 0;
+  let reads = 0; let objectRevision = 0;
   env.MEDIA_BUCKET = {
     async get(key, options) {
       reads++; const object = objects.get(key); if (!object) return null;
       const size = object.bytes.length; const match = /^bytes=(\d+)-(\d+)$/.exec(options?.range?.get('Range') || '');
       const range = match ? { offset: Number(match[1]), length: Number(match[2]) - Number(match[1]) + 1 } : null;
       return { body: range ? object.bytes.slice(range.offset, range.offset + range.length) : object.bytes,
-        size, range, httpEtag: '"test-etag"', etag: 'test-etag', text: async () => new TextDecoder().decode(object.bytes),
+        size, range, httpEtag: `"${object.etag || 'test-etag'}"`, etag: object.etag || 'test-etag',
+        customMetadata: object.customMetadata, text: async () => new TextDecoder().decode(object.bytes),
         json: async () => JSON.parse(new TextDecoder().decode(object.bytes)),
         writeHttpMetadata(headers) { headers.set('Content-Type', object.type); } };
     },
     async head(key) { const object = await this.get(key); return object; },
+    async put(key, value, options = {}) {
+      const current = objects.get(key);
+      if (options.onlyIf?.etagDoesNotMatch === '*' && current) return null;
+      if (options.onlyIf?.etagMatches && (!current || (current.etag || 'test-etag') !== options.onlyIf.etagMatches)) return null;
+      const etag = `write-${++objectRevision}`;
+      objects.set(key, { bytes: typeof value === 'string' ? new TextEncoder().encode(value) : value,
+        type: options.httpMetadata?.contentType || 'application/json', etag, customMetadata: options.customMetadata });
+      return { etag, httpEtag: `"${etag}"` };
+    },
   };
   async function signIn(username = 'owner', password = PASSWORD) {
     const logged = await login({ db, username, password });
@@ -90,7 +104,7 @@ export async function fixture() {
     }
     return worker.fetch(new Request(`${options.origin || 'https://test.example'}/rest/${method}?${p}`, {
       method: options.method || 'GET', headers: { 'CF-Connecting-IP': '192.0.2.23', ...options.headers },
-    }), options.env || env);
+    }), options.env || env, options.executionContext);
   }
   return { sqlite, db, env, owner, signed, signIn, api, enable, rest, objects, mediaReads: () => reads, close: () => sqlite.close() };
 }

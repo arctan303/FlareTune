@@ -129,7 +129,7 @@ async function finishWithInferredLanguage(store, db, song, finished, language, d
       ...finished.artifact,
       aiCompletion: { status: 'failed', errorCode: 'language_update_failed', updatedAt: failedAt },
       updatedAt: failedAt,
-    }, finished.etag);
+    }, finished.etag, { automation: finished.automation });
     return failed.state === 'updated' ? failed : { state: 'superseded' };
   }
 }
@@ -143,7 +143,7 @@ async function conditionallyFinish(store, songId, startedAt, textHash, update) {
     return { state: 'superseded', artifact: current.artifact, etag: current.etag };
   }
   const next = await update(current.artifact);
-  const written = await store.putIfMatch(songId, next, current.etag);
+  const written = await store.putIfMatch(songId, next, current.etag, { automation: current.automation });
   if (written.state === 'conflict') return { state: 'superseded' };
   return written;
 }
@@ -175,7 +175,7 @@ export async function resolveLegacyLyricCleanup(store, song, read, now = Date.no
   const updatedAt = new Date(now()).toISOString();
   const next = await applySuggestedCleanup(read.artifact,
     read.artifact.aiCompletion.candidateIndices, updatedAt, song);
-  const written = await store.putIfMatch(song.id, next, read.etag);
+  const written = await store.putIfMatch(song.id, next, read.etag, { automation: read.automation });
   return written.state === 'updated'
     ? { ...written, state: 'found' }
     : store.get(song.id);
@@ -364,6 +364,7 @@ export async function beginLyricAssetAiCompletion({
   actorAccountId = null,
   force = false,
   targetLanguage = null,
+  automatic = false,
   deps = {},
 }) {
   const current = await store.get(song.id);
@@ -397,7 +398,8 @@ export async function beginLyricAssetAiCompletion({
     aiCompletion: { status: 'pending', updatedAt: startedAt },
     updatedAt: startedAt,
   };
-  const written = await store.putIfMatch(song.id, pending, current.etag);
+  const written = await store.putIfMatch(song.id, pending, current.etag,
+    { automation: automatic ? current.automation : undefined });
   if (written.state === 'conflict') {
     const winner = await store.get(song.id);
     if (winner.state === 'found'
@@ -411,6 +413,7 @@ export async function beginLyricAssetAiCompletion({
     state: 'started',
     artifact: written.artifact,
     etag: written.etag,
+    automation: written.automation,
     task: runLyricAssetAiCompletion({
       env,
       db,

@@ -542,7 +542,8 @@ test('fullscreen lyric entry opens the shared workspace without a tools drawer',
   assert.match(lyricsWorkspace, /authenticated && managed\.aiCompletionEnabled && \(!editing \|\| isAdmin\) && <button/);
   assert.match(lyricsWorkspace, /managed\.isAiCompleting/);
   assert.doesNotMatch(lyricsWorkspace, /manageApi\.updateSong/);
-  assert.match(lyricsWorkspace, /lyricsWorkspaceApi\.getLyricsCandidates\(song\.id/);
+  assert.match(lyricsWorkspace, /<LyricsCandidatePanel key=\{song\.id\}/);
+  assert.match(readSource('./components/LyricsCandidatePanel.jsx'), /lyricsWorkspaceApi\.getLyricsCandidates\(song\.id/);
   assert.match(lyricsWorkspace, /managed\.completeTranslation\(\)/);
   assert.doesNotMatch(app, /PlayerToolsDrawer/);
   assert.match(readSource('./components/MainContent.jsx'), /<LyricsManagementWorkspace route=\{activeRoute\}/);

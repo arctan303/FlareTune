@@ -145,6 +145,7 @@ export function createMemoryR2Bucket({
       return {
         size: new TextEncoder().encode(stored.text).byteLength,
         etag: stored.etag,
+        customMetadata: stored.customMetadata,
         text: async () => stored.text,
       };
     },
@@ -156,7 +157,7 @@ export function createMemoryR2Bucket({
       if (options.onlyIf?.etagMatches !== undefined
         && (!existing || existing.etag !== options.onlyIf.etagMatches)) return null;
       const etag = `etag-${++etagVersion}`;
-      objects.set(key, { text: String(value), etag });
+      objects.set(key, { text: String(value), etag, customMetadata: options.customMetadata });
       return { etag };
     },
     async delete(key) {

@@ -96,11 +96,15 @@ export function applyLyricOffset(document, offsetMs) {
 
 export async function listLyricsResolutionCandidates(song, {
   signal,
+  source: selectedSource = 'all',
   listCandidates = listSourceLyricCandidates,
 } = {}) {
+  if (!['all', 'kugou', 'netease', 'lrclib'].includes(selectedSource)) {
+    throw new RangeError('invalid lyric source filter');
+  }
   const providerCandidateGroups = [];
   const warnings = [];
-  for (const source of ['kugou', 'netease', 'lrclib']) {
+  for (const source of selectedSource === 'all' ? ['kugou', 'netease', 'lrclib'] : [selectedSource]) {
     try {
       const providerCandidates = await listCandidates(source, song, { signal });
       if (!Array.isArray(providerCandidates)) throw new TypeError('provider candidates must be an array');

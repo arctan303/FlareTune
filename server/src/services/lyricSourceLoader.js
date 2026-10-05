@@ -19,6 +19,10 @@ import {
 import { LyricSourceError } from './lyricSourceError.js';
 import { searchNeteaseSelections, loadNeteaseSelection } from './neteaseLyricLoader.js';
 import { parseLyricsfile } from './lyricPlainParsers.js';
+import {
+  AUTOMATIC_LYRIC_CANDIDATE_LIMIT, documentQuality, isBestPossibleAutomaticDocument,
+  preferredAutomaticDocument, reliableAutomaticMatch, reliableAutomaticMetadata, resolutionQuality,
+} from './lyricAutomaticSelection.js';
 
 export { LyricSourceError } from './lyricSourceError.js';
 export { parseLyricsfile } from './lyricPlainParsers.js';
@@ -331,41 +335,6 @@ const decodePlainContent = (content) => {
   }
 };
 
-const documentQuality = (document) => {
-  if (document?.syncMode === 'word') return 3;
-  if (document?.syncMode === 'line') return 2;
-  if (document?.lines?.some((line) => isSingableLineText(line.text, document.providerMeta))) return 1;
-  return 0;
-};
-
-const resolutionQuality = (document) => {
-  const quality = documentQuality(document);
-  return quality ? quality * 2
-    + (document?.lines?.some((line) => String(line?.tlyric || '').trim()) ? 1 : 0) : 0;
-};
-
-const reliableAutomaticMatch = (document) => {
-  const meta = document?.providerMeta;
-  if (meta?.versionMismatch) return false;
-  return !Number.isFinite(meta?.durationDelta) || meta.durationDelta <= 15;
-};
-
-const automaticMatchTier = (document) => {
-  const delta = document?.providerMeta?.durationDelta;
-  if (!Number.isFinite(delta)) return 0;
-  if (delta <= 3) return 3;
-  if (delta <= 8) return 2;
-  return 1;
-};
-
-const preferredAutomaticDocument = (candidate, current) => {
-  if (resolutionQuality(candidate) === 0) return false;
-  if (!current) return true;
-  const matchDifference = automaticMatchTier(candidate) - automaticMatchTier(current);
-  return matchDifference > 0 || (matchDifference === 0
-    && resolutionQuality(candidate) > resolutionQuality(current));
-};
-
 const asSourceError = (error, provider, stage) => (
   error instanceof LyricSourceError
     ? error
@@ -375,6 +344,21 @@ const asSourceError = (error, provider, stage) => (
 const isActionableSourceError = (error) => (
   error instanceof LyricSourceError && error.kind !== 'unavailable'
 );
+
+// Upgrade callers can retain completed candidates when their total search
+// budget expires. The source request itself still rejects real cancellation.
+// This observer is deliberately limited to uncached automatic source loading.
+const automaticProgressReporter = (onAutomaticCandidate, signal) => {
+  let reported = null;
+  return (document) => {
+    if (signal?.aborted) throw abortError(document?.source, 'progress');
+    if (typeof onAutomaticCandidate !== 'function'
+      || !reliableAutomaticMatch(document) || !preferredAutomaticDocument(document, reported)) return;
+    reported = document;
+    try { onAutomaticCandidate(document); } catch { /* Observer failures do not change provider results. */ }
+    if (signal?.aborted) throw abortError(document?.source, 'progress');
+  };
+};
 
 const optionsKey = ({ providerLyricId = '', cacheScope = '', cacheEpoch = '' } = {}) => (
   `${providerLyricId === null ? '' : String(providerLyricId)}\u0001${String(cacheScope || '')}\u0001${String(cacheEpoch)}`
@@ -415,9 +399,7 @@ export async function fetchLyricsDocumentWithFallback(source, song, fetchSourceD
     if (source === 'auto' && !reliableAutomaticMatch(validated)) continue;
     if (source === 'auto' ? preferredAutomaticDocument(validated, bestDocument)
       : resolutionQuality(validated) > resolutionQuality(bestDocument)) bestDocument = validated;
-    // A tightly matched translated word timeline cannot be improved by later sources.
-    if (source === 'auto' && automaticMatchTier(validated) === 3
-      && resolutionQuality(validated) === 7) return validated;
+    if (source === 'auto' && isBestPossibleAutomaticDocument(validated)) return validated;
   }
   if (bestDocument) return bestDocument;
   const actionableErrors = errors.filter((error) => error.kind !== 'unavailable');
@@ -597,6 +579,7 @@ export const createLyricSourceLoader = ({
       if (documentQuality(krcDocument) > 0) return krcDocument;
     } catch (error) {
       krcError = asSourceError(error, 'kugou', 'krc');
+      if (krcError.kind === 'aborted') throw krcError;
     }
 
     try {
@@ -612,7 +595,7 @@ export const createLyricSourceLoader = ({
     }
   };
 
-  const getKugouDocument = (song, { signal, providerLyricId = null } = {}) => withCircuit('kugou', async () => {
+  const getKugouDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('kugou', async () => {
     const selections = await searchKugouSelections(song, signal);
     if (providerLyricId !== null && providerLyricId !== undefined) {
       const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
@@ -629,25 +612,9 @@ export const createLyricSourceLoader = ({
     if (selections.length === 0) {
       throw new LyricSourceError('unavailable', 'kugou', 'match', 'Kugou has no reliable candidate');
     }
-    const topSelections = selections.slice(0, 5);
-    let bestLineDoc = null;
-    let lastError = null;
-    for (const sel of topSelections) {
-      try {
-        const doc = await loadKugouSelection(sel, signal);
-        if (doc?.syncMode === 'word') {
-          return doc;
-        }
-        if (doc && !bestLineDoc && documentQuality(doc) > 0) {
-          bestLineDoc = doc;
-        }
-      } catch (err) {
-        lastError = err;
-      }
-    }
-    if (bestLineDoc) return bestLineDoc;
-    if (lastError) throw lastError;
-    return loadKugouSelection(selections[0], signal);
+    return loadBestAutomaticSelection(selections,
+      (selection) => loadKugouSelection(selection, signal), 'kugou',
+      automaticProgressReporter(onAutomaticCandidate, signal));
   });
 
   const searchLrclibSelections = async (song, signal, {
@@ -679,8 +646,8 @@ export const createLyricSourceLoader = ({
       albumKeys: ['albumName'], durationKeys: ['duration'],
     };
 
-    // Ordinary playback keeps the exact-get fast path. Audit evidence opts into
-    // search as well, then ranks the merged raw candidates exactly once.
+    // Return exact metadata first; playback compares its usable document with
+    // search unless it is already optimal. Audit evidence merges both snapshots.
     const exactCandidate = preferExact ? candidates[0] : null;
     let exactSelection = exactCandidate
       ? scoreLyricCandidate(exactCandidate, song, rankingOptions)
@@ -750,48 +717,66 @@ export const createLyricSourceLoader = ({
     return null;
   };
 
-  const loadBestAutomaticSelection = async (selections, load, provider) => {
+  const loadBestAutomaticSelection = async (selections, load, provider, reportCandidate = () => {}) => {
     let best = null;
-    let lastError = null;
-    for (const selection of selections.slice(0, 5)) {
+    const errors = [];
+    const reliableSelections = selections.filter(reliableAutomaticMetadata)
+      .slice(0, AUTOMATIC_LYRIC_CANDIDATE_LIMIT);
+    for (const selection of reliableSelections) {
       try {
         const document = await load(selection);
         if (!document || !reliableAutomaticMatch(document)) continue;
-        if (preferredAutomaticDocument(document, best)) best = document;
-        if (automaticMatchTier(document) === 3 && resolutionQuality(document) === 7) return document;
+        if (preferredAutomaticDocument(document, best)) {
+          best = document;
+          reportCandidate(document);
+        }
+        if (isBestPossibleAutomaticDocument(document)) return document;
       } catch (error) {
         const sourceError = asSourceError(error, provider, 'lyrics');
         if (sourceError.kind === 'aborted') throw sourceError;
-        lastError = sourceError;
+        errors.push(sourceError);
       }
     }
     if (best) return best;
-    if (lastError) throw lastError;
+    const actionableErrors = errors.filter(isActionableSourceError);
+    if (actionableErrors.length === 1) throw actionableErrors[0];
+    if (actionableErrors.length) {
+      const priority = ['timeout', 'rate_limited', 'network', 'upstream', 'invalid', 'circuit_open'];
+      const kind = priority.find((value) => actionableErrors.some((error) => error.kind === value)) || 'upstream';
+      throw new LyricSourceError(kind, provider, 'lyrics', `${provider} candidate downloads failed`, {
+        cause: new AggregateError(actionableErrors, 'Lyric candidate failures'),
+      });
+    }
+    if (errors.length) throw errors[errors.length - 1];
     throw new LyricSourceError('unavailable', provider, 'lyrics', `${provider} candidates have no usable lyrics`);
   };
 
-  const getLrclibDocument = (song, { signal, providerLyricId = null } = {}) => withCircuit('lrclib', async () => {
+  const getLrclibDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('lrclib', async () => {
     const automatic = providerLyricId === null || providerLyricId === undefined;
     if (automatic) {
+      const reportCandidate = automaticProgressReporter(onAutomaticCandidate, signal);
       const exact = await searchLrclibSelections(song, signal, { preferExact: true });
       let exactDocument = null;
       let exactError = null;
       if (exact.selections.length) {
         try {
           const loaded = loadLrclibSelection(exact.selections[0]);
-          if (loaded && reliableAutomaticMatch(loaded)) exactDocument = loaded;
+          if (loaded && reliableAutomaticMatch(loaded)) {
+            exactDocument = loaded;
+            reportCandidate(loaded);
+          }
         } catch (error) {
           exactError = asSourceError(error, 'lrclib', 'lyrics');
+          if (exactError.kind === 'aborted') throw exactError;
           // A malformed exact response can still have a usable search result.
         }
-        if (exactDocument && automaticMatchTier(exactDocument) === 3
-          && documentQuality(exactDocument) === 3) return exactDocument;
+        if (exactDocument && isBestPossibleAutomaticDocument(exactDocument)) return exactDocument;
       }
       try {
         const searchedSelections = exact.exactSelection
           ? (await searchLrclibSelections(song, signal)).selections
           : exact.selections;
-        const bestSearch = await loadBestAutomaticSelection(searchedSelections, loadLrclibSelection, 'lrclib');
+        const bestSearch = await loadBestAutomaticSelection(searchedSelections, loadLrclibSelection, 'lrclib', reportCandidate);
         return preferredAutomaticDocument(bestSearch, exactDocument) ? bestSearch : exactDocument;
       } catch (error) {
         if (error?.kind === 'aborted') throw error;
@@ -815,11 +800,12 @@ export const createLyricSourceLoader = ({
     return document;
   });
 
-  const getNeteaseDocument = (song, { signal, providerLyricId = null } = {}) => withCircuit('netease', async () => {
+  const getNeteaseDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('netease', async () => {
     const selections = await searchNeteaseSelections(song, signal, { fetchImpl, timeoutMs });
     if (providerLyricId === null || providerLyricId === undefined) {
       return loadBestAutomaticSelection(selections,
-        (selection) => loadNeteaseSelection(selection, signal, { fetchImpl, timeoutMs }), 'netease');
+        (selection) => loadNeteaseSelection(selection, signal, { fetchImpl, timeoutMs }), 'netease',
+        automaticProgressReporter(onAutomaticCandidate, signal));
     }
     const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
     if (!selection) {

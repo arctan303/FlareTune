@@ -1,14 +1,14 @@
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { Check, ChevronDown, ChevronUp, Download, FileUp, Languages, Loader2,
-  Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+  Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
 import { usePlayerStore } from '../store/usePlayerStore.js';
 import { useManagedLyricsAsset } from '../hooks/useManagedLyricsAsset.js';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { lyricsWorkspaceApi } from '../services/localLyricsWorkspaceApi.js';
 import { findActiveLyricLineIndex } from '../utils/lyricTimeline.js';
-import { sortLyricsCandidates, projectProviderWarnings } from './LyricsManagementWorkspace.state.js';
+import LyricsCandidatePanel from './LyricsCandidatePanel.jsx';
 import { formatPath, returnToOriginRoute, syncBrowserHistory } from '../utils/navigation.js';
 import SyncedLyricText from './lyrics/SyncedLyricText.jsx';
 import ProgressBar from './playerbar/ProgressBar.jsx';
@@ -24,7 +24,6 @@ const playbackTime = (seconds) => {
   const value = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
   return String(Math.floor(value / 60)).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0');
 };
-const keyOf = (value) => String(value?.source || '') + ':' + String(value?.providerLyricId || '');
 const stamp = (seconds) => {
   if (!Number.isFinite(seconds)) return '';
   const ms = Math.round(seconds * 1000);
@@ -208,14 +207,6 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
   const [activeCell, setActiveCell] = React.useState(null);
   const [rows, setRows] = React.useState([]);
   const [shift, setShift] = React.useState(0);
-  const [searchTitle, setSearchTitle] = React.useState(song?.title || '');
-  const [searchArtist, setSearchArtist] = React.useState(song?.artist || '');
-  const [candidates, setCandidates] = React.useState([]);
-  const [inspections, setInspections] = React.useState({});
-  const [selected, setSelected] = React.useState(null);
-  const [searching, setSearching] = React.useState(false);
-  const [searchError, setSearchError] = React.useState('');
-  const [warnings, setWarnings] = React.useState([]);
   const [draftAiBusy, setDraftAiBusy] = React.useState(false);
   const draftRequestRef = React.useRef(0);
   const draftEditVersionRef = React.useRef(0);
@@ -225,15 +216,11 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
   const initialRowsRef = React.useRef([]);
   const editingEtagRef = React.useRef(null);
   const closeGuardRef = React.useRef(() => true);
-  const generation = React.useRef(0);
   const hasAsset = managed.asset?.status === 'ready';
   const hasTimeline = hasAsset && ['line', 'word'].includes(managed.asset?.original?.syncMode);
   const draftMode = rows.some((row) => row.words?.length) ? 'word'
     : rows.some((row) => row.time) ? 'line' : 'none';
   const followsPlayback = String(playingSong?.id) === String(song?.id);
-  const sorted = React.useMemo(() => sortLyricsCandidates(candidates, inspections), [candidates, inspections]);
-  const selectedIndex = sorted.findIndex((candidate) => keyOf(candidate) === keyOf(selected));
-  const inspection = selected ? inspections[keyOf(selected)] : null;
   const changedWordRows = rows.filter((row) => row.words?.length
     && (row.time !== row.originalTime || row.text !== row.originalText)).length;
   const rowErrors = React.useMemo(() => validateLyricRows(rows), [rows]);
@@ -258,41 +245,10 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
   };
 
   React.useEffect(() => {
-    setEditing(false); setActiveCell(null); setShift(0); setCandidates([]); setInspections({});
+    setEditing(false); setActiveCell(null); setShift(0);
     draftRequestRef.current += 1; setDraftAiBusy(false);
     draftReceiptRef.current = null;
-    setSelected(null); setSearchTitle(song?.title || ''); setSearchArtist(song?.artist || '');
-    generation.current += 1;
   }, [song?.id]);
-  React.useEffect(() => {
-    if (!selected || !song?.id) return undefined;
-    const sourceIndex = candidates.findIndex((candidate) => keyOf(candidate) === keyOf(selected));
-    if (sourceIndex < 0) return undefined;
-    const nearby = candidates.slice(sourceIndex, sourceIndex + 4);
-    const keys = new Set(nearby.map(keyOf));
-    const missing = nearby.filter((item) => !inspections[keyOf(item)]);
-    if (!missing.length) return undefined;
-    let cancelled = false;
-    const options = { title: searchTitle.trim(), artist: searchArtist.trim() };
-    void lyricsWorkspaceApi.inspectLyricsCandidates(song.id,
-      missing.map((item) => ({ source: item.source, providerLyricId: item.providerLyricId })), options)
-      .then((response) => {
-        if (cancelled) return;
-        setInspections((current) => ({ ...current,
-          ...Object.fromEntries((response.data?.results || []).filter((item) => keys.has(keyOf(item)))
-            .map((item) => [keyOf(item), item])) }));
-      }).catch(() => {
-        if (cancelled) return;
-        setInspections((current) => ({ ...current,
-          ...Object.fromEntries(missing.map((item) => [keyOf(item), { state: 'error' }])) }));
-      });
-    return () => { cancelled = true; };
-  }, [selected, candidates, song?.id, searchTitle, searchArtist]);
-  React.useEffect(() => {
-    if (baseSong?.title !== '当前歌曲' || !managed.song) return;
-    setSearchTitle(managed.song.title || '');
-    setSearchArtist(managed.song.artist || '');
-  }, [baseSong?.title, managed.song?.title, managed.song?.artist]);
   React.useEffect(() => {
     useUIStore.getState().setLyricsWorkspaceBeforeCloseGuard(() => closeGuardRef.current());
     return () => useUIStore.getState().setLyricsWorkspaceBeforeCloseGuard(null);
@@ -377,24 +333,6 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
     }
   };
   const completeDraft = () => completeDraftWithLines(collectDraftLines());
-  const search = async () => {
-    if (!authenticated || !song?.id || searching) return;
-    const current = ++generation.current;
-    const options = { title: searchTitle.trim(), artist: searchArtist.trim() };
-    setSearching(true); setSearchError(''); setWarnings([]); setCandidates([]); setInspections({}); setSelected(null);
-    try {
-      const response = await lyricsWorkspaceApi.getLyricsCandidates(song.id, options);
-      if (current !== generation.current) return;
-      const found = (response.data?.candidates || []).slice(0, 12);
-      setCandidates(found);
-      setWarnings(projectProviderWarnings(response.data?.warnings));
-      if (found.length) setSelected(found[0]);
-    } catch (error) {
-      if (current === generation.current) setSearchError(error?.message || '查找歌词失败');
-    } finally {
-      if (current === generation.current) setSearching(false);
-    }
-  };
   const exportFile = (kind) => {
     if (!hasAsset) return;
     const name = String(song.title || song.id).replace(/[\\/:*?"<>|]/g, '_');
@@ -512,58 +450,26 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
               }}><Trash2 size={16} />{t("重置歌词")}</button>
             </div></section>}
         </div>}
-        {section === 'candidates' && <div className="lyric-studio__candidate-content">
-        <div className="lyric-studio__toolbar"><div className="lyric-studio__section-title"><Search size={18} /><strong>{t("候选歌词")}</strong></div></div>
-        <form className="lyric-studio__search" onSubmit={(event) => { event.preventDefault(); void search(); }}>
-          <label>{t("歌名")}<input value={searchTitle} onChange={(event) => setSearchTitle(event.target.value)} /></label>
-          <label>{t("歌手")}<input value={searchArtist} onChange={(event) => setSearchArtist(event.target.value)} /></label>
-          <button type="submit" disabled={searching || !searchTitle.trim()}>
-            {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}{t("查找候选")}</button>
-        </form>
-        {warnings.length > 0 && <p className="lyric-studio__warning">{warnings.map((item) => item.text).join('；')}</p>}
-        {searchError && <p className="lyric-studio__error" role="alert">{searchError}</p>}
-        <div className="lyric-studio__candidate-list" aria-label={t("切换候选歌词")}>
-          {sorted.map((candidate) => {
-            const result = inspections[keyOf(candidate)];
-            return <button type="button" key={keyOf(candidate)}
-              className={'lyric-studio__candidate' + (selected && keyOf(candidate) === keyOf(selected) ? ' is-selected' : '')}
-              onClick={() => setSelected(candidate)}>
-              <strong>{candidate.matchedTitle || song.title}</strong>
-              <small>{candidate.matchedArtist || song.artist || t("未知歌手")} · {SOURCES[candidate.source] || candidate.source}</small>
-              <span>{result?.state === 'ready'
-                ? `${MODES[result.syncMode] || t("无时间轴")} · ${result.translationAvailable ? t("有翻译") : t("无翻译")}`
-                : result?.state === 'error' ? t("检测失败") : t("选中后检测")}</span>
-            </button>;
-          })}
-          {!searching && !sorted.length && <p className="lyric-studio__empty is-small">{t("输入歌名后查找可用歌词。")}</p>}
-        </div>
-        {selected && <div className="lyric-studio__candidate-preview">
-          <div className="lyric-studio__candidate-preview-heading"><div className="lyric-studio__candidate-navigation"><button type="button" disabled={selectedIndex <= 0} onClick={() => setSelected(sorted[selectedIndex - 1])} aria-label={t("上一份候选")}>‹</button><strong>{selectedIndex + 1} / {sorted.length} · {SOURCES[selected.source] || selected.source} · {MODES[inspection?.syncMode] || t("读取中")}</strong><button type="button" disabled={selectedIndex >= sorted.length - 1} onClick={() => setSelected(sorted[selectedIndex + 1])} aria-label={t("下一份候选")}>›</button></div>
-            {isAdmin && <button type="button" className="is-primary" disabled={inspection?.state !== 'ready' || managed.saving}
-              onClick={() => {
-                if (!canDiscardEdits()) return;
-                const nextRows = makeRows(inspection);
-                if (!nextRows.length) return showToast(t("这份候选没有可导入的歌词"));
-                draftRequestRef.current += 1;
-                draftEditVersionRef.current += 1;
-                setDraftAiBusy(false);
-                initialRowsRef.current = makeRows(managed.lyrics);
-                editingEtagRef.current = managed.etag;
-                draftReceiptRef.current = null;
-                setRows(nextRows);
-                setActiveCell(null);
-                setShift(0);
-                setEditing(true);
-                setSection('current');
-                showToast(t("已导入当前歌词草稿，编辑并保存后才会共享"));
-              }}>{t("导入当前歌词草稿")}</button>}
-          </div>
-          {inspection?.state === 'ready'
-            ? <Preview key={keyOf(selected)} value={inspection} currentTime={currentTime} followsPlayback={followsPlayback} />
-            : <p className="lyric-studio__empty is-small">{!inspection ? t("正在读取候选歌词…")
-              : inspection?.state === 'error' ? t("候选预览失败。") : t("这份候选没有可预览的歌词。")}</p>}
-        </div>}
-        </div>}
+        <LyricsCandidatePanel key={song.id} song={song} active={section === 'candidates'}
+          authenticated={authenticated} isAdmin={isAdmin} saving={managed.saving}
+          Preview={Preview} currentTime={currentTime} followsPlayback={followsPlayback}
+          onImport={(inspection) => {
+            if (!canDiscardEdits()) return;
+            const nextRows = makeRows(inspection);
+            if (!nextRows.length) return showToast(t("这份候选没有可导入的歌词"));
+            draftRequestRef.current += 1;
+            draftEditVersionRef.current += 1;
+            setDraftAiBusy(false);
+            initialRowsRef.current = makeRows(managed.lyrics);
+            editingEtagRef.current = managed.etag;
+            draftReceiptRef.current = null;
+            setRows(nextRows);
+            setActiveCell(null);
+            setShift(0);
+            setEditing(true);
+            setSection('current');
+            showToast(t("已导入当前歌词草稿，编辑并保存后才会共享"));
+          }} />
       </div>
     </div>
   </div>;

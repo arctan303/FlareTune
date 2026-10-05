@@ -129,6 +129,21 @@ test('offset clamp remains integer, finite and bounded', () => {
   assert.equal(clampLyricOffset(Number.NaN), 0);
 });
 
+test('candidate source selection is forwarded to discovery with cancellation signal', async () => {
+  setSession();
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const calls = [];
+  globalThis.fetch = async (url, init) => { calls.push({ url: String(url), init }); return okResponse(); };
+  try {
+    await lyricsWorkspaceApi.getLyricsCandidates('s1', { title: 'Song', artist: 'Singer', source: 'netease', signal: controller.signal });
+    await lyricsWorkspaceApi.getLyricsCandidates('s1', { source: 'all' });
+  } finally { globalThis.fetch = originalFetch; }
+  assert.equal(new URL(calls[0].url, 'https://test.invalid').searchParams.get('source'), 'netease');
+  assert.equal(calls[0].init.signal, controller.signal);
+  assert.equal(new URL(calls[1].url, 'https://test.invalid').searchParams.has('source'), false);
+});
+
 test('lyrics conflict preserves status, code and current asset data', async () => {
   setSession();
   const originalFetch = globalThis.fetch;

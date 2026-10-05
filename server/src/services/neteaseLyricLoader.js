@@ -225,6 +225,7 @@ export async function searchNeteaseSelections(song, signal, {
           }
           lastEndpointError = new LyricSourceError('upstream', 'netease', 'search', `netease search returned code ${data?.code}`);
         } catch (error) {
+          if (error instanceof LyricSourceError && error.kind === 'aborted') throw error;
           lastEndpointError = error;
         }
       }

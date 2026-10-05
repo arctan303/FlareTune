@@ -1,6 +1,7 @@
 import { LYRIC_DOCUMENT_LIMITS, createLyricDocument, isSingableLineText } from '../utils/lyricDocument.js';
 import { isValidSongLanguage } from '../utils/songLanguage.js';
 import { mediaObjectKey, mediaPrefix } from './adminMusicMedia.js';
+import { createRequestSingleFlight } from '../utils/sharedRequestTask.js';
 
 export const LYRIC_ARTIFACT_SCHEMA_VERSION = 1;
 export const MAX_LYRIC_ARTIFACT_BYTES = 4 * 1024 * 1024;
@@ -450,6 +451,14 @@ function storeFailure(code, operation, message, cause) {
   return new LyricArtifactStoreError(code, operation, message, { cause });
 }
 
+// Private object metadata is not part of the portable lyric JSON. Restores and
+// ordinary management writes deliberately do not grant automatic replacement.
+function automaticMetadata(value) {
+  const checkedAt = value?.checkedAt;
+  return typeof checkedAt === 'string' && Number.isFinite(Date.parse(checkedAt))
+    ? { checkedAt: new Date(checkedAt).toISOString() } : null;
+}
+
 export function createLyricArtifactStore(env, { maxBytes = MAX_LYRIC_ARTIFACT_BYTES } = {}) {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new TypeError('maxBytes must be a positive safe integer');
   if (!env?.MEDIA_BUCKET) {
@@ -459,7 +468,7 @@ export function createLyricArtifactStore(env, { maxBytes = MAX_LYRIC_ARTIFACT_BY
   if (!prefix) throw storeFailure('r2_unavailable', 'configure', 'MEDIA_PREFIX is invalid');
 
   const bucket = env.MEDIA_BUCKET;
-  const inFlight = new Map();
+  const sharedTask = createRequestSingleFlight();
   const key = (songId) => mediaObjectKey(prefix, `lyrics/${normalizeLyricArtifactSongId(songId)}.json`);
 
   const get = async (songId) => {
@@ -511,10 +520,13 @@ export function createLyricArtifactStore(env, { maxBytes = MAX_LYRIC_ARTIFACT_BY
       throw storeFailure('invalid_stored_artifact', 'get', validated.errors[0]);
     }
     if (!etag) throw storeFailure('invalid_stored_artifact', 'get', 'Stored lyric artifact has no valid ETag');
-    return { state: 'found', key: objectKey, artifact: validated.artifact, etag };
+    const automation = object.customMetadata?.lyricManagement === 'automatic-v1'
+      ? automaticMetadata({ checkedAt: object.customMetadata.lyricCheckedAt }) : null;
+    return { state: 'found', key: objectKey, artifact: validated.artifact, etag,
+      ...(automation ? { automation } : {}) };
   };
 
-  const conditionalPut = async (songId, artifact, onlyIf, successState) => {
+  const conditionalPut = async (songId, artifact, onlyIf, successState, options = {}) => {
     const normalizedSongId = normalizeLyricArtifactSongId(songId);
     const objectKey = key(normalizedSongId);
     let serialized;
@@ -524,11 +536,16 @@ export function createLyricArtifactStore(env, { maxBytes = MAX_LYRIC_ARTIFACT_BY
       if (error instanceof LyricArtifactValidationError) throw error;
       throw storeFailure('invalid_lyric_artifact', 'put', 'Failed to serialize lyric artifact', error);
     }
+    const automation = artifact.status === 'ready' && artifact.original?.source !== 'manual'
+      && artifact.offsetMs === 0 ? automaticMetadata(options.automation) : null;
     let result;
     try {
       result = await bucket.put(objectKey, serialized.json, {
         onlyIf,
         httpMetadata: { contentType: 'application/json; charset=utf-8' },
+        ...(automation ? { customMetadata: {
+          lyricManagement: 'automatic-v1', lyricCheckedAt: automation.checkedAt,
+        } } : {}),
       });
     } catch (error) {
       if (isPreconditionFailure(error)) {
@@ -541,17 +558,18 @@ export function createLyricArtifactStore(env, { maxBytes = MAX_LYRIC_ARTIFACT_BY
     }
     const etag = etagFromObject(result);
     if (!etag) throw storeFailure('r2_write_failed', 'put', 'R2 write returned no valid ETag');
-    return { state: successState, key: objectKey, artifact: serialized.artifact, etag };
+    return { state: successState, key: objectKey, artifact: serialized.artifact, etag,
+      ...(automation ? { automation } : {}) };
   };
 
-  const createIfAbsent = (songId, artifact) => (
-    conditionalPut(songId, artifact, { etagDoesNotMatch: '*' }, 'created')
+  const createIfAbsent = (songId, artifact, options) => (
+    conditionalPut(songId, artifact, { etagDoesNotMatch: '*' }, 'created', options)
   );
 
-  const putIfMatch = (songId, artifact, etag) => {
+  const putIfMatch = (songId, artifact, etag, options) => {
     const normalizedEtag = etagFromObject({ etag });
     if (!normalizedEtag) validationError('etag must be a non-empty safe R2 ETag');
-    return conditionalPut(songId, artifact, { etagMatches: normalizedEtag }, 'updated');
+    return conditionalPut(songId, artifact, { etagMatches: normalizedEtag }, 'updated', options);
   };
 
   const restoreLegacyIfMatch = async (songId, legacyText, etag) => {
@@ -590,19 +608,10 @@ export function createLyricArtifactStore(env, { maxBytes = MAX_LYRIC_ARTIFACT_BY
     return { state: 'deleted', key: objectKey };
   };
 
-  const singleflight = (songId, task) => {
+  const singleflight = (songId, task, options) => {
     const normalizedSongId = normalizeLyricArtifactSongId(songId);
     if (typeof task !== 'function') throw new TypeError('singleflight task must be a function');
-    const existing = inFlight.get(normalizedSongId);
-    if (existing) return existing;
-    let operation;
-    operation = Promise.resolve()
-      .then(() => task())
-      .finally(() => {
-        if (inFlight.get(normalizedSongId) === operation) inFlight.delete(normalizedSongId);
-      });
-    inFlight.set(normalizedSongId, operation);
-    return operation;
+    return sharedTask(normalizedSongId, task, options);
   };
 
   return Object.freeze({
