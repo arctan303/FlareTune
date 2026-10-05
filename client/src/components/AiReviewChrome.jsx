@@ -1,6 +1,6 @@
 import { t } from '../i18n/index.js';
 import React from 'react';
-import { ArrowUp, Brain, ImagePlus, Loader2, Square } from 'lucide-react';
+import { ArrowUp, Brain, ImagePlus, Loader2, Play, Square } from 'lucide-react';
 import { dropAttachmentFiles, isFileTransfer, pasteAttachmentImages } from '../services/assistantAttachmentInput.js';
 
 export function AiReviewComposer({
@@ -15,6 +15,7 @@ export function AiReviewComposer({
   onKeyDown,
   onSubmit,
   onStop,
+  canContinue = false,
   onHeightChange,
   attachments,
   hasAttachments = false,
@@ -44,7 +45,7 @@ export function AiReviewComposer({
 
   React.useLayoutEffect(() => {
     resizePageInput();
-  }, [inputText, resizePageInput]);
+  }, [inputText, hasAttachments, attachmentsBusy, resizePageInput]);
 
   React.useEffect(() => {
     window.addEventListener('resize', resizePageInput);
@@ -92,8 +93,8 @@ export function AiReviewComposer({
                 <Square size={15} fill="currentColor" />
               </button>
             ) : (
-              <button type="submit" disabled={(!inputText.trim() && !hasAttachments) || attachmentsBusy || phase !== 'ready'} title={t("发送")} className="assistant-composer__action" aria-label={t("发送问题")}>
-                <ArrowUp size={21} strokeWidth={2.6} />
+              <button type="submit" disabled={(!inputText.trim() && !hasAttachments && !canContinue) || attachmentsBusy || phase !== 'ready'} title={t(canContinue && !inputText.trim() && !hasAttachments ? '继续处理' : '发送')} className="assistant-composer__action" aria-label={t(canContinue && !inputText.trim() && !hasAttachments ? '继续处理' : '发送问题')}>
+                {canContinue && !inputText.trim() && !hasAttachments ? <Play size={19} fill="currentColor" /> : <ArrowUp size={21} strokeWidth={2.6} />}
               </button>
             )}
             </div>

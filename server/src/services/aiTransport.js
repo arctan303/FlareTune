@@ -1,5 +1,8 @@
 import { effectiveAiBaseUrl, sourceFromProvider, validateAiBaseUrl } from '../../../shared/aiProtocols.js';
 
+const connectionTimeouts = new WeakMap();
+export function setAiConnectionTimeout(signal, timeoutMs) { connectionTimeouts.set(signal, timeoutMs); }
+
 export function aiConnection(config, env) {
   const source = config.source || sourceFromProvider(config.provider);
   const prefix = { deepseek: 'DEEPSEEK', openai: 'OPENAI', gemini: 'GEMINI', anthropic: 'ANTHROPIC', custom: 'OPENAI' }[source];
@@ -17,11 +20,21 @@ export function aiHeaders(protocol, apiKey) {
         : { Authorization: `Bearer ${apiKey}` }) };
 }
 
-export async function fetchAi(url, init) {
+export async function fetchAi(url, init, { allowErrorResponse = false } = {}) {
   // Workers only supports follow/manual. Never forward credentials to a redirect.
-  const response = await fetch(url, { ...init, redirect: 'manual' });
+  const timeoutMs = connectionTimeouts.get(init.signal);
+  const controller = new AbortController();
+  const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  let response;
+  try {
+    response = await fetch(url, { ...init, redirect: 'manual',
+      ...(timeoutMs ? { signal: AbortSignal.any([init.signal, controller.signal]) } : {}) });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('AI_TIMEOUT');
+    throw error;
+  } finally { clearTimeout(timer); }
   // Never include upstream response bodies (possibly credentials) in errors.
-  if (!response.ok) throw new Error(`AI_UPSTREAM_${response.status}`);
+  if (!response.ok && !allowErrorResponse) throw new Error(`AI_UPSTREAM_${response.status}`);
   return response;
 }
 

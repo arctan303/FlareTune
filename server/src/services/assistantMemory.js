@@ -55,6 +55,7 @@ export async function saveAssistantMemory(db, accountId, { id, content, source =
   actor = 'user', now = Date.now() }) {
   const clean = validContent(content);
   if (!['stated', 'inferred', 'user_edited'].includes(source)) throw new MemoryError('invalid_source');
+  if (actor === 'assistant' && !['stated', 'inferred'].includes(source)) throw new MemoryError('invalid_source');
   if (actor === 'assistant' && !await memoryEnabled(db, accountId)) {
     throw new MemoryError('memory_disabled', 403);
   }
@@ -93,10 +94,38 @@ export async function saveAssistantMemory(db, accountId, { id, content, source =
     source: actor === 'assistant' ? source : 'user_edited', createdAt: now, updatedAt: now }, action: 'created' };
 }
 
-export async function deleteAssistantMemory(db, accountId, id) {
+export async function deleteAssistantMemory(db, accountId, id, { actor = 'user' } = {}) {
   if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new MemoryError('invalid_memory_id');
-  const result = await db.prepare(`DELETE FROM assistant_memories WHERE id = ? AND account_id = ?`)
-    .bind(id, accountId).run();
+  if (actor === 'assistant' && !await memoryEnabled(db, accountId)) throw new MemoryError('memory_disabled', 403);
+  const result = await db.prepare(`DELETE FROM assistant_memories WHERE id = ? AND account_id = ?
+    ${actor === 'assistant' ? `AND source != 'user_edited' AND EXISTS
+      (SELECT 1 FROM assistant_memory_settings s WHERE s.account_id = ? AND s.enabled = 1)` : ''}`)
+    .bind(...(actor === 'assistant' ? [id, accountId, accountId] : [id, accountId])).run();
   if (changes(result) !== 1) throw new MemoryError('memory_not_found', 404);
   return { ok: true };
+}
+
+export async function mergeAssistantMemories(db, accountId, { id, merge_ids: mergeIds, content, source, now = Date.now() }) {
+  const clean = validContent(content);
+  const ids = [id, ...(Array.isArray(mergeIds) ? mergeIds : [])];
+  if (ids.length < 2 || ids.length > MAX_MEMORIES || new Set(ids).size !== ids.length
+    || ids.some(value => typeof value !== 'string' || !/^[0-9a-f-]{36}$/i.test(value))) throw new MemoryError('invalid_memory_id');
+  if (!['stated', 'inferred'].includes(source)) throw new MemoryError('invalid_source');
+  if (!await memoryEnabled(db, accountId)) throw new MemoryError('memory_disabled', 403);
+  const placeholders = ids.map(() => '?').join(',');
+  // Every source row must still be editable and owned at transaction time.
+  const guard = `(SELECT COUNT(*) FROM assistant_memories WHERE account_id = ?
+    AND source != 'user_edited' AND id IN (${placeholders})) = ?
+    AND EXISTS (SELECT 1 FROM assistant_memory_settings WHERE account_id = ? AND enabled = 1)`;
+  const bindings = [accountId, ...ids, ids.length, accountId];
+  const results = await db.batch([
+    db.prepare(`UPDATE assistant_memories SET content = ?, source = ?, updated_at = ?
+      WHERE id = ? AND account_id = ? AND ${guard}`).bind(clean, source, now, id, accountId, ...bindings),
+    db.prepare(`DELETE FROM assistant_memories WHERE account_id = ? AND id IN (${mergeIds.map(() => '?').join(',')})
+      AND ${guard}`).bind(accountId, ...mergeIds, ...bindings),
+  ]);
+  if (changes(results[0]) !== 1 || changes(results[1]) !== mergeIds.length) throw new MemoryError('memory_not_found', 404);
+  const saved = await db.prepare(`SELECT id, content, source, created_at, updated_at
+    FROM assistant_memories WHERE id = ? AND account_id = ?`).bind(id, accountId).first();
+  return { memory: dto(saved), action: 'merged', deletedIds: mergeIds };
 }

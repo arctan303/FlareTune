@@ -3,7 +3,23 @@ import { t } from '../i18n/index.js';
 import { trapDrawerTabKey } from './drawers/drawerFocus.js';
 import { canHandlePlayerEscape } from '../utils/playerOverlayKeyboard.js';
 
-function PlayerRecovery({ failed = false, onRetry, onClose }) {
+function PlayerPending({ onClose }) {
+  const markerRef = React.useRef(null);
+  React.useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || !canHandlePlayerEscape(markerRef.current, document)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [onClose]);
+  // No loading paint or focus transfer; keep Escape available while the import is pending.
+  return <span ref={markerRef} hidden aria-hidden="true" data-player-pending="" />;
+}
+
+function PlayerRecovery({ onRetry, onClose }) {
   const panelRef = React.useRef(null);
   React.useEffect(() => {
     const panel = panelRef.current;
@@ -27,14 +43,14 @@ function PlayerRecovery({ failed = false, onRetry, onClose }) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 px-6 text-white" data-player-recovery={failed ? 'error' : 'loading'}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 px-6 text-white" data-player-recovery="error">
       <section ref={panelRef} tabIndex={-1} aria-label={t('全屏播放器')} className="w-full max-w-sm text-center">
-        <div role={failed ? 'alert' : 'status'}>
-          <h2 className="mb-2 text-lg font-semibold">{failed ? t('播放器加载失败') : t('正在打开播放器…')}</h2>
-          {failed && <p className="mb-5 text-sm text-white/70">{t('可以重试或返回，音乐会继续播放。')}</p>}
+        <div role="alert">
+          <h2 className="mb-2 text-lg font-semibold">{t('播放器加载失败')}</h2>
+          <p className="mb-5 text-sm text-white/70">{t('可以重试或返回，音乐会继续播放。')}</p>
         </div>
         <div className="mt-5 flex justify-center gap-3">
-          {failed && <button type="button" onClick={onRetry} className="min-h-11 rounded-lg bg-white px-5 py-2 text-sm font-semibold text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">{t('重试')}</button>}
+          <button type="button" onClick={onRetry} className="min-h-11 rounded-lg bg-white px-5 py-2 text-sm font-semibold text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">{t('重试')}</button>
           <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-white/30 px-5 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">{t('返回')}</button>
         </div>
       </section>
@@ -48,7 +64,7 @@ class PlayerBoundary extends React.Component {
   componentDidCatch(error) { console.error('[FullscreenPlayer] Component unavailable:', error); }
   render() {
     return this.state.failed
-      ? <PlayerRecovery failed onRetry={this.props.onRetry} onClose={this.props.onClose} />
+      ? <PlayerRecovery onRetry={this.props.onRetry} onClose={this.props.onClose} />
       : this.props.children;
   }
 }
@@ -61,7 +77,7 @@ export default function FullscreenPlayerSurface({ loader, motionProfile, onClose
   const retry = React.useCallback(() => setAttempt((value) => value + 1), []);
   return (
     <PlayerBoundary key={attempt} onRetry={retry} onClose={onClose}>
-      <React.Suspense fallback={<PlayerRecovery onClose={onClose} />}>
+      <React.Suspense fallback={<PlayerPending onClose={onClose} />}>
         <Player motionProfile={motionProfile} />
       </React.Suspense>
     </PlayerBoundary>

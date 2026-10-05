@@ -6,7 +6,8 @@ import database from './database.js';
 export default Object.freeze({
   ...generated,
   ...database,
-  '正在打开播放器…': 'Opening player…',
+  '继续处理': 'Continue',
+  '继续上一条未完成的任务': 'Continue the previous unfinished task',
   '可以重试或返回，音乐会继续播放。': 'Retry or go back. Music will keep playing.',
   '新增': 'New',
   '文件有变化': 'Changed files',

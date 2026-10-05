@@ -213,6 +213,17 @@ const stageAtTime = (currentTime, window) => {
     return 0;
 };
 
+/** Continuous fill uses the same milestones as stage changes and dot seeks. */
+export function getInterludeDotProgress(currentTime, window) {
+    if (!Number.isFinite(currentTime) || !Number.isFinite(window?.start)
+        || !Number.isFinite(window?.duration) || window.duration <= 0) return [0, 0, 0];
+    const ends = getStageTimes(window);
+    const starts = [window.start, ends[0], ends[1]];
+    return ends.map((end, index) => Math.min(1, Math.max(0,
+        (currentTime - starts[index]) / (end - starts[index]),
+    )));
+}
+
 export function getInterludeState({
     currentTime,
     lyrics,

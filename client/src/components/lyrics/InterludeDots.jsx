@@ -1,100 +1,112 @@
 import { t } from '../../i18n/index.js';
 import React from 'react';
+import { lyricPlaybackClock } from '../../services/lyricPlaybackClock.js';
+import { getInterludeDotProgress } from '../../utils/interludeState.js';
+import './interlude-dots.css';
 
-/**
- * 间奏三点进度指示器（沉稳同步呼吸与冲线里程碑模型）
- *
- * 视觉与时序：
- * - stage 0: ○ ○ ○ 全暗态（刚进入间奏等待起跑）
- * - stage 1: ● ○ ○ 满 1/3 进度，第 1 颗点亮发光
- * - stage 2: ● ● ○ 满 2/3 进度，第 2 颗点亮发光
- * - stage 3: ● ● ● 100% 冲线达成，三颗全亮！随即优雅融出并交接回原歌词换行
- */
+const DOT_LABELS = [
+    '跳转到间奏第 1 阶段（1/3 进度）',
+    '跳转到间奏第 2 阶段（2/3 进度）',
+    '跳转到间奏冲线阶段（100% 达成）',
+];
+
 export default function InterludeDots({
     stage = 0,
+    active = false,
+    window: interludeWindow = null,
     dotTimes = null,
     onSeekDot = null,
     className = '',
+    clock = lyricPlaybackClock,
 }) {
-    const isStage1 = stage >= 1;
-    const isStage2 = stage >= 2;
-    const isStage3 = stage >= 3;
+    const rootRef = React.useRef(null);
+    const dotRefs = React.useRef([]);
+    const start = interludeWindow?.start;
+    const end = interludeWindow?.end;
+    const duration = interludeWindow?.duration;
 
-    const handleDotClick = (dotIndex, time, e) => {
-        e?.stopPropagation?.();
-        e?.preventDefault?.();
-        if (typeof onSeekDot === 'function' && Number.isFinite(time)) {
-            onSeekDot(time, dotIndex);
+    React.useLayoutEffect(() => {
+        if (!active || !Number.isFinite(start) || !Number.isFinite(end)) {
+            if (rootRef.current?.dataset) rootRef.current.dataset.motionRunning = 'false';
+            return undefined;
         }
-    };
+        const mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+        let reducedMotion = mediaQuery?.matches === true;
+        const update = (snapshot) => {
+            const fills = getInterludeDotProgress(snapshot.currentTime, { start, duration });
+            if (rootRef.current?.dataset) {
+                rootRef.current.dataset.motionRunning = !reducedMotion
+                    && snapshot.visible !== false && !snapshot.paused
+                    && !snapshot.buffering && !snapshot.seeking && !snapshot.ended
+                    ? 'true' : 'false';
+            }
+            fills.forEach((fill, index) => {
+                const dot = dotRefs.current[index];
+                if (!dot) return;
+                dot.style.setProperty('--interlude-dot-fill', `${(fill * 100).toFixed(3)}%`);
+                dot.style.setProperty('--interlude-dot-glow', fill.toFixed(3));
+                dot.dataset.fillState = fill >= 1 ? 'complete'
+                    : fills.slice(0, index).every(value => value >= 1) ? 'filling' : 'pending';
+            });
+        };
+        update(clock.getSnapshot());
+        const unsubscribe = clock.subscribe(update, {
+            animationFrames: snapshot => !reducedMotion
+                && snapshot.currentTime >= start && snapshot.currentTime < end,
+            getNextBoundary: snapshot => [start, end].find(time => time > snapshot.currentTime) ?? null,
+        });
+        const handleMotionChange = event => {
+            reducedMotion = event.matches === true;
+            update(clock.getSnapshot());
+            clock.sample?.('motion-preference-change');
+        };
+        mediaQuery?.addEventListener?.('change', handleMotionChange);
+        return () => {
+            unsubscribe?.();
+            mediaQuery?.removeEventListener?.('change', handleMotionChange);
+        };
+    }, [active, clock, start, end, duration]);
 
     const isClickable = typeof onSeekDot === 'function' && Boolean(dotTimes);
-
+    const stopPropagation = event => event.stopPropagation();
     return (
         <div
-            className={`classic-lyrics__interlude-dots flex items-center justify-start gap-1 select-none py-1 animate-[pulse_2.4s_ease-in-out_infinite] ${className}`}
-            aria-label={t("间奏进度第 {p0} 阶段", { p0: (stage) })}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
+            ref={rootRef}
+            className={`classic-lyrics__interlude-dots flex items-center justify-start gap-1 select-none py-1 ${className}`}
+            aria-label={t("间奏进度第 {p0} 阶段", { p0: stage })}
+            onClick={stopPropagation}
+            onMouseDown={stopPropagation}
+            onTouchStart={stopPropagation}
+            onPointerDown={stopPropagation}
         >
-            {/* 气泡 1 */}
-            <button
-                type="button"
-                aria-label={t("跳转到间奏第 1 阶段（1/3 进度）")}
-                onClick={(e) => handleDotClick(1, dotTimes?.t1, e)}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="group/dot relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
-            >
-                <span
-                    className={`block w-4 h-4 md:w-4.5 md:h-4.5 rounded-full transition-all duration-400 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover/dot:scale-125 group-active/dot:scale-95 ${
-                        isStage1
-                            ? 'bg-white scale-100 opacity-100 shadow-[0_0_12px_rgba(255,255,255,0.85)]'
-                            : 'bg-white/20 scale-85 opacity-35 group-hover/dot:bg-white/40 group-hover/dot:opacity-60'
-                    }`}
-                />
-            </button>
-
-            {/* 气泡 2 */}
-            <button
-                type="button"
-                aria-label={t("跳转到间奏第 2 阶段（2/3 进度）")}
-                onClick={(e) => handleDotClick(2, dotTimes?.t2, e)}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="group/dot relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
-            >
-                <span
-                    className={`block w-4 h-4 md:w-4.5 md:h-4.5 rounded-full transition-all duration-400 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover/dot:scale-125 group-active/dot:scale-95 ${
-                        isStage2
-                            ? 'bg-white scale-100 opacity-100 shadow-[0_0_12px_rgba(255,255,255,0.85)]'
-                            : 'bg-white/20 scale-85 opacity-35 group-hover/dot:bg-white/40 group-hover/dot:opacity-60'
-                    }`}
-                />
-            </button>
-
-            {/* 气泡 3 */}
-            <button
-                type="button"
-                aria-label={t("跳转到间奏冲线阶段（100% 达成）")}
-                onClick={(e) => handleDotClick(3, dotTimes?.t3, e)}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="group/dot relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
-            >
-                <span
-                    className={`block w-4 h-4 md:w-4.5 md:h-4.5 rounded-full transition-all duration-400 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover/dot:scale-125 group-active/dot:scale-95 ${
-                        isStage3
-                            ? 'bg-white scale-100 opacity-100 shadow-[0_0_14px_rgba(255,255,255,0.95)]'
-                            : 'bg-white/20 scale-85 opacity-35 group-hover/dot:bg-white/40 group-hover/dot:opacity-60'
-                    }`}
-                />
-            </button>
+            {DOT_LABELS.map((label, index) => (
+                <button
+                    key={label}
+                    type="button"
+                    aria-label={t(label)}
+                    disabled={!isClickable}
+                    onClick={event => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        const time = dotTimes?.[`t${index + 1}`];
+                        if (isClickable && Number.isFinite(time)) onSeekDot(time, index + 1);
+                    }}
+                    onMouseDown={stopPropagation}
+                    onTouchStart={stopPropagation}
+                    onPointerDown={stopPropagation}
+                    className="classic-interlude-button group/dot relative min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-2 md:p-2.5 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-full cursor-pointer"
+                >
+                    <span
+                        ref={node => { dotRefs.current[index] = node; }}
+                        className="classic-interlude-dot"
+                        aria-hidden="true"
+                        data-fill-state={stage > index ? 'complete' : 'pending'}
+                        style={{ '--interlude-dot-fill': stage > index ? '100%' : '0%', '--interlude-dot-glow': stage > index ? 1 : 0 }}
+                    >
+                        <span className="classic-interlude-dot__fill" />
+                    </span>
+                </button>
+            ))}
         </div>
     );
 }

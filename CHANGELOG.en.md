@@ -2,6 +2,39 @@
 
 [简体中文](CHANGELOG.md)
 
+## 1.1.4 — 2026-10-06
+
+This release applies findings from runtime, security-boundary and performance analysis to the assistant, lyrics, fullscreen player, settings and device ingest, while reducing repeated database queries and background work.
+
+### Assistant and memory
+
+- Add full memory maintenance: list all entries, update, delete and atomically merge to reclaim the 30-entry capacity. User-edited entries remain under user control. Memory tools and rules are included only while enabled, favoring lasting preferences over changing listening statistics.
+- Add continuation after stopping. Generation changes Send to Stop; an unfinished turn with an empty composer offers Continue, while a new message is also supported. Preserve received text, thought progress and tool results, and prevent repeated successful writes across consecutive continuations.
+- Replace the streaming assistant's fixed total deadline with connection and inactivity timeouts. Active streams can keep processing, with periodic checkpoints and liveness updates. Complete native reasoning/tool context is replayed only with compatible connections and models; incomplete data is never fabricated into a valid signature or successful action.
+- Fix tool writes after cancellation, pending confirmations reported as completed, and model work starting for already-canceled requests. Retain account, memory-enable and write-permission checks.
+- Clear submitted image attachments from the composer immediately, follow newly sent messages, suspend following during manual history reading, and retain drafts/uploads when switching between conversation and memory. Show dates across days and full dates across years; remove log timestamps from message bodies.
+
+### Lyrics and fullscreen playback
+
+- Improve lyric candidate search with source, timing-type and translation filters, retryable errors, cancellation of old requests, and continued selection of reliable higher-quality candidates.
+- Let third-party clients fetch lyrics on their first request without warming them through the web app. Share web lyric policy and AI settings; support bounded background upgrades of automatic low-precision lyrics while protecting manual edits and the current playback snapshot.
+- Use a decelerating, one-way classic lyric transition without overshoot. Keep sung white characters at a consistent height while the current character rises; continuously fill long-interlude dots and fix extra last-word wrapping and translation overlap.
+- Improve fullscreen auto-hide, menus, keyboard/touch handling, mobile lyric previews, playback clocks and local retries. Remove opening-placeholder flashes while preserving cancellation and recovery actions.
+- Reduce animations and audio analysis for hidden, paused or idle views, bound artist-photo prefetch and release unused resources, and reject late loading results for outdated views.
+
+### Settings and device ingest
+
+- Align switches, buttons and centered edit dialogs, with consistent cancel/save behavior, focus restoration, loading skeletons, error recovery and write feedback across personal, AI, Google, Subsonic and memory settings.
+- Fix D1 trigger writes causing successful account changes, disabling or password resets to be reported as conflicts. Retain permission, revision and last-administrator protections.
+- Add incremental device-scan classification, bulk exclusion and local SQLite scan/media records. Re-selecting unfinished items can reuse uploaded media; improve navigation continuity and cancellation when the account changes.
+
+### Performance and upgrades
+
+- Improve catalog search, playlist counts/previews, favorite reads, roam sampling, read-only requests and instance-state queries. Reuse bounded caches and a single state snapshot to reduce repeated scans and database round trips.
+- Fix shared query/lyric work being released when its first owner finishes, retaining results and assets still needed by other requests.
+- Add feature migration `0013` for hot-path indexes and incremental counts. Existing instances remain compatible; administrators explicitly apply upgrades through the runtime overview. Release deployment does not automatically migrate or replace data.
+- Update the frontend, Worker and ingest tooling to 1.1.4, with bilingual documentation, behavioral regressions and release checks. Enhanced lyric/translation display and measured device gains still depend on the client and runtime environment.
+
 ## 1.1.3 — 2026-10-03
 
 This release improves the frontend and song-ingest experience, includes third-party playback, cover and lyrics compatibility fixes, and addresses findings from the security scan.

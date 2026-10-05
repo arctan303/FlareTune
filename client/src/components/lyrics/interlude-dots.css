@@ -1,0 +1,51 @@
+.classic-interlude-dot {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  opacity: calc(0.45 + var(--interlude-dot-glow, 0) * 0.55);
+  box-shadow: 0 0 calc(var(--interlude-dot-glow, 0) * 10px) rgba(255, 255, 255, 0.35);
+  transition: transform 180ms ease-out;
+}
+
+.classic-interlude-dot__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fff;
+  clip-path: inset(calc(100% - var(--interlude-dot-fill, 0%)) 0 0);
+}
+
+.classic-interlude-dot[data-fill-state='filling'] {
+  animation: classic-interlude-breathe 2.4s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.classic-lyrics__interlude-dots[data-motion-running='true'] .classic-interlude-dot {
+  animation-play-state: running;
+}
+
+.classic-interlude-button:hover .classic-interlude-dot {
+  transform: scale(1.12);
+}
+
+@keyframes classic-interlude-breathe {
+  0%, 100% { transform: scale(0.94); }
+  50% { transform: scale(1.06); }
+}
+
+@media (min-width: 768px) {
+  .classic-interlude-dot { width: 18px; height: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .classic-interlude-dot {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

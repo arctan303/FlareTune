@@ -53,6 +53,7 @@ export default function AssistantView({ section = 'conversation' }) {
     const [requestFailure, setRequestFailure] = React.useState(null);
     const visibleMessages = withAssistantFailure(messages,
         requestFailure?.accountId === accountId ? requestFailure : null);
+    const canContinue = visibleMessages.at(-1)?.role === 'assistant' && visibleMessages.at(-1)?.isError === true;
     const [imageSelection, setImageSelection] = React.useState(null);
     const imagePreview = resolveAssistantImagePreview(visibleMessages, imageSelection, accountId);
     React.useEffect(() => {
@@ -88,6 +89,9 @@ export default function AssistantView({ section = 'conversation' }) {
     const textareaRef = React.useRef(null);
     const attachmentsRef = React.useRef(null);
     const abortControllerRef = React.useRef(null);
+    const sendingRef = React.useRef(false);
+    const activeRequestRef = React.useRef(null);
+    const stopRequestRef = React.useRef(null);
     const shouldFollowMessagesRef = React.useRef(true);
     const pendingAutoScrollRef = React.useRef(false);
     const scrollFrameRef = React.useRef(null);
@@ -119,6 +123,7 @@ export default function AssistantView({ section = 'conversation' }) {
         pendingPlaylistDecisionIdsRef.current.clear();
         setPlaylistConfirmations({});
         setRequestFailure(null);
+        setInputText('');
         setAttachments([]); setAttachmentsBusy(false); setImageInput(false); setImageNotice('');
     }, [accountId]);
 
@@ -156,26 +161,34 @@ export default function AssistantView({ section = 'conversation' }) {
         if (shouldFollowMessagesRef.current) scrollToBottom();
     }, [scrollToBottom]);
 
-    const checkScrollBottomState = React.useCallback(() => {
+    const checkScrollBottomState = React.useCallback((updateFollowing = false) => {
         if (!chatContainerRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
         const isOverflowing = scrollHeight > clientHeight + 20;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 60;
-        if (!pendingAutoScrollRef.current) {
+        if (updateFollowing && !pendingAutoScrollRef.current) {
             shouldFollowMessagesRef.current = isNearBottom;
         }
         setShowScrollBottom(isOverflowing && !isNearBottom);
     }, []);
 
     const handleScroll = React.useCallback(() => {
-        checkScrollBottomState();
+        checkScrollBottomState(true);
     }, [checkScrollBottomState]);
+
+    const handleUserScrollIntent = React.useCallback(() => {
+        shouldFollowMessagesRef.current = false;
+        pendingAutoScrollRef.current = false;
+        if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+        scrollFrameRef.current = null;
+    }, []);
 
     React.useEffect(() => {
         checkScrollBottomState();
     }, [messages, requestFailure, isLoading, checkScrollBottomState]);
 
-    const scheduleScrollToLatest = React.useCallback(() => {
+    const scheduleScrollToLatest = React.useCallback((force = false) => {
+        if (force) shouldFollowMessagesRef.current = true;
         if (!shouldFollowMessagesRef.current) return;
         if (scrollFrameRef.current !== null) {
             cancelAnimationFrame(scrollFrameRef.current);
@@ -191,6 +204,11 @@ export default function AssistantView({ section = 'conversation' }) {
             });
         });
     }, [scrollToBottom]);
+
+    React.useLayoutEffect(() => { if (section === 'conversation') scheduleScrollToLatest(); },
+        [section, messages, requestFailure, scheduleScrollToLatest]);
+    React.useEffect(() => () => { abortControllerRef.current?.abort();
+        if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current); }, []);
 
     const applyThread = React.useCallback((thread, expectedAccountId) => {
         if (!expectedAccountId || accountIdRef.current !== expectedAccountId) return false;
@@ -238,15 +256,22 @@ export default function AssistantView({ section = 'conversation' }) {
 
     const handleStopGeneration = React.useCallback(() => {
         if (abortControllerRef.current) {
+            const active = activeRequestRef.current;
+            if (active?.accountId === accountIdRef.current) {
+                stopRequestRef.current = authenticatedFetch(`${getApiBaseUrl()}/api/ai/stop`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { ...localAssistantMutationHeaders(authSession?.csrfToken), 'X-FlareTune-Expected-Account': active.accountId },
+                    body: JSON.stringify({ client_message_id: active.clientMessageId }),
+                }).then(async response => response.ok ? response.json() : null).catch(() => null);
+            }
             abortControllerRef.current.abort();
-            abortControllerRef.current = null;
         }
-        setIsLoading(false);
-    }, []);
+    }, [authSession?.csrfToken]);
 
     const handleClearMessages = React.useCallback(async () => {
         if (!window.confirm(t('确定要清空与小A的全部对话记录吗？'))) return;
         handleStopGeneration();
+        await stopRequestRef.current;
         const requestAccountId = accountIdRef.current;
         try {
             const response = await authenticatedFetch(`${getApiBaseUrl()}/api/ai/thread`, {
@@ -319,8 +344,10 @@ export default function AssistantView({ section = 'conversation' }) {
     }, [playlistConfirmations]);
 
     const handleSend = React.useCallback(async (overrideText) => {
-        const text = (typeof overrideText === 'string' ? overrideText : inputText).trim();
-        if (!isAuthed || (!text && !attachments.length) || attachmentsBusy || isLoading || phase !== 'ready') return;
+        const draft = (typeof overrideText === 'string' ? overrideText : inputText).trim();
+        const text = draft || (canContinue && !attachments.length ? t('继续上一条未完成的任务') : '');
+        if (!isAuthed || (!text && !attachments.length) || attachmentsBusy || isLoading || sendingRef.current || phase !== 'ready') return;
+        sendingRef.current = true;
 
         setInputText('');
         setRequestFailure(null);
@@ -330,6 +357,8 @@ export default function AssistantView({ section = 'conversation' }) {
         const assistantMsgId = `assistant-${clientMessageId}`;
         const userMessage = optimisticAssistantUserMessage(userMsgId, text, attachments);
         const sentImages = userMessage.images;
+        const sentAttachments = attachments;
+        setAttachments([]);
 
         const newMessages = [
             ...messages,
@@ -338,11 +367,13 @@ export default function AssistantView({ section = 'conversation' }) {
         ];
         setMessages(newMessages);
         setIsLoading(true);
-        scheduleScrollToLatest();
+        scheduleScrollToLatest(true);
 
         const controller = new AbortController();
         abortControllerRef.current = controller;
         const requestAccountId = authSession?.user?.accountId;
+        activeRequestRef.current = { accountId: requestAccountId, clientMessageId };
+        stopRequestRef.current = null;
         const sentReceipts = playerActionReceiptsRef.current.slice(-10);
         const pendingPlayerActions = [];
         let lastPlayerAction = Promise.resolve();
@@ -353,6 +384,8 @@ export default function AssistantView({ section = 'conversation' }) {
         let liveThought = '';
         let liveProcessEntries = [];
         let typewriter;
+        let accepted = false;
+        let rejected = false;
 
         try {
             typewriter = createAiResponseTypewriter({
@@ -377,22 +410,26 @@ export default function AssistantView({ section = 'conversation' }) {
                     client_message_id: clientMessageId,
                     revision: threadRevisionRef.current,
                     enable_thinking: enableThinking,
+                    ...(!draft && canContinue && !sentImages.length && visibleMessages.at(-1)?.turnId
+                        ? { continue_turn_id: visibleMessages.at(-1).turnId } : {}),
                     ...(sentImages.length ? { image_ids: sentImages.map(image => image.id) } : {}),
                     context: captureAssistantLiveContext(usePlayerStore.getState(),
                         recentPlaybackRef.current, sentReceipts),
                 }),
             });
             if (!response.ok) {
+                rejected = true;
                 const data = await response.json().catch(() => ({}));
                 if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
                 if (response.status === 409) applyThread(data.thread, requestAccountId);
+                if (data.error === 'duplicate_message') accepted = true;
                 if (data.error === 'assistant_images_disabled') { setImageInput(false); setAttachments([]); setInputText(text); }
                 if (response.status === 401) {
                     setAuthSession({ authenticated: false, user: null, initialized: true });
                 }
                 throw Object.assign(new Error(data.message || t('助手暂时无法回应 ({status})', { status: response.status })), { code: data.error });
             }
-            setAttachments([]);
+            accepted = true;
             await consumeSseJsonStream(response.body, {
                 signal: controller.signal,
                 onEvent: async (event) => {
@@ -441,7 +478,7 @@ export default function AssistantView({ section = 'conversation' }) {
                             : message));
                     } else if (event.type === 'tool_result') {
                         if (event.name === 'remember_user' && event.data?.ok === true
-                            && ['created', 'updated'].includes(event.data.action)) {
+                            && ['created', 'updated', 'deleted', 'merged'].includes(event.data.action)) {
                             showToast(t("记忆已更新"));
                         }
                         liveProcessEntries = finishToolProcessEntry(liveProcessEntries, {
@@ -515,12 +552,25 @@ export default function AssistantView({ section = 'conversation' }) {
             playerActionReceiptsRef.current = playerActionReceiptsRef.current.filter((item) => !sentIds.has(item.id));
         } catch (err) {
             typewriter?.cancel();
-            if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
-            const failureContent = assistantFailureMessage(err);
+            if (accountIdRef.current !== requestAccountId) return;
+            const stopped = controller.signal.aborted;
+            if (stopped) await stopRequestRef.current;
+            const failureContent = assistantFailureMessage(stopped ? { code: 'request_cancelled' } : err);
+            setMessages(prev => prev.map(message => message.id === assistantMsgId
+                ? { ...message, content: failureContent, partialContent: streamedContent || renderedContent,
+                    thought: liveThought, processEntries: liveProcessEntries, isError: true, isGenerating: false } : message));
+            if (rejected && !accepted) {
+                setInputText(draft);
+                if (imageInput) setAttachments(sentAttachments);
+                setMessages(prev => prev.filter(message => ![userMsgId, assistantMsgId].includes(message.id)));
+                showToast(t(failureContent));
+                return;
+            }
             setRequestFailure({ id: assistantMsgId, role: 'assistant', accountId: requestAccountId,
                 clientMessageId, userMessage: newMessages.at(-2), content: failureContent,
+                partialContent: streamedContent || renderedContent, errorCode: stopped ? 'request_cancelled' : err.code,
                 thought: liveThought, processEntries: liveProcessEntries, createdAt: Date.now(), isError: true });
-            if (err.name !== 'AbortError') showToast(t(failureContent));
+            if (!stopped && err.name !== 'AbortError') showToast(t(failureContent));
             if (useUIStore.getState().authSession?.authenticated) {
                 await syncThread({ expectedAccountId: requestAccountId }).catch(() => {
                     if (accountIdRef.current !== requestAccountId) return;
@@ -530,11 +580,13 @@ export default function AssistantView({ section = 'conversation' }) {
                 });
             }
         } finally {
+            sendingRef.current = false;
             if (accountIdRef.current === requestAccountId) setIsLoading(false);
             if (abortControllerRef.current === controller) abortControllerRef.current = null;
+            if (activeRequestRef.current?.clientMessageId === clientMessageId) activeRequestRef.current = null;
             if (accountIdRef.current === requestAccountId) scheduleScrollToLatest();
         }
-    }, [applyThread, authSession, attachments, attachmentsBusy, enableThinking, inputText, isAuthed, isLoading, messages, phase, scheduleScrollToLatest, setAuthSession, syncThread]);
+    }, [applyThread, authSession, attachments, attachmentsBusy, enableThinking, inputText, canContinue, visibleMessages, imageInput, isAuthed, isLoading, messages, phase, scheduleScrollToLatest, setAuthSession, syncThread]);
 
     const handleFormSubmit = React.useCallback((e) => {
         if (e && typeof e.preventDefault === 'function') e.preventDefault();
@@ -552,9 +604,10 @@ export default function AssistantView({ section = 'conversation' }) {
         handleSend(text);
     }, [handleSend]);
 
-    if (section === 'memory') return <AssistantMemoryView />;
     return (
-        <div className={`app-page xiaoa-page assistant-page flex flex-col h-full w-full relative overflow-hidden select-text !pt-0 ${placement === 'dock' && hasCurrentSong ? 'assistant-page--with-dock' : ''}`}>
+        <>
+        {section === 'memory' && <AssistantMemoryView />}
+        <div style={{ display: section === 'memory' ? 'none' : undefined }} aria-hidden={section === 'memory'} className={`app-page xiaoa-page assistant-page flex flex-col h-full w-full relative overflow-hidden select-text !pt-0 ${placement === 'dock' && hasCurrentSong ? 'assistant-page--with-dock' : ''}`}>
             <h1 className="sr-only">{t("助手")}</h1>
 
             {/* 对话区主体（通透流式布局） */}
@@ -567,6 +620,7 @@ export default function AssistantView({ section = 'conversation' }) {
                     onPlaylistConfirmationDecision={handlePlaylistConfirmationDecision}
                     onPreviewImage={(messageId, imageId) => setImageSelection({ accountId, messageId, imageId })}
                     onScroll={handleScroll}
+                    onUserScrollIntent={handleUserScrollIntent}
                     onToggleDetails={toggleExpandDetails}
                     phase={phase}
                     processClock={processClock}
@@ -589,6 +643,7 @@ export default function AssistantView({ section = 'conversation' }) {
                     </button>
 
                     <AiReviewComposer
+                        canContinue={canContinue}
                         hasAttachments={attachments.length > 0}
                         attachmentsBusy={attachmentsBusy}
                         attachments={imageInput ? <AssistantAttachments ref={attachmentsRef} key={accountId} session={authSession} attachments={attachments} onChange={setAttachments} onBusy={setAttachmentsBusy} disabled={isLoading || phase !== 'ready'} /> : null}
@@ -613,6 +668,7 @@ export default function AssistantView({ section = 'conversation' }) {
             </div>
             {imagePreview && <ImagePreviewDialog key={imagePreview.url} image={imagePreview} onClose={() => setImageSelection(null)} />}
         </div>
+        </>
     );
 }
 

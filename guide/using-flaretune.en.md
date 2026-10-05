@@ -25,6 +25,10 @@ Use the star on a song to add or remove it from Favorites. You can also create p
 
 Open Assistant from the sidebar to ask about the library or the currently playing song. The assistant can find and queue songs and help organize your playlists. Actions such as deleting an entire playlist require confirmation in the page. The instance administrator chooses the AI model; playback and the personal library work independently when the model is unavailable.
 
+Click Stop during generation. An unfinished turn with an empty composer offers Continue; you can also enter a new request. Received answers, thought progress and tool results are retained, and successful actions are not automatically repeated on continuation. Drafts and attachments survive switching to memory and back; signing out or changing accounts clears them.
+
+Memory is off by default. When enabled, the assistant can save lasting information and preferences, list entries, update, delete or merge them. Deleting or merging reclaims the 30-entry capacity. Changing play counts and rankings are queried through tools. Entries you manually edit remain under your control and cannot be overwritten or deleted by the assistant. Disabling memory stops assistant access and maintenance while retaining saved entries.
+
 ## Appearance and personal settings
 
 In Settings, follow the system appearance or choose light or dark mode, a background, and a player style. Personal settings show account details and password controls. You can set the interface language for your account to Follow browser, Simplified Chinese, or English; the choice follows your account across devices. Before sign-in, pages follow the browser language, with English as the fallback for unsupported languages. Administrators also see library, accounts, AI, and instance settings; members do not see these admin areas.

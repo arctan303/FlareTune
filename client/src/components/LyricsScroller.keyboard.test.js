@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { hookComponent, nodes } from '../test/lyricCandidateHarness.js';
 import * as navigation from './lyricKeyboardNavigation.js';
+import * as classicMotion from './classicLyricMotion.js';
 
 function createHarness(extraProps = {}) {
   const focusEvents = [];
@@ -25,6 +26,7 @@ function createHarness(extraProps = {}) {
       }) },
       './fullscreen/useMediaQuery': { useMediaQuery: () => false },
       './lyricKeyboardNavigation.js': navigation,
+      './classicLyricMotion.js': classicMotion,
       '../hooks/usePlayerAutoHide.js': { usePlayerInteractionLock: (active) => locks.push(active) },
     },
     globals: { window: { addEventListener() {}, removeEventListener() {} },

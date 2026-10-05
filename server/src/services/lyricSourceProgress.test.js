@@ -17,16 +17,24 @@ const abortPending = (signal) => new Promise((_, reject) => {
   signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
 });
 
-test('upgrade deadline retains a real decoded candidate when its next same-source candidate stalls', async () => {
+test('upgrade deadline retains a real decoded candidate when its next same-source candidate stalls', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const calls = [];
+  let slowStarted;
+  const waitingForSlow = new Promise(resolve => { slowStarted = resolve; });
   const loader = createLyricSourceLoader({ fetchImpl: async (url, init) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return Response.json({ candidates: ['good', 'slow'].map(candidate) });
     const id = parsed.searchParams.get('id'); calls.push(id);
-    return id === 'good' ? Response.json({ content: krc() }) : abortPending(init.signal);
+    if (id === 'good') return Response.json({ content: krc() });
+    slowStarted();
+    return abortPending(init.signal);
   } });
-  const result = await fetchUpgradeDocument(SONG, (provider, song, options) => provider === 'kugou'
+  const pending = fetchUpgradeDocument(SONG, (provider, song, options) => provider === 'kugou'
     ? loader.fetchSourceDocument(provider, song, options) : null, { budgetMs: 100 });
+  await waitingForSlow;
+  t.mock.timers.tick(100);
+  const result = await pending;
   assert.deepEqual(calls, ['good', 'slow']);
   assert.equal(result.syncMode, 'word');
   assert.equal(result.providerMeta.providerLyricId, 'good');

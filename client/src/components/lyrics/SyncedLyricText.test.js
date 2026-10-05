@@ -16,7 +16,7 @@ test('synced lyric text only subscribes an active visible word-timed projection'
 
 test('the initial word state is applied before paint and malformed timing stays static', () => {
   assert.match(source, /React\.useLayoutEffect\(\(\) =>/);
-  assert.match(source, /if \(!shouldSync\) return undefined/);
+  assert.match(source, /if \(!shouldObserve\)/);
   assert.match(source, /data-synced=\{shouldSync \? 'word' : 'static'\}/);
 });
 
@@ -60,7 +60,7 @@ test('reduced motion changes words at their start without continuous local progr
   assert.match(source, /prefers-reduced-motion: reduce/);
   assert.match(source, /const progress = prefersReducedMotion \? 1 : resolved\.wordProgress/);
   assert.match(source, /if \(!prefersReducedMotion && !crossedBoundary/);
-  assert.doesNotMatch(css, /animation:/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?data-surface='classic'[\s\S]*?animation: none !important/);
 });
 
 test('surface CSS preserves inline metrics and gives the player bar its own color tokens', () => {

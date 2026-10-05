@@ -4,19 +4,9 @@ import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { MarkdownContent } from './AssistantMarkdown.jsx';
 import PrivateCoverImage from './PrivateCoverImage.jsx';
 import { getAssistantProcessStatus, getAssistantProcessTimeline, getAssistantProcessOverview } from '../../../shared/assistantProcessTrace.js';
+import { resolveAssistantMessageTime } from '../utils/assistantMessageTime.js';
 
-// 消息时间：线程消息的 createdAt（毫秒）。纯函数。
-// Display in the browser's time zone; the Worker provides the same zone to the model.
-const resolveMessageTime = (createdAt) => {
-    const timestamp = Number(createdAt);
-    if (!Number.isFinite(timestamp) || timestamp <= 0) return null;
-    const date = new Date(timestamp);
-    if (!Number.isFinite(date.getTime())) return null;
-    return {
-        label: new Intl.DateTimeFormat(getLocale() === 'zh' ? 'zh-CN' : 'en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date),
-        dateTime: date.toISOString(),
-    };
-};
+const resolveMessageTime = (createdAt) => resolveAssistantMessageTime(createdAt, { locale: getLocale() });
 
 export default function AiReviewConversation({
     containerRef,
@@ -26,6 +16,7 @@ export default function AiReviewConversation({
     onPlaylistConfirmationDecision,
     onPreviewImage,
     onScroll,
+    onUserScrollIntent,
     onToggleDetails,
     phase,
     processClock,
@@ -38,6 +29,10 @@ export default function AiReviewConversation({
         <div
             ref={containerRef}
             onScroll={onScroll}
+            onWheel={event => { if (event.deltaY < 0) onUserScrollIntent?.(); }}
+            onTouchStart={onUserScrollIntent}
+            onKeyDown={event => { if (['PageUp', 'Home', 'ArrowUp'].includes(event.key)) onUserScrollIntent?.(); }}
+            onPointerDown={event => { if (event.target === event.currentTarget) onUserScrollIntent?.(); }}
             className={`assistant-conversation flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 sm:px-6 md:px-8 py-6 flex flex-col bg-transparent relative custom-scrollbar ${showGreeting ? 'assistant-conversation--welcome' : ''}`}
         >
             {showGreeting ? (
@@ -47,12 +42,12 @@ export default function AiReviewConversation({
             ) : messages.length > 0 ? (
             <div className="w-full min-w-0 max-w-3xl mx-auto space-y-7 flex flex-col">
             {messages.map((message) => {
-                const displayContent = message.content || '';
+                const displayContent = (message.isError ? message.partialContent : message.content) || '';
                 const hasContent = Boolean(displayContent && displayContent.trim());
                 const isGenerating = Boolean(message.isGenerating);
                 const confirmationChoices = Object.values(playlistConfirmations)
                     .filter((item) => item.messageId === message.id);
-                if (!hasContent && !isGenerating && confirmationChoices.length === 0
+                if (!hasContent && !isGenerating && !message.isError && confirmationChoices.length === 0
                     && message.role === 'assistant') return null;
                 const processTimeline = getAssistantProcessTimeline(message);
                 const processStatus = getAssistantProcessStatus(message, processClock);
@@ -137,7 +132,7 @@ export default function AiReviewConversation({
                                         )}
                                 </div>
 
-                                {hasContent && !message.isError && (
+                                {hasContent && (
                                     <div className="min-w-0">
                                         <MarkdownContent content={displayContent} showCursor={isGenerating} />
                                     </div>
@@ -145,7 +140,7 @@ export default function AiReviewConversation({
 
                                 {message.isError && (
                                     <div className="text-xs text-[var(--danger)] font-medium">
-                                        {t(displayContent)}
+                                        {t(message.content)}
                                         {isGenerating && <span className="ai-typing-cursor" aria-hidden="true" />}
                                     </div>
                                 )}

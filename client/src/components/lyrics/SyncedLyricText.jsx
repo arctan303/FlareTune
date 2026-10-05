@@ -1,6 +1,6 @@
 import React from 'react';
 import { lyricPlaybackClock } from '../../services/lyricPlaybackClock.js';
-import { resolveLineWordProgress } from '../../utils/lyricTimeline.js';
+import { resolveLineWordProgress, segmentLyricGraphemes } from '../../utils/lyricTimeline.js';
 import { computeAdaptiveWordTiming } from '../../utils/lyricAdaptiveTiming.js';
 import './synced-lyric-text.css';
 
@@ -37,6 +37,13 @@ export default function SyncedLyricText({
         && hasReliableWordTiming
     );
     const wordRefs = React.useRef([]);
+    const characterRefs = React.useRef([]);
+    const wordCharacters = React.useMemo(
+        () => shouldSync && surface === 'classic'
+            ? words.map((word) => segmentLyricGraphemes(word.text))
+            : [],
+        [shouldSync, surface, words],
+    );
     const rootRef = React.useRef(null);
     const lastBoundaryRef = React.useRef(null);
     const lineProgressTargetRef = React.useRef(null);
@@ -107,7 +114,11 @@ export default function SyncedLyricText({
         if (!shouldSync && surface === 'playerbar' && rootRef.current) {
             rootRef.current.style.removeProperty('--synced-scroll-x');
         }
-        if (!shouldSync) return undefined;
+        const shouldObserve = shouldSync || (surface === 'classic' && active && visible);
+        if (!shouldObserve) {
+            if (rootRef.current?.dataset) rootRef.current.dataset.motionRunning = 'false';
+            return undefined;
+        }
 
         const mediaQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
             ? window.matchMedia(REDUCED_MOTION_QUERY)
@@ -125,6 +136,19 @@ export default function SyncedLyricText({
             element.style.setProperty('--synced-word-timeline-offset', `${timelineOffset}ms`);
             if (element.dataset.wordState !== state) {
                 element.dataset.wordState = state;
+            }
+            if (surface === 'classic') {
+                const characters = wordCharacters[index] || [];
+                characters.forEach((_, characterIndex) => {
+                    const character = characterRefs.current[index]?.[characterIndex];
+                    if (!character) return;
+                    const progress = clampProgress(normalizedProgress * characters.length - characterIndex);
+                    // Smooth only the currently filling glyph; completed glyphs stay level.
+                    const lift = prefersReducedMotion ? 0 : -1.8 * progress * progress * (3 - 2 * progress);
+                    character.style.setProperty('--synced-word-progress', `${progress * 100}%`);
+                    character.style.setProperty('--synced-char-lift', `${lift.toFixed(3)}px`);
+                    character.dataset.charState = progress >= 1 ? 'complete' : progress > 0 ? 'active' : 'pending';
+                });
             }
         };
 
@@ -160,6 +184,13 @@ export default function SyncedLyricText({
         };
 
         const applySnapshot = (snapshot, force = false) => {
+            if (surface === 'classic' && rootRef.current?.dataset) {
+                rootRef.current.dataset.motionRunning = !prefersReducedMotion
+                    && snapshot?.visible !== false && !snapshot?.paused
+                    && !snapshot?.buffering && !snapshot?.seeking && !snapshot?.ended
+                    ? 'true' : 'false';
+            }
+            if (!shouldSync) return;
             const currentTime = snapshot?.currentTime ?? 0;
             const resolved = resolveLineWordProgress(line, currentTime);
             if (!resolved.hasWordTiming) {
@@ -202,8 +233,8 @@ export default function SyncedLyricText({
         };
 
         applySnapshot(clock.getSnapshot(), true);
-        const frameStart = words[0].startTime - (surface === 'immersive' ? getWordLeadIn(words[0]) : 0);
-        const frameEnd = words.at(-1).endTime;
+        const frameStart = shouldSync ? words[0].startTime - (surface === 'immersive' ? getWordLeadIn(words[0]) : 0) : Infinity;
+        const frameEnd = shouldSync ? words.at(-1).endTime : Infinity;
         const unsubscribe = clock.subscribe((snapshot) => applySnapshot(snapshot), {
             animationFrames: (snapshot) => !prefersReducedMotion
                 && snapshot.currentTime >= frameStart && snapshot.currentTime < frameEnd,
@@ -238,7 +269,7 @@ export default function SyncedLyricText({
                 rootRef.current.style.removeProperty('--synced-scroll-x');
             }
         };
-    }, [clearLineProgressTarget, clock, line, setLineProgress, shouldSync, words, surface, updatePlayerBarScroll]);
+    }, [active, visible, clearLineProgressTarget, clock, line, setLineProgress, shouldSync, words, wordCharacters, surface, updatePlayerBarScroll]);
 
     return (
         <span
@@ -246,6 +277,7 @@ export default function SyncedLyricText({
             className={`synced-lyric-text ${className}`.trim()}
             data-synced={shouldSync ? 'word' : 'static'}
             data-surface={surface}
+            data-active={active ? 'true' : 'false'}
         >
             <span className="synced-lyric-text__accessible">{displayText}</span>
             <span className="synced-lyric-text__visual" aria-hidden="true">
@@ -274,7 +306,19 @@ export default function SyncedLyricText({
                                 className="synced-lyric-text__word"
                                 data-word-state="pending"
                             >
-                                {word.text}
+                                {surface === 'classic'
+                                    ? wordCharacters[index].map((character, characterIndex) => (
+                                        <span
+                                            key={characterIndex}
+                                            ref={(node) => {
+                                                if (!characterRefs.current[index]) characterRefs.current[index] = [];
+                                                characterRefs.current[index][characterIndex] = node;
+                                            }}
+                                            className="synced-lyric-text__char"
+                                            data-char-state="pending"
+                                        >{character}</span>
+                                    ))
+                                    : word.text}
                             </span>
                         );
                     })

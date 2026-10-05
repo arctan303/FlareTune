@@ -8,6 +8,7 @@ import { useLyricSurfacePresentation } from './lyrics/lyricSurfacePresentation.j
 import { useMediaQuery } from './fullscreen/useMediaQuery';
 import { getLyricKeyboardTarget, getSeekableLyricIndices } from './lyricKeyboardNavigation.js';
 import { usePlayerInteractionLock } from '../hooks/usePlayerAutoHide.js';
+import { CLASSIC_LYRIC_SCROLL_MS, classicLyricEase } from './classicLyricMotion.js';
 
 const LYRIC_STATUS_LINES = new Set(['纯音乐，请欣赏', '暂无歌词', '歌词加载失败']);
 
@@ -108,6 +109,10 @@ export default function LyricsScroller({
         ? preferredFocusIndex : (seekableIndices[0] ?? -1);
 
     const userInteractStart = () => {
+        if (scrollAnimRef.current) {
+            cancelAnimationFrame(scrollAnimRef.current);
+            scrollAnimRef.current = null;
+        }
         setIsUserScrolling(true);
         if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
@@ -232,20 +237,25 @@ export default function LyricsScroller({
                         return;
                     }
 
-                    // Apple Music 60FPS 丝滑阻尼单向插值连续过渡，零停顿断点
+                    // Move quickly at first, then ease into the next line.
+                    // Large seeks use a shorter version of the same monotonic curve.
                     const startTop = container.scrollTop;
                     const distance = targetTop - startTop;
                     if (Math.abs(distance) < 1) return;
 
-                    const startTime = performance.now();
-                    const duration = 680; // 680ms 极致平滑缓动
-                    const easeOutCubic = (t) => (--t) * t * t + 1;
+                    let startTime = null;
+                    const largeJump = Math.abs(distance) > container.clientHeight * 0.85;
+                    const duration = largeJump ? 420 : CLASSIC_LYRIC_SCROLL_MS;
+                    const easing = classicLyricEase;
 
                     const step = (currentTime) => {
                         if (isUserScrolling) return;
+                        // Begin with the first painted frame so a busy frame
+                        // does not consume the visible motion before it starts.
+                        if (startTime === null) startTime = currentTime;
                         const elapsed = currentTime - startTime;
                         const progress = Math.min(elapsed / duration, 1);
-                        container.scrollTop = startTop + (distance * easeOutCubic(progress));
+                        container.scrollTop = startTop + (distance * easing(progress));
                         if (progress < 1) {
                             scrollAnimRef.current = requestAnimationFrame(step);
                         } else {
@@ -390,7 +400,7 @@ export default function LyricsScroller({
                                         transition: 'all 600ms cubic-bezier(0.22, 1, 0.36, 1)',
                                     };
                                 } else {
-                                    lineClass = 'opacity-[0.5] translate-y-0 hover:opacity-[0.9]';
+                                    lineClass = 'opacity-[0.42] translate-y-0 hover:opacity-[0.85]';
                                     lineStyle = {
                                         filter: 'blur(0.6px) saturate(0.5)',
                                         transition: 'all 600ms cubic-bezier(0.22, 1, 0.36, 1)',
