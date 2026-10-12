@@ -9,7 +9,7 @@ import {
 import { LyricSourceError } from './lyricSourceLoader.js';
 
 const wordDocument = () => createLyricDocument({
-  source: 'kugou',
+  source: 'custom_krc',
   format: 'krc',
   providerMeta: { providerLyricId: 'one', matchedTitle: 'Song', matchedArtist: 'Artist', durationDelta: 0.2 },
   lines: [{
@@ -55,8 +55,8 @@ test('candidate discovery returns configured providers and isolates a provider f
     },
   });
   assert.deepEqual(result.candidates, [
-    { source: 'kugou', providerLyricId: 'candidate' },
-    { source: 'netease', providerLyricId: 'candidate' },
+    { source: 'custom_krc', providerLyricId: 'candidate' },
+    { source: 'custom_lrc', providerLyricId: 'candidate' },
   ]);
   assert.deepEqual(result.warnings, [{ source: 'lrclib', code: 'unavailable' }]);
 });
@@ -64,8 +64,8 @@ test('candidate discovery returns configured providers and isolates a provider f
 test('candidate discovery globally ranks providers and retains every summary', async () => {
   const song = { id: 'song-1', title: 'Song', artist: 'Artist' };
   const calls = [];
-  const kugouCandidates = Array.from({ length: 13 }, (_, index) => ({
-    source: 'kugou',
+  const custom_krcCandidates = Array.from({ length: 13 }, (_, index) => ({
+    source: 'custom_krc',
     providerLyricId: `kg-${String(index).padStart(2, '0')}`,
     score: 120 - index,
     durationDelta: index + 1,
@@ -73,14 +73,14 @@ test('candidate discovery globally ranks providers and retains every summary', a
   const result = await listLyricsResolutionCandidates(song, {
     listCandidates: async (source) => {
       calls.push(source);
-      return source === 'kugou'
-        ? kugouCandidates
+      return source === 'custom_krc'
+        ? custom_krcCandidates
         : [{ source, providerLyricId: `${source}-best`, score: 175, durationDelta: 0.1 }];
     },
   });
 
-  assert.deepEqual(calls, ['kugou', 'netease', 'lrclib']);
-  assert.equal(result.candidates[0].providerLyricId, 'netease-best');
+  assert.deepEqual(calls, ['custom_krc', 'custom_lrc', 'lrclib']);
+  assert.equal(result.candidates[0].providerLyricId, 'custom_lrc-best');
   assert.equal(result.candidates.length, 15);
   assert.equal(result.candidates.some(({ providerLyricId }) => providerLyricId === 'kg-12'), true);
 });
@@ -88,22 +88,22 @@ test('candidate discovery globally ranks providers and retains every summary', a
 test('source filter only queries the selected provider and rejects unsupported sources', async () => {
   const calls = [];
   const listCandidates = async source => { calls.push(source); return [{ source, providerLyricId: 'one' }]; };
-  const result = await listLyricsResolutionCandidates({}, { source: 'netease', listCandidates });
-  assert.deepEqual(calls, ['netease']);
-  assert.equal(result.candidates[0].source, 'netease');
+  const result = await listLyricsResolutionCandidates({}, { source: 'custom_lrc', listCandidates });
+  assert.deepEqual(calls, ['custom_lrc']);
+  assert.equal(result.candidates[0].source, 'custom_lrc');
   await assert.rejects(listLyricsResolutionCandidates({}, { source: 'unknown', listCandidates }), RangeError);
-  assert.deepEqual(calls, ['netease']);
+  assert.deepEqual(calls, ['custom_lrc']);
 });
 
 test('candidate merge deduplicates provider identities and has deterministic cross-provider ties', () => {
-  const duplicatedKugou = {
-    source: 'kugou', providerLyricId: 'shared-id', score: 150, durationDelta: 0.2,
+  const duplicatedCustomKrc = {
+    source: 'custom_krc', providerLyricId: 'shared-id', score: 150, durationDelta: 0.2,
   };
   const candidates = [
     [
-      { source: 'kugou', providerLyricId: 'z-last', score: 150, durationDelta: null },
-      duplicatedKugou,
-      { ...duplicatedKugou, score: 140, durationDelta: 0.1 },
+      { source: 'custom_krc', providerLyricId: 'z-last', score: 150, durationDelta: null },
+      duplicatedCustomKrc,
+      { ...duplicatedCustomKrc, score: 140, durationDelta: 0.1 },
     ],
     [
       { source: 'lrclib', providerLyricId: 'shared-id', score: 150, durationDelta: 0.2 },
@@ -112,10 +112,10 @@ test('candidate merge deduplicates provider identities and has deterministic cro
   ];
 
   const expected = [
-    'kugou:shared-id',
+    'custom_krc:shared-id',
     'lrclib:a-first',
     'lrclib:shared-id',
-    'kugou:z-last',
+    'custom_krc:z-last',
   ];
   const identities = (value) => value.map(({ source, providerLyricId }) => `${source}:${providerLyricId}`);
 

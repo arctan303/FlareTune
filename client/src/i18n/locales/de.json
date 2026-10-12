@@ -1129,8 +1129,8 @@
   "已读取 {p0} 首候选歌曲。": "{p0} Titelkandidaten gelesen.",
   "无法读取设备状态。": "Gerätestatus konnte nicht gelesen werden.",
   "请填写歌词": "Gib einen Liedtext ein",
-  "网易云": "NetEase Cloud",
-  "酷狗": "Kugou",
+  "自定义逐行源": "Eigene zeilengenaue Quelle",
+  "自定义逐字源": "Eigene wortgenaue Quelle",
   "逐字": "Wortweise",
   "应不早于上一行 {p0}": "Darf nicht vor der vorherigen Zeile {p0} liegen",
   "时间格式应为 mm:ss.mmm": "Zeitformat muss mm:ss.mmm sein",
@@ -1831,5 +1831,14 @@
   "导入": "Importieren",
   "上传歌曲": "Titel hochladen",
   "可以播放、搜索、收藏、编辑本地歌单和切换外观；管理配置仅供查看，助手使用固定示例回复。": "Spiele Musik ab, suche, speichere Favoriten und ändere lokale Playlists und das Aussehen. Verwaltungseinstellungen sind einsehbar; der Assistent antwortet mit einer festen Demo-Antwort.",
-  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "In der Demo können Verwaltungseinstellungen angesehen und lokale Einstellungen geändert werden."
+  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "In der Demo können Verwaltungseinstellungen angesehen und lokale Einstellungen geändert werden.",
+  "歌词源": "Liedtextquellen",
+  "配置歌词源": "Liedtextquellen konfigurieren",
+  "未启用歌词源": "Keine Liedtextquelle aktiviert",
+  "服务地址": "Dienst-URL",
+  "搜索接口地址": "URL für die Suche",
+  "下载接口地址": "URL für den Download",
+  "来源译文语言": "Übersetzungssprache der Quelle",
+  "自定义接口须符合歌词源协议，仅支持 HTTPS 地址。": "Eigene Endpunkte müssen dem Liedtextprotokoll folgen und HTTPS verwenden.",
+  "歌词源加载失败，请重试。": "Liedtextquellen konnten nicht geladen werden. Bitte erneut versuchen."
 }

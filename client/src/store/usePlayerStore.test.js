@@ -69,7 +69,7 @@ test('switching songs resets all resolved lyric document metadata', () => {
   resetStore();
   usePlayerStore.setState({
     currentSong: makeSong('a'),
-    resolvedLyricSource: 'kugou',
+    resolvedLyricSource: 'custom_krc',
     lyricFormat: 'krc',
     lyricSyncMode: 'word',
     lyricIntro: { time: 0, text: 'Artist - Song' },
@@ -168,7 +168,7 @@ test('lyric document snapshot applies original metadata and translation lifecycl
   usePlayerStore.getState().setLyricsDocumentSnapshot({
     lyrics,
     status: 'ready',
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     syncMode: 'word',
     intro: { time: 0, text: 'Artist - Song' },
@@ -182,7 +182,7 @@ test('lyric document snapshot applies original metadata and translation lifecycl
   const state = usePlayerStore.getState();
   assert.equal(updates, 1);
   assert.equal(state.lyrics, lyrics);
-  assert.equal(state.resolvedLyricSource, 'kugou');
+  assert.equal(state.resolvedLyricSource, 'custom_krc');
   assert.equal(state.lyricFormat, 'krc');
   assert.equal(state.lyricSyncMode, 'word');
   assert.equal(state.lyricOffsetMs, 350);

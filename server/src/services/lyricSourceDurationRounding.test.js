@@ -1,3 +1,4 @@
+import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLyricSourceLoader, parseKrcLyrics } from './lyricSourceLoader.js';
@@ -7,9 +8,9 @@ const jsonResponse = (data, status = 200) => new Response(JSON.stringify(data), 
   headers: { 'content-type': 'application/json' },
 });
 
-test('Kugou rounds floating duration to whole-second milliseconds to match upstream index', async () => {
+test('CustomKrc rounds floating duration to whole-second milliseconds to match upstream index', async () => {
   let searchUrl = '';
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       searchUrl = url;
       return jsonResponse({ candidates: [{
@@ -17,7 +18,7 @@ test('Kugou rounds floating duration to whole-second milliseconds to match upstr
       }] });
     },
   });
-  const candidates = await loader.listSourceCandidates('kugou', {
+  const candidates = await loader.listSourceCandidates('custom_krc', {
     title: 'Fire Girl', artist: 'Singer A', duration: 256.321,
   });
   assert.equal(new URL(searchUrl).searchParams.get('duration'), '256000');
@@ -33,14 +34,11 @@ test('parseKrcLyrics detects embedded title and first line remix/dj mismatch', (
   assert.equal(doc.providerMeta.versionMismatch, true);
 });
 
-test('Netease search gracefully falls back to cloudsearch on upstream non-200 code', async () => {
+test('CustomLrc searches only the administrator configured endpoint', async () => {
   const requestedUrls = [];
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       requestedUrls.push(url);
-      if (url.includes('/api/search/get/web')) {
-        return jsonResponse({ code: 405, message: 'blocked' });
-      }
       return jsonResponse({
         code: 200,
         result: {
@@ -55,28 +53,28 @@ test('Netease search gracefully falls back to cloudsearch on upstream non-200 co
       });
     },
   });
-  const candidates = await loader.listSourceCandidates('netease', {
+  const candidates = await loader.listSourceCandidates('custom_lrc', {
     title: 'Wild Heart', artist: 'Singer A', duration: 213,
   });
-  assert.equal(requestedUrls.some((u) => u.includes('/api/search/get/web')), true);
-  assert.equal(requestedUrls.some((u) => u.includes('/api/cloudsearch/pc')), true);
+  assert.equal(requestedUrls.length, 1);
+  assert.equal(new URL(requestedUrls[0]).origin + new URL(requestedUrls[0]).pathname, TEST_LYRIC_SOURCES.custom_lrc.searchUrl);
   assert.equal(candidates.length, 1);
   assert.equal(candidates[0].providerLyricId, '12345');
   assert.equal(candidates[0].matchedTitle, 'Wild Heart');
   assert.equal(candidates[0].matchedArtist, 'Singer A');
 });
 
-test('buildKugouDurationMsCandidates generates floor and rounded whole-second ms', async () => {
-  const { buildKugouDurationMsCandidates } = await import('./lyricSourceMatching.js');
-  assert.deepEqual(buildKugouDurationMsCandidates(256.768), ['256000', '257000']);
-  assert.deepEqual(buildKugouDurationMsCandidates(256.0), ['256000']);
-  assert.deepEqual(buildKugouDurationMsCandidates(257.7), ['257000', '258000']);
-  assert.deepEqual(buildKugouDurationMsCandidates(null), [null]);
+test('buildCustomKrcDurationMsCandidates generates floor and rounded whole-second ms', async () => {
+  const { buildCustomKrcDurationMsCandidates } = await import('./lyricSourceMatching.js');
+  assert.deepEqual(buildCustomKrcDurationMsCandidates(256.768), ['256000', '257000']);
+  assert.deepEqual(buildCustomKrcDurationMsCandidates(256.0), ['256000']);
+  assert.deepEqual(buildCustomKrcDurationMsCandidates(257.7), ['257000', '258000']);
+  assert.deepEqual(buildCustomKrcDurationMsCandidates(null), [null]);
 });
 
-test('Kugou search tests adjacent duration when initial duration returns 0 candidates', async () => {
+test('CustomKrc search tests adjacent duration when initial duration returns 0 candidates', async () => {
   const requestedUrls = [];
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       requestedUrls.push(url);
       const parsed = new URL(url);
@@ -89,7 +87,7 @@ test('Kugou search tests adjacent duration when initial duration returns 0 candi
     },
   });
   // 256.768 will first check 256000
-  const candidates = await loader.listSourceCandidates('kugou', {
+  const candidates = await loader.listSourceCandidates('custom_krc', {
     title: 'Fire Girl', artist: 'Singer A', duration: 256.768,
   });
   assert.equal(candidates.length, 1);
@@ -98,9 +96,9 @@ test('Kugou search tests adjacent duration when initial duration returns 0 candi
   assert.equal(new URL(requestedUrls[0]).searchParams.get('duration'), '256000');
 });
 
-test('Kugou search falls back to second duration candidate if first duration candidate returns 0', async () => {
+test('CustomKrc search falls back to second duration candidate if first duration candidate returns 0', async () => {
   const requestedUrls = [];
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       requestedUrls.push(url);
       const parsed = new URL(url);
@@ -113,7 +111,7 @@ test('Kugou search falls back to second duration candidate if first duration can
     },
   });
   // 256.768 will check 256000 first (returns 0), then 257000 (returns candidate)
-  const candidates = await loader.listSourceCandidates('kugou', {
+  const candidates = await loader.listSourceCandidates('custom_krc', {
     title: 'Fire Girl', artist: 'Singer A', duration: 256.768,
   });
   assert.equal(candidates.length, 1);

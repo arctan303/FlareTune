@@ -50,6 +50,7 @@ async function requestLyricsWorkspace(path, init = {}) {
 }
 
 export const lyricsWorkspaceApi = {
+  getSources: () => requestLyricsWorkspace('/api/lyrics/sources'),
   getLyrics: (songId) => requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}`),
   getLyricsCandidates: (songId, options = {}) => {
     const params = new URLSearchParams();
@@ -91,11 +92,12 @@ export const lyricsWorkspaceApi = {
   shiftLyricsTimeline: (songId, { deltaMs, etag }) => requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}/timeline`, {
     method: 'PATCH', body: JSON.stringify({ deltaMs, etag }),
   }),
-  saveLyricsDocument: (songId, { lines, etag, aiReceipt }) => requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}/document`, {
-    method: 'PUT', body: JSON.stringify({ lines, etag, ...(aiReceipt ? { aiReceipt } : {}) }),
+  saveLyricsDocument: (songId, { lines, etag, aiReceipt, translationLanguage }) => requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}/document`, {
+    method: 'PUT', body: JSON.stringify({ lines, etag, ...(aiReceipt ? { aiReceipt } : {}),
+      ...(translationLanguage ? { translationLanguage } : {}) }),
   }),
-  completeDraftLyrics: (songId, { lines, etag }) => requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}/draft-ai`, {
-    method: 'POST', body: JSON.stringify({ lines, etag }),
+  completeDraftLyrics: (songId, { lines, etag, translationLanguage }) => requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}/draft-ai`, {
+    method: 'POST', body: JSON.stringify({ lines, etag, ...(translationLanguage ? { translationLanguage } : {}) }),
   }),
   importLyricsLrc: (songId, { lrc, etag }) => requestLyricsWorkspace(`/api/lyrics/workspace/${encodeURIComponent(songId)}/import`, {
     method: 'POST', body: JSON.stringify({ lrc, etag }),

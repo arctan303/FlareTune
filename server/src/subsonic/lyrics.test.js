@@ -70,7 +70,7 @@ test('missing, plain and mixed untimed lyrics downgrade without invented timesta
 
 test('translation languages use saved metadata or known legacy provider conventions', async () => {
   const artifact = await make([{ time: 1, text: 'A', tlyric: '甲' }]);
-  for (const source of ['kugou', 'netease', 'ai']) {
+  for (const source of ['custom_krc', 'custom_lrc', 'ai']) {
     assert.equal(layers({ ...artifact, translation: { ...artifact.translation, source } })[1].lang, 'zh');
   }
   assert.equal(layers(artifact)[1].lang, 'und');

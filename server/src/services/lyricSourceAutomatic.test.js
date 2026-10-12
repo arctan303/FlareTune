@@ -1,3 +1,4 @@
+import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
@@ -14,12 +15,12 @@ const encodedKrc = (text) => {
 const candidate = (id, extra = {}) => ({ id, accesskey: 'mock-key', song: SONG.title,
   singer: SONG.artist, duration: 200000, ...extra });
 const content = (prefix = '') => encodedKrc(`${prefix}[1000,1000]<0,1000,0>Sing together`);
-const scoped = (loader) => (provider, ...args) => provider === 'kugou'
+const scoped = (loader) => (provider, ...args) => provider === 'custom_krc'
   ? loader.fetchSourceDocument(provider, ...args) : null;
 
-test('automatic Kugou resolution skips an embedded wrong version and loads the next valid word timeline', async () => {
+test('automatic CustomKrc resolution skips an embedded wrong version and loads the next valid word timeline', async () => {
   const downloaded = [];
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return json({ candidates: [candidate('bad-live'), candidate('good')] });
     const id = parsed.searchParams.get('id');
@@ -32,22 +33,22 @@ test('automatic Kugou resolution skips an embedded wrong version and loads the n
   assert.deepEqual(downloaded, ['bad-live', 'good']);
 });
 
-test('automatic Kugou resolution compares translated word candidates instead of returning the first word candidate', async () => {
+test('automatic CustomKrc resolution compares translated word candidates instead of returning the first word candidate', async () => {
   const language = Buffer.from(JSON.stringify({ version: 1,
     content: [{ type: 1, lyricContent: [['一起唱歌']] }] })).toString('base64');
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return json({ candidates: [candidate('untranslated'), candidate('translated')] });
     return json({ content: content(parsed.searchParams.get('id') === 'translated' ? `[language:${language}]\n` : '') });
   } });
-  const document = await loader.getKugouDocument(SONG);
+  const document = await loader.getCustomKrcDocument(SONG);
   assert.equal(document.providerMeta.providerLyricId, 'translated');
   assert.equal(document.lines[0].tlyric, '一起唱歌');
 });
 
 test('automatic download budget excludes unreliable summaries and still limits downloads to five candidates', async () => {
   const downloaded = [];
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return json({ candidates: [
       ...Array.from({ length: 5 }, (_, index) => candidate(`wrong-${index}`, { song: `${SONG.title} (Live)` })),
@@ -56,15 +57,15 @@ test('automatic download budget excludes unreliable summaries and still limits d
     downloaded.push(parsed.searchParams.get('id'));
     return json({ content: content() });
   } });
-  const candidates = await loader.listSourceCandidates('kugou', SONG);
+  const candidates = await loader.listSourceCandidates('custom_krc', SONG);
   assert.equal(candidates[0].versionMismatch, true, 'fixture puts unreliable metadata before valid candidates');
-  const document = await loader.getKugouDocument(SONG);
+  const document = await loader.getCustomKrcDocument(SONG);
   assert.equal(document.providerMeta.providerLyricId, 'valid-0');
   assert.deepEqual(downloaded, ['valid-0', 'valid-1', 'valid-2', 'valid-3', 'valid-4']);
 });
 
-test('a later empty Kugou candidate cannot turn an earlier timeout into a negative lyric result', async () => {
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
+test('a later empty CustomKrc candidate cannot turn an earlier timeout into a negative lyric result', async () => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return json({ candidates: [candidate('temporary'), candidate('empty')] });
     return json({}, parsed.searchParams.get('id') === 'temporary' && parsed.searchParams.get('fmt') === 'krc' ? 504 : 404);
@@ -72,8 +73,8 @@ test('a later empty Kugou candidate cannot turn an earlier timeout into a negati
   await assert.rejects(fetchLyricsDocumentWithFallback('auto', SONG, scoped(loader)), { kind: 'timeout' });
 });
 
-test('a later empty Netease candidate cannot overwrite a timeout and multiple actionable errors retain priority', async () => {
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
+test('a later empty CustomLrc candidate cannot overwrite a timeout and multiple actionable errors retain priority', async () => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname.includes('search')) return json({ code: 200, result: { songs: [1, 2, 3].map((id) => ({
       id, name: SONG.title, artists: [{ name: SONG.artist }], duration: 200000,
@@ -82,28 +83,28 @@ test('a later empty Netease candidate cannot overwrite a timeout and multiple ac
     if (parsed.searchParams.get('id') === '2') return json({}, 429);
     return json({ code: 200, nolyric: true });
   } });
-  await assert.rejects(loader.getNeteaseDocument(SONG), error => error.kind === 'timeout'
+  await assert.rejects(loader.getCustomLrcDocument(SONG), error => error.kind === 'timeout'
     && error.cause.errors.length === 2);
 });
 
-test('cancellation during Kugou KRC download stops before LRC fallback and other candidates', async () => {
+test('cancellation during CustomKrc KRC download stops before LRC fallback and other candidates', async () => {
   const controller = new AbortController();
   const downloads = [];
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return json({ candidates: [candidate('first'), candidate('second')] });
     downloads.push(`${parsed.searchParams.get('id')}:${parsed.searchParams.get('fmt')}`);
     controller.abort();
     throw new DOMException('Aborted', 'AbortError');
   } });
-  await assert.rejects(loader.getKugouDocument(SONG, { signal: controller.signal }), { kind: 'aborted' });
+  await assert.rejects(loader.getCustomKrcDocument(SONG, { signal: controller.signal }), { kind: 'aborted' });
   assert.deepEqual(downloads, ['first:krc']);
 });
 
 test('LRCLIB exact word timing does not conceal a closer search candidate', async () => {
   const lyricsfile = `version: '1.0'\nlines:\n  - text: 'Sing'\n    start_ms: 1000\n    end_ms: 2000\n    words:\n      - { text: 'Sing', start_ms: 1000, end_ms: 2000 }`;
   const common = { trackName: SONG.title, artistName: SONG.artist, lyricsfile };
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => new URL(url).pathname === '/api/get'
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => new URL(url).pathname === '/api/get'
     ? json({ ...common, id: 'exact', duration: 201 })
     : json([{ ...common, id: 'closer', duration: 200 }]) });
   const document = await loader.getLrclibDocument(SONG);

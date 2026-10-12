@@ -4,13 +4,15 @@ import { createLyricArtifactStore } from './lyricArtifactStore.js';
 import { readOrCreateLyricArtifact } from './lyricAssetWorkflow.js';
 import { LYRIC_UPGRADE_INTERVAL_MS, fetchUpgradeDocument } from './lyricAssetUpgrade.js';
 import { createMemoryR2Bucket, makeReadyArtifact, makeLyricDocument, makeSong } from '../test/lyricAssetFixtures.js';
+import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
+import { deflateSync } from 'node:zlib';
 
 const initialTime = Date.parse('2026-10-05T00:00:00Z');
 const checkedAt = new Date(initialTime).toISOString();
 const later = () => initialTime + LYRIC_UPGRADE_INTERVAL_MS;
 const song = makeSong();
 const lineArtifact = () => makeReadyArtifact({
-  original: { source: 'kugou', format: 'lrc', syncMode: 'line', lines: [{ time: 1, text: 'Hello' }] },
+  original: { source: 'custom_krc', format: 'lrc', syncMode: 'line', lines: [{ time: 1, text: 'Hello' }] },
   provenance: { matchedDuration: song.duration }, updatedAt: checkedAt,
 });
 function context() {
@@ -25,18 +27,50 @@ async function fixture(artifact = lineArtifact(), automatic = true) {
   return { store, bucket };
 }
 
+test('configured workflow upgrade retains decoded progress at its deadline and aborts remaining download', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const sources = structuredClone(TEST_LYRIC_SOURCES);
+  sources.lrclib.enabled = false; sources.custom_lrc.enabled = false;
+  const db = { prepare: () => ({ first: async () => ({ value_json: JSON.stringify(sources) }) }) };
+  const key = [64, 71, 97, 119, 94, 50, 116, 71, 81, 54, 49, 45, 206, 210, 110, 105];
+  const compressed = deflateSync(Buffer.from('[1000,1000]<0,1000,0>Hello'));
+  const content = Buffer.concat([Buffer.from('krc1'), Buffer.from(compressed.map((v, i) => v ^ key[i % key.length]))]).toString('base64');
+  let releaseSlow; let cancelled = false;
+  const slowStarted = new Promise(resolve => { releaseSlow = resolve; });
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search')) return Response.json({ candidates: ['good', 'slow'].map(id => ({
+      id, accesskey: 'private', song: song.title, singer: song.artist, duration: song.duration * 1000,
+    })) });
+    if (parsed.searchParams.get('id') === 'good') return Response.json({ content });
+    releaseSlow();
+    return new Promise((_, reject) => init.signal.addEventListener('abort', () => {
+      cancelled = true; reject(new DOMException('Aborted', 'AbortError'));
+    }, { once: true }));
+  });
+  const { store } = await fixture(); const ctx = context();
+  const response = await readOrCreateLyricArtifact({ env: { DB: db }, song, store, executionContext: ctx, now: later });
+  assert.equal(response.artifact.original.syncMode, 'line');
+  await slowStarted;
+  t.mock.timers.tick(20_000);
+  await ctx.finish();
+  assert.equal(cancelled, true);
+  assert.equal((await store.get(song.id)).artifact.original.syncMode, 'word');
+  assert.equal((await store.get(song.id)).artifact.provenance.providerLyricId, 'good');
+});
+
 test('bounded parallel upgrade preserves a completed result and cancels a stalled provider', async () => {
   const started = []; const aborted = [];
   const result = await fetchUpgradeDocument(song, async (provider, _song, { signal }) => {
     started.push(provider);
-    if (provider === 'kugou') return makeLyricDocument();
+    if (provider === 'custom_krc') return makeLyricDocument();
     return new Promise(resolve => signal.addEventListener('abort', () => {
       aborted.push(provider); resolve(null);
     }, { once: true }));
   }, { budgetMs: 20 });
   assert.equal(started.length, 3);
   assert.equal(aborted.length, 2);
-  assert.equal(result.source, 'kugou');
+  assert.equal(result.source, 'custom_krc');
   assert.equal(result.syncMode, 'word');
 });
 
@@ -58,7 +92,7 @@ test('internal automatic ownership round-trips through R2 metadata, never JSON b
 test('first automatic fetch grants ownership but an imported copy does not', async () => {
   const store = createLyricArtifactStore({ MEDIA_BUCKET: createMemoryR2Bucket() });
   const first = await readOrCreateLyricArtifact({ env: {}, song, store, now: () => initialTime,
-    fetchDocument: async (provider) => provider === 'kugou' ? makeLyricDocument() : null });
+    fetchDocument: async (provider) => provider === 'custom_krc' ? makeLyricDocument() : null });
   assert.deepEqual((await store.get(song.id)).automation, { checkedAt });
   const imported = createLyricArtifactStore({ MEDIA_BUCKET: createMemoryR2Bucket() });
   await imported.createIfAbsent(song.id, JSON.parse(JSON.stringify(first.artifact)));
@@ -73,7 +107,7 @@ test('ready response stays line-synced while one background task upgrades the ne
   const fetchDocument = async provider => {
     calls += 1;
     await held;
-    return provider === 'kugou' ? makeLyricDocument() : null;
+    return provider === 'custom_krc' ? makeLyricDocument() : null;
   };
   const reads = await Promise.all(Array.from({ length: 4 }, () => readOrCreateLyricArtifact({
     env: {}, song, store, executionContext: ctx, now: later, fetchDocument,
@@ -91,7 +125,7 @@ test('manual edits and deletion markers win against an in-flight automatic upgra
     const started = new Promise(resolve => { began = resolve; });
     const held = new Promise(resolve => { release = resolve; });
     await readOrCreateLyricArtifact({ env: {}, song, store, executionContext: ctx, now: later,
-      fetchDocument: async provider => { began(); await held; return provider === 'kugou' ? makeLyricDocument() : null; } });
+      fetchDocument: async provider => { began(); await held; return provider === 'custom_krc' ? makeLyricDocument() : null; } });
     await started;
     const current = await store.get(song.id);
     const replacement = action === 'manual' ? { ...lineArtifact(), offsetMs: 250 }
@@ -141,7 +175,7 @@ test('an unreliable duration or equal precision is never accepted as an upgrade'
   ]) await t.test(name, async () => {
     const { store } = await fixture(); const ctx = context();
     await readOrCreateLyricArtifact({ env: {}, song, store, executionContext: ctx, now: later,
-      fetchDocument: async provider => provider === 'kugou' ? candidate : null });
+      fetchDocument: async provider => provider === 'custom_krc' ? candidate : null });
     await ctx.finish();
     assert.equal((await store.get(song.id)).artifact.original.syncMode, 'line');
   });

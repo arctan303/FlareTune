@@ -1,4 +1,4 @@
-const SOURCE_LABELS = Object.freeze({ kugou: '酷狗', netease: '网易云', lrclib: 'LRCLIB' });
+import { lyricSourceLabel } from '../../../shared/lyricSources.js';
 
 const PROVIDER_WARNING_LABELS = Object.freeze({
   circuit_open: '暂时熔断',
@@ -83,7 +83,7 @@ export function projectProviderWarnings(warnings) {
   if (!Array.isArray(warnings)) return [];
   const seen = new Set();
   return warnings.slice(0, 8).flatMap((warning, index) => {
-    const source = SOURCE_LABELS[warning?.source] || '某歌词源';
+    const source = lyricSourceLabel(warning?.source);
     const detail = PROVIDER_WARNING_LABELS[warning?.code] || '返回未知状态';
     const text = `${source}${detail}`;
     if (seen.has(text)) return [];

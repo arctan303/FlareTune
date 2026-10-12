@@ -1,4 +1,5 @@
 import { LYRIC_DOCUMENT_LIMITS, createLyricDocument, isSingableLineText } from '../utils/lyricDocument.js';
+import { LEGACY_LYRIC_SOURCES } from '../../../shared/lyricSources.js';
 import { isValidSongLanguage } from '../utils/songLanguage.js';
 import { mediaObjectKey, mediaPrefix } from './adminMusicMedia.js';
 import { createRequestSingleFlight } from '../utils/sharedRequestTask.js';
@@ -78,7 +79,7 @@ function isLegacyLyricPayload(value) {
   if (![source, type, lyrics, translatedLyrics].every((field) => typeof field === 'string')) return false;
   if (!['plain', 'synced'].includes(type)) return false;
   if (value.success) {
-    return ['Netease', 'LRCLib'].includes(source) && Boolean(lyrics.trim());
+    return ['Netease', 'CustomLrc', 'LRCLib'].includes(source) && Boolean(lyrics.trim());
   }
   return source === '' && type === 'plain' && lyrics === '' && translatedLyrics === '';
 }
@@ -215,8 +216,8 @@ function normalizeTranslation(value, original, textHash) {
   if (value === null) return null;
   assertExactFields(value, TRANSLATION_FIELDS,
     ['source', 'originalTextHash', 'lines', 'updatedAt'], 'translation');
-  if (!['kugou', 'netease', 'ai', 'manual'].includes(value.source)) {
-    validationError('translation.source must be kugou, netease, ai, or manual');
+  if (!['custom_krc', 'custom_lrc', 'ai', 'manual', ...Object.keys(LEGACY_LYRIC_SOURCES)].includes(value.source)) {
+    validationError('invalid translation.source');
   }
   const originalTextHash = normalizeHash(value.originalTextHash, 'translation.originalTextHash');
   if (originalTextHash !== textHash) validationError('translation.originalTextHash must match textHash');

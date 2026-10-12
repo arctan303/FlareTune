@@ -15,6 +15,19 @@ import {
 const STARTED_AT = '2026-09-10T00:00:00.000Z';
 const FINISHED_AT = Date.parse('2026-09-10T00:01:00.000Z');
 
+test('a provider translation in another language does not suppress AI completion for the target', async () => {
+  const artifact = makeReadyArtifact();
+  artifact.translation = { source: 'custom_krc', language: 'en', lines: ['English translation'],
+    originalTextHash: artifact.textHash, updatedAt: STARTED_AT };
+  const store = createMemoryLyricStore(artifact);
+  const result = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong({ language: 'ja' }),
+    store, targetLanguage: 'zh', deps: successDeps() });
+  assert.equal(result.state, 'started');
+  await result.task;
+  assert.equal(store.current().translation.language, 'zh');
+  assert.equal(store.current().translation.lines[0], '你好');
+});
+
 function pendingArtifact(overrides = {}) {
   return makeReadyArtifact({
     aiCompletion: { status: 'pending', updatedAt: STARTED_AT },
@@ -318,7 +331,7 @@ test('disabled lyric AI settles a pending request without spending quota or call
 test('manual completion replaces a provider translation instead of treating it as AI output', async () => {
   const base = pendingArtifact();
   const store = createMemoryLyricStore(pendingArtifact({
-    translation: { source: 'kugou', language: 'zh', originalTextHash: base.textHash,
+    translation: { source: 'custom_krc', language: 'zh', originalTextHash: base.textHash,
       lines: ['旧译文'] },
   }));
   let calls = 0;
@@ -553,7 +566,7 @@ test('manual recompletion retains old translation while marking a new pending ta
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const previous = {
-    source: 'kugou',
+    source: 'custom_krc',
     originalTextHash: 'a'.repeat(64),
     lines: ['旧译文'],
     updatedAt: '2026-09-09T00:00:00.000Z',

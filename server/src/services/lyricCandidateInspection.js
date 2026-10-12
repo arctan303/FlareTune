@@ -9,7 +9,7 @@ export const LYRIC_CANDIDATE_INSPECTION_LIMITS = Object.freeze({
 });
 
 const PROVIDER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
-const VALID_SOURCES = new Set(['kugou', 'netease', 'lrclib']);
+const VALID_SOURCES = new Set(['custom_krc', 'custom_lrc', 'lrclib']);
 const SAFE_UPSTREAM_KINDS = new Set([
   'circuit_open', 'invalid', 'network', 'rate_limited', 'timeout', 'unavailable', 'upstream',
 ]);
@@ -160,7 +160,9 @@ function projectDocument(candidate, rawDocument) {
       syncMode: document.syncMode,
       lines: document.lines.map(copyOriginalLine),
     },
-    translation: translationAvailable ? { lines: translationLines } : null,
+    translation: translationAvailable ? { lines: translationLines,
+      ...(document.providerMeta?.translationLanguage ? { language: document.providerMeta.translationLanguage } : {}),
+    } : null,
   };
 }
 

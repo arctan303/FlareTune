@@ -477,7 +477,7 @@ test('current-only frontend rejects retired shell, URL, origin, storage, and pla
   assert.doesNotMatch(randomCache, /LEGACY_RANDOM_SONGS_CACHE_KEYS|musicPlayer_xiaoa_random_songs_v1/);
   assert.doesNotMatch(playerContext, /LEGACY_STORAGE_KEY|readLegacyContext|musicPlayer_player|songId|song_id|audioKey|coverKey|current_song_id|session_id|seed_queue|updated_at/);
   assert.match(playerContext, /value\.schema !== PLAYER_CONTEXT_SCHEMA/);
-  assert.doesNotMatch(playerStore, /showTranslation|netease/);
+  assert.doesNotMatch(playerStore, /showTranslation|custom_lrc/);
   assert.match(playerStore, /name: 'musicPlayer_player',[\s\S]{0,100}version: 1,[\s\S]{0,100}migrate: \(\) => undefined/);
   assert.match(uiStore, /name: 'musicPlayer_ui',[\s\S]{0,100}version: 1,[\s\S]{0,100}migrate: \(\) => undefined/);
   assert.doesNotMatch(uiStore, /migrate:\s*\(persistedState\)/);

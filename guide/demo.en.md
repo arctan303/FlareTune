@@ -7,7 +7,7 @@ Try the real player and library interface without signing in, using music licens
 | Interactive | Scope |
 | --- | --- |
 | Playback, queue, fullscreen and lyrics | Real static audio; manually timed line lyrics, no lyric lookup |
-| Seeking | Static audio hosting and browser behavior can prevent seeking; the demo does not guarantee the same media behavior as a normal installation |
+| Seeking | Audio supports 206 byte-range responses for playback position changes |
 | Search, language browsing, daily picks and roaming | Browser queries against the static catalog; unavailable languages show an empty state |
 | Favorites, playlists, history and frequent songs | Stored in this browser; personal collections start empty, the sample playlist is labeled |
 | Appearance and nine interface languages | Stored locally; switch and restore preferences |
@@ -16,10 +16,10 @@ Try the real player and library interface without signing in, using music licens
 
 Tabs on the same domain in the same browser profile share data. Other browsers and devices do not. The old workers.dev address and public domain are separate sites; browser data does not migrate automatically. Clearing site data or ending a private browsing session may lose your state. Unavailable storage means a temporary session. “Reset demo data” at the bottom of Personal settings clears only the demo’s state; the demo is not a backup service.
 
-This is an independent Static Assets deployment, with no business Worker script, D1, R2, model keys or visitor database. Pages, dictionaries, covers and audio travel over the network; personal state does not. Normal installations still require authentication and keep music in the deployer’s private R2 bucket.
+This independent Static Assets deployment uses a read-only media Worker only for audio requests, providing correct Range responses. UI behavior, preferences, favorites, playlists and assistant examples run in the browser. There is no D1, R2, model key or visitor database. Pages, dictionaries, covers and audio travel over the network; personal state does not. Normal installations require authentication and keep music in private R2.
 
 
-The deployed static service currently returns full audio files even for Range requests, so seeking is not guaranteed. In Edge verification, buffered audio could still have no seekable range: the progress control moved while the actual playback position did not. A changed progress indicator is not proof of a successful seek. This demo does not claim 206 byte-range streaming. Unknown asset URLs can return the SPA page, while the player handles failed media and advances to the next usable track.
+The media Worker reads only packaged catalog audio and supports GET, HEAD, single byte ranges and 416 for invalid ranges. It does not accept uploads, proxy arbitrary URLs or provide business APIs. Audio requests count toward Worker usage; other static assets follow Static Assets delivery rules. Browser codec support and network conditions still apply.
 
 ## Music and licenses
 

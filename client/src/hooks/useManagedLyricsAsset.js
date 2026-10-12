@@ -212,8 +212,8 @@ export function useManagedLyricsAsset({ songId, enabled }) {
         '已将位移写入当前歌词时间轴',
     ), [runMutation, songId, state.etag]);
 
-    const saveDocument = React.useCallback((lines, baselineEtag = state.etag, aiReceipt = null) => runMutation(
-        () => lyricsWorkspaceApi.saveLyricsDocument(songId, { lines, etag: baselineEtag, aiReceipt }),
+    const saveDocument = React.useCallback((lines, baselineEtag = state.etag, aiReceipt = null, translationLanguage = null) => runMutation(
+        () => lyricsWorkspaceApi.saveLyricsDocument(songId, { lines, etag: baselineEtag, aiReceipt, translationLanguage }),
         '共享歌词已更新',
         { conflictResult: 'conflict' },
     ), [runMutation, songId, state.etag]);

@@ -105,8 +105,8 @@
 }
 
 .paper-classic-player .classic-lyrics__tool--text[data-active='true'],
-.paper-classic-player .classic-lyrics__tool--text[data-source='kugou'],
-.paper-classic-player .classic-lyrics__tool--text[data-source='netease'],
+.paper-classic-player .classic-lyrics__tool--text[data-source='custom_krc'],
+.paper-classic-player .classic-lyrics__tool--text[data-source='custom_lrc'],
 .paper-classic-player .classic-lyrics__tool--text[data-source='lrclib'] {
   border: none !important;
   background: rgba(255, 255, 255, 0.18) !important;

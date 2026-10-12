@@ -1129,8 +1129,8 @@
   "已读取 {p0} 首候选歌曲。": "{p0} músicas candidatas lidas.",
   "无法读取设备状态。": "Não foi possível ler o status do dispositivo.",
   "请填写歌词": "Informe a letra",
-  "网易云": "NetEase Cloud",
-  "酷狗": "Kugou",
+  "自定义逐行源": "Fonte personalizada por linha",
+  "自定义逐字源": "Fonte personalizada por palavra",
   "逐字": "Por palavra",
   "应不早于上一行 {p0}": "Não deve ser anterior à linha anterior {p0}",
   "时间格式应为 mm:ss.mmm": "O formato de tempo deve ser mm:ss.mmm",
@@ -1831,5 +1831,14 @@
   "导入": "Importar",
   "上传歌曲": "Enviar músicas",
   "可以播放、搜索、收藏、编辑本地歌单和切换外观；管理配置仅供查看，助手使用固定示例回复。": "Ouça, pesquise, salve favoritos, edite playlists locais e altere a aparência. Consulte as configurações administrativas e converse com respostas fixas de demonstração.",
-  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "Na demonstração, as configurações de administração são apenas para consulta; as preferências locais podem ser alteradas."
+  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "Na demonstração, as configurações de administração são apenas para consulta; as preferências locais podem ser alteradas.",
+  "歌词源": "Fontes de letras",
+  "配置歌词源": "Configurar fontes de letras",
+  "未启用歌词源": "Nenhuma fonte de letras ativada",
+  "服务地址": "URL do serviço",
+  "搜索接口地址": "URL do endpoint de pesquisa",
+  "下载接口地址": "URL do endpoint de download",
+  "来源译文语言": "Idioma da tradução da fonte",
+  "自定义接口须符合歌词源协议，仅支持 HTTPS 地址。": "Os endpoints personalizados devem seguir o protocolo de letras e usar HTTPS.",
+  "歌词源加载失败，请重试。": "Não foi possível carregar as fontes de letras. Tente novamente."
 }

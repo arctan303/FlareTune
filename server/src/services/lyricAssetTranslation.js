@@ -382,7 +382,8 @@ export async function beginLyricAssetAiCompletion({
   if (isFreshLyricAiPending(current.artifact.aiCompletion, now)) {
     return { state: 'pending', artifact: current.artifact, etag: current.etag, task: null };
   }
-  if (!force && current.artifact.translation) {
+  if (!force && current.artifact.translation && (!targetLanguage
+    || (current.artifact.translation.language || 'zh') === targetLanguage)) {
     return { state: 'already_translated', artifact: current.artifact, etag: current.etag, task: null };
   }
 

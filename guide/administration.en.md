@@ -18,6 +18,10 @@ For a third-party gateway, add a Custom provider with a name, one of the four pr
 
 Under Feature configuration, select a provider separately for the music assistant and lyrics AI. Fetch models for direct selection or enter a model ID, declare This model supports vision based on its actual capabilities, and save. Features may share a provider while using different models. Changing provider/model requires reconfirming vision; discovery does not verify capabilities. Changing a custom protocol/address requires entering the key again and clears the affected features' vision declaration and generation options. Historical protocols and destinations are retained; old proxy connections appear as custom, and old keys are not merged. Keys remain encrypted and are never returned to the browser.
 
+## Lyric sources
+
+Configure lyric sources under AI and assistant. Only LRCLIB is enabled by default; administrators can enable optional custom word-timed and line-timed endpoints. See [Lyric sources](lyric-sources.en.md) for generic request and response examples. Disabling a source retains saved lyrics.
+
 ## Add and remove music
 
 In Song ingest, select files from the browser or folders on a connected [local ingest device](../tooling/ingest-agent/README.en.md). Adding songs switches to the ingest list; you can return to selection without losing the list. Both sources share editing, duplicate review, and saving. Device songs appear as paginated metadata cards; their original artwork is not loaded by default. For large scans, filter first, map language by folder, and select only the songs you need. Folder language can come from the folder name, audio tags and text detection, or an explicit choice. A mapping only affects songs added afterward; entries in the list remain editable. Review similar tracks before choosing Skip, Add another version, or Replace. Before replacement, the page checks whether the target song has changed. During a batch, Pause waits for the current song to finish. Continue processes only the remaining songs; failed entries can be retried separately.

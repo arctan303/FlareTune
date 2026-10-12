@@ -23,18 +23,21 @@ import { beginLyricAssetAiCompletion, resolveLegacyLyricCleanup } from '../servi
 import { completeLyricDraft } from '../services/lyricDraftAi.js';
 import { verifyLyricDraftReceipt } from '../services/lyricDraftReceipt.js';
 import { loadLyricAiProcessingSettings } from '../services/lyricAiConfig.js';
+import { lyricSourceLoaderForDb } from '../services/lyricSourcesConfig.js';
 import {
   inspectLyricCandidates,
   LYRIC_CANDIDATE_INSPECTION_LIMITS,
   LyricCandidateInspectionError,
 } from '../services/lyricCandidateInspection.js';
 import { readBoundedJson } from '../instance/httpSecurity.js';
+import { isValidSongLanguage } from '../utils/songLanguage.js';
+import { storedLyricTranslationLanguage } from '../../../shared/lyricSources.js';
 
 // Only the new account-gated workspace path is dispatched here. Origin and CSRF
 // are verified by the outer router before any mutation reaches this module.
 const BASE = /^\/api\/lyrics\/workspace\/([^/]+)$/u;
 const CHILD = /^\/api\/lyrics\/workspace\/([^/]+)\/(candidates(?:\/inspect)?|offset|timeline|document|import|restore|translation|ai-completion|draft-ai)$/u;
-const SOURCE = new Set(['auto', 'kugou', 'netease', 'lrclib']);
+const SOURCE = new Set(['auto', 'custom_krc', 'custom_lrc', 'lrclib']);
 const encoder = new TextEncoder();
 
 function response(payload, status, headers) {
@@ -81,6 +84,9 @@ function searchSong(song, title, artist) {
 const validEtag = (value) => value === null
   || (typeof value === 'string' && value.length > 0 && value.length <= 256
     && !/[\u0000-\u001f\u007f]/u.test(value));
+
+const validTranslationLanguage = value => value === undefined
+  || (isValidSongLanguage(value) && !['other', 'instrumental'].includes(value));
 
 function currentData(read, song, now, targetLanguage = null, viewerAccountId = null) {
   if (read.state === 'missing' || read.state === 'legacy' || read.artifact?.status === 'reset') {
@@ -207,13 +213,19 @@ function schedule(task, ctx) {
 export async function handleLocalLyricsManageRoute(request, url, db, headers = {}, session, env = {}, deps = {}) {
   const base = url.pathname.match(BASE);
   const child = url.pathname.match(CHILD);
-  if (!base && !child) return null;
+  const sourcesRoute = url.pathname === '/api/lyrics/sources';
+  if (!base && !child && !sourcesRoute) return null;
   const accountId = session?.account?.accountId;
   if (!accountId || session?.mode !== 'normal'
     || !['admin', 'member'].includes(session?.account?.role)) {
     return failure(401, 'UNAUTHORIZED', 'Normal local session required', headers);
   }
   if (!db?.prepare) return failure(503, 'DATABASE_UNAVAILABLE', 'Database unavailable', headers);
+  if (sourcesRoute) {
+    if (request.method !== 'GET') return failure(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', { ...headers, Allow: 'GET' });
+    try { return success({ sources: (await lyricSourceLoaderForDb(db)).enabledSources }, 200, headers); }
+    catch { return failure(503, 'LYRIC_SOURCES_UNAVAILABLE', 'Lyric sources unavailable', headers); }
+  }
   const songId = parseSongId((base || child)[1]);
   if (!songId) return failure(400, 'INVALID_SONG_ID', 'Invalid song ID', headers);
   if (url.searchParams.has('account_id') || url.searchParams.has('user_sub')) {
@@ -265,8 +277,10 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       if (source !== 'all' && (!SOURCE.has(source) || source === 'auto')) {
         return failure(400, 'INVALID_QUERY', 'Invalid lyric source filter', headers);
       }
+      const loader = deps.listCandidates || deps.listSourceCandidates ? null : await lyricSourceLoaderForDb(db);
       const found = await (deps.listCandidates || listLyricsResolutionCandidates)(target, {
-        source, signal: request.signal, listCandidates: deps.listSourceCandidates || listSourceLyricCandidates,
+        source, signal: request.signal, enabledSources: loader?.enabledSources,
+        listCandidates: deps.listSourceCandidates || loader?.listSourceCandidates || listSourceLyricCandidates,
       });
       return success({ candidates: (found.candidates || []).map(safeCandidate).filter(Boolean),
         warnings: found.warnings || [] }, 200, headers);
@@ -277,9 +291,10 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       const target = searchSong(song, body.searchTitle, body.searchArtist);
       if (!target) return failure(400, 'INVALID_LYRIC_CANDIDATES', 'Invalid search override', headers);
       const emptyEnvelope = encoder.encode(JSON.stringify({ ok: true, code: 200, data: { results: [], truncated: false } })).byteLength;
+      const loader = deps.inspectCandidates || deps.createProviderSnapshot ? null : await lyricSourceLoaderForDb(db);
       const inspected = await (deps.inspectCandidates || inspectLyricCandidates)(target, body.candidates, {
         signal: request.signal,
-        createProviderSnapshot: deps.createProviderSnapshot || createSourceCandidateInspectionSnapshot,
+        createProviderSnapshot: deps.createProviderSnapshot || loader?.createCandidateInspectionSnapshot || createSourceCandidateInspectionSnapshot,
         maxResponseBytes: LYRIC_CANDIDATE_INSPECTION_LIMITS.maxResponseBytes - emptyEnvelope,
       });
       return boundedInspection(inspected, headers);
@@ -300,9 +315,10 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       if (!matches(current, body.etag)) return failure(409, 'LYRIC_ASSET_CONFLICT', 'Lyric asset changed', headers, dataOf(current));
       let document;
       try {
+        const loader = deps.fetchDocument ? null : await lyricSourceLoaderForDb(db);
         document = await fetchLyricsDocumentWithFallback(source, target,
-          deps.fetchDocument || fetchUncachedSourceLyricsDocument,
-          { signal: request.signal, ...(providerLyricId ? { providerLyricId } : {}) });
+          deps.fetchDocument || loader.fetchSourceDocument,
+          { signal: request.signal, enabledSources: loader?.enabledSources, ...(providerLyricId ? { providerLyricId } : {}) });
       } catch (error) {
         if (providerLyricId && error instanceof LyricSourceError && error.kind !== 'aborted') {
           return failure(422, 'LYRIC_CANDIDATE_INVALID', 'Selected lyric candidate is unavailable', headers);
@@ -352,8 +368,9 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       return success(dataOf({ ...written, state: 'found' }), 200, headers);
     }
     if (action === 'document') {
-      const body = await bodyOf(request, ['lines', 'etag', 'aiReceipt'], ['lines', 'etag'], 2 * 1024 * 1024);
-      if (!body || !validEtag(body.etag) || !validEditorLines(body.lines)) {
+      const body = await bodyOf(request, ['lines', 'etag', 'aiReceipt', 'translationLanguage'], ['lines', 'etag'], 2 * 1024 * 1024);
+      if (!body || !validEtag(body.etag) || !validEditorLines(body.lines)
+        || !validTranslationLanguage(body.translationLanguage)) {
         return failure(400, 'INVALID_LYRIC_DOCUMENT', 'Invalid lyric document', headers);
       }
       const current = notDeleting(await store.get(songId));
@@ -363,7 +380,9 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       if (!matches(current, body.etag)) return failure(409, 'LYRIC_ASSET_CONFLICT', 'Lyric asset changed', headers, dataOf(current));
       let artifact;
       try {
-        artifact = await buildEditedLyricArtifact(song, body.lines, { now: now(), targetLanguage });
+        artifact = await buildEditedLyricArtifact(song, body.lines, { now: now(), targetLanguage,
+          translationLanguage: body.translationLanguage || storedLyricTranslationLanguage(current.artifact?.translation) || targetLanguage,
+        });
         const submittedWords = body.lines.reduce((sum, line) => sum + (line.words?.length || 0), 0);
         const savedWords = artifact.original.lines.reduce((sum, line) => sum + (line.words?.length || 0), 0);
         if (submittedWords !== savedWords) throw new RangeError('word timeline invalid');
@@ -396,8 +415,9 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       return success({ ...dataOf({ ...written, state: 'found' }), languageUpdateFailed }, 200, headers);
     }
     if (action === 'draft-ai') {
-      const body = await bodyOf(request, ['lines', 'etag'], ['lines', 'etag'], 2 * 1024 * 1024);
-      if (!body || !validEtag(body.etag) || !validEditorLines(body.lines)) {
+      const body = await bodyOf(request, ['lines', 'etag', 'translationLanguage'], ['lines', 'etag'], 2 * 1024 * 1024);
+      if (!body || !validEtag(body.etag) || !validEditorLines(body.lines)
+        || !validTranslationLanguage(body.translationLanguage)) {
         return failure(400, 'INVALID_LYRIC_DRAFT', 'Invalid lyric draft', headers);
       }
       const current = notDeleting(await store.get(songId));
@@ -408,6 +428,7 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       try {
         result = await (deps.completeDraft || completeLyricDraft)({
           env, db, song, lines: body.lines, etag: body.etag,
+          translationLanguage: body.translationLanguage || storedLyricTranslationLanguage(current.artifact?.translation) || targetLanguage,
           actorAccountId: session.account.accountId,
           deps: deps.aiDeps || {},
         });

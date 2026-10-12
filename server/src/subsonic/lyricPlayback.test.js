@@ -20,8 +20,8 @@ function sourceStub(t, song, onFetch) {
   t.mock.method(globalThis, 'fetch', async input => {
     const url = new URL(input); calls.push(url.hostname + url.pathname);
     onFetch?.(url);
-    if (url.hostname === 'lyrics.kugou.com') return Response.json({ candidates: [] });
-    if (url.hostname === 'music.163.com') return Response.json({ code: 200, result: { songs: [] } });
+    if (url.hostname === 'krc.example.com') return Response.json({ candidates: [] });
+    if (url.hostname === 'lrc.example.com') return Response.json({ code: 200, result: { songs: [] } });
     assert.equal(url.hostname, 'lrclib.net');
     const candidate = { id: 201, trackName: song.title, artistName: song.artist, albumName: song.album,
       duration: song.duration, syncedLyrics: '[00:01.00]Hello\n[00:05.00]Sing together' };
@@ -116,8 +116,8 @@ test('confirmed empty providers return empty lyrics and persist a short-lived mi
   let calls = 0;
   t.mock.method(globalThis, 'fetch', async input => {
     const url = new URL(input); calls += 1;
-    if (url.hostname === 'lyrics.kugou.com') return Response.json({ candidates: [] });
-    if (url.hostname === 'music.163.com') return Response.json({ code: 200, result: { songs: [] } });
+    if (url.hostname === 'krc.example.com') return Response.json({ candidates: [] });
+    if (url.hostname === 'lrc.example.com') return Response.json({ code: 200, result: { songs: [] } });
     assert.equal(url.hostname, 'lrclib.net');
     return url.pathname.endsWith('/get') ? new Response('', { status: 404 }) : Response.json([]);
   });

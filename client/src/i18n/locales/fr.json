@@ -1129,8 +1129,8 @@
   "已读取 {p0} 首候选歌曲。": "{p0} titres proposés chargés.",
   "无法读取设备状态。": "Impossible de lire l'état du périphérique.",
   "请填写歌词": "Veuillez remplir les paroles",
-  "网易云": "NetEase Cloud Music",
-  "酷狗": "Kugou",
+  "自定义逐行源": "Source personnalisée par ligne",
+  "自定义逐字源": "Source personnalisée par mot",
   "逐字": "Mot à mot",
   "应不早于上一行 {p0}": "Ne doit pas précéder la ligne précédente à {p0}",
   "时间格式应为 mm:ss.mmm": "Le format de temps doit être mm:ss.mmm",
@@ -1831,5 +1831,14 @@
   "导入": "Importer",
   "上传歌曲": "Importer des morceaux",
   "可以播放、搜索、收藏、编辑本地歌单和切换外观；管理配置仅供查看，助手使用固定示例回复。": "Écoutez, recherchez, ajoutez des favoris, modifiez les playlists locales et l’apparence. Consultez les réglages administratifs et discutez avec des réponses de démonstration fixes.",
-  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "Dans la démo, les paramètres d’administration sont consultables ; les préférences locales peuvent être modifiées."
+  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "Dans la démo, les paramètres d’administration sont consultables ; les préférences locales peuvent être modifiées.",
+  "歌词源": "Sources de paroles",
+  "配置歌词源": "Configurer les sources de paroles",
+  "未启用歌词源": "Aucune source de paroles activée",
+  "服务地址": "URL du service",
+  "搜索接口地址": "URL de recherche",
+  "下载接口地址": "URL de téléchargement",
+  "来源译文语言": "Langue de traduction de la source",
+  "自定义接口须符合歌词源协议，仅支持 HTTPS 地址。": "Les points d’accès personnalisés doivent suivre le protocole de paroles et utiliser HTTPS.",
+  "歌词源加载失败，请重试。": "Impossible de charger les sources de paroles. Réessayez."
 }

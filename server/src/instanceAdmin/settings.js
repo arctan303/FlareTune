@@ -3,12 +3,14 @@ import {
 } from './common.js';
 import { DEFAULT_LYRIC_AI_CONFIG, normalizeLyricAiConfig } from '../utils/lyricAiConfig.js';
 import { DEFAULT_ASSISTANT_PERSONA, DEFAULT_ASSISTANT_RULES } from '../utils/aiPromptDefaults.js';
+import { DEFAULT_LYRIC_SOURCES, normalizeLyricSources } from '../../../shared/lyricSources.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   'instance.name': 'FlareTune',
   'cors.allowed_origins': [],
   'ai.compatible_api_url': '',
   'lyrics.ai': DEFAULT_LYRIC_AI_CONFIG,
+  'lyrics.sources': DEFAULT_LYRIC_SOURCES,
   'assistant.images_enabled': false,
 });
 
@@ -36,6 +38,10 @@ function exactHttpsOrigin(value) {
 export function validateSetting(key, value) {
   if (!knownKeys.has(key)) throw new InstanceAdminError('unknown_setting', 400);
   if (key === 'assistant.images_enabled' && typeof value === 'boolean') return value;
+  if (key === 'lyrics.sources') {
+    try { return normalizeLyricSources(value); }
+    catch { throw new InstanceAdminError('invalid_setting', 400); }
+  }
   if (key === 'lyrics.ai') {
     try { return normalizeLyricAiConfig(value); }
     catch { throw new InstanceAdminError('invalid_setting', 400); }
@@ -71,7 +77,7 @@ export function validateAssistantConfig(config) {
 export async function getAdminSettings(db, actorAccountId, { aiApiKeyConfigured = null } = {}) {
   await requireActiveAdmin(db, actorAccountId);
   const rows = await db.prepare(`SELECT key, value_json, revision FROM instance_settings
-    WHERE key IN ('instance.name', 'cors.allowed_origins', 'ai.compatible_api_url', 'lyrics.ai', 'assistant.images_enabled')`).all();
+    WHERE key IN ('instance.name', 'cors.allowed_origins', 'ai.compatible_api_url', 'lyrics.ai', 'lyrics.sources', 'assistant.images_enabled')`).all();
   const settings = {};
   for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) settings[key] = { value: fallback, revision: 0 };
   for (const row of rows?.results ?? []) {

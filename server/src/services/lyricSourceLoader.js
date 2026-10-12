@@ -1,3 +1,4 @@
+import { fetchLimitedJson } from './lyricSourceHttp.js';
 import {
   LYRIC_DOCUMENT_LIMITS,
   createLyricDocument,
@@ -8,7 +9,7 @@ import {
 import { decodeKrcPayload, KrcDecodeError } from '../utils/krcDecoder.js';
 import { parseKrcTranslationLines } from '../utils/krcTranslation.js';
 import {
-  buildKugouDurationMsCandidates, buildKugouSearchKeywords, candidateValue, createAuditCandidateDto, createProviderMeta,
+  buildCustomKrcDurationMsCandidates, buildCustomKrcSearchKeywords, candidateValue, createAuditCandidateDto, createProviderMeta,
   createSafeCandidateDto, hasVersionMismatch, normalizeDurationSeconds, rankLyricCandidates, scoreLyricCandidate,
   splitArtistKeys,
 } from './lyricSourceMatching.js';
@@ -17,8 +18,9 @@ import {
   createSingleFlightDocumentFetcherCore,
 } from './lyricSourceCache.js';
 import { LyricSourceError } from './lyricSourceError.js';
-import { searchNeteaseSelections, loadNeteaseSelection } from './neteaseLyricLoader.js';
+import { searchCustomLrcSelections, loadCustomLrcSelection } from './customLrcLyricLoader.js';
 import { parseLyricsfile } from './lyricPlainParsers.js';
+import { DEFAULT_LYRIC_SOURCES, normalizeLyricSources } from '../../../shared/lyricSources.js';
 import {
   AUTOMATIC_LYRIC_CANDIDATE_LIMIT, documentQuality, isBestPossibleAutomaticDocument,
   preferredAutomaticDocument, reliableAutomaticMatch, reliableAutomaticMetadata, resolutionQuality,
@@ -26,22 +28,21 @@ import {
 
 export { LyricSourceError } from './lyricSourceError.js';
 export { parseLyricsfile } from './lyricPlainParsers.js';
-export { buildKugouDurationMsCandidates, buildKugouSearchKeyword, buildKugouSearchKeywords, rankLyricCandidates, scoreLyricCandidate } from './lyricSourceMatching.js';
+export { buildCustomKrcDurationMsCandidates, buildCustomKrcSearchKeyword, buildCustomKrcSearchKeywords, rankLyricCandidates, scoreLyricCandidate } from './lyricSourceMatching.js';
 
-const VALID_SOURCES = new Set(['kugou', 'netease', 'lrclib']);
+const VALID_SOURCES = new Set(['custom_krc', 'custom_lrc', 'lrclib']);
 const DEFAULT_TIMEOUT_MS = 5_000;
-const MAX_JSON_BYTES = 4_000_000;
 const MAX_KRC_COMPRESSED_BYTES = 2_000_000;
 const MAX_KRC_DECOMPRESSED_BYTES = LYRIC_DOCUMENT_LIMITS.maxLyricTextLength;
-const LRCLIB_USER_AGENT = 'FlareTune/1.0.0';
 
 export const isValidLyricSource = (source) => VALID_SOURCES.has(source);
 
-export function resolveLyricSourceOrder(source) {
+export function resolveLyricSourceOrder(source, enabledSources) {
+  if (enabledSources) return resolveLyricSourceOrder(source).filter(id => enabledSources.includes(id));
   if (source === 'lrclib') return ['lrclib'];
-  if (source === 'netease') return ['netease'];
-  if (source === 'kugou') return ['kugou'];
-  return ['kugou', 'netease', 'lrclib'];
+  if (source === 'custom_lrc') return ['custom_lrc'];
+  if (source === 'custom_krc') return ['custom_krc'];
+  return ['custom_krc', 'custom_lrc', 'lrclib'];
 }
 
 const normalizeAuditEvidence = (provider, evidence) => {
@@ -85,106 +86,6 @@ const normalizeAuditEvidence = (provider, evidence) => {
   return { document, candidates, selectedProviderLyricId };
 };
 
-const responseStatusKind = (response) => {
-  if (response?.status === 404) return 'unavailable';
-  if (response?.status === 408 || response?.status === 504) return 'timeout';
-  if (response?.status === 429) return 'rate_limited';
-  if (response?.status >= 500) return 'upstream';
-  return 'invalid';
-};
-
-const byteLength = (value) => new TextEncoder().encode(value).byteLength;
-
-async function readResponseTextLimited(response, maximumBytes, signal) {
-  const contentLength = Number(response?.headers?.get?.('content-length'));
-  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
-    throw new RangeError('upstream response exceeds safe size');
-  }
-  if (!response?.body?.getReader) {
-    const text = await response.text();
-    if (byteLength(text) > maximumBytes) throw new RangeError('upstream response exceeds safe size');
-    return text;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8', { fatal: true });
-  const chunks = [];
-  let totalBytes = 0;
-  const aborted = new Promise((resolve, reject) => {
-    const onAbort = () => reject(signal.reason || new DOMException('Aborted', 'AbortError'));
-    if (signal.aborted) onAbort();
-    else signal.addEventListener('abort', onAbort, { once: true });
-  });
-  try {
-    while (true) {
-      const { value, done } = await Promise.race([reader.read(), aborted]);
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > maximumBytes) throw new RangeError('upstream response exceeds safe size');
-      chunks.push(decoder.decode(value, { stream: true }));
-    }
-    chunks.push(decoder.decode());
-    return chunks.join('');
-  } catch (error) {
-    try { await reader.cancel(error); } catch { /* best effort */ }
-    throw error;
-  }
-}
-
-async function fetchLimitedJson(fetchImpl, url, {
-  provider,
-  stage,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
-  signal: requestSignal,
-} = {}) {
-  const controller = new AbortController();
-  let didTimeout = false;
-  const abortFromRequest = () => controller.abort(requestSignal.reason || new DOMException('Aborted', 'AbortError'));
-  if (requestSignal?.aborted) abortFromRequest();
-  else requestSignal?.addEventListener('abort', abortFromRequest, { once: true });
-  const timeoutId = setTimeout(() => {
-    didTimeout = true;
-    controller.abort(new Error('upstream timeout'));
-  }, timeoutMs);
-  try {
-    if (requestSignal?.aborted) {
-      throw new LyricSourceError('aborted', provider, stage, `${provider} ${stage} aborted`);
-    }
-    const response = await fetchImpl(url, {
-      signal: controller.signal,
-      headers: provider === 'lrclib'
-        ? { Accept: 'application/json', 'User-Agent': LRCLIB_USER_AGENT, 'Lrclib-Client': 'FlareTune' }
-        : { Accept: 'application/json' },
-    });
-    if (!response?.ok) {
-      throw new LyricSourceError(responseStatusKind(response), provider, stage, `${provider} ${stage} HTTP ${response?.status || 0}`);
-    }
-    if (typeof response.text === 'function') {
-      const text = await readResponseTextLimited(response, MAX_JSON_BYTES, controller.signal);
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        throw new LyricSourceError('invalid', provider, stage, `${provider} ${stage} returned invalid JSON`, { cause: error });
-      }
-    }
-    const value = await response.json();
-    if (byteLength(JSON.stringify(value)) > MAX_JSON_BYTES) throw new RangeError('upstream JSON exceeds safe size');
-    return value;
-  } catch (error) {
-    if (error instanceof LyricSourceError) throw error;
-    if (error instanceof SyntaxError || error instanceof RangeError) {
-      throw new LyricSourceError('invalid', provider, stage, `${provider} ${stage} returned invalid JSON`, { cause: error });
-    }
-    const kind = requestSignal?.aborted
-      ? 'aborted'
-      : (didTimeout || error?.name === 'AbortError' ? 'timeout' : 'network');
-    throw new LyricSourceError(kind, provider, stage, `${provider} ${stage} ${kind}`, { cause: error });
-  } finally {
-    clearTimeout(timeoutId);
-    requestSignal?.removeEventListener('abort', abortFromRequest);
-  }
-}
-
 const decodeBase64 = (value, provider, stage) => {
   if (typeof value !== 'string' || !value) {
     throw new LyricSourceError('invalid', provider, stage, `${provider} ${stage} omitted content`);
@@ -209,7 +110,7 @@ export async function decodeKrcContent(encodedContent) {
     });
   } catch (error) {
     if (error instanceof KrcDecodeError) {
-      throw new LyricSourceError('invalid', 'kugou', error.stage, error.message, { cause: error });
+      throw new LyricSourceError('invalid', 'custom_krc', error.stage, error.message, { cause: error });
     }
     throw error;
   }
@@ -218,7 +119,7 @@ export async function decodeKrcContent(encodedContent) {
 export function parseKrcLyrics(krcText, { providerMeta } = {}) {
   const text = String(krcText || '').replace(/\r\n?/g, '\n');
   if (!text.trim() || text.length > MAX_KRC_DECOMPRESSED_BYTES) {
-    throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC text is empty or exceeds safe size');
+    throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC text is empty or exceeds safe size');
   }
   const globalOffsetMatch = text.match(/^\[offset:([-+]?\d+)]/mi);
   const globalOffsetMs = globalOffsetMatch ? Number(globalOffsetMatch[1]) : 0;
@@ -231,45 +132,45 @@ export function parseKrcLyrics(krcText, { providerMeta } = {}) {
     const lineMatch = structuralLine.match(/^\[([^,\]]+),([^\]]+)\](.*)$/u);
     const looksTimed = /^\[[^\]]*,/u.test(trimmedLine) || /^\[\s*[-+]?\d/u.test(trimmedLine);
     if (!lineMatch) {
-      if (looksTimed) throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC contains a malformed timed line');
+      if (looksTimed) throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC contains a malformed timed line');
       continue;
     }
     if (!/^\d+$/u.test(lineMatch[1]) || !/^\d+$/u.test(lineMatch[2])) {
-      throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC contains an invalid timed line');
+      throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC contains an invalid timed line');
     }
     const lineStartMs = Number(lineMatch[1]) + globalOffsetMs;
     const lineDurationMs = Number(lineMatch[2]);
     const payload = lineMatch[3];
     if (!Number.isSafeInteger(lineStartMs) || lineStartMs < 0
       || !Number.isSafeInteger(lineDurationMs) || lineDurationMs < 0) {
-      throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC timed line is outside the valid range');
+      throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC timed line is outside the valid range');
     }
 
     const words = [];
     const tags = [...payload.matchAll(/<([^>]*)>/gu)];
     if ((payload.includes('<') || payload.includes('>')) && tags.length === 0) {
-      throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC contains a malformed word tag');
+      throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC contains a malformed word tag');
     }
     if (tags.length > 0 && payload.slice(0, tags[0].index).length > 0) {
-      throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC word timing does not cover the line prefix');
+      throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC word timing does not cover the line prefix');
     }
     for (let index = 0; index < tags.length; index += 1) {
       const match = tags[index];
       const fields = match[1].split(',');
       if (fields.length !== 3 || !/^\d+$/u.test(fields[0]) || !/^\d+$/u.test(fields[1]) || fields[2] !== '0') {
-        throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC contains an invalid word tag');
+        throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC contains an invalid word tag');
       }
       const nextTagIndex = tags[index + 1]?.index ?? payload.length;
       const wordText = payload.slice(match.index + match[0].length, nextTagIndex);
       if (wordText.includes('<') || wordText.includes('>')) {
-        throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC contains a malformed word boundary');
+        throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC contains a malformed word boundary');
       }
       const startTime = (lineStartMs + Number(fields[0])) / 1_000;
       const endTime = startTime + (Number(fields[1]) / 1_000);
       words.push({ text: wordText, startTime, endTime });
       wordCount += 1;
       if (wordCount > LYRIC_DOCUMENT_LIMITS.maxWords) {
-        throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC exceeds safe word count');
+        throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC exceeds safe word count');
       }
     }
     const lineText = tags.length > 0
@@ -282,11 +183,11 @@ export function parseKrcLyrics(krcText, { providerMeta } = {}) {
       words,
     });
     if (lines.length > LYRIC_DOCUMENT_LIMITS.maxLines) {
-      throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC exceeds safe line count');
+      throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC exceeds safe line count');
     }
   }
   if (lines.length === 0) {
-    throw new LyricSourceError('invalid', 'kugou', 'parse-krc', 'KRC contains no timed lyric lines');
+    throw new LyricSourceError('invalid', 'custom_krc', 'parse-krc', 'KRC contains no timed lyric lines');
   }
   const translations = parseKrcTranslationLines(text, lines.length, {
     maximumBytes: MAX_KRC_DECOMPRESSED_BYTES,
@@ -323,15 +224,15 @@ export function parseKrcLyrics(krcText, { providerMeta } = {}) {
   if (hasVersionMismatch(candidateTitle, embeddedTitle) || hasVersionMismatch(candidateTitle, firstLineText)) {
     meta.versionMismatch = true;
   }
-  return createLyricDocument({ source: 'kugou', format: 'krc', lines, providerMeta: meta });
+  return createLyricDocument({ source: 'custom_krc', format: 'krc', lines, providerMeta: meta });
 }
 
 const decodePlainContent = (content) => {
-  const bytes = decodeBase64(content, 'kugou', 'download-lrc');
+  const bytes = decodeBase64(content, 'custom_krc', 'download-lrc');
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch (error) {
-    throw new LyricSourceError('invalid', 'kugou', 'decode-lrc', 'Kugou LRC is not valid UTF-8', { cause: error });
+    throw new LyricSourceError('invalid', 'custom_krc', 'decode-lrc', 'CustomKrc LRC is not valid UTF-8', { cause: error });
   }
 };
 
@@ -365,7 +266,7 @@ const optionsKey = ({ providerLyricId = '', cacheScope = '', cacheEpoch = '' } =
 );
 
 export async function fetchLyricsDocumentWithFallback(source, song, fetchSourceDocument, options = {}) {
-  const order = resolveLyricSourceOrder(source);
+  const order = resolveLyricSourceOrder(source, options.enabledSources);
   const resolver = fetchSourceDocument || fetchSourceDocumentCached;
   const errors = [];
   let bestDocument = null;
@@ -414,7 +315,7 @@ export async function fetchLyricsDocumentWithFallback(source, song, fetchSourceD
 }
 
 export async function fetchLyricsAuditEvidenceWithFallback(source, song, fetchSourceEvidence, options = {}) {
-  const order = resolveLyricSourceOrder(source);
+  const order = resolveLyricSourceOrder(source, options.enabledSources);
   const resolver = fetchSourceEvidence || defaultLoader.fetchSourceAuditEvidence;
   let bestFallback = null;
   const errors = [];
@@ -475,7 +376,17 @@ export const createLyricSourceLoader = ({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   circuitFailureThreshold = 3,
   circuitCooldownMs = 30_000,
+  sources = DEFAULT_LYRIC_SOURCES,
 } = {}) => {
+  const config = normalizeLyricSources(sources);
+  const enabledSources = resolveLyricSourceOrder('auto').filter(source => config[source].enabled);
+  const endpoint = (source, field, params, suffix = '') => {
+    if (!config[source]?.enabled) throw new LyricSourceError('unavailable', source, 'config', 'Lyric source is disabled');
+    const url = new URL(config[source][field] + suffix);
+    url.search = params.toString();
+    return url.href;
+  };
+  const lrcOptions = { fetchImpl, timeoutMs, config: config.custom_lrc };
   const circuits = new Map();
 
   const withCircuit = async (provider, task) => {
@@ -517,23 +428,23 @@ export const createLyricSourceLoader = ({
     return duration;
   };
 
-  const searchKugouSelections = async (song, signal) => {
-    const duration = requireSearchableSong('kugou', song, 'search');
+  const searchCustomKrcSelections = async (song, signal) => {
+    const duration = requireSearchableSong('custom_krc', song, 'search');
     const rankingOptions = {
       titleKeys: ['song', 'songname'], artistKeys: ['singer', 'singername'],
       albumKeys: ['album', 'album_name'], durationKeys: ['duration'],
     };
     let firstError = null;
-    const durationMsList = buildKugouDurationMsCandidates(duration);
-    for (const keyword of buildKugouSearchKeywords(song)) {
+    const durationMsList = buildCustomKrcDurationMsCandidates(duration);
+    for (const keyword of buildCustomKrcSearchKeywords(song)) {
       for (const durationMs of durationMsList) {
         try {
           const searchParams = new URLSearchParams({ ver: '1', man: 'yes', client: 'pc', keyword });
           if (durationMs !== null) searchParams.set('duration', durationMs);
           const searchData = await fetchLimitedJson(
             fetchImpl,
-            `https://lyrics.kugou.com/search?${searchParams}`,
-            { provider: 'kugou', stage: 'search', timeoutMs, signal },
+            endpoint('custom_krc', 'searchUrl', searchParams),
+            { provider: 'custom_krc', stage: 'search', timeoutMs, signal },
           );
           const selections = rankLyricCandidates(searchData?.candidates, song, rankingOptions)
             .filter((selection) => (
@@ -557,8 +468,8 @@ export const createLyricSourceLoader = ({
     return [];
   };
 
-  const loadKugouSelection = async (selection, signal) => {
-    const providerMeta = createProviderMeta('kugou', selection.candidate, selection);
+  const loadCustomKrcSelection = async (selection, signal) => {
+    const providerMeta = createProviderMeta('custom_krc', selection.candidate, selection);
     const download = async (format) => {
       const params = new URLSearchParams({
         ver: '1', client: 'pc', id: String(selection.candidate.id),
@@ -566,8 +477,8 @@ export const createLyricSourceLoader = ({
       });
       return fetchLimitedJson(
         fetchImpl,
-        `https://lyrics.kugou.com/download?${params}`,
-        { provider: 'kugou', stage: `download-${format}`, timeoutMs, signal },
+        endpoint('custom_krc', 'downloadUrl', params),
+        { provider: 'custom_krc', stage: `download-${format}`, timeoutMs, signal },
       );
     };
 
@@ -576,44 +487,44 @@ export const createLyricSourceLoader = ({
       const krcDownload = await download('krc');
       const krcText = await decodeKrcContent(krcDownload?.content);
       const krcDocument = parseKrcLyrics(krcText, { providerMeta });
-      if (documentQuality(krcDocument) > 0) return krcDocument;
+      if (documentQuality(krcDocument) > 0) return createLyricDocument({ ...krcDocument, providerMeta: { ...krcDocument.providerMeta, translationLanguage: config.custom_krc.translationLanguage } });
     } catch (error) {
-      krcError = asSourceError(error, 'kugou', 'krc');
+      krcError = asSourceError(error, 'custom_krc', 'krc');
       if (krcError.kind === 'aborted') throw krcError;
     }
 
     try {
       const lrcDownload = await download('lrc');
       const lrcText = decodePlainContent(lrcDownload?.content);
-      const lrcDocument = parseLrcDocument(lrcText, { source: 'kugou', format: 'lrc', providerMeta });
+      const lrcDocument = parseLrcDocument(lrcText, { source: 'custom_krc', format: 'lrc', providerMeta });
       if (documentQuality(lrcDocument) > 0) return lrcDocument;
-      throw new LyricSourceError('unavailable', 'kugou', 'parse-lrc', 'Kugou LRC contains no lyrics');
+      throw new LyricSourceError('unavailable', 'custom_krc', 'parse-lrc', 'CustomKrc LRC contains no lyrics');
     } catch (error) {
-      const lrcError = asSourceError(error, 'kugou', 'lrc');
+      const lrcError = asSourceError(error, 'custom_krc', 'lrc');
       if (lrcError.kind === 'unavailable' && isActionableSourceError(krcError)) throw krcError;
       throw lrcError;
     }
   };
 
-  const getKugouDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('kugou', async () => {
-    const selections = await searchKugouSelections(song, signal);
+  const getCustomKrcDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('custom_krc', async () => {
+    const selections = await searchCustomKrcSelections(song, signal);
     if (providerLyricId !== null && providerLyricId !== undefined) {
       const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
       if (!selection) {
         throw new LyricSourceError(
           'unavailable',
-          'kugou',
+          'custom_krc',
           'override-candidate',
-          'The selected Kugou candidate is no longer reliable',
+          'The selected CustomKrc candidate is no longer reliable',
         );
       }
-      return loadKugouSelection(selection, signal);
+      return loadCustomKrcSelection(selection, signal);
     }
     if (selections.length === 0) {
-      throw new LyricSourceError('unavailable', 'kugou', 'match', 'Kugou has no reliable candidate');
+      throw new LyricSourceError('unavailable', 'custom_krc', 'match', 'CustomKrc has no reliable candidate');
     }
     return loadBestAutomaticSelection(selections,
-      (selection) => loadKugouSelection(selection, signal), 'kugou',
+      (selection) => loadCustomKrcSelection(selection, signal), 'custom_krc',
       automaticProgressReporter(onAutomaticCandidate, signal));
   });
 
@@ -633,7 +544,7 @@ export const createLyricSourceLoader = ({
       try {
         const exact = await fetchLimitedJson(
           fetchImpl,
-          `https://lrclib.net/api/get?${exactParams}`,
+          endpoint('lrclib', 'baseUrl', exactParams, '/get'),
           { provider: 'lrclib', stage: 'get', timeoutMs, signal },
         );
         candidates = exact ? [exact] : [];
@@ -668,7 +579,7 @@ export const createLyricSourceLoader = ({
       if (song.album) searchParams.set('album_name', String(song.album));
       const search = await fetchLimitedJson(
         fetchImpl,
-        `https://lrclib.net/api/search?${searchParams}`,
+        endpoint('lrclib', 'baseUrl', searchParams, '/search'),
         { provider: 'lrclib', stage: 'search', timeoutMs, signal },
       );
       const seen = new Set(candidates.map((candidate) => String(candidate?.id ?? '')).filter(Boolean));
@@ -800,37 +711,38 @@ export const createLyricSourceLoader = ({
     return document;
   });
 
-  const getNeteaseDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('netease', async () => {
-    const selections = await searchNeteaseSelections(song, signal, { fetchImpl, timeoutMs });
+  const getCustomLrcDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('custom_lrc', async () => {
+    const selections = await searchCustomLrcSelections(song, signal, lrcOptions);
     if (providerLyricId === null || providerLyricId === undefined) {
       return loadBestAutomaticSelection(selections,
-        (selection) => loadNeteaseSelection(selection, signal, { fetchImpl, timeoutMs }), 'netease',
+        (selection) => loadCustomLrcSelection(selection, signal, lrcOptions), 'custom_lrc',
         automaticProgressReporter(onAutomaticCandidate, signal));
     }
     const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
     if (!selection) {
       throw new LyricSourceError(
         'unavailable',
-        'netease',
+        'custom_lrc',
         'override-candidate',
-        'The selected Netease candidate is no longer reliable',
+        'The selected CustomLrc candidate is no longer reliable',
       );
     }
-    return loadNeteaseSelection(selection, signal, { fetchImpl, timeoutMs });
+    return loadCustomLrcSelection(selection, signal, lrcOptions);
   });
 
   const fetchSourceAuditEvidence = (source, song, { signal } = {}) => {
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'audit-evidence', 'Invalid lyric source'));
     }
+    if (!enabledSources.includes(source)) return Promise.reject(new LyricSourceError('unavailable', source, 'config', 'Lyric source is disabled'));
     return withCircuit(source, async () => {
       let selections;
       let selection;
-      if (source === 'kugou') {
-        selections = await searchKugouSelections(song, signal);
+      if (source === 'custom_krc') {
+        selections = await searchCustomKrcSelections(song, signal);
         [selection] = selections;
-      } else if (source === 'netease') {
-        selections = await searchNeteaseSelections(song, signal, { fetchImpl, timeoutMs });
+      } else if (source === 'custom_lrc') {
+        selections = await searchCustomLrcSelections(song, signal, lrcOptions);
         [selection] = selections;
       } else {
         const snapshot = await searchLrclibSelections(song, signal, {
@@ -846,10 +758,10 @@ export const createLyricSourceLoader = ({
       if (!selection) {
         throw new LyricSourceError('unavailable', source, 'match', `${source} has no reliable candidate`);
       }
-      const document = source === 'kugou'
-        ? await loadKugouSelection(selection, signal)
-        : (source === 'netease'
-          ? await loadNeteaseSelection(selection, signal, { fetchImpl, timeoutMs })
+      const document = source === 'custom_krc'
+        ? await loadCustomKrcSelection(selection, signal)
+        : (source === 'custom_lrc'
+          ? await loadCustomLrcSelection(selection, signal, lrcOptions)
           : loadLrclibSelection(selection));
       if (!document) {
         throw new LyricSourceError('unavailable', source, 'lyrics', `${source} candidate has no usable lyrics`);
@@ -866,12 +778,13 @@ export const createLyricSourceLoader = ({
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'search', 'Invalid lyric source'));
     }
+    if (!enabledSources.includes(source)) return Promise.reject(new LyricSourceError('unavailable', source, 'config', 'Lyric source is disabled'));
     return withCircuit(source, async () => {
       let selections;
-      if (source === 'kugou') {
-        selections = await searchKugouSelections(song, signal);
-      } else if (source === 'netease') {
-        selections = await searchNeteaseSelections(song, signal, { fetchImpl, timeoutMs });
+      if (source === 'custom_krc') {
+        selections = await searchCustomKrcSelections(song, signal);
+      } else if (source === 'custom_lrc') {
+        selections = await searchCustomLrcSelections(song, signal, lrcOptions);
       } else {
         selections = (await searchLrclibSelections(song, signal, { preferExact: false })).selections;
       }
@@ -883,12 +796,13 @@ export const createLyricSourceLoader = ({
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'search', 'Invalid lyric source'));
     }
+    if (!enabledSources.includes(source)) return Promise.reject(new LyricSourceError('unavailable', source, 'config', 'Lyric source is disabled'));
     return withCircuit(source, async () => {
       let selections;
-      if (source === 'kugou') {
-        selections = await searchKugouSelections(song, signal);
-      } else if (source === 'netease') {
-        selections = await searchNeteaseSelections(song, signal, { fetchImpl, timeoutMs });
+      if (source === 'custom_krc') {
+        selections = await searchCustomKrcSelections(song, signal);
+      } else if (source === 'custom_lrc') {
+        selections = await searchCustomLrcSelections(song, signal, lrcOptions);
       } else {
         selections = (await searchLrclibSelections(song, signal, { preferExact: false })).selections;
       }
@@ -898,10 +812,10 @@ export const createLyricSourceLoader = ({
         loadDocument: (providerLyricId, { signal: downloadSignal } = {}) => withCircuit(source, async () => {
           const selection = byId.get(String(providerLyricId));
           if (!selection) throw new LyricSourceError('unavailable', source, 'preview', 'Candidate is not in the fresh snapshot');
-          const document = source === 'kugou'
-            ? await loadKugouSelection(selection, downloadSignal)
-            : (source === 'netease'
-              ? await loadNeteaseSelection(selection, downloadSignal, { fetchImpl, timeoutMs })
+          const document = source === 'custom_krc'
+            ? await loadCustomKrcSelection(selection, downloadSignal)
+            : (source === 'custom_lrc'
+              ? await loadCustomLrcSelection(selection, downloadSignal, lrcOptions)
               : loadLrclibSelection(selection));
           if (!document) throw new LyricSourceError('unavailable', source, 'preview', 'Candidate has no usable lyrics');
           return document;
@@ -914,15 +828,16 @@ export const createLyricSourceLoader = ({
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'adapter', 'Invalid lyric source'));
     }
-    if (source === 'kugou') return getKugouDocument(song, options);
-    if (source === 'netease') return getNeteaseDocument(song, options);
+    if (!enabledSources.includes(source)) return Promise.reject(new LyricSourceError('unavailable', source, 'config', 'Lyric source is disabled'));
+    if (source === 'custom_krc') return getCustomKrcDocument(song, options);
+    if (source === 'custom_lrc') return getCustomLrcDocument(song, options);
     return getLrclibDocument(song, options);
   };
-  const getKugouLyricsText = async (title, artist, duration = null, album = '') => (
-    (await getKugouDocument({ title, artist, duration, album })).lrc
+  const getCustomKrcLyricsText = async (title, artist, duration = null, album = '') => (
+    (await getCustomKrcDocument({ title, artist, duration, album })).lrc
   );
-  const getNeteaseLyricsText = async (title, artist, duration = null, album = '') => (
-    (await getNeteaseDocument({ title, artist, duration, album })).lrc
+  const getCustomLrcLyricsText = async (title, artist, duration = null, album = '') => (
+    (await getCustomLrcDocument({ title, artist, duration, album })).lrc
   );
   const getLrclibLyricsText = async (title, artist, duration = null, album = '') => (
     (await getLrclibDocument({ title, artist, duration, album })).lrc
@@ -932,8 +847,8 @@ export const createLyricSourceLoader = ({
   );
 
   return {
-    fetchSourceDocument, fetchSourceLyrics, getKugouDocument, getKugouLyricsText,
-    getNeteaseDocument, getNeteaseLyricsText,
+    enabledSources, fetchSourceDocument, fetchSourceLyrics, getCustomKrcDocument, getCustomKrcLyricsText,
+    getCustomLrcDocument, getCustomLrcLyricsText,
     createCandidateInspectionSnapshot, fetchSourceAuditEvidence, getLrclibDocument,
     getLrclibLyricsText, listSourceCandidates,
   };
@@ -950,6 +865,9 @@ export const fetchSourceLyrics = defaultLoader.fetchSourceLyrics;
 export const fetchSourceAuditEvidence = defaultLoader.fetchSourceAuditEvidence;
 export const listSourceLyricCandidates = defaultLoader.listSourceCandidates;
 export const createSourceCandidateInspectionSnapshot = defaultLoader.createCandidateInspectionSnapshot;
-export const invalidateSourceLyricsDocumentCache = (songId) => (
-  fetchSourceDocumentCached.invalidateSong(songId)
-);
+let sourceCacheRevision = 0;
+export const lyricSourceCacheRevision = () => sourceCacheRevision;
+export const invalidateSourceLyricsDocumentCache = (songId) => {
+  sourceCacheRevision += 1;
+  return fetchSourceDocumentCached.invalidateSong(songId);
+};

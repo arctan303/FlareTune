@@ -9,7 +9,7 @@ const hasTimeline = (value) => value !== undefined && value !== null && Number.i
 const shiftedTime = (value, offsetSeconds) => Math.max(0,
   Math.round((Number(value) + offsetSeconds) * 1000) / 1000);
 
-const SOURCE_RANK = Object.freeze({ kugou: 0, netease: 1, lrclib: 2 });
+const SOURCE_RANK = Object.freeze({ custom_krc: 0, custom_lrc: 1, lrclib: 2 });
 
 const finiteOr = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -98,13 +98,14 @@ export async function listLyricsResolutionCandidates(song, {
   signal,
   source: selectedSource = 'all',
   listCandidates = listSourceLyricCandidates,
+  enabledSources,
 } = {}) {
-  if (!['all', 'kugou', 'netease', 'lrclib'].includes(selectedSource)) {
+  if (!['all', 'custom_krc', 'custom_lrc', 'lrclib'].includes(selectedSource)) {
     throw new RangeError('invalid lyric source filter');
   }
   const providerCandidateGroups = [];
   const warnings = [];
-  for (const source of selectedSource === 'all' ? ['kugou', 'netease', 'lrclib'] : [selectedSource]) {
+  for (const source of (selectedSource === 'all' ? ['custom_krc', 'custom_lrc', 'lrclib'] : [selectedSource]).filter(id => !enabledSources || enabledSources.includes(id))) {
     try {
       const providerCandidates = await listCandidates(source, song, { signal });
       if (!Array.isArray(providerCandidates)) throw new TypeError('provider candidates must be an array');

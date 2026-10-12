@@ -1,4 +1,5 @@
 // Public, fictional examples. No credentials or real deployment/account data.
+import { DEFAULT_LYRIC_SOURCES } from '../shared/lyricSources.js';
 export const demoUser = (uiLanguage = 'auto') => ({ accountId: 'browser-demo', username: 'demo', displayName: 'Demo', role: 'admin', uiLanguage });
 const assistant = { name: '小A', avatar_icon: 'Sparkles', welcome_message: '你好，我是小A。想听什么？',
   description: '音乐助手', persona: '帮助你探索音乐、管理歌单。', system_rules: '根据当前曲库提供音乐建议。', temperature: .7, revision: 1 };
@@ -8,7 +9,7 @@ const item = value => ({ value, revision: 1 });
 export function settingsFixture(path) {
   const fixtures = {
     '/api/admin/settings': { settings: { 'instance.name': item('FlareTune · Demo'), 'cors.allowed_origins': item([]),
-      'assistant.images_enabled': item(false), 'lyrics.ai': item(lyrics) }, assistant, defaults: { assistant, lyrics } },
+      'assistant.images_enabled': item(false), 'lyrics.ai': item(lyrics), 'lyrics.sources': item(DEFAULT_LYRIC_SOURCES) }, assistant, defaults: { assistant, lyrics } },
     '/api/admin/accounts': { accounts: [{ ...demoUser(), status: 'active', updatedAt: 1 },
       { accountId: 'demo-member', username: 'listener', displayName: 'Listener', role: 'member', status: 'active', updatedAt: 1 }] },
     '/api/admin/system/migration': { state: 'ready', schemaVersion: 2, targetVersion: 2, supplementalPending: false,

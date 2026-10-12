@@ -9,6 +9,7 @@ import { validLocalPassword } from '../instance/state.js';
 import AdminCatalogSection from './AdminCatalogSection.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import AiProfilesPanel from './AiProfilesPanel.jsx';
+import LyricSourcesSettings from './LyricSourcesSettings.jsx';
 import Section from './SettingsSection.jsx';
 import SettingsEditDialog from './SettingsEditDialog.jsx';
 import SettingsSkeleton from './SettingsSkeleton.jsx';
@@ -565,6 +566,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                 </form>
               </SettingsEditDialog>}
 
+              <LyricSourcesSettings setting={overview.settings['lyrics.sources']} csrfToken={csrfToken} onSaved={result => setOverview(current => ({ ...current, settings: { ...current.settings, 'lyrics.sources': result } }))} />
               <Section title={t("歌词 AI")}>
                 <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
                   <div className="space-y-1.5">

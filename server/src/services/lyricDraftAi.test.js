@@ -25,9 +25,28 @@ test('AI completes an imported draft without persisting lyrics or song language'
   });
   assert.equal(result.status, 'ready');
   assert.equal(result.lines[0].tlyric, '你好世界');
+  assert.equal(result.translationLanguage, 'zh');
   assert.equal(result.inferredLanguage, 'en');
   assert.equal(typeof result.receipt, 'string');
   assert.equal(languageWrites, 0);
+});
+
+test('AI redo replaces English provider translation with the actual configured target language', async () => {
+  const result = await completeLyricDraft({
+    env: { SETUP_SECRET: 's'.repeat(48) }, db: {},
+    song: makeSong({ language: 'ja' }), actorAccountId: 'admin', etag: null,
+    translationLanguage: 'en', lines: [{ time: 1, text: 'こんにちは', tlyric: 'Hello' }],
+    deps: {
+      reserveDailyQuota: async () => true,
+      getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test',
+        targetLanguage: 'zh', detectLanguage: false, cleanDirtyLyrics: false }),
+      resolveAiFeature: async () => null,
+      askAI: async () => ({ translations: [{ unitId: 0, text: '你好' }] }),
+    },
+  });
+  assert.equal(result.status, 'ready');
+  assert.equal(result.lines[0].tlyric, '你好');
+  assert.equal(result.translationLanguage, 'zh');
 });
 
 test('draft AI removes identified credits before returning editable lyrics and receipt', async () => {

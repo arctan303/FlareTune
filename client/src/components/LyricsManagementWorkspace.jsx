@@ -1,3 +1,4 @@
+import { lyricSourceLabel } from '../../../shared/lyricSources.js';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { SettingsInput, useSettingsReadOnly } from './SettingsReadOnly.jsx';
@@ -19,7 +20,6 @@ import { centeredLyricScrollTop } from './lyricPreviewScroll.js';
 import { projectTimelineShift, stepTimelineShift, timelineShiftAtY } from './lyricTimelineShift.js';
 import './lyrics-management-workspace.css';
 
-const SOURCES = { kugou: '酷狗', netease: '网易云', lrclib: 'LRCLIB', manual: '手动整理' };
 const MODES = { word: '逐字', line: '逐行', none: '无时间轴' };
 const playbackTime = (seconds) => {
   const value = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
@@ -214,6 +214,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
   const draftRequestRef = React.useRef(0);
   const draftEditVersionRef = React.useRef(0);
   const draftReceiptRef = React.useRef(null);
+  const draftTranslationLanguageRef = React.useRef(null);
   const fileRef = React.useRef(null);
   const backupRef = React.useRef(null);
   const initialRowsRef = React.useRef([]);
@@ -301,7 +302,8 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
     const lines = collectDraftLines();
     if (!lines) return;
     if (changedWordRows && !window.confirm('有 ' + changedWordRows + ' 行修改了逐字内容，保存后这些行会改为逐行同步。继续吗？')) return;
-    const result = await managed.saveDocument(lines, editingEtagRef.current, draftReceiptRef.current);
+    const result = await managed.saveDocument(lines, editingEtagRef.current, draftReceiptRef.current,
+      draftTranslationLanguageRef.current);
     if (result === true) { setEditing(false); setActiveCell(null); setShift(0); }
     else if (result === 'conflict') {
       setEditing(false); setActiveCell(null);
@@ -317,7 +319,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
     setDraftAiBusy(true);
     try {
       const response = await lyricsWorkspaceApi.completeDraftLyrics(song.id,
-        { lines, etag: editingEtagRef.current });
+        { lines, etag: editingEtagRef.current, translationLanguage: draftTranslationLanguageRef.current });
       if (draftRequestRef.current !== requestId) return;
       if (draftEditVersionRef.current !== editVersion) {
         showToast(t("AI 处理期间草稿已修改，保留当前修改；需要时可重新补全"));
@@ -325,6 +327,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
       }
       const completed = response.data;
       draftReceiptRef.current = completed.receipt || null;
+      draftTranslationLanguageRef.current = completed.translationLanguage || null;
       setRows(makeRows({ lines: completed.lines }));
       setShift(0);
       setActiveCell(null);
@@ -375,7 +378,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
       {section !== 'candidates' && <div className="lyric-studio__heading"><span>{t("歌词工作台")}</span><h2 id="lyric-studio-title">{song.title}</h2>
         <div className="lyric-studio__heading-meta"><p>{song.artist || t("未知歌手")}</p>
           {section === 'current' && <div className="lyric-studio__formats" aria-label={t("当前歌词来源与同步方式")}>
-            <span>{editing ? t("未保存草稿") : SOURCES[managed.asset?.original?.source] || t("未建立")}</span>
+            <span>{editing ? t("未保存草稿") : managed.asset?.original?.source ? t(lyricSourceLabel(managed.asset.original.source)) : t("未建立")}</span>
             <span>{MODES[editing ? draftMode : managed.asset?.original?.syncMode] || t("无时间轴")}</span>
           </div>}
         </div>
@@ -388,10 +391,11 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
           onClick={() => void (editing ? completeDraft() : managed.completeTranslation())}>
           {draftAiBusy || managed.isAiCompleting ? t("AI 补全中…") : t("AI 补全")}</button>}
         {isAdmin && hasAsset && !editing && <button type="button" disabled={shift !== 0} title={shift ? t("请先应用或清零时间轴位移") : undefined} onClick={() => {
-          const nextRows = makeRows(managed.lyrics);
+          const nextRows = makeRows({ ...managed.lyrics, translation: managed.asset?.translation });
           initialRowsRef.current = nextRows;
           editingEtagRef.current = managed.etag;
           draftReceiptRef.current = null;
+          draftTranslationLanguageRef.current = managed.asset?.translation?.language || null;
           setRows(nextRows);
           setActiveCell(null);
           setEditing(true);
@@ -466,6 +470,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
             initialRowsRef.current = makeRows(managed.lyrics);
             editingEtagRef.current = managed.etag;
             draftReceiptRef.current = null;
+            draftTranslationLanguageRef.current = inspection.translation?.language || null;
             setRows(nextRows);
             setActiveCell(null);
             setShift(0);

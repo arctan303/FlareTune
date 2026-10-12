@@ -24,12 +24,12 @@ test('shared source, schema/columns and R2 asset survive an owner finishing earl
       if (cancel) setTimeout(()=>controller.abort(),cancel);
       try {
         let task;
-        if (mode === 'source') task = source('kugou',{id:key},{signal:controller.signal,executionContext:ctx});
+        if (mode === 'source') task = source('custom_krc',{id:key},{signal:controller.signal,executionContext:ctx});
         else if (mode === 'asset') task = readOrCreateLyricArtifact({
           env, song:{id:key,title:'Local',artist:'Fixture',language:'en'},
           signal:controller.signal, executionContext:ctx,
           fetchDocument:async (provider) => { assetCalls[provider]=(assetCalls[provider]||0)+1; await new Promise(r=>setTimeout(r,250));
-            return {source:'kugou',format:'lrc',syncMode:'line',lines:[{time:1,text:'Fixture lyrics'}]}; },
+            return {source:'custom_krc',format:'lrc',syncMode:'line',lines:[{time:1,text:'Fixture lyrics'}]}; },
         }).then(r=>({state:r.state,status:r.artifact?.status,assetCalls}));
         else {
           let db = wrapped.get(env.DB);

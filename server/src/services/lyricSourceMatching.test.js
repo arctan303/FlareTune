@@ -1,8 +1,9 @@
+import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
 import { createLyricSourceLoader } from './lyricSourceLoader.js';
-import { buildKugouSearchKeywords, computeDurationScore, rankLyricCandidates } from './lyricSourceMatching.js';
+import { buildCustomKrcSearchKeywords, computeDurationScore, rankLyricCandidates } from './lyricSourceMatching.js';
 
 const SONG = { title: '夜航', artist: '歌手甲、歌手乙', album: '夜航集', duration: 200 };
 const OPTIONS = {
@@ -60,24 +61,24 @@ test('missing duration on either side remains matchable and reports an unknown d
 });
 
 test('provider searches omit unknown duration and expose null-safe candidate metadata', async () => {
-  const kugouUrls = [];
-  const kugou = createLyricSourceLoader({
+  const custom_krcUrls = [];
+  const custom_krc = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
-      kugouUrls.push(url);
+      custom_krcUrls.push(url);
       return jsonResponse({ candidates: [
         { id: 'kg-1', accesskey: 'secret', song: '夜航', singer: '歌手甲' },
         { id: 'wrong', accesskey: 'secret', song: '夜航', singer: '其他歌手' },
       ] });
     },
   });
-  const candidates = await kugou.listSourceCandidates('kugou', { title: '夜航', artist: '歌手甲' });
-  assert.equal(new URL(kugouUrls[0]).searchParams.has('duration'), false);
+  const candidates = await custom_krc.listSourceCandidates('custom_krc', { title: '夜航', artist: '歌手甲' });
+  assert.equal(new URL(custom_krcUrls[0]).searchParams.has('duration'), false);
   assert.deepEqual(candidates.map(({ providerLyricId }) => providerLyricId), ['kg-1']);
   assert.equal(candidates[0].matchedDuration, null);
   assert.equal(candidates[0].durationDelta, null);
 
   let lrclibUrl = '';
-  const lrclib = createLyricSourceLoader({
+  const lrclib = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       lrclibUrl = url;
       return jsonResponse({
@@ -92,9 +93,9 @@ test('provider searches omit unknown duration and expose null-safe candidate met
 
 test('provider lookup stops before network access when the song primary artist is missing', async () => {
   let calls = 0;
-  const loader = createLyricSourceLoader({ fetchImpl: async () => { calls += 1; return jsonResponse({ candidates: [] }); } });
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async () => { calls += 1; return jsonResponse({ candidates: [] }); } });
   await assert.rejects(
-    () => loader.listSourceCandidates('kugou', { title: '夜航', artist: '' }),
+    () => loader.listSourceCandidates('custom_krc', { title: '夜航', artist: '' }),
     { name: 'LyricSourceError', kind: 'invalid' },
   );
   assert.equal(calls, 0);
@@ -108,8 +109,8 @@ test('large duration differences remain ranked warnings', () => {
   assert.equal(selection.durationDelta, 212);
 });
 
-test('buildKugouSearchKeywords extracts featured artists from title and forms combined artist keywords', () => {
-  const keywords = buildKugouSearchKeywords({
+test('buildCustomKrcSearchKeywords extracts featured artists from title and forms combined artist keywords', () => {
+  const keywords = buildCustomKrcSearchKeywords({
     title: 'Deep End (feat. Eastside and Mayer Hawthorne) (Matoma Remix)',
     artist: 'Coucheron',
   });
@@ -172,9 +173,9 @@ test('candidates with moderate duration difference (5s ~ 30s) preserve positive 
   assert.ok(ranked[2].score > 140);
 });
 
-test('Kugou automatic document selection prefers word-level candidate over line-only candidate among top selections', async () => {
+test('CustomKrc automatic document selection prefers word-level candidate over line-only candidate among top selections', async () => {
   const wordKrc = encodeKrc('[1000,1000]<0,1000,0>word lyrics');
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       const parsedUrl = new URL(url);
       if (parsedUrl.pathname === '/search') {
@@ -202,7 +203,7 @@ test('Kugou automatic document selection prefers word-level candidate over line-
     },
   });
 
-  const document = await loader.getKugouDocument(SONG);
+  const document = await loader.getCustomKrcDocument(SONG);
   assert.equal(document.syncMode, 'word');
   assert.equal(document.providerMeta.providerLyricId, 'second-word');
 });

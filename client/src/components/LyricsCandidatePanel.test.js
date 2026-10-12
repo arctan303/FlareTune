@@ -5,7 +5,7 @@ import { hookComponent, deferred, flushAsync, nodes, text, button } from '../tes
 import * as state from './LyricsManagementWorkspace.state.js';
 
 const song = { id: 's1', title: 'Night Song', artist: 'Singer' };
-const candidate = (index, source = 'kugou') => ({ source, providerLyricId: `${source}-${index}`,
+const candidate = (index, source = 'custom_krc') => ({ source, providerLyricId: `${source}-${index}`,
   matchedTitle: song.title, matchedArtist: song.artist, score: 200 - index, durationDelta: 0 });
 const ready = (item, mode = 'line', translated = false) => ({ ...item, state: 'ready', syncMode: mode,
   translationAvailable: translated, lyrics: { lines: [{ time: 1, text: 'Hello' }] } });
@@ -15,7 +15,7 @@ function setup(api, songValue = song) {
   const component = hookComponent({ file: fileURLToPath(new URL('./LyricsCandidatePanel.jsx', import.meta.url)),
     modules: { 'lucide-react': { Loader2: 'Loader2', Search: 'Search' },
       '../i18n/index.js': { t: translate }, './SelectControl.jsx': 'SelectControl',
-      '../services/localLyricsWorkspaceApi.js': { lyricsWorkspaceApi: api },
+      '../services/localLyricsWorkspaceApi.js': { lyricsWorkspaceApi: { getSources: async () => ({data:{sources:['custom_krc','custom_lrc','lrclib']}}), ...api } },
       './LyricsManagementWorkspace.state.js': state }, globals: { AbortController } });
   const props = { song: songValue, authenticated: true, isAdmin: true, saving: false, active: true,
     Preview: 'Preview', onImport: inspection => imports.push(inspection) };
@@ -31,13 +31,13 @@ async function search(subject) {
 }
 
 test('all candidate summaries remain reachable while default inspection reads only four nearby bodies', async () => {
-  const all = [...Array.from({ length: 12 }, (_, i) => candidate(i)), candidate(13, 'netease')];
+  const all = [...Array.from({ length: 12 }, (_, i) => candidate(i)), candidate(13, 'custom_lrc')];
   const inspections = [];
   const s = setup({ getLyricsCandidates: async () => ({ data: { candidates: all } }),
     inspectLyricsCandidates: async (_, items) => { inspections.push(items); return { data: { results: items.map(item => ready(item)) } }; } });
   const tree = await search(s);
   assert.equal(cards(tree).length, 13);
-  assert.ok(text(cards(tree).at(-1)).includes('网易云'));
+  assert.ok(text(cards(tree).at(-1)).includes('自定义逐行源'));
   assert.deepEqual(inspections.map(items => items.length), [4]);
   s.component.unmount();
 });
@@ -64,18 +64,18 @@ test('unsubmitted field edits do not change an in-flight inspection query or dis
 test('source selection restarts actual search using the submitted query and ignores an older response', async () => {
   const pending = deferred(); const calls = [];
   const s = setup({ getLyricsCandidates: async (_, options) => {
-    calls.push(options); return calls.length === 1 ? pending.promise : { data: { candidates: [candidate(1, 'netease')] } };
+    calls.push(options); return calls.length === 1 ? pending.promise : { data: { candidates: [candidate(1, 'custom_lrc')] } };
   }, inspectLyricsCandidates: async (_, items) => ({ data: { results: items.map(item => ready(item)) } }) });
   let tree = await search(s);
   nodes(tree).filter(node => node.type === 'input')[0].props.onChange({ target: { value: 'unsubmitted title' } });
-  tree = s.render(); filter(tree, '歌词来源', 'netease'); tree = await settle(s);
+  tree = s.render(); filter(tree, '歌词来源', 'custom_lrc'); tree = await settle(s);
   pending.resolve({ data: { candidates: [candidate(2)] } }); tree = await settle(s);
   assert.equal(calls.length, 2);
   assert.equal(calls[0].signal.aborted, true);
   assert.equal(calls[1].title, song.title);
-  assert.equal(calls[1].source, 'netease');
+  assert.equal(calls[1].source, 'custom_lrc');
   assert.equal(cards(tree).length, 1);
-  assert.ok(text(cards(tree)[0]).includes('网易云'));
+  assert.ok(text(cards(tree)[0]).includes('自定义逐行源'));
   s.component.unmount();
 });
 
@@ -83,7 +83,7 @@ test('type filtering distinguishes unknown results and checks bounded batches on
   const all = Array.from({ length: 13 }, (_, i) => candidate(i)); const calls = [];
   const s = setup({ getLyricsCandidates: async () => ({ data: { candidates: all } }),
     inspectLyricsCandidates: async (_, items) => {
-      calls.push(items); return { data: { results: items.map(item => ready(item, item.providerLyricId === 'kugou-12' ? 'word' : 'line')) } };
+      calls.push(items); return { data: { results: items.map(item => ready(item, item.providerLyricId === 'custom_krc-12' ? 'word' : 'line')) } };
     } });
   let tree = await search(s);
   filter(tree, '同步类型', 'word'); tree = await settle(s);
@@ -147,7 +147,7 @@ test('match reliability and metadata outrank precision; unknown candidates remai
   const wrong = { ...candidate(2), providerLyricId: 'wrong', score: 180, versionMismatch: true };
   const short = { ...candidate(3), providerLyricId: 'short', score: 190, durationDelta: 60 };
   const unknown = { ...candidate(4), providerLyricId: 'unknown', score: 175 };
-  const inspections = { 'kugou:exact': ready(exact), 'kugou:wrong': ready(wrong, 'word'), 'kugou:short': ready(short, 'word') };
+  const inspections = { 'custom_krc:exact': ready(exact), 'custom_krc:wrong': ready(wrong, 'word'), 'custom_krc:short': ready(short, 'word') };
   assert.deepEqual(state.sortLyricsCandidates([wrong, short, exact, unknown], inspections).map(item => item.providerLyricId), ['unknown', 'exact', 'short', 'wrong']);
   assert.deepEqual(state.filterLyricsCandidates([exact, wrong, unknown], inspections, 'word', 'no'), [wrong]);
   assert.deepEqual(state.filterLyricsCandidates([exact, wrong, unknown], inspections, 'line', 'no'), [exact]);

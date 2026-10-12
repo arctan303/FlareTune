@@ -1,4 +1,5 @@
 name = "flaretune-demo"
+main = "mediaWorker.js"
 compatibility_date = "2026-10-12"
 workers_dev = true
 preview_urls = false
@@ -7,8 +8,10 @@ preview_urls = false
 pattern = "flaretune.arcinks.com"
 custom_domain = true
 
-# Assets-only deployment: no script, D1, R2, service binding or secrets.
+# Read-only media delivery; business state stays in the browser. No DB or secrets.
 [assets]
 directory = "../dist-demo"
+binding = "ASSETS"
+run_worker_first = ["/media/*.mp3"]
 html_handling = "auto-trailing-slash"
 not_found_handling = "single-page-application"

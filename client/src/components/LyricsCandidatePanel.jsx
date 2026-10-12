@@ -5,7 +5,7 @@ import SelectControl from './SelectControl.jsx';
 import { lyricsWorkspaceApi } from '../services/localLyricsWorkspaceApi.js';
 import { filterLyricsCandidates, sortLyricsCandidates, projectProviderWarnings } from './LyricsManagementWorkspace.state.js';
 
-const SOURCES = { kugou: '酷狗', netease: '网易云', lrclib: 'LRCLIB' };
+const SOURCES = { custom_krc: '自定义逐字源', custom_lrc: '自定义逐行源', lrclib: 'LRCLIB' };
 const MODES = { word: '逐字', line: '逐行', none: '无时间轴' };
 const keyOf = (value) => `${value?.source || ''}:${value?.providerLyricId || ''}`;
 const BATCH_SIZE = 4;
@@ -15,6 +15,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
   const [title, setTitle] = React.useState(song.title || '');
   const [artist, setArtist] = React.useState(song.artist || '');
   const [source, setSource] = React.useState('all');
+  const [sources, setSources] = React.useState([]);
   const [mode, setMode] = React.useState('all');
   const [translation, setTranslation] = React.useState('all');
   const [snapshot, setSnapshot] = React.useState(null);
@@ -40,7 +41,12 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
 
   React.useEffect(() => {
     requests.current.disposed = false;
+    let active = true;
+    lyricsWorkspaceApi.getSources().then(response => {
+      if (active) setSources(response.data.sources || []);
+    }).catch(() => { if (active) setError(t('歌词源加载失败，请重试。')); });
     return () => {
+      active = false;
       requests.current.disposed = true;
       requests.current.generation += 1;
       requests.current.search?.abort();
@@ -133,8 +139,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
     </form>
     <div className="lyric-studio__candidate-filters">
       <label>{t('歌词来源')}<SelectControl aria-label={t('歌词来源')} value={source} onChange={event => changeSource(event.target.value)}>
-        <option value="all">{t('全部来源')}</option><option value="kugou">{t('酷狗')}</option>
-        <option value="netease">{t('网易云')}</option><option value="lrclib">LRCLIB</option>
+        <option value="all">{t('全部来源')}</option>{sources.map(id => <option key={id} value={id}>{t(SOURCES[id] || '某歌词源')}</option>)}
       </SelectControl></label>
       <label>{t('同步类型')}<SelectControl aria-label={t('同步类型')} value={mode} onChange={event => setMode(event.target.value)}>
         <option value="all">{t('全部类型')}</option><option value="word">{t('逐字')}</option>

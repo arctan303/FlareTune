@@ -20,7 +20,7 @@ test('both fullscreen entries open the same lyric workspace directly', () => {
 });
 
 test('workspace edits and imports shared lyrics with visible word timing caveat', () => {
-  assert.match(source, /managed\.saveDocument\(lines, editingEtagRef\.current, draftReceiptRef\.current\)/);
+  assert.match(source, /managed\.saveDocument\(lines, editingEtagRef\.current, draftReceiptRef\.current,/);
   assert.match(source, /managed\.shiftTimeline\(shift\)/);
   assert.match(source, /managed\.importLrc/);
   assert.match(source, /managed\.restoreBackup/);
@@ -45,11 +45,11 @@ test('workspace follows app page scrolling and light and dark themes', () => {
 });
 
 test('candidate quality ordering and safe warnings stay available', () => {
-  const candidates = [{ source: 'kugou', providerLyricId: 'a', score: 100 },
+  const candidates = [{ source: 'custom_krc', providerLyricId: 'a', score: 100 },
     { source: 'lrclib', providerLyricId: 'b', score: 100 }];
   assert.equal(sortLyricsCandidates(candidates, {
-    'kugou:a': { state: 'ready', syncMode: 'line' },
+    'custom_krc:a': { state: 'ready', syncMode: 'line' },
     'lrclib:b': { state: 'ready', syncMode: 'word' },
   })[0].providerLyricId, 'b');
-  assert.equal(projectProviderWarnings([{ source: 'kugou', code: 'timeout' }])[0].text, '酷狗请求超时');
+  assert.equal(projectProviderWarnings([{ source: 'custom_krc', code: 'timeout' }])[0].text, '自定义逐字源请求超时');
 });

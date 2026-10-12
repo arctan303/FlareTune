@@ -15,10 +15,10 @@ function decodeBase64(encodedContent, maximumCompressedBytes) {
   try {
     binary = atob(encodedContent);
   } catch (error) {
-    throw new KrcDecodeError('download-krc', 'Kugou download-krc returned invalid base64', { cause: error });
+    throw new KrcDecodeError('download-krc', 'CustomKrc download-krc returned invalid base64', { cause: error });
   }
   if (binary.length > maximumCompressedBytes) {
-    throw new KrcDecodeError('download-krc', 'Kugou download-krc content exceeds safe size');
+    throw new KrcDecodeError('download-krc', 'CustomKrc download-krc content exceeds safe size');
   }
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
@@ -52,7 +52,7 @@ export async function decodeKrcPayload(encodedContent, {
   maximumDecompressedBytes,
 }) {
   if (typeof encodedContent !== 'string' || !encodedContent) {
-    throw new KrcDecodeError('download-krc', 'Kugou download-krc omitted content');
+    throw new KrcDecodeError('download-krc', 'CustomKrc download-krc omitted content');
   }
   const encoded = decodeBase64(encodedContent, maximumCompressedBytes);
   if (encoded.length < 5 || new TextDecoder('ascii').decode(encoded.subarray(0, 4)) !== 'krc1') {

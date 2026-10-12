@@ -17,7 +17,7 @@ test('managed mutations centralize cache invalidation, conflicts and current eta
   assert.match(source, /invalidateLyricsCacheForSong/);
   assert.match(source, /requestLyricsRefresh/);
   assert.match(source, /error\?\.status === 409/);
-  assert.match(source, /saveLyricsDocument\(songId, \{ lines, etag: baselineEtag, aiReceipt \}\)/);
+  assert.match(source, /saveLyricsDocument\(songId, \{ lines, etag: baselineEtag, aiReceipt, translationLanguage \}\)/);
   assert.match(source, /etag: state\.etag/);
 });
 

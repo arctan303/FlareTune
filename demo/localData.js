@@ -251,6 +251,7 @@ export function createDemoData({ storage = () => globalThis.localStorage, random
         return result({ songs: [...counts.values()].sort((a,b) => b.play_count-a.play_count), totalPlays: state.stats.length, totalUniqueSongs: counts.size });
       }
     }
+    if (path === '/api/lyrics/sources' && method === 'GET') return result({ sources: ['lrclib'] });
     if (path === '/api/lyrics' && method === 'GET') {
       const song = byId.get(params.get('songId'));
       if (!song) return result(null,404,'SONG_NOT_FOUND');
