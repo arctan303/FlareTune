@@ -6,7 +6,8 @@ Try the real player and library interface without signing in, using music licens
 
 | Interactive | Scope |
 | --- | --- |
-| Playback, queue, seeking, fullscreen and lyrics | Real static audio; manually timed line lyrics, no lyric lookup |
+| Playback, queue, fullscreen and lyrics | Real static audio; manually timed line lyrics, no lyric lookup |
+| Seeking | Static audio hosting and browser behavior can prevent seeking; the demo does not guarantee the same media behavior as a normal installation |
 | Search, language browsing, daily picks and roaming | Browser queries against the static catalog; unavailable languages show an empty state |
 | Favorites, playlists, history and frequent songs | Stored in this browser; personal collections start empty, the sample playlist is labeled |
 | Appearance and nine interface languages | Stored locally; switch and restore preferences |
@@ -18,7 +19,7 @@ Tabs on the same domain in the same browser profile share data. Other browsers a
 This is an independent Static Assets deployment, with no business Worker script, D1, R2, model keys or visitor database. Pages, dictionaries, covers and audio travel over the network; personal state does not. Normal installations still require authentication and keep music in the deployer’s private R2 bucket.
 
 
-The deployed static service currently returns full audio files even for Range requests. Seeking works with downloaded/buffered audio; a slow connection may need more buffering. This demo does not claim 206 byte-range streaming. Unknown asset URLs can return the SPA page, while the player handles failed media and advances to the next usable track.
+The deployed static service currently returns full audio files even for Range requests, so seeking is not guaranteed. In Edge verification, buffered audio could still have no seekable range: the progress control moved while the actual playback position did not. A changed progress indicator is not proof of a successful seek. This demo does not claim 206 byte-range streaming. Unknown asset URLs can return the SPA page, while the player handles failed media and advances to the next usable track.
 
 ## Music and licenses
 
