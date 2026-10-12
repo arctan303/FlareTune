@@ -1,6 +1,6 @@
 import { AuthError } from './index.js';
+import { isUiLanguage } from '../../../../shared/uiLanguages.js';
 
-const UI_LANGUAGES = new Set(['auto', 'zh', 'en']);
 const languageKey = (accountId) => `account.ui_language.${accountId}`;
 
 export async function getOwnUiLanguage(db, accountId) {
@@ -9,14 +9,14 @@ export async function getOwnUiLanguage(db, accountId) {
   if (!row) return 'auto';
   try {
     const value = JSON.parse(row.value_json);
-    return UI_LANGUAGES.has(value) ? value : 'auto';
+    return isUiLanguage(value) ? value : 'auto';
   } catch {
     return 'auto';
   }
 }
 
 export async function updateOwnUiLanguage(db, accountId, value, now = Date.now()) {
-  if (!UI_LANGUAGES.has(value)) throw new AuthError('invalid_ui_language', 400);
+  if (!isUiLanguage(value)) throw new AuthError('invalid_ui_language', 400);
   const key = languageKey(accountId);
   const result = await db.prepare(`INSERT INTO instance_settings
       (key, value_json, revision, updated_at, updated_by)

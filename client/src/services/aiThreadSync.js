@@ -1,3 +1,4 @@
+import { runtimeFetch } from './runtimeFetch.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { authenticatedFetch } from './authenticatedFetch.js';
 
@@ -52,7 +53,7 @@ export class AiThreadRequestError extends Error {
 }
 
 export async function fetchCloudThread({
-  fetchImpl = globalThis.fetch,
+  fetchImpl = runtimeFetch,
   apiBase = getApiBaseUrl(),
   signal,
 } = {}) {

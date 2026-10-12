@@ -12,6 +12,7 @@ import UserImageEditor from './UserImageEditor.jsx';
 import SubsonicSettings from './SubsonicSettings.jsx';
 import { GoogleAccountSettings } from './GoogleLogin.jsx';
 import { setUiLanguage, t, useLocale } from '../i18n/index.js';
+import { UI_LANGUAGES } from '../../../shared/uiLanguages.js';
 
 export default function AccountSettings() {
   useLocale();
@@ -38,7 +39,7 @@ export default function AccountSettings() {
   React.useEffect(() => { setNickname(user?.displayName || ''); }, [user?.accountId, user?.displayName]);
 
   const saveLanguage = async (nextLanguage) => {
-    if (languageBusy || nextLanguage === (user?.uiLanguage || 'auto')) return;
+    if (languageBusy || (nextLanguage === (user?.uiLanguage || 'auto') && !languageError)) return;
     setLanguageBusy(true);
     setLanguageError('');
     try {
@@ -46,7 +47,7 @@ export default function AccountSettings() {
       if (useUIStore.getState().authSession?.user?.accountId !== user.accountId) return;
       setAuthSession((current) => current.user?.accountId === user.accountId
         ? { ...current, user: { ...current.user, uiLanguage: nextLanguage } } : current);
-      setUiLanguage(nextLanguage);
+      if (!await setUiLanguage(nextLanguage)) setLanguageError('语言资源加载失败，请重试。');
     } catch {
       setLanguageError('界面语言保存失败，请重试。');
     } finally { setLanguageBusy(false); }
@@ -186,7 +187,7 @@ export default function AccountSettings() {
 
       <SettingsSection title={t('界面语言')}>
         <div className="language-choices" role="group" aria-label={t('界面语言')} aria-busy={languageBusy}>
-          {[['auto', t('跟随浏览器')], ['zh', '简体中文'], ['en', 'English']].map(([value, label]) => (
+          {[['auto', t('跟随浏览器')], ...UI_LANGUAGES.map(item => [item.id, item.name])].map(([value, label]) => (
             <button type="button" key={value} className="language-choice" disabled={languageBusy}
               aria-pressed={(user?.uiLanguage || 'auto') === value} onClick={() => void saveLanguage(value)}>
               {label}{(user?.uiLanguage || 'auto') === value && <Check size={16} aria-hidden="true" />}

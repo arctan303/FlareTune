@@ -1,0 +1,197 @@
+/* Scale dimensions together, rather than widening the stage around fixed content.
+   The desktop stage is absent on mobile; short ultrawide windows are height-bound. */
+.paper-classic-player .classic-player__stage {
+  --classic-unit: 1px;
+  --classic-cover-size: 392px;
+  --classic-controls-width: 390px;
+  max-width: calc(1440 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-player__cover {
+  max-width: min(var(--classic-cover-size), max(160px, calc(100dvh - 240 * var(--classic-unit))));
+}
+
+.classic-player__stage .classic-player__artwork-slot {
+  margin-bottom: calc(24 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls {
+  max-width: var(--classic-controls-width);
+  margin-top: calc(8 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__metadata {
+  margin-bottom: calc(12 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__title-row {
+  gap: calc(12 * var(--classic-unit));
+  margin-bottom: calc(2 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__title {
+  font-size: calc(24 * var(--classic-unit));
+  line-height: 1.333333;
+}
+
+.classic-player__stage .classic-controls__artist {
+  font-size: calc(14 * var(--classic-unit));
+  line-height: 1.428571;
+}
+
+.classic-player__stage .classic-controls__metadata-actions {
+  gap: calc(8 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__metadata-actions button[aria-busy] {
+  width: calc(24 * var(--classic-unit));
+  height: calc(24 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__metadata-actions button[aria-busy] > svg {
+  width: calc(22 * var(--classic-unit));
+  height: calc(22 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__metadata-actions button[aria-haspopup='menu'] {
+  width: calc(28 * var(--classic-unit));
+  height: calc(24 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__metadata-actions button[aria-haspopup='menu'] > svg {
+  width: calc(20 * var(--classic-unit));
+  height: calc(20 * var(--classic-unit));
+}
+
+.classic-player__stage .quality-badge {
+  padding: var(--classic-unit) calc(4 * var(--classic-unit));
+  margin-left: calc(8 * var(--classic-unit));
+  font-size: calc(9 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__time {
+  width: calc(40 * var(--classic-unit));
+  flex-shrink: 0;
+  font-size: calc(12 * var(--classic-unit));
+  line-height: 1.333333;
+}
+
+.classic-player__stage .classic-controls__timeline {
+  gap: calc(12 * var(--classic-unit));
+  margin-bottom: calc(16 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__progress {
+  height: calc(16 * var(--classic-unit));
+}
+
+.paper-classic-player .classic-player__stage .classic-controls__track {
+  height: calc(3.5 * var(--classic-unit));
+}
+
+.paper-classic-player .classic-player__stage .classic-controls__progress:hover .classic-controls__track {
+  height: calc(5 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__transport {
+  padding-inline: calc(8 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__playback-buttons {
+  gap: calc(32 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__icon > svg {
+  width: calc(22 * var(--classic-unit));
+  height: calc(22 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__skip > svg {
+  width: calc(30 * var(--classic-unit));
+  height: calc(30 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-controls__play > svg {
+  width: calc(38 * var(--classic-unit));
+  height: calc(38 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics {
+  padding-top: calc(48 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__line + .classic-lyrics__line {
+  margin-top: calc(20 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__text--primary {
+  font-size: calc(30 * var(--classic-unit));
+  line-height: calc(36 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__text--secondary {
+  margin-top: calc(4 * var(--classic-unit));
+  font-size: calc(20 * var(--classic-unit));
+  line-height: calc(28 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__translation {
+  margin-top: calc(4 * var(--classic-unit));
+  font-size: calc(18 * var(--classic-unit));
+  line-height: calc(28 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__tools {
+  gap: calc(12 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__tool {
+  padding: calc(4 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__tool--text {
+  height: calc(24 * var(--classic-unit));
+  padding-inline: calc(8 * var(--classic-unit));
+  font-size: calc(11 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-lyrics__tool > svg {
+  width: calc(20 * var(--classic-unit));
+  height: calc(20 * var(--classic-unit));
+}
+
+.classic-player__stage .classic-interlude-dot {
+  width: calc(18 * var(--classic-unit));
+  height: calc(18 * var(--classic-unit));
+}
+
+@media (min-width: 1280px) {
+  .paper-classic-player .classic-player__stage {
+    --classic-cover-size: 430px;
+    --classic-controls-width: 420px;
+  }
+}
+
+@media (min-width: 1536px) {
+  .paper-classic-player .classic-player__stage {
+    --classic-unit: clamp(1px, min(0.0625vw, 0.111111vh), 2.4px);
+    --classic-cover-size: calc(470 * var(--classic-unit));
+    --classic-controls-width: calc(440 * var(--classic-unit));
+  }
+
+  .classic-player__stage .classic-player__record-column {
+    padding-left: calc(80 * var(--classic-unit));
+    padding-right: calc(20 * var(--classic-unit));
+  }
+
+  .classic-player__stage .classic-player__lyrics-column {
+    padding-left: calc(32 * var(--classic-unit));
+    padding-right: calc(112 * var(--classic-unit));
+  }
+}
+
+@media (pointer: coarse), (hover: none) {
+  .classic-player__stage .classic-controls__progress {
+    height: max(44px, calc(16 * var(--classic-unit)));
+  }
+}

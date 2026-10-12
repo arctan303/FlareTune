@@ -1,0 +1,10 @@
+name = "flaretune-demo"
+compatibility_date = "2026-10-12"
+workers_dev = true
+preview_urls = false
+
+# Assets-only deployment: no script, D1, R2, service binding or secrets.
+[assets]
+directory = "../dist-demo"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"

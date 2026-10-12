@@ -20,6 +20,7 @@ import { usePlayerAutoHide } from '../../hooks/usePlayerAutoHide.js';
 import { requestLyricsTranslationCompletion } from '../../hooks/useLyricsFetcher.js';
 import './classic-player.css';
 import './classic-mobile.css';
+import './classic-desktop.css';
 
 export default function MobileClassicPlayer({ instantEnter = false, mobileVisual = 'classic' }) {
     const {

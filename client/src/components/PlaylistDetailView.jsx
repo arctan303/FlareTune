@@ -53,6 +53,8 @@ export default function PlaylistDetailView({
     onChangeLibrarySort,
     onRefreshDailyRecommend,
     isRefreshingDailyRecommend,
+    isDailyRecommendCoolingDown,
+    dailyRecommendationError,
 }) {
     const isDailyRecommend = playlist?.id === 'daily-recommend';
     const isLibraryCategory = playlist?.type === 'library';
@@ -159,7 +161,7 @@ export default function PlaylistDetailView({
                                             {errorMsg && <p className="text-xs text-red-500 font-medium mt-1">{t(errorMsg)}</p>}
                                         </div>
                                     ) : (
-                                        <h3 ref={headingRef} tabIndex={-1} className="playlist-title mb-4 line-clamp-2 outline-none md:mb-6">{playlist.kind === 'favorite' ? t("我的收藏") : playlist.name}</h3>
+                                        <h3 ref={headingRef} tabIndex={-1} className="playlist-title mb-4 line-clamp-2 outline-none md:mb-6">{playlist.kind === 'favorite' ? t("我的收藏") : isDailyRecommend ? t("今日精选") : playlist.name}</h3>
                                     )}
 
                                     {isEditing && playlist.kind !== 'favorite' ? (
@@ -256,7 +258,7 @@ export default function PlaylistDetailView({
                                                     <button
                                                         type="button"
                                                         onClick={onRefreshDailyRecommend}
-                                                        disabled={isRefreshingDailyRecommend}
+                                                        disabled={isRefreshingDailyRecommend || isDailyRecommendCoolingDown}
                                                         className="playlist-action-play secondary-button"
                                                         aria-label={t("刷新今日推荐歌曲")}
                                                         title={t("刷新今日推荐歌曲")}
@@ -266,7 +268,7 @@ export default function PlaylistDetailView({
                                                         ) : (
                                                             <RefreshCw size={16} aria-hidden="true" />
                                                         )}
-                                                        <span>{isRefreshingDailyRecommend ? t("刷新中…") : t("刷新")}</span>
+                                                        <span>{isRefreshingDailyRecommend ? t("刷新中…") : t("换一批")}</span>
                                                     </button>
                                                 )}
                                                 {isPersonalPlaylist && (
@@ -312,6 +314,10 @@ export default function PlaylistDetailView({
                             </div>
 
                         {/* ── 歌曲列表展示 ── */}
+                        {isDailyRecommend && dailyRecommendationError && <div className="app-inline-notice" role="alert">
+                            <span>{t(dailyRecommendationError)}</span>
+                            <button type="button" className="app-section-link" onClick={onRefreshDailyRecommend} disabled={isRefreshingDailyRecommend}>{t("重试")}</button>
+                        </div>}
                         {isEditing ? (
                             <div className="track-list track-list--detail mt-6 relative">
                                 <PlaylistEditableTracks

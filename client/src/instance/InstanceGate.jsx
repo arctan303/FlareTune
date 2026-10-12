@@ -12,6 +12,7 @@ import { GoogleSignInButton } from '../components/GoogleLogin.jsx';
 import { useInstanceTheme } from './theme.js';
 import { getUiLanguage, setUiLanguage, t, useLocale } from '../i18n/index.js';
 import './instance.css';
+import LanguagePicker from '../components/LanguagePicker.jsx';
 
 const USERNAME_PATTERN = '[a-z0-9_.\\-]{3,64}';
 
@@ -64,6 +65,7 @@ function Page({ title, description, children, footer }) {
     <main className="instance-page">
       <section className="instance-portal" aria-labelledby="instance-title">
         <TuneWordmark className="instance-wordmark" />
+        <LanguagePicker />
         <h1 id="instance-title">{t(title)}</h1>
         {description && <p className="instance-description">{t(description)}</p>}
         <div className="instance-portal__body">{children}</div>
@@ -244,6 +246,7 @@ function LoginPage({ onSuccess }) {
           </div>
         </div>
         <div className="instance-login__access">
+          <LanguagePicker />
           <div className="instance-login__access-header">
             <h2 id="instance-login-title">{t('登录')}</h2>
             <p className="instance-login__access-desc">{t('输入账号凭据以连接曲库')}</p>

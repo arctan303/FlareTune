@@ -1,41 +1,76 @@
 .classic-interlude-dot {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  opacity: calc(0.45 + var(--interlude-dot-glow, 0) * 0.55);
-  box-shadow: 0 0 calc(var(--interlude-dot-glow, 0) * 10px) rgba(255, 255, 255, 0.35);
-  transition: transform 180ms ease-out;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  box-shadow: none !important;
+  transition: transform 180ms ease-out, border-color 240ms ease;
 }
 
+/* 核心圆核：由中心小点向外平滑展开膨胀至满圆，大小精准对应真实进度 */
 .classic-interlude-dot__fill {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  background: #fff;
-  clip-path: inset(calc(100% - var(--interlude-dot-fill, 0%)) 0 0);
+  margin: auto;
+  border-radius: 50%;
+  background: #ffffff;
+  transform-origin: center center;
+  transform: scale(calc(0.25 + 0.75 * var(--interlude-dot-progress, calc(var(--interlude-dot-fill, 0%) / 100))));
+  will-change: transform, opacity;
 }
 
+/* 仅圆圈内部加载的那部分进行呼吸 (复用以前经典的 2.4s pulse 呼吸灯节奏，仅作用于内部白圆透明度) */
 .classic-interlude-dot[data-fill-state='filling'] {
-  animation: classic-interlude-breathe 2.4s ease-in-out infinite;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.classic-interlude-dot[data-fill-state='filling'] .classic-interlude-dot__fill {
+  animation: classic-interlude-inner-pulse 2.4s ease-in-out infinite;
   animation-play-state: paused;
 }
 
-.classic-lyrics__interlude-dots[data-motion-running='true'] .classic-interlude-dot {
+.classic-lyrics__interlude-dots[data-motion-running='true'] .classic-interlude-dot[data-fill-state='filling'] .classic-interlude-dot__fill {
   animation-play-state: running;
+}
+
+/* 经典呼吸灯动画：纯净透明度平滑升降 (不修改 scale，完全不干扰进度尺寸的可读性) */
+@keyframes classic-interlude-inner-pulse {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 充盈达成状态 (complete)：饱满纯白圆，停止呼吸，稳定通透 100% 亮白 */
+.classic-interlude-dot[data-fill-state='complete'] {
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+.classic-interlude-dot[data-fill-state='complete'] .classic-interlude-dot__fill {
+  animation: none !important;
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* 未开始状态 (pending)：空灵纯净小点等待，低对比度，不呼吸 */
+.classic-interlude-dot[data-fill-state='pending'] {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.classic-interlude-dot[data-fill-state='pending'] .classic-interlude-dot__fill {
+  opacity: 0.35;
 }
 
 .classic-interlude-button:hover .classic-interlude-dot {
   transform: scale(1.12);
-}
-
-@keyframes classic-interlude-breathe {
-  0%, 100% { transform: scale(0.94); }
-  50% { transform: scale(1.06); }
 }
 
 @media (min-width: 768px) {
@@ -43,7 +78,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .classic-interlude-dot {
+  .classic-interlude-dot,
+  .classic-interlude-dot__fill {
     animation: none !important;
     transform: none !important;
     transition: none !important;

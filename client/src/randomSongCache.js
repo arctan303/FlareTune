@@ -1,47 +1,44 @@
 import { isValidSongLanguage } from './constants/language.js';
+import { RANDOM_SONGS_LIMIT } from './randomSongRequest.js';
 
-export const RANDOM_SONGS_CACHE_KEY = 'musicPlayer_xiaoa_random_songs_v2';
+// Undated v2 entries cannot prove that a preview is a complete daily batch.
+export const RANDOM_SONGS_CACHE_KEY = 'musicPlayer_xiaoa_random_songs_v3';
+const cacheKey = (scope) => `${RANDOM_SONGS_CACHE_KEY}:${encodeURIComponent(scope)}`;
 
-export const isValidRandomSongCache = (songs) => (
-    Array.isArray(songs)
-    && songs.every((song) => song && typeof song === 'object' && song.id != null
-        && isValidSongLanguage(song.language))
+export const localRecommendationDate = (date = new Date()) => (
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 );
 
-const removeCacheKey = (key) => {
-    try {
-        window.localStorage.removeItem(key);
-    } catch (error) {
-        console.warn('清理随机推荐缓存失败:', error);
-    }
+export const isValidRandomSongCache = (songs) => {
+    const seen = new Set();
+    return Array.isArray(songs) && songs.length <= RANDOM_SONGS_LIMIT && songs.every((song) => {
+        if (!song || song.id == null || !String(song.id).trim()
+            || typeof song.audio_url !== 'string' || !song.audio_url.trim()
+            || !isValidSongLanguage(song.language) || seen.has(String(song.id))) return false;
+        seen.add(String(song.id));
+        return true;
+    });
 };
 
-export function loadRandomSongs() {
+export function loadRandomSongs(scope) {
+    if (!scope) return null;
     try {
-        const raw = window.localStorage.getItem(RANDOM_SONGS_CACHE_KEY);
+        const raw = globalThis.window?.localStorage.getItem(cacheKey(scope));
         if (!raw) return null;
         const payload = JSON.parse(raw);
-        if (!isValidRandomSongCache(payload?.songs)) {
-            removeCacheKey(RANDOM_SONGS_CACHE_KEY);
-            return null;
-        }
-        return payload.songs;
-    } catch (error) {
-        console.warn('读取随机推荐缓存失败，将改用接口请求:', error);
-        removeCacheKey(RANDOM_SONGS_CACHE_KEY);
-        return null;
+        if (payload?.limit === RANDOM_SONGS_LIMIT && /^\d{4}-\d{2}-\d{2}$/.test(payload.date)
+            && isValidRandomSongCache(payload.songs)) return payload;
+    } catch {
+        // Storage may be blocked. The current session can still use live data.
     }
+    return null;
 }
 
-export function saveRandomSongs(songs) {
-    if (!isValidRandomSongCache(songs)) {
-        removeCacheKey(RANDOM_SONGS_CACHE_KEY);
-        return;
-    }
+export function saveRandomSongs(songs, { scope, date } = {}) {
+    if (!scope || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidRandomSongCache(songs)) return;
     try {
-        window.localStorage.setItem(RANDOM_SONGS_CACHE_KEY, JSON.stringify({ songs }));
-    } catch (error) {
-        // 缓存不可用不应让已经成功的 API 请求变成页面错误。
-        console.warn('写入随机推荐缓存失败，继续使用内存数据:', error);
+        globalThis.window?.localStorage.setItem(cacheKey(scope), JSON.stringify({ songs, date, limit: RANDOM_SONGS_LIMIT }));
+    } catch {
+        // A cache write failure must not turn a successful request into an error.
     }
 }

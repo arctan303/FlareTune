@@ -1,6 +1,6 @@
 {
   "name": "flaretune",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "A self-hosted personal audio streaming application for Cloudflare Workers.",
   "private": true,
   "type": "module",
@@ -13,6 +13,10 @@
     "ingest:configure": "node tooling/ingest-agent/cli.mjs configure",
     "ingest:agent": "node --experimental-sqlite tooling/ingest-agent/cli.mjs start",
     "build": "vite build --config client/vite.config.js && node tooling/verify/verify-worker-assets.mjs",
+    "demo:media": "node tooling/demo/prepare-media.mjs",
+    "demo:dev": "vite --config demo/vite.config.js",
+    "demo:build": "node tooling/demo/verify-media.mjs && vite build --config demo/vite.config.js",
+    "demo:deploy": "npm run demo:build && wrangler deploy --config demo/wrangler.toml",
     "test": "node --experimental-sqlite --test",
     "preview": "npm run preview:worker",
     "preview:worker": "npm run build && node tooling/dev/preview-worker.mjs",

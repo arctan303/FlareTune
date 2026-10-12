@@ -1,3 +1,4 @@
+import { runtimeFetch } from './runtimeFetch.js';
 import { accountPlaylistsStore } from '../accountPlaylists.js';
 import { useUIStore } from '../store/useUIStore.js';
 import { hydrateSong } from '../utils.js';
@@ -34,7 +35,7 @@ export const createPlaylistPayloadLoader = ({
   getAccountId = () => useUIStore.getState().authSession?.user?.accountId || null,
   hydrateSong: hydrate = hydrateSong,
   loadMemberDetail = (id) => accountPlaylistsStore.getState().loadDetail(id),
-  fetchImpl = (url, init) => fetch(url, init),
+  fetchImpl = runtimeFetch,
   cache = libraryPayloadCache,
 } = {}) => async (
   playlist,

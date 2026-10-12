@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.md)
 
+## 1.2.0 — 2026-10-12
+
+### Public demo and project introduction
+
+- Add an independent, sign-in-free demo with 24 license-verified public tracks, real playback/seeking/queues, preset line-timed lyrics, search and roam. Favorites, personal playlists, history and preferences stay in the current browser, with tab synchronization, scoped reset and temporary operation when storage is unavailable.
+- Deploy Demo as static assets without accounts, D1, R2 or a live AI service. Ingest, instance management and assistant examples are clearly marked read-only. Normal instance authentication and private-media permissions remain effective.
+- Rewrite both READMEs and add demo guides, asset credits, quick starts in seven additional languages and screenshots from the real demo. Explain Cloudflare core hosting without a VPS, conditional 10 GB-month storage and other free allowances, account-wide usage and optional-service costs.
+
+### Languages and everyday use
+
+- Expand the interface to nine languages: add Traditional Chinese, Japanese, Korean, Spanish, French, German and Brazilian Portuguese. Support pre-login selection, account preferences, lazy loading, retry, English fallback and localized dates/plurals. Song metadata and user content stay in their original language.
+- Standardize daily picks at a target of 20 tracks and up to 8 on Home, showing actual counts for smaller libraries. Update by local date and support manual refresh, cancellation and retry while retaining previous results and the playback queue.
+- Describe roam categories as song languages, with instrumentals separate. Turning roam off stops automatic queue additions. Correct empty states, notifications and account-data versus browser-history descriptions.
+- Improve Home song columns/fixed cards, large-screen classic cover/lyrics/control layout and lyric/interlude animation lifecycles while retaining existing player design decisions.
+- Fix initialization and playback-state errors when browser storage is disabled, allowing the current session to continue.
+
+### Compatibility and limitations
+
+- No new database migration. Demo does not synchronize devices, call live models or allow administrative writes. Preset lyric timings are approximate manual line timings, without word-level precision.
+- New languages pass catalog, interpolation, loading and browser-layout checks; native-speaker feedback is welcome. Real iOS listening and the deployment wizard on a fresh Cloudflare account still require device/platform validation.
+
 ## 1.1.4 — 2026-10-06
 
 This release applies findings from runtime, security-boundary and performance analysis to the assistant, lyrics, fullscreen player, settings and device ingest, while reducing repeated database queries and background work.

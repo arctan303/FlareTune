@@ -1,3 +1,4 @@
+import { runtimeFetch } from './runtimeFetch.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { authenticatedFetch } from './authenticatedFetch.js';
 
@@ -11,7 +12,7 @@ export class SongFetchError extends Error {
 
 export async function fetchSongById(songId, {
   apiBase,
-  fetchImpl = globalThis.fetch,
+  fetchImpl = runtimeFetch,
 } = {}) {
   const normalizedId = String(songId || '').trim();
   if (!normalizedId) return null;

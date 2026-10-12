@@ -129,7 +129,7 @@ export function MobileSongPane({
 
   return (
     <>
-      <div role={isMobile && canShowLyrics ? 'button' : undefined} tabIndex={isMobile && canShowLyrics ? 0 : undefined} aria-label={isMobile && canShowLyrics ? t("点击进入多行歌词模式") : undefined} onClick={() => { if (isMobile && canShowLyrics) onEnterLyrics(); }} onKeyDown={enterWithKeyboard} className={`w-full flex-1 lg:flex-initial flex flex-col items-center justify-center min-h-0 relative mb-3 lg:mb-6 select-none ${isMobile && canShowLyrics ? 'cursor-pointer focus:outline-none' : ''}`} title={isMobile && canShowLyrics ? t("点击切换多行歌词") : undefined}>
+      <div role={isMobile && canShowLyrics ? 'button' : undefined} tabIndex={isMobile && canShowLyrics ? 0 : undefined} aria-label={isMobile && canShowLyrics ? t("点击进入多行歌词模式") : undefined} onClick={() => { if (isMobile && canShowLyrics) onEnterLyrics(); }} onKeyDown={enterWithKeyboard} className={`classic-player__artwork-slot w-full flex-1 lg:flex-initial flex flex-col items-center justify-center min-h-0 relative mb-3 lg:mb-6 select-none ${isMobile && canShowLyrics ? 'cursor-pointer focus:outline-none' : ''}`} title={isMobile && canShowLyrics ? t("点击切换多行歌词") : undefined}>
         {artwork || <ClassicArtwork coverUrl={coverUrl} isPlaying={isPlaying} isBuffering={isBuffering} isExpandingToSong={isExpandingToSong} />}
         {isMobile && canShowLyrics && hasValidLyrics && (
           <div className={`paper-mobile-lyric-preview lg:hidden cursor-pointer hover:opacity-95 transition-all select-none mt-5 sm:mt-7 mb-1 ${isExpandingToSong ? 'animate-large-cover-expand' : ''}`} title={t("点击展开完整多行歌词")}>
@@ -162,5 +162,5 @@ export function MobileSongPane({
 }
 
 export function DesktopLyricsPane({ lyricsScrollerProps, controlsBottomOffset, surfaceVisible = true }) {
-  return <div className="hidden lg:flex flex-1 lg:w-[52%] xl:w-[54%] min-h-0 h-full lg:pl-6 xl:pl-8 lg:pr-16 xl:pr-24 2xl:pr-28"><LyricsScroller {...lyricsScrollerProps} controlsBottomOffset={controlsBottomOffset} surfaceVisible={surfaceVisible} /></div>;
+  return <div className="classic-player__lyrics-column hidden lg:flex flex-1 lg:w-[52%] xl:w-[54%] min-h-0 h-full lg:pl-6 xl:pl-8 lg:pr-16 xl:pr-24 2xl:pr-28"><LyricsScroller {...lyricsScrollerProps} controlsBottomOffset={controlsBottomOffset} surfaceVisible={surfaceVisible} /></div>;
 }

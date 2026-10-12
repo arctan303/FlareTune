@@ -41,7 +41,7 @@
       90deg,
       var(--synced-lyric-sung) 0%,
       var(--synced-lyric-sung) var(--synced-word-progress),
-      var(--synced-lyric-unheard) calc(var(--synced-word-progress) + 0.75px),
+      var(--synced-lyric-unheard) calc(var(--synced-word-progress) + 1.2px),
       var(--synced-lyric-unheard) 100%
     );
     background-clip: text;
@@ -118,8 +118,14 @@ html.dark .synced-lyric-text[data-surface='playerbar'] {
 }
 
 @keyframes classic-lyric-breathe {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-1.8px); }
+  0%, 100% {
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+  50% {
+    transform: translateY(0);
+    filter: brightness(1.12);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

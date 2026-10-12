@@ -13,13 +13,17 @@ FlareTune works with a music library maintained by your instance administrator. 
 
 The instance administrator maintains the library. FlareTune does not automatically supply audio for songs that are absent from it.
 
-Desktop and mobile share the same library but use layouts suited to each screen. The image below shows a player with fictional local tracks. The [project screenshots](../README.en.md#screenshots) show more desktop and mobile views.
+Today's picks contains up to 20 playable songs, with up to 8 in the Home preview. Smaller libraries show their actual count. The selection updates on your first visit each day using your device's local date; choose “Refresh selection” in the detail view to get another batch. Each browser keeps a separate selection for each instance and account, so devices may receive different picks. Updating preserves playback and your queue; failures keep the previous selection available for retry.
+
+Roam categories describe song languages, with instrumental music listed separately; they are not genres. “Turn off roam” stops automatic additions to the queue while the current song keeps playing. Small libraries may repeat recent songs.
+
+Desktop and mobile share the same library but use layouts suited to each screen. The image below shows a player with fictional local tracks. The [project screenshots](../README.en.md#try-it-with-music) show more desktop and mobile views.
 
 [![Mobile full-screen player with cover art and playback controls](images/player-mobile.png)](images/player-mobile.png)
 
 ## Favorites and library
 
-Use the star on a song to add or remove it from Favorites. You can also create personal playlists, add songs, change track order, and arrange playlist order in your library. Favorites, playlists, and listening data belong to your account; other members cannot directly see or change your personal lists.
+Use the star on a song to add or remove it from Favorites. You can also create personal playlists, add songs, change track order, and arrange playlist order in your library. Favorites, playlists, and play statistics belong to your account; other members cannot directly see or change your personal lists.
 
 ## Music assistant
 
@@ -31,7 +35,7 @@ Memory is off by default. When enabled, the assistant can save lasting informati
 
 ## Appearance and personal settings
 
-In Settings, follow the system appearance or choose light or dark mode, a background, and a player style. Personal settings show account details and password controls. You can set the interface language for your account to Follow browser, Simplified Chinese, or English; the choice follows your account across devices. Before sign-in, pages follow the browser language, with English as the fallback for unsupported languages. Administrators also see library, accounts, AI, and instance settings; members do not see these admin areas.
+In Settings, follow the system appearance or choose light or dark mode, a background, and a player style. Personal settings show account details and password controls. Recent listening history stays in the current browser. You can set the interface language for your account to Follow browser or any of nine languages (Chinese in both scripts, English, Japanese, Korean, Spanish, French, German and Brazilian Portuguese); the choice follows your account across devices. Before sign-in, pages follow the browser language, with English as the fallback for unsupported languages. Administrators also see library, accounts, AI, and instance settings; members do not see these admin areas.
 
 ## Lyrics and translation
 

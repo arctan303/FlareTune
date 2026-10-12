@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { createResilientStorage } from '../utils/browserStorage.js';
 import {
   fetchAccountPlayStats,
   submitAccountPlayStats,
@@ -27,6 +28,7 @@ let consecutiveRefreshFailures = 0;
 let nextRefreshTime = 0;
 let acknowledgedUploadEpoch = 0;
 const volatilePending = new Map();
+const statsStorage = createResilientStorage();
 
 export function resetSyncBackoff() {
   consecutiveFailures = 0;
@@ -77,9 +79,10 @@ function savePendingEvent(subject, event) {
 function readPendingEvents(subject) {
   if (!subject) return [];
   const events = new Map();
-  const storage = getLocalStorage();
+  let storage;
+  try { storage = getLocalStorage(); } catch { /* Pending session events remain usable below. */ }
   const prefix = `${PENDING_EVENT_PREFIX}${encodeURIComponent(subject)}:`;
-  for (let index = 0; index < storage.length; index += 1) {
+  for (let index = 0; storage && index < storage.length; index += 1) {
     const key = storage.key(index);
     if (!key?.startsWith(prefix)) continue;
     try {
@@ -100,7 +103,7 @@ function readPendingEvents(subject) {
 function removePendingEvents(subject, ids) {
   const volatile = volatilePending.get(subject);
   for (const id of ids) {
-    getLocalStorage().removeItem(pendingStorageKey(subject, id));
+    try { getLocalStorage().removeItem(pendingStorageKey(subject, id)); } catch { /* Disabled storage has no durable event to remove. */ }
     volatile?.delete(id);
   }
   if (volatile?.size === 0) volatilePending.delete(subject);
@@ -708,7 +711,7 @@ export const usePlayStatsStore = create(
     {
       name: 'music-play-stats-v2',
       version: 2,
-      storage: createJSONStorage(getLocalStorage),
+      storage: createJSONStorage(() => statsStorage),
       partialize: (state) => ({
         ownerSubject: state.ownerSubject,
         playCounts: state.playCounts,

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { createResilientStorage } from '../utils/browserStorage.js';
 import {
   VISUAL_MOTION_PHASE,
   getDrawerVisibilityUpdate,
@@ -285,6 +286,7 @@ export const useUIStore = create(
     }),
     {
       name: 'musicPlayer_ui',
+      storage: createJSONStorage(() => createResilientStorage()),
       version: 1,
       migrate: () => undefined,
       partialize: (state) => ({

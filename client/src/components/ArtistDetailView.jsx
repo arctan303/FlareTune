@@ -180,7 +180,7 @@ export default function ArtistDetailView({
     if (songs.length > 0) {
       const player = usePlayerStore.getState();
       const count = player.appendSongs(songs);
-      showToast(count > 0 ? `已将 ${count} 首歌曲添加至播放列表` : '歌曲已在播放列表中');
+      showToast(count > 0 ? t('已将 {p0} 首歌曲添加至播放列表', { p0: count }) : t('歌曲已在播放列表中'));
     }
   };
 

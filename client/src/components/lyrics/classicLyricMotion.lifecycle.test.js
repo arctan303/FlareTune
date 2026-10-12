@@ -37,7 +37,7 @@ function element() {
     return { values, dataset: {}, style: { setProperty: (key, value) => { values[key] = value; }, removeProperty: key => { delete values[key]; } } };
 }
 
-test('completed characters stay level while only the current character rises, including backward seeks', () => {
+test('characters maintain a stable flat baseline with zero lift while filling, including backward seeks', () => {
     const s = subject('./SyncedLyricText.jsx', 1.25);
     const props = { active: true, visible: true, surface: 'classic', syncMode: 'word', clock: s.clock,
         line: { time: 0, text: 'ABCD', words: [{ text: 'AB', startTime: 0, endTime: 2 }, { text: 'CD', startTime: 2, endTime: 4 }] } };
@@ -50,8 +50,8 @@ test('completed characters stay level while only the current character rises, in
     // This harness attaches refs after effects; reapply the initial snapshot with them attached.
     s.motionListeners.forEach(fn => fn({ matches: false }));
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[1].values['--synced-char-lift'], '-0.281px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[1].values['--synced-word-progress'], '25%');
     assert.equal(characters[2].values['--synced-char-lift'], '0.000px');
     assert.equal(nodes(tree).filter(node => node.props.className === 'synced-lyric-text__base').length, 0);
@@ -61,19 +61,19 @@ test('completed characters stay level while only the current character rises, in
     assert.equal(root.dataset.motionRunning, 'true');
     s.audio.currentTime = 1.5;
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[1].values['--synced-char-lift'], '-0.900px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     s.audio.currentTime = 2.25;
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[1].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[2].values['--synced-char-lift'], '-0.281px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[2].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[3].values['--synced-char-lift'], '0.000px');
     assert.equal(words[0].values['--synced-word-progress'], '100%');
     assert.equal(words[1].values['--synced-word-progress'], '12.5%');
     s.audio.currentTime = 0.5;
     s.clock.sample('seeked');
-    assert.equal(characters[0].values['--synced-char-lift'], '-0.900px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[2].dataset.charState, 'pending');
     s.audio.paused = true;
@@ -98,7 +98,7 @@ test('a combined letter and emoji remain individual visible characters within on
     assert.deepEqual(characterNodes.map(node => node.props.children[0]), ['e\u0301', '🙂']);
     characterNodes.forEach((node, index) => node.props.ref(characters[index]));
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-0.900px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     s.harness.unmount();
 });

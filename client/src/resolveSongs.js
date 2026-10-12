@@ -1,3 +1,4 @@
+import { runtimeFetch } from './services/runtimeFetch.js';
 import { hydratePlayableSong } from './utils.js';
 import { isValidSongLanguage } from './constants/language.js';
 import { getApiBaseUrl } from './services/apiBase.js';
@@ -15,7 +16,7 @@ const normalizeSongIds = (values) => {
 };
 
 export async function resolveSongs(songIds, {
-  fetchImpl = globalThis.fetch,
+  fetchImpl = runtimeFetch,
   apiBase,
   hydrateSong = hydratePlayableSong,
   signal,

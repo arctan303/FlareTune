@@ -10,7 +10,7 @@ import { useSettingsResource } from '../hooks/useSettingsResource.js';
 
 export default function SubsonicSettings({ session }) {
   const locale = useLocale();
-  const guideUrl = `https://github.com/arctan303/FlareTune/blob/dev/guide/subsonic${locale === 'en' ? '.en' : ''}.md`;
+  const guideUrl = `https://github.com/arctan303/FlareTune/blob/dev/guide/subsonic${locale === 'zh' ? '' : '.en'}.md`;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [open, setOpen] = React.useState(false);

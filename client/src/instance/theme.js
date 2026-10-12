@@ -5,13 +5,14 @@
  * 使门禁与登录后的应用保持同一套明暗外观。
  */
 import React from 'react';
+import { getBrowserStorage } from '../utils/browserStorage.js';
 import { SHELL_THEME } from '../constants/shellThemes.js';
 import { readThemePreference, resolveDarkAppearance } from '../utils/themePreference.js';
 
 export const INSTANCE_DARK_QUERY = '(prefers-color-scheme: dark)';
 
 export function resolveInstanceDarkMode(
-  storage = globalThis.localStorage,
+  storage = getBrowserStorage(),
   media = globalThis.window?.matchMedia?.(INSTANCE_DARK_QUERY),
 ) {
   return resolveDarkAppearance(readThemePreference(storage), Boolean(media?.matches));
@@ -38,7 +39,7 @@ export function useInstanceTheme() {
   React.useEffect(() => {
     const media = window.matchMedia(INSTANCE_DARK_QUERY);
     const onChange = (event) => {
-      if (readThemePreference(window.localStorage) === 'system') setIsDark(event.matches);
+      if (readThemePreference(getBrowserStorage()) === 'system') setIsDark(event.matches);
     };
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);

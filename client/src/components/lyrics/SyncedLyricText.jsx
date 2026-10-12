@@ -143,10 +143,9 @@ export default function SyncedLyricText({
                     const character = characterRefs.current[index]?.[characterIndex];
                     if (!character) return;
                     const progress = clampProgress(normalizedProgress * characters.length - characterIndex);
-                    // Smooth only the currently filling glyph; completed glyphs stay level.
-                    const lift = prefersReducedMotion ? 0 : -1.8 * progress * progress * (3 - 2 * progress);
+                    // Flat baseline: prevent jittery vertical hopping, keep all glyphs strictly level.
                     character.style.setProperty('--synced-word-progress', `${progress * 100}%`);
-                    character.style.setProperty('--synced-char-lift', `${lift.toFixed(3)}px`);
+                    character.style.setProperty('--synced-char-lift', '0.000px');
                     character.dataset.charState = progress >= 1 ? 'complete' : progress > 0 ? 'active' : 'pending';
                 });
             }

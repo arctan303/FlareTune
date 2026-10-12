@@ -1,10 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const files = [
   'README.md', 'README.en.md', 'CONTRIBUTING.md', 'CONTRIBUTING.en.md',
-  ...['README', 'using-flaretune', 'deployment', 'administration', 'local-development', 'google-login', 'subsonic']
-    .flatMap((name) => [`guide/${name}.md`, `guide/${name}.en.md`]),
+  ...readdirSync('guide').filter(name => name.endsWith('.md')).map(name => `guide/${name}`),
   'tooling/ingest-agent/README.md', 'tooling/ingest-agent/README.en.md',
 ];
 const missing = [];

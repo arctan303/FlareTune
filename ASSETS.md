@@ -19,3 +19,11 @@
 `guide/logo-concepts/` 保留标识探索图；其中第二版“三条声波”已用于项目图标。探索图和正式图标均不纳入 MIT 代码与文档许可。
 
 部署者自行导入的音频、封面、歌词与歌手照片不属于本仓库授权范围；请确认自己有权存储和使用这些内容。
+
+## 公开 Demo
+
+Demo 音乐按 [demo/catalog.json](demo/catalog.json) 的逐曲许可使用，下载的音频不纳入 Git。Kevin MacLeod 作品采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)，须保留作者、来源、许可与加工说明；Rocks From The Garden 的《Amazing Grace》录音按来源页的作者公开领域贡献使用。歌词为公共领域文本，项目添加人工逐行时间轴；几何封面为原创图形。
+
+`guide/images/demo-home-desktop.png`、`demo-player-desktop.png` 和 `demo-mobile.png` 是该独立 Demo 的实际页面截图，仅含清单中的音频、歌词及原创封面/图形。第三方素材不因进入 Demo 或截图而转为 MIT。
+
+Demo 分类图 `demo/category.svg` 和演示背景均为本项目原创几何图；Demo 构建不打包正式分类照片，也不请求外部背景图。背景预设在 Demo 中改用示例封面。

@@ -6,6 +6,7 @@ These guides are for users and instance administrators. The root [README](../REA
 
 | Guide | Contents |
 | --- | --- |
+| [Demo and experience boundaries](demo.en.md) | Public music, browser data and read-only showcases |
 | [Using FlareTune](using-flaretune.en.md) | Search, playback, personal playlists, assistant, and settings |
 | [Google sign-in](google-login.en.md) | Configuration, account linking and sign-in without the local password |
 | [Deployment and setup](deployment.en.md) | Installation, secret verification, and database upgrades |
@@ -17,3 +18,5 @@ These guides are for users and instance administrators. The root [README](../REA
 To contribute, see [Contributing](../CONTRIBUTING.en.md). For development setup, see [Local development](local-development.en.md).
 
 This directory contains public guides. The internal `docs/` directory is not included in the public repository and is not a user manual.
+
+Quick starts in other languages: [繁體中文](quickstart.zh-Hant.md) · [日本語](quickstart.ja.md) · [한국어](quickstart.ko.md) · [Español](quickstart.es.md) · [Français](quickstart.fr.md) · [Deutsch](quickstart.de.md) · [Português (Brasil)](quickstart.pt-BR.md)

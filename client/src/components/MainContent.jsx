@@ -38,16 +38,10 @@ import { useSongLanguageCounts } from '../hooks/useSongLanguageCounts.js';
 import { insertNextWithFeedback } from '../services/playerActions.js';
 import { usePlayStatsStore } from '../store/usePlayStatsStore.js';
 import { deriveTopArtists } from '../utils/topArtists.js';
+import { createDailyRecommendationPlaylist } from '../services/dailyRecommendations.js';
+import { formatRoamLanguageScope } from '../constants/roamLanguages.js';
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
-
-const ROAM_LANGUAGE_OPTIONS = [
-    { key: 'all', label: '全库' },
-    { key: 'zh', label: '华语' },
-    { key: 'ja', label: '日文' },
-    { key: 'en', label: '欧美' },
-    { key: 'yue', label: '粤语' },
-];
 
 export default function MainContent({ myPlaylists, likedSongs, songsMap, activePage, activeRoute, onNavigate, toggleTheme, themePreference, selectTheme, scrollContainerRef }) {
     const accountPlaylists = useAccountPlaylists((state) => state.playlists);
@@ -126,32 +120,22 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         isCoolingDown: isRandomCoolingDown,
         error: randomError,
         refresh: refreshRandomSongs,
-    } = useRandomSongs(isAuthenticated);
+    } = useRandomSongs(isAuthenticated, {
+        accountId: authUser?.accountId,
+        active: activePage === 'home' || activePage === 'roam' || activeRoute?.id === 'daily-recommend',
+    });
     const handleRefreshRandomSongs = React.useCallback(async () => {
         const result = await refreshRandomSongs();
-        if (!result?.ok && result?.message) showToast(result.message);
+        if (!result?.ok && result?.message) showToast(t(result.message));
     }, [refreshRandomSongs]);
     const handleRefreshDailyRecommendInDetail = React.useCallback(async () => {
         const result = await refreshRandomSongs();
-        if (result?.ok && Array.isArray(result?.songs)) {
-            const currentViewing = useUIStore.getState().viewingPlaylistData;
-            if (currentViewing?.id === 'daily-recommend') {
-                setViewingPlaylist(
-                    {
-                        ...currentViewing,
-                        cover_url: result.songs[0]?.cover_url,
-                        preloadedSongs: result.songs,
-                        description: `每日随机精选 ${result.songs.length} 首灵感曲目`,
-                    },
-                    result.songs,
-                    playlistInfo
-                );
-            }
+        if (result?.ok) {
             showToast(t("已更新今日推荐歌曲"));
         } else if (!result?.ok && result?.message) {
-            showToast(result.message);
+            showToast(t(result.message));
         }
-    }, [playlistInfo, refreshRandomSongs, setViewingPlaylist]);
+    }, [refreshRandomSongs]);
     const currentRoamLang = randomRoam.language || 'all';
     const langCounts = useSongLanguageCounts(isAuthenticated && activePage === 'roam' && activeRoute?.type === 'page');
 
@@ -161,7 +145,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             showToast(t("已关闭随机漫游"));
             return;
         }
-        const activeLabel = ROAM_LANGUAGE_OPTIONS.find((opt) => opt.key === currentRoamLang)?.label || '全库';
+        const activeLabel = formatRoamLanguageScope(currentRoamLang);
         if (currentSong && playlist.length > 0) {
             setRandomRoamEnabled(true, { language: currentRoamLang });
             showToast(t("已开启【{p0}】随机漫游，将在队尾自动补充歌曲", { p0: (activeLabel) }));
@@ -412,18 +396,18 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
 
     React.useEffect(() => {
         if (activeRoute?.type !== 'playlist' || !activeRoute.id) return;
+        if (activeRoute.id === 'daily-recommend') {
+            requestGuardRef.current.cancel();
+            clearSkeletonTimer();
+            setViewingPlaylist(createDailyRecommendationPlaylist(randomSongs), randomSongs, null);
+            setPlaylistLoadState({ status: 'idle', playlist: null, error: null });
+            return;
+        }
         const memberPlaylist = accountPlaylists.find((item) => String(item.id) === activeRoute.id);
         if (activeRoute.id.startsWith('fav_') && !memberPlaylist) return;
         if (viewingPlaylist?.id === activeRoute.id && isViewingPlaylist) return;
         if (playlistLoadState.playlist?.id === activeRoute.id && ['opening', 'skeleton'].includes(playlistLoadState.status)) return;
         const playlist = memberPlaylist ? { ...memberPlaylist, source: 'member' }
-            : activeRoute.id === 'daily-recommend' ? {
-                id: 'daily-recommend',
-                name: '今日精选',
-                cover_url: randomSongs?.[0]?.cover_url,
-                preloadedSongs: randomSongs?.slice(0, 8) || [],
-                description: `每日精选 ${Math.min(randomSongs?.length || 0, 8)} 首灵感推荐`,
-            }
             : shelfPlaylists.find((entry) => String(entry.id) === activeRoute.id)
             || (String(favoritePlaylist?.id) === activeRoute.id ? { ...favoritePlaylist, source: 'member' } : null);
         if (playlist) void openPlaylist(playlist);
@@ -456,6 +440,10 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             favoriteDetail={favoriteDetail}
             likedSongs={likedSongs}
             randomSongs={randomSongs}
+            recommendationLoading={isRandomLoading}
+            recommendationRefreshing={isRandomRefreshing}
+            recommendationError={randomError}
+            onRetryRecommendations={handleRefreshRandomSongs}
             resolvedTopSongs={resolvedTopSongs}
             currentSong={currentSong}
             isPlaying={isPlaying}
@@ -538,8 +526,11 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 </div>
             </RetainedPage>}
             <PlaylistDetailView
-                isViewingPlaylist={isViewingPlaylist && activeRoute?.type === 'playlist'}
-                loadState={activeRoute?.type === 'playlist' ? playlistLoadState : { status: 'idle' }}
+                isViewingPlaylist={isViewingPlaylist && activeRoute?.type === 'playlist'
+                    && !(activeRoute.id === 'daily-recommend' && !randomSongs.length && (isRandomLoading || randomError))}
+                loadState={activeRoute?.id === 'daily-recommend' && !randomSongs.length && (isRandomLoading || randomError)
+                    ? { status: isRandomLoading ? 'skeleton' : 'error', playlist: createDailyRecommendationPlaylist(), error: new Error(t(randomError || '正在加载…')) }
+                    : activeRoute?.type === 'playlist' ? playlistLoadState : { status: 'idle' }}
                 leaving={leaving}
                 playlist={viewingPlaylist}
                 playlistInfo={playlistInfo}
@@ -553,7 +544,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 showFavoriteAction
                 headingRef={detailHeadingRef}
                 onClose={closePlaylist}
-                onRetry={openPlaylist}
+                onRetry={activeRoute?.id === 'daily-recommend' ? handleRefreshRandomSongs : openPlaylist}
                 onPlaySong={playSong}
                 onToggleLiked={toggleLikedWithFeedback}
                 isSongLiked={(song) => likedSongIdSet.has(String(song.id))}
@@ -564,6 +555,8 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 onChangeLibrarySort={handleChangeLibrarySort}
                 onRefreshDailyRecommend={handleRefreshDailyRecommendInDetail}
                 isRefreshingDailyRecommend={isRandomRefreshing}
+                isDailyRecommendCoolingDown={isRandomCoolingDown}
+                dailyRecommendationError={randomError}
             />
             {!(isViewingPlaylist && activeRoute?.type === 'playlist') && (
                 activeRoute?.type === 'playlist' ? (

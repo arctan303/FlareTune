@@ -10,7 +10,7 @@
 - 验证不同操作系统、浏览器和音乐文件格式下的入库体验。
 - 若使用旧手动本地网页工具，可帮助验证它的 R2 直传、分片上传和目标 bucket 核对；现行入库设备只使用管理员媒体接口，不支持 R2 直传。
 - 研究 [Subsonic／OpenSubsonic API](https://opensubsonic.netlify.app/docs/) 的基础接口，并用音流等客户端做互通测试；FlareTune 已提供该兼容接口，支持范围见[第三方客户端指南](guide/subsonic.md)。
-- 校对现有简体中文与 English 界面及公开文档，整理术语、翻译和遗漏；歌曲语言分类与界面国际化是两项不同工作。
+- 校对九种语言的界面及公开文档，整理术语、翻译和遗漏；歌曲语言分类与界面国际化是两项不同工作。
 - 改进播放器、歌词、助手、无障碍和中文使用文档。
 
 Node.js 工具的安装、首次配置和后台操作见[本地入库设备使用指南](tooling/ingest-agent/README.md)（Windows PowerShell 使用 `npm.cmd`）。参与代码开发可阅读[本地开发指南](guide/local-development.md)；验证新功能时建议先使用自己的隔离实例与少量可重建的样本。
@@ -25,10 +25,10 @@ Git 分支不会自动创建或绑定 Cloudflare D1/R2。开发 Worker 必须使
 
 根目录 `/docs/` 是被 Git 忽略的内部工作资料。请勿强制添加该目录，也不要移除 `.gitignore` 中的排除规则；供使用者阅读的文档请写入 `guide/`。
 
-## 发布版本
+## 界面翻译
 
-1. 在 `dev` 同步 `package.json`、锁文件顶层及根包版本，并在中英 `CHANGELOG` 顶部记录同一版本和日期。完成测试、构建、产物冒烟及对应审查后，确认开发 Worker 自动构建成功。
-2. 通过 Pull Request 将 `dev` 合入 `main`；确认生产自动构建成功，并回验健康、协议版本、匿名权限和前端产物。生产数据库升级仍由管理员显式执行，不随发版自动迁移。
-3. 在已验收的 `main` 发布提交上创建并推送注释标签 `X.Y.Z`（不加 `v`）。既有标签不可改写。
+界面支持简体中文、English、繁體中文、日本語、한국어、Español、Français、Deutsch 和 Português (Brasil)。英文回退目录位于 `client/src/i18n/en.js`，其余语言位于 `client/src/i18n/locales/`。新增文案时同步所有目录，保留 `{p0}` 等插值占位符；有复数形式的语言使用 `one` / `other`。运行 `npm run verify:i18n`，并检查窄屏、加载失败重试与实际上下文。欢迎母语使用者校对。
 
-面向 `main` 的 PR 会先运行只读发布验证。标签推送会触发 [Publish release](.github/workflows/release.yml)：核对远端注释标签来自 `main`、版本一致和完整双语日志，运行测试、构建及隔离 Worker 冒烟后，创建正式 GitHub Release。正文来自当版中英日志，沿用 GitHub 自动源码 ZIP/TAR 归档，不上传内部文档、日志、凭据或 `dist`。失败后修复原因再重跑；若须修复工作流，在 `main` 合入修复后通过该工作流的 Run workflow 指定原 tag 恢复，仍校验并构建原标签提交。已有 Release 和标签不改写。GitHub Release 与 Cloudflare 分支部署是独立流程。
+## 版本与验证
+
+面向 `main` 的 Pull Request 运行只读验证，已发布版本见 [Releases](https://github.com/arctan303/FlareTune/releases)。维护者内部发布操作不属于贡献者指南。

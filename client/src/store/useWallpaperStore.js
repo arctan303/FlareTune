@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { createResilientStorage } from '../utils/browserStorage.js';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   CARD_GLASS_LIMITS,
@@ -26,15 +27,8 @@ export const selectHasRenderableWallpaper = (state) => Boolean(
   && resolveActiveWallpaperUrl(state),
 );
 
-const getSafeStorage = () => {
-  if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
-  if (typeof globalThis !== 'undefined' && globalThis.localStorage) return globalThis.localStorage;
-  return {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-  };
-};
+const wallpaperStorage = createResilientStorage();
+const getSafeStorage = () => wallpaperStorage;
 
 export const useWallpaperStore = create(
   persist(

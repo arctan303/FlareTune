@@ -44,6 +44,7 @@ export default function InterludeDots({
                 const dot = dotRefs.current[index];
                 if (!dot) return;
                 dot.style.setProperty('--interlude-dot-fill', `${(fill * 100).toFixed(3)}%`);
+                dot.style.setProperty('--interlude-dot-progress', fill.toFixed(3));
                 dot.style.setProperty('--interlude-dot-glow', fill.toFixed(3));
                 dot.dataset.fillState = fill >= 1 ? 'complete'
                     : fills.slice(0, index).every(value => value >= 1) ? 'filling' : 'pending';
@@ -101,7 +102,11 @@ export default function InterludeDots({
                         className="classic-interlude-dot"
                         aria-hidden="true"
                         data-fill-state={stage > index ? 'complete' : 'pending'}
-                        style={{ '--interlude-dot-fill': stage > index ? '100%' : '0%', '--interlude-dot-glow': stage > index ? 1 : 0 }}
+                        style={{
+                            '--interlude-dot-fill': stage > index ? '100%' : '0%',
+                            '--interlude-dot-progress': stage > index ? 1 : 0,
+                            '--interlude-dot-glow': stage > index ? 1 : 0,
+                        }}
                     >
                         <span className="classic-interlude-dot__fill" />
                     </span>

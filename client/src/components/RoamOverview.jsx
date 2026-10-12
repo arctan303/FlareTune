@@ -2,20 +2,14 @@ import { t } from '../i18n/index.js';
 import React, { useMemo, useCallback } from 'react';
 import {
     Play,
-    Pause,
+    Power,
 } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { showToast } from '../store/useUIStore';
 import { EXPLORE_CATEGORIES } from '../constants/explore';
+import { ROAM_LANGUAGES } from '../constants/roamLanguages.js';
 
-export const ROAM_LANGUAGES = [
-    { key: 'zh', label: '华语' },
-    { key: 'en', label: '欧美' },
-    { key: 'ja', label: '日语' },
-    { key: 'ko', label: '韩语' },
-    { key: 'instrumental', label: '纯音乐' },
-    { key: 'other', label: '其他' },
-];
+export { ROAM_LANGUAGES } from '../constants/roamLanguages.js';
 
 export const ROAM_BATCH_SIZE_OPTIONS = [5, 10, 15, 20];
 
@@ -69,7 +63,7 @@ export default function RoamOverview({
         if (isAllSelected) {
             // 如果已经是全选，切换为仅华语
             setRandomRoamLanguage('zh');
-            showToast(t("已切换为仅华语漫游"));
+            showToast(t("已切换为仅中文漫游"));
         } else {
             setRandomRoamLanguage('all');
             showToast(t("已选择全部语种漫游"));
@@ -78,7 +72,7 @@ export default function RoamOverview({
 
     const handleSelectOnlyZh = useCallback(() => {
         setRandomRoamLanguage('zh');
-        showToast(t("已切换为仅华语漫游"));
+        showToast(t("已切换为仅中文漫游"));
     }, [setRandomRoamLanguage]);
 
     const handleBatchSizeChange = useCallback((size) => {
@@ -125,7 +119,7 @@ export default function RoamOverview({
                                         ) : (
                                             <>
                                                 <span className={`w-2 h-2 rounded-full ${randomRoam.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'}`} />
-                                                <span>{randomRoam.enabled ? t("运行中") : t("已就绪")}</span>
+                                                <span>{randomRoam.enabled ? t("运行中") : t("未开启")}</span>
                                             </>
                                         )}
                                     </span>
@@ -137,12 +131,12 @@ export default function RoamOverview({
                                 type="button"
                                 onClick={onToggleRoam}
                                 className="shrink-0 inline-flex items-center justify-center gap-2 px-7 py-3 rounded-full bg-white text-slate-900 font-bold text-sm shadow-xl hover:bg-white/95 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-                                aria-label={randomRoam.enabled ? t("暂停漫游") : t("开启漫游电台")}
+                                aria-label={randomRoam.enabled ? t("关闭漫游") : t("开启漫游电台")}
                             >
                                 {randomRoam.enabled ? (
                                     <>
-                                        <Pause size={17} fill="currentColor" />
-                                        <span>{t("暂停")}</span>
+                                        <Power size={17} />
+                                        <span>{t("关闭")}</span>
                                     </>
                                 ) : (
                                     <>
@@ -181,7 +175,7 @@ export default function RoamOverview({
                                     onClick={handleSelectAll}
                                     className="roam-radio__language-shortcut text-[11px] underline opacity-75 hover:opacity-100 cursor-pointer"
                                 >
-                                    {isAllSelected ? t("仅华语") : t("全选")}
+                                    {isAllSelected ? t("仅中文") : t("全选")}
                                 </button>
                             </div>
 
@@ -207,7 +201,7 @@ export default function RoamOverview({
                                         ))}
                                     </div>
                                 </div>
-                                <span className="text-white/70 whitespace-nowrap">{t("近期去重：20%")}</span>
+                                <span className="text-white/70">{t("优先避开近期歌曲")}</span>
                             </div>
                         </div>
                     </div>

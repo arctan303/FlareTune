@@ -1,5 +1,8 @@
 node_modules/
 dist/
+dist-demo/
+/demo/public/media/*.mp3
+/demo/public/media/*.ogg
 *.cache
 *.log
 *.tmp

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createResilientStorage } from '../utils/browserStorage.js';
 import {
   SHELL_THEME,
 } from '../constants/shellThemes';
@@ -10,6 +11,7 @@ import {
 } from '../utils/motionPerformance';
 
 const THEME_TRANSITION_MS = 360;
+const themeStorage = createResilientStorage();
 
 function applyTheme(themeMode) {
   const root = document.documentElement;
@@ -36,7 +38,7 @@ export function useTheme(
   const selectTheme = (mode) => {
     if (!THEME_PREFERENCES.has(mode)) return;
     const isDarkMode = resolveDarkAppearance(mode, window.matchMedia('(prefers-color-scheme: dark)').matches);
-    writeThemePreference(localStorage, mode);
+    writeThemePreference(themeStorage, mode);
     setThemePreferenceState(mode);
     setIsDark(isDarkMode);
   };
@@ -57,7 +59,7 @@ export function useTheme(
   }, []);
 
   useEffect(() => {
-    const preference = readThemePreference(localStorage);
+    const preference = readThemePreference(themeStorage);
     setThemePreferenceState(preference);
     setIsDark(resolveDarkAppearance(preference, window.matchMedia('(prefers-color-scheme: dark)').matches));
   }, [setIsDark]);

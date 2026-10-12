@@ -449,7 +449,7 @@ export default function LyricsScroller({
                                             {lines.map((line, idx) => (
                                                  <p
                                                     key={idx}
-                                                    className={`classic-lyrics__text break-words whitespace-pre-wrap leading-snug tracking-normal ${
+                                                    className={`classic-lyrics__text break-words whitespace-pre-wrap leading-snug tracking-normal ${idx === 0 ? 'classic-lyrics__text--primary' : 'classic-lyrics__text--secondary'} ${
                                                         idx === 0
                                                             ? `text-3xl md:text-3xl font-sans ${isActive ? 'text-white font-extrabold' : 'text-white/80 font-bold'}`
                                                             : `text-xl md:text-xl mt-1 ${isActive ? 'text-white/90' : 'text-white/50'}`

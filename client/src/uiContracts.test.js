@@ -51,7 +51,7 @@ test('playlist navigation has immediate feedback, delayed skeleton, no hover fet
   assert.doesNotMatch(main, /homeKey|shouldCancelPlaylistNavigation/);
   assert.match(main, /const isHomeConcealed = isViewingPlaylist \|\| \['skeleton', 'error'\]\.includes\(playlistLoadState\.status\)/);
   assert.match(main, /const isHomeConcealed = isViewingPlaylist/);
-  assert.match(main, /<PlaylistDetailView[\s\S]*isViewingPlaylist=\{isViewingPlaylist && activeRoute\?\.type === 'playlist'\}/);
+  assert.match(main, /<PlaylistDetailView[\s\S]*isViewingPlaylist=\{isViewingPlaylist && activeRoute\?\.type === 'playlist'/);
   assert.match(main, /activeRoute\?\.type === 'playlist'/);
 });
 
@@ -380,8 +380,8 @@ test('account playlists remain independent while the assistant page uses account
   assert.doesNotMatch(`${main}\n${search}\n${moreMenu}\n${readSource('./components/PlayerControls.jsx')}`, /accountPlaylistsStore\.getState\(\)\.(?:removeSong|addSongs)/);
   const homeOverview = readSource('./components/HomeOverview.jsx');
   assert.match(homeOverview, /onClick=\{\(event\) => leadPlaylist && openPlaylist\(leadPlaylist, event\)\}/);
-  assert.match(homeOverview, /onClick=\{\(event\) => leadSong && handleOpenDailyRecommend\(event\)\}/);
-  assert.match(homeOverview, /openPlaylist\(\{[\s\S]*id:\s*'daily-recommend'/);
+  assert.match(homeOverview, /onClick=\{handleOpenDailyRecommend\}/);
+  assert.match(homeOverview, /openPlaylist\(createDailyRecommendationPlaylist\(randomSongs\), e\)/);
 
   assert.match(assistant, /consumeSseJsonStream\(response\.body/);
   assert.match(eventStream, /buffer\.split\('\\n'\)/);
@@ -554,7 +554,7 @@ test('fullscreen lyric entry opens the shared workspace without a tools drawer',
   assert.match(immersive, /toolEntry=\{<LyricsWorkspaceEntry variant="immersive" \/>\}/);
 });
 
-test('random suggestions stay auth-gated and persist a single local cache key', () => {
+test('daily suggestions stay auth-gated and persist versioned scoped browser data', () => {
   const mainContent = readSource('./components/MainContent.jsx');
   const home = readSource('./components/HomeOverview.jsx');
   const hook = readSource('./hooks/useRandomSongs.js');
@@ -563,22 +563,21 @@ test('random suggestions stay auth-gated and persist a single local cache key', 
   const worker = readSource('../../server/src/instance/httpRouter.js');
   const songs = readSource('../../server/src/routes/localMusicDiscovery.js');
 
-  assert.match(cache, /RANDOM_SONGS_CACHE_KEY = 'musicPlayer_xiaoa_random_songs_v2'/);
-  assert.match(cache, /isValidRandomSongCache\(payload\?\.songs\)/);
+  assert.match(cache, /RANDOM_SONGS_CACHE_KEY = 'musicPlayer_xiaoa_random_songs_v3'/);
+  assert.match(cache, /isValidRandomSongCache\(payload\.songs\)/);
+  assert.match(cache, /encodeURIComponent\(scope\)/);
   assert.match(cache, /isValidSongLanguage\(song\.language\)/);
   assert.match(request, /\/api\/songs\/random/);
   assert.match(hook, /buildRandomSongsUrl\(apiBase, excludeIds\)/);
-  assert.match(hook, /requestSongs\(songs\.map\(\(song\) => String\(song\?\.id \|\| ''\)\)\)/);
   assert.match(songs, /CASE WHEN s\.id IN/);
   assert.match(hook, /credentials: 'include'/);
   assert.match(hook, /import \{ getApiBaseUrl \} from '\.\.\/services\/apiBase\.js'/);
   assert.match(hook, /getApiBaseUrl\(\)/);
-  assert.match(hook, /loadRandomSongs\(\)/);
-  assert.match(hook, /saveRandomSongs\(/);
-  assert.match(mainContent, /useRandomSongs\(isAuthenticated\)/);
+  assert.match(hook, /createDailyRecommendations/);
+  assert.match(mainContent, /useRandomSongs\(isAuthenticated, \{/);
   assert.match(mainContent, /handleRefreshRandomSongs/);
   assert.match(mainContent, /randomSongs=\{randomSongs\}/);
-  assert.match(home, /const pool = randomSongs\?\.length \? randomSongs : likedSongs/);
+  assert.match(home, /createDailyRecommendationPlaylist\(randomSongs\)/);
   assert.match(worker, /handleLocalMusicDiscoveryRoute\(request/);
   assert.match(worker, /decideApiAccess\(/);
   assert.match(songs, /isRandom = pathname === '\/api\/songs\/random' && request\.method === 'GET'/);
@@ -622,7 +621,7 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
   assert.match(home, /onClick=\{onToggleRoam\}/);
   assert.match(main, /startRandomRoam\(randomSongs/);
   assert.match(main, /setRandomRoamEnabled/);
-  assert.match(roam, /aria-label=\{randomRoam\.enabled \? t\("暂停漫游"\) : t\("开启漫游电台"\)\}/);
+  assert.match(roam, /aria-label=\{randomRoam\.enabled \? t\("关闭漫游"\) : t\("开启漫游电台"\)\}/);
   assert.match(queue, /队尾随机续播/);
   assert.match(queue, /role="switch"/);
   assert.match(queue, /retryRandomRoam/);
@@ -825,7 +824,7 @@ test('protected pages rely on the app auth gate without shipping visitor UI bran
 
   assert.match(search, /if \(!isAuthenticated\) \{/);
   assert.match(lyrics, /enabled: Boolean\(baseSong\?\.id\) && authenticated/);
-  assert.match(main, /useRandomSongs\(isAuthenticated\)/);
+  assert.match(main, /useRandomSongs\(isAuthenticated, \{/);
 });
 
 test('Explore library section is gated for authenticated members only on client and server', () => {

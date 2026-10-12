@@ -1,8 +1,9 @@
+import { runtimeFetch } from './runtimeFetch.js';
 import { instanceRequest, InstanceApiError } from '../instance/api.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { useUIStore } from '../store/useUIStore.js';
 const current = (accountId) => useUIStore.getState().authSession.user?.accountId === accountId;
-export async function uploadUserImage(blob, purpose, session, fetchImpl = globalThis.fetch) {
+export async function uploadUserImage(blob, purpose, session, fetchImpl = runtimeFetch) {
   if (!current(session.user.accountId)) throw new InstanceApiError(409, 'account_context_changed');
   const response = await fetchImpl(`${getApiBaseUrl()}/api/account/images/upload/${purpose}`, {
     method: 'POST', credentials: 'include', cache: 'no-store', body: blob,

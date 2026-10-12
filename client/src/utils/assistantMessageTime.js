@@ -15,7 +15,7 @@ export function resolveAssistantMessageTime(createdAt, { locale = 'en', now = Da
         ...(!sameYear ? { year: 'numeric' } : {}),
     };
     return {
-        label: new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en', options).format(date),
+        label: new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : locale, options).format(date),
         dateTime: date.toISOString(),
     };
 }
