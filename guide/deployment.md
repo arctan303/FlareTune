@@ -2,6 +2,8 @@
 
 [简体中文](deployment.md) · [English](deployment.en.md)
 
+先在[在线 Demo](https://flaretune.arcinks.com)体验播放器和完整设置，再部署自己的私人曲库。Demo 使用公开授权音乐；自己的实例需要导入音频，数据与[Demo](demo.md)分别保存。
+
 ## 免费额度与费用
 
 FlareTune 的核心只需 Workers、D1 和私有 R2，无需 VPS。以下为 2026-10-12 核对的 Cloudflare 公开额度，按账号汇总，其他应用也会占用：

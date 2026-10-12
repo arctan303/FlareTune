@@ -1,3 +1,4 @@
+import { SettingsInput } from './SettingsReadOnly.jsx';
 import React from 'react';
 import { instanceRequest } from '../instance/api.js';
 import { useUIStore } from '../store/useUIStore.js';
@@ -60,7 +61,7 @@ export default function SubsonicSettings({ session }) {
       <form onSubmit={(event) => { event.preventDefault(); save(true); }}>
         <p className="mt-3 text-sm text-[var(--muted)]">{t('为兼容客户端登录，将加密保存密码副本；关闭此功能或修改密码时删除。')}</p>
         <label className="mt-4 block text-sm">{t('当前密码')}
-          <input type="password" autoComplete="current-password" autoFocus required value={password} disabled={busy}
+          <SettingsInput type="password" autoComplete="current-password" autoFocus required value={password} disabled={busy}
             onChange={(event) => setPassword(event.target.value)}
             className="mt-2 min-h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3" />
         </label>

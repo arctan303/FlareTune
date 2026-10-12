@@ -1,5 +1,5 @@
+import { SettingsInput } from './SettingsReadOnly.jsx';
 import React from 'react';
-import { Check } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
 import { changePassword, logout, messageForError, updateOwnProfile, updateOwnUiLanguage } from '../instance/api.js';
 import { validLocalPassword } from '../instance/state.js';
@@ -12,7 +12,7 @@ import UserImageEditor from './UserImageEditor.jsx';
 import SubsonicSettings from './SubsonicSettings.jsx';
 import { GoogleAccountSettings } from './GoogleLogin.jsx';
 import { setUiLanguage, t, useLocale } from '../i18n/index.js';
-import { UI_LANGUAGES } from '../../../shared/uiLanguages.js';
+import LanguagePicker from './LanguagePicker.jsx';
 
 export default function AccountSettings() {
   useLocale();
@@ -186,14 +186,7 @@ export default function AccountSettings() {
       {user?.accountId && <GoogleAccountSettings key={`google-${user.accountId}`} session={authSession} />}
 
       <SettingsSection title={t('界面语言')}>
-        <div className="language-choices" role="group" aria-label={t('界面语言')} aria-busy={languageBusy}>
-          {[['auto', t('跟随浏览器')], ...UI_LANGUAGES.map(item => [item.id, item.name])].map(([value, label]) => (
-            <button type="button" key={value} className="language-choice" disabled={languageBusy}
-              aria-pressed={(user?.uiLanguage || 'auto') === value} onClick={() => void saveLanguage(value)}>
-              {label}{(user?.uiLanguage || 'auto') === value && <Check size={16} aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
+        <LanguagePicker showLabel={false} disabled={languageBusy} onChange={saveLanguage} />
         {languageError && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{t(languageError)}</p>}
       </SettingsSection>
 
@@ -201,10 +194,10 @@ export default function AccountSettings() {
         <SettingsEditDialog title={t('修改密码')} onClose={closePasswordDialog} busy={busy} size="small" closeOnBackdrop>
             <p className="mt-2 text-sm text-[var(--muted)]">{t('修改后所有设备的会话都会失效，请用新密码重新登录。')}</p>
             <form className="mt-6 space-y-4" onSubmit={handlePasswordChange}>
-              <label className="block text-sm font-medium">{t('当前密码')}<input autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
-              <label className="block text-sm font-medium">{t('新密码')}<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+              <label className="block text-sm font-medium">{t('当前密码')}<SettingsInput autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
+              <label className="block text-sm font-medium">{t('新密码')}<SettingsInput className={passwordInputClassName} type="password" autoComplete="new-password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
               <p className="text-sm text-[var(--muted)]">{t('至少 8 个字符。')}</p>
-              <label className="block text-sm font-medium">{t('确认新密码')}<input className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+              <label className="block text-sm font-medium">{t('确认新密码')}<SettingsInput className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
               {error && errorContext === 'password' && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(error)}</p>}
               <SettingsActions className="pt-2">
                 <SettingsButton closeDialog variant="quiet" disabled={busy}>{t('取消')}</SettingsButton>
@@ -236,7 +229,7 @@ export default function AccountSettings() {
             <form onSubmit={saveNickname} className="space-y-4">
               <div>
                 <label htmlFor="modal-nickname" className="block text-xs font-semibold text-[var(--muted)] mb-1.5">{t('展示昵称')}</label>
-                <input
+                <SettingsInput
                   id="modal-nickname"
                   className="w-full min-h-10 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)] transition-colors"
                   value={nickname}

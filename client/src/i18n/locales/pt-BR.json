@@ -1817,7 +1817,6 @@
   "浏览器存储不可用，本次体验的数据仅临时保留。": "O armazenamento do navegador está indisponível. Os dados duram apenas nesta sessão.",
   "只清除本浏览器的演示收藏、歌单、历史和偏好。确定重置？": "Apagar favoritos, listas, histórico e preferências da demo neste navegador?",
   "演示数据仅保存在当前浏览器，不需要登录。": "Os dados da demo ficam neste navegador. Não é necessário entrar.",
-  "可以播放、搜索、收藏、编辑本地歌单和切换外观；共享曲库、账号与AI功能只读。": "Reproduza, pesquise, favorite, edite listas locais e altere a aparência. Biblioteca compartilhada, contas e IA são somente leitura.",
   "同步歌词为预置人工时间轴，不在演示中联网搜词。": "As letras usam tempos por linha definidos manualmente. A demo não busca letras na internet.",
   "创建自己的音乐库": "Crie sua biblioteca",
   "演示模式下此功能只读。": "Este recurso é somente leitura na demo.",
@@ -1830,5 +1829,7 @@
   "保存歌单": "Salvar lista",
   "操作": "Ações",
   "导入": "Importar",
-  "上传歌曲": "Enviar músicas"
+  "上传歌曲": "Enviar músicas",
+  "可以播放、搜索、收藏、编辑本地歌单和切换外观；管理配置仅供查看，助手使用固定示例回复。": "Ouça, pesquise, salve favoritos, edite playlists locais e altere a aparência. Consulte as configurações administrativas e converse com respostas fixas de demonstração.",
+  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "Na demonstração, as configurações de administração são apenas para consulta; as preferências locais podem ser alteradas."
 }

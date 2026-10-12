@@ -1,3 +1,4 @@
+import { SettingsInput, SettingsTextarea, SettingsWriteButton } from './SettingsReadOnly.jsx';
 import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
@@ -164,7 +165,7 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
       {editOpen && (
         <form onSubmit={save} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_auto] sm:items-end pt-3 border-t border-[var(--line)] animate-[fade-in_0.15s_ease-out]">
           <Field label={t("显示名称")}>
-            <input className={inputClass} maxLength={80} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder={t("用户昵称")} />
+            <SettingsInput className={inputClass} maxLength={80} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder={t("用户昵称")} />
           </Field>
           <Field label={t("角色")}>
             <SelectControl aria-label={t("角色")} className={inputClass} value={role} onChange={(event) => setRole(event.target.value)}>
@@ -184,7 +185,7 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
               onClick={cancelEdit}
               className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
             >{t("取消")}</button>
-            <button className={buttonClass} type="submit" disabled={busy}>{t("保存")}</button>
+            <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("保存")}</SettingsWriteButton>
           </div>
         </form>
       )}
@@ -194,7 +195,7 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
         <form onSubmit={reset} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] p-3 animate-[fade-in_0.15s_ease-out]">
           <div className="flex-1 min-w-[200px]">
             <Field label={t("一次性临时密码")}>
-              <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("输入新的临时密码（至少 8 位）")} />
+              <SettingsInput className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("输入新的临时密码（至少 8 位）")} />
             </Field>
           </div>
           <div className="flex items-center justify-end gap-1.5">
@@ -203,7 +204,7 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
               onClick={() => setResetOpen(false)}
               className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
             >{t("取消")}</button>
-            <button className={buttonClass} type="submit" disabled={busy}>{t("确认重置")}</button>
+            <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("确认重置")}</SettingsWriteButton>
           </div>
         </form>
       )}
@@ -374,14 +375,14 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     <form onSubmit={(event) => saveSetting(event, key)} className="space-y-4">
       <Field label={label} hint={hint}>
         {multiline ? (
-          <textarea
+          <SettingsTextarea
             className={`${inputClass} min-h-28 font-mono`}
             value={draft[key] || ''}
             onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
             spellCheck={false}
           />
         ) : (
-          <input
+          <SettingsInput
             className={inputClass}
             value={draft[key] || ''}
             onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
@@ -514,7 +515,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                     <div key={key} className={['persona', 'system_rules', 'description', 'welcome_message'].includes(key) ? 'sm:col-span-2' : ''}>
                       <Field label={label}>
                         {['persona', 'system_rules', 'description', 'welcome_message'].includes(key) ? (
-                          <textarea
+                          <SettingsTextarea
                             className={`${inputClass} min-h-24`}
                             maxLength={max}
                             required
@@ -522,7 +523,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                             onChange={(event) => setAssistantDraft((current) => ({ ...current, [key]: event.target.value }))}
                           />
                         ) : (
-                          <input
+                          <SettingsInput
                             className={inputClass}
                             maxLength={max}
                             required
@@ -531,17 +532,17 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                           />
                         )}
                       </Field>
-                      {['persona', 'system_rules'].includes(key) && <button type="button"
+                      {['persona', 'system_rules'].includes(key) && <SettingsWriteButton type="button"
                         className="mt-2 text-xs text-[var(--accent)]"
                         onClick={() => setAssistantDraft((current) => ({ ...current,
                           [key]: overview.defaults?.assistant?.[key] || current[key] }))}>{t("重置为系统默认")}{label}
-                      </button>}
+                      </SettingsWriteButton>}
                     </div>
                   ))}
                   <div className="sm:col-span-2">
                     <Field label={t("温度（0～2）")} hint={t("越低越严谨，越高越有创造力。")}>
                       <div className="flex items-center gap-3">
-                        <input
+                        <SettingsInput
                           className="flex-1 accent-[var(--accent)] cursor-pointer"
                           type="range"
                           min="0"
@@ -584,11 +585,11 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                   <Field label={t("目标译文语言")} hint={t("实例内所有用户共用一份译文；修改后旧译文不会自动变成新语言。")}><SelectControl aria-label={t("目标译文语言")} className={inputClass} value={draft['lyrics.ai']?.targetLanguage || 'zh'} onChange={(event) => setLyricTargetLanguage(event.target.value)}>
                     {ALL_LANGUAGES.filter(({ code }) => !['instrumental', 'other'].includes(code)).map(({ code, label }) => <option key={code} value={code}>{t(label)}</option>)}
                   </SelectControl></Field>
-                  <Field label={t("温度（0～2）")}><input className={inputClass} type="number" min="0" max="2" step="0.1" value={draft['lyrics.ai']?.temperature ?? 0.2} onChange={(event) => setLyricAiField('temperature', Number(event.target.value))} /></Field>
+                  <Field label={t("温度（0～2）")}><SettingsInput className={inputClass} type="number" min="0" max="2" step="0.1" value={draft['lyrics.ai']?.temperature ?? 0.2} onChange={(event) => setLyricAiField('temperature', Number(event.target.value))} /></Field>
                   <div className="min-w-0 space-y-2">
                     <label htmlFor="lyrics-ai-style-rules" className="block text-xs font-semibold text-[var(--ink)]">{t("歌词处理准则")}</label>
-                    <textarea id="lyrics-ai-style-rules" className={`${inputClass} min-h-64 resize-y`} maxLength={8000} value={draft['lyrics.ai']?.styleRules || ''} onChange={(event) => setLyricAiField('styleRules', event.target.value)} />
-                    <button type="button" className="text-xs font-medium text-[var(--accent)] hover:underline" onClick={() => setLyricAiField('styleRules', overview.defaults?.lyrics?.styleRules || '')}>{t("重置为系统默认准则")}</button>
+                    <SettingsTextarea id="lyrics-ai-style-rules" className={`${inputClass} min-h-64 resize-y`} maxLength={8000} value={draft['lyrics.ai']?.styleRules || ''} onChange={(event) => setLyricAiField('styleRules', event.target.value)} />
+                    <SettingsWriteButton type="button" className="text-xs font-medium text-[var(--accent)] hover:underline" onClick={() => setLyricAiField('styleRules', overview.defaults?.lyrics?.styleRules || '')}>{t("重置为系统默认准则")}</SettingsWriteButton>
                   </div>
                   <fieldset className="min-w-0 space-y-4">
                     <legend className="text-xs font-semibold text-[var(--ink)]">{t("处理功能")}</legend>
@@ -665,10 +666,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
 
                   <form onSubmit={createAccount} className="grid gap-3.5 sm:grid-cols-2">
                     <Field label={t("用户名")}>
-                      <input className={inputClass} name="username" pattern={'[a-z0-9_.\\-]{3,64}'} minLength={3} maxLength={64} autoComplete="off" required placeholder={t("如 alex_turner")} />
+                      <SettingsInput className={inputClass} name="username" pattern={'[a-z0-9_.\\-]{3,64}'} minLength={3} maxLength={64} autoComplete="off" required placeholder={t("如 alex_turner")} />
                     </Field>
                     <Field label={t("显示名称")}>
-                      <input className={inputClass} name="displayName" maxLength={80} autoComplete="off" placeholder={t("用户昵称")} />
+                      <SettingsInput className={inputClass} name="displayName" maxLength={80} autoComplete="off" placeholder={t("用户昵称")} />
                     </Field>
                     <Field label={t("角色")}>
                       <SelectControl aria-label={t("角色")} className={inputClass} name="role">
@@ -677,7 +678,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                       </SelectControl>
                     </Field>
                     <Field label={t("一次性临时密码")}>
-                      <input className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("初始临时密码（至少 8 位）")} />
+                      <SettingsInput className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("初始临时密码（至少 8 位）")} />
                     </Field>
                     <div className="sm:col-span-2 flex justify-end items-center gap-2.5 pt-3 border-t border-[var(--line)]">
                       <button
@@ -685,7 +686,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                         onClick={() => setIsCreatingAccount(false)}
                         className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
                       >{t("取消")}</button>
-                      <button className={buttonClass} type="submit" disabled={busy}>{t("确认创建账号")}</button>
+                      <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("确认创建账号")}</SettingsWriteButton>
                     </div>
                   </form>
                 </div>

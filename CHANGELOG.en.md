@@ -7,8 +7,8 @@
 ### Public demo and project introduction
 
 - Add an independent, sign-in-free demo with 24 license-verified public tracks, real playback/seeking/queues, preset line-timed lyrics, search and roam. Favorites, personal playlists, history and preferences stay in the current browser, with tab synchronization, scoped reset and temporary operation when storage is unavailable.
-- Deploy Demo as static assets without accounts, D1, R2 or a live AI service. Ingest, instance management and assistant examples are clearly marked read-only. Normal instance authentication and private-media permissions remain effective.
-- Rewrite both READMEs and add demo guides, asset credits, quick starts in seven additional languages and screenshots from the real demo. Explain Cloudflare core hosting without a VPS, conditional 10 GB-month storage and other free allowances, account-wide usage and optional-service costs.
+- Deploy Demo as static assets without accounts, D1, R2 or a live AI service. A simulated administrator sees the real, complete settings and configuration dialogs; administrative writes are disabled, while the assistant accepts messages and returns a fixed example reply. Normal instance authentication and private-media permissions remain effective.
+- Rewrite both READMEs with a direct link to the [live demo](https://flaretune.arcinks.com), and add demo guides, asset credits and quick starts in seven additional languages. Explain Cloudflare core hosting without a VPS, conditional 10 GB-month storage and other free allowances, account-wide usage and optional-service costs.
 
 ### Languages and everyday use
 

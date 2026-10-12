@@ -1,10 +1,12 @@
 # FlareTune – Schnellstart
 
+[Online-Demo ohne Anmeldung öffnen](https://flaretune.arcinks.com) · [Umfang und Lizenzen (Englisch)](demo.en.md). Sieh dir alle Einstellungen als Administrator an und ändere lokale Einstellungen. Der Assistent nimmt Nachrichten an und antwortet mit einer festen Demo-Antwort, ohne ein Modell aufzurufen.
+
 [Deutsch](quickstart.de.md) · [English](../README.en.md) · [简体中文](../README.md)
 
 Deine private Musikbibliothek auf Cloudflare, ohne einen VPS zu verwalten. Die Anwendung läuft auf Workers, Metadaten liegen in D1 und Audio sowie Cover in privatem R2. R2 Standard bietet monatlich 10 GB-month kostenlos. Gesamtnutzung des Kontos, Anfragen und optionale Dienste können Kosten verursachen: [Kosten und Grenzen (Englisch)](deployment.en.md).
 
-In der [Demo ohne Anmeldung](demo.en.md) kannst du abspielen, suchen, Favoriten speichern und Playlists bearbeiten. Persönliche Daten bleiben in diesem Browser; Verwaltung und KI sind schreibgeschützte Beispiele.
+In der [Demo ohne Anmeldung](demo.en.md) kannst du abspielen, suchen, Favoriten speichern und Playlists bearbeiten. Persönliche Daten bleiben in diesem Browser.
 
 1. Aktiviere R2 in deinem Cloudflare-Konto und erstelle eigene Ressourcen über [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune).
 2. Lege ein zufälliges `SETUP_SECRET` mit mindestens 32 Zeichen fest und bewahre es sicher auf.

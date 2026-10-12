@@ -1,7 +1,4 @@
 .demo-root { display:flex; flex-direction:column; height:100dvh; color:var(--ink); background:var(--surface); }
-.demo-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 16px; padding:4px 16px; border-bottom:1px solid var(--line); }
 .demo-app { flex:1; min-height:0; }
 .demo-app .music-shell { height:100%; }
-.demo-root .app-sidebar__logout-btn { display:none; }
-.demo-dialog { width:min(900px,100%); max-height:90dvh; overflow:auto; padding:24px; border-radius:16px; background:var(--surface); color:var(--ink); }
-@media(max-width:600px) { .demo-toolbar { padding:4px 10px; } .demo-toolbar select { max-width:160px; } }
+.demo-root .app-sidebar__logout-btn { pointer-events:none; opacity:.45; }

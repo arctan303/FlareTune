@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
+import { useSettingsReadOnly } from './SettingsReadOnly.jsx';
 
 const textOf = (children) => React.Children.toArray(children).map((child) =>
   React.isValidElement(child) ? textOf(child.props.children) : String(child)).join('');
@@ -13,8 +14,10 @@ const optionsOf = (children) => React.Children.toArray(children).flatMap((child)
 });
 
 // Keeps the existing select callers and form values while sharing the visible UI.
-export default function SelectControl({ children, value, defaultValue, onChange, disabled,
+export default function SelectControl({ children, value, defaultValue, onChange, disabled, allowInReadOnly = false,
   className = '', name, id, form, menuAnchorRef, 'aria-label': label, 'aria-labelledby': labelledBy }) {
+  const readOnly = useSettingsReadOnly();
+  disabled = disabled || (readOnly && !allowInReadOnly);
   const options = optionsOf(children);
   const [localValue, setLocalValue] = React.useState(defaultValue ?? options[0]?.value ?? '');
   const selectedValue = String(value ?? localValue);

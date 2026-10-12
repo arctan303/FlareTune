@@ -4,9 +4,11 @@
 
 此目录面向使用者和实例管理员。根目录的 [README](../README.md) 是项目概览。
 
+先在[在线 Demo](https://flaretune.arcinks.com)听歌、体验歌单并浏览完整设置，无需登录。体验后可按[部署指南](deployment.md)创建自己的私人曲库；[Demo 说明](demo.md)列出浏览器数据、固定助手回复和素材许可。
+
 | 文档 | 内容 |
 | --- | --- |
-| [在线演示与体验边界](demo.md) | 公开音乐、浏览器数据与只读展示 |
+| [在线演示与体验边界](demo.md) | 公开音乐、本地数据、完整设置与固定助手回复 |
 | [使用 FlareTune](using-flaretune.md) | 找歌、播放、个人歌单、助手和设置 |
 | [Google 登录](google-login.md) | 配置、已有账号绑定及免输本站密码登录 |
 | [部署与初始化](deployment.md) | 安装流程、密钥验证及数据库升级 |

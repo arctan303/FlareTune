@@ -1,3 +1,4 @@
+import { SettingsInput } from './SettingsReadOnly.jsx';
 import React from 'react';
 import { instanceRequest, messageForError } from '../instance/api.js';
 import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
@@ -114,7 +115,7 @@ export function GoogleAccountSettings({ session }) {
     {action && <SettingsEditDialog title={t('验证当前密码')} onClose={close} busy={busy} size="small">
       <form onSubmit={submit} className="space-y-4">
         <p className="text-xs text-[var(--muted)] leading-relaxed">{t(action === 'unbind' ? '解绑后将退出所有设备，需要重新登录。' : '验证本站密码后，前往 Google 绑定此账号。')}</p>
-        <label className="block text-xs font-semibold">{t('当前密码')}<input autoFocus type="password" required autoComplete="current-password"
+        <label className="block text-xs font-semibold">{t('当前密码')}<SettingsInput autoFocus type="password" required autoComplete="current-password"
           className={inputClass} value={password} disabled={busy} onChange={event => setPassword(event.target.value)} /></label>
         {message && <p role="alert" className="text-xs text-red-600">{t(message)}</p>}
         <SettingsActions className="pt-3 border-t border-[var(--line)]">
@@ -159,7 +160,7 @@ export function GoogleAdminSettings({ session }) {
   const update = (field, value) => setDraft(current => ({ ...current, [field]: value }));
   return <SettingsSection title={t('Google 登录')} action={config && <SettingsActions>
     {config?.ready && <SettingsButton disabled={busy} onClick={() => edit()}>{t('修改配置')}</SettingsButton>}
-    {config && <input type="checkbox" role="switch" aria-label={t('启用 Google 登录')} className="settings-switch"
+    {config && <SettingsInput type="checkbox" role="switch" aria-label={t('启用 Google 登录')} className="settings-switch"
       checked={Boolean(config?.enabled)} disabled={!config?.ready || busy || Boolean(draft)} onChange={event => toggle(event.target.checked)} />}
   </SettingsActions>}>
     {!config && loading ? <SettingsSkeleton compact rows={1} label="正在读取…" /> : config && !config.ready && <p className="text-xs text-[var(--muted)]">{t('请管理员先完成数据库补充迁移。')}</p>}
@@ -171,13 +172,13 @@ export function GoogleAdminSettings({ session }) {
     {draft && <SettingsEditDialog title={t('修改 Google 登录配置')} message={message} busy={busy} onClose={close}>
       <form onSubmit={event => { event.preventDefault(); persist(draft, secret); }} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block min-w-0 text-xs font-semibold">Client ID<input className={inputClass} value={draft.clientId} disabled={busy} maxLength={255}
+          <label className="block min-w-0 text-xs font-semibold">Client ID<SettingsInput className={inputClass} value={draft.clientId} disabled={busy} maxLength={255}
             onChange={event => update('clientId', event.target.value.trim())} placeholder="….apps.googleusercontent.com" /></label>
-          <label className="block min-w-0 text-xs font-semibold">Client Secret<input type="password" autoComplete="off" className={inputClass} value={secret} disabled={busy} maxLength={512}
+          <label className="block min-w-0 text-xs font-semibold">Client Secret<SettingsInput type="password" autoComplete="off" className={inputClass} value={secret} disabled={busy} maxLength={512}
             onChange={event => setSecret(event.target.value)} placeholder={t(draft.secretConfigured ? '留空保留已有密钥' : '请输入 Google Client Secret')} /></label>
         </div>
         {draft.secretConfigured && !draft.secretReady && <p role="alert" className="text-xs text-red-600">{t('已有密钥无法解密，请重新录入 Client Secret。')}</p>}
-        <label className="block text-xs font-semibold">{t('回调来源')}<input type="url" required className={inputClass} value={draft.callbackOrigin} disabled={busy}
+        <label className="block text-xs font-semibold">{t('回调来源')}<SettingsInput type="url" required className={inputClass} value={draft.callbackOrigin} disabled={busy}
           onChange={event => update('callbackOrigin', event.target.value)} /></label>
         <p className="text-xs text-[var(--muted)] leading-relaxed">{t('将以下完整地址添加到 Google 控制台的 Authorized redirect URIs。')}</p>
         <code className="block break-all rounded-xl bg-[var(--surface)] p-3 text-xs font-mono">{draft.callbackOrigin.replace(/\/+$/, '')}/auth/google/callback</code>

@@ -61,6 +61,8 @@ test('corrupted and outdated references recover without leaking another origin',
   assert.deepEqual(state.playlists[1].songIds,[songs[0].id]);
   assert.deepEqual(state.shelf.items.map(i=>i.id),['a','fav_demo']);
   assert.equal(state.uiLanguage,'auto');
+  disk.setItem(DEMO_KEY,JSON.stringify({version:1,playlists:[],thread:{revision:-1,messages:[null,{role:'system',content:'bad'}]}}));
+  assert.deepEqual(createDemoData({storage:()=>disk}).read().thread,{revision:0,messages:[]});
   disk.setItem(DEMO_KEY,'{bad');
   assert.equal(createDemoData({storage:()=>disk}).read().playlists[0].songIds.length,0);
 });
@@ -83,14 +85,53 @@ test('play events deduplicate within and across batches; reset owns only demo ke
   assert.equal((await request(data,'/api/account/play-stats')).data.totalPlays,1);
   data.reset(); assert.equal(disk.getItem('unrelated'),'keep'); assert.equal(data.read().stats.length,0);
 });
-test('unknown and shared/admin/auth/model operations fail locally without network', async () => {
+test('unknown and shared/admin/auth writes fail locally without network', async () => {
   const original=globalThis.fetch; globalThis.fetch=()=>{throw Error('network must not be called');};
   try {
     const data=createDemoData({storage:()=>storage()});
-    for (const path of ['/auth/login','/api/admin/settings','/api/upload','/api/ai/chat','/rest/ping.view','/api/lyrics/workspace/demo-24']) {
+    for (const path of ['/auth/login','/api/upload','/rest/ping.view']) {
       for (const method of ['GET','POST','PUT','DELETE']) assert.equal((await request(data,path,method,{})).status,403,path);
+    }
+    for (const path of ['/api/admin/settings','/api/admin/accounts','/api/admin/google','/api/admin/ai/providers','/api/account/subsonic','/api/account/google','/api/lyrics/workspace/demo-24']) {
+      assert.equal((await request(data,path)).status,200,path);
+      for (const method of ['POST','PUT','DELETE','PATCH']) assert.equal((await request(data,path,method,{})).status,403,path);
     }
     const controller=new AbortController(); controller.abort();
     await assert.rejects(data.handle('/api/songs',{signal:controller.signal}),{name:'AbortError'});
   } finally {globalThis.fetch=original;}
+});
+
+test('demo session is an administrator and complete configuration fixtures remain immutable', async () => {
+  const data = createDemoData({ storage: () => storage() });
+  assert.equal((await request(data,'/api/auth/session')).user.role,'admin');
+  const settings = await request(data,'/api/admin/settings');
+  assert.equal(settings.settings['instance.name'].value,'FlareTune · Demo');
+  settings.settings['instance.name'].value='changed';
+  assert.equal((await request(data,'/api/admin/settings')).settings['instance.name'].value,'FlareTune · Demo');
+  assert.equal((await request(data,'/api/admin/accounts')).accounts.length,2);
+  assert.equal((await request(data,'/api/admin/catalog/songs')).data.songs.length,24);
+});
+
+test('real assistant SSE contract returns a fixed reply and keeps conversation only in browser storage', async () => {
+  const original = globalThis.fetch; globalThis.fetch = () => { throw Error('no backend'); };
+  try {
+    const disk = storage(), data = createDemoData({ storage: () => disk });
+    await request(data,'/api/account/ui-language','PATCH',{ uiLanguage: 'en' });
+    const turn = async (message, revision) => {
+      const response = await data.handle('/api/ai/chat',{ method:'POST', body:JSON.stringify({message,revision,client_message_id:crypto.randomUUID()}) });
+      assert.equal(response.headers.get('Content-Type'),'text/event-stream');
+      const events=(await response.text()).trim().split('\n\n').map(line=>JSON.parse(line.slice(6)));
+      assert.equal(events.at(-1).type,'done');
+      return events;
+    };
+    const first=await turn('Hello',0), second=await turn('Play music',1);
+    assert.match(first[0].content,/fixed demo reply/);
+    assert.equal(first[0].content,second[0].content);
+    const persisted=await request(createDemoData({ storage:()=>disk }),'/api/ai/thread');
+    assert.equal(persisted.thread.messages.length,4);
+    assert.equal((await request(createDemoData({ storage:()=>storage() }),'/api/ai/thread')).thread.messages.length,0);
+    assert.equal((await request(data,'/api/ai/chat','POST',{message:'stale',revision:0})).status,409);
+    assert.equal((await request(data,'/api/ai/thread','DELETE',{revision:2})).thread.messages.length,0);
+    assert.equal((await request(createDemoData({storage:()=>disk}),'/api/ai/thread')).thread.messages.length,0);
+  } finally { globalThis.fetch=original; }
 });

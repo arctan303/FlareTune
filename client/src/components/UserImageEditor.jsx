@@ -1,3 +1,4 @@
+import { SettingsInput, useSettingsReadOnly } from './SettingsReadOnly.jsx';
 import React from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore.js';
@@ -14,6 +15,7 @@ export default function UserImageEditor({
   compact = false,
   className = '',
 }) {
+  const readOnly = useSettingsReadOnly();
   const session = useUIStore((state) => state.authSession);
   const owner = session.user?.accountId;
   const [file, setFile] = React.useState(null);
@@ -78,11 +80,11 @@ export default function UserImageEditor({
           <span className="text-xs font-semibold tracking-wide text-white drop-shadow-xs">
             {t(slot?.url ? '更换封面' : '上传封面')}
           </span>
-          <input
+          <SettingsInput
             className="sr-only"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            disabled={busy}
+            disabled={busy || readOnly}
             onChange={(e) => {
               setFile(e.target.files?.[0] || null);
               e.target.value = '';
@@ -93,7 +95,7 @@ export default function UserImageEditor({
           <button
             type="button"
             className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-black/40 px-2 py-0.5 text-[11px] font-medium text-red-300 transition-colors hover:bg-black/60 hover:text-red-200 cursor-pointer"
-            disabled={busy}
+            disabled={busy || readOnly}
             onClick={remove}
           >
             <Trash2 size={11} aria-hidden="true" />
@@ -121,10 +123,10 @@ export default function UserImageEditor({
       <div className={`flex flex-wrap items-center gap-2 ${isCompact ? 'justify-center' : ''}`}>
         <label className={`inline-flex cursor-pointer items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-raised)] hover:border-[var(--line-strong)] transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)] ${isCompact ? 'px-2.5 py-1 text-xs font-medium' : 'min-h-11 px-4 text-sm'}`}>
           {t(purpose === 'avatar' ? (slot?.url ? '更换头像' : '上传头像') : (slot?.url ? '更换封面' : '上传封面'))}
-          <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e => { setFile(e.target.files?.[0] || null); e.target.value = ''; }} />
+          <SettingsInput className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e => { setFile(e.target.files?.[0] || null); e.target.value = ''; }} />
         </label>
         {slot?.url && (
-          <button type="button" className={`rounded-lg text-[var(--muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors ${isCompact ? 'px-2 py-1 text-xs' : 'min-h-11 px-3 text-sm'}`} disabled={busy} onClick={remove}>
+          <button type="button" className={`rounded-lg text-[var(--muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors ${isCompact ? 'px-2 py-1 text-xs' : 'min-h-11 px-3 text-sm'}`} disabled={busy || readOnly} onClick={remove}>
             {t('移除图片')}
           </button>
         )}

@@ -1,10 +1,12 @@
 import catalog from './catalog.json' with { type: 'json' };
-import { isUiLanguage } from '../shared/uiLanguages.js';
+import { isUiLanguage, matchUiLanguage } from '../shared/uiLanguages.js';
+import { demoUser, settingsFixture, fixedAssistantReply } from './settingsFixtures.js';
 export const DEMO_KEY = 'flaretune-demo:v1';
 export const DEMO_ACCOUNT = 'browser-demo';
 export const songs = Object.freeze(catalog);
 const byId = new Map(songs.map(song => [song.id, song]));
-const initial = () => ({ version: 1, revision: 1, uiLanguage: 'auto', stats: [],
+const resolveUiLanguage = (value, languages = []) => value !== 'auto' ? value : languages.map(matchUiLanguage).find(Boolean) || 'en';
+const initial = () => ({ version: 1, revision: 1, uiLanguage: 'auto', stats: [], thread: { revision: 0, messages: [] }, memoryEnabled: false,
   playlists: [
     { id: 'fav_demo', kind: 'favorite', name: '我的收藏', songIds: [], revision: 1, description: '' },
     { id: 'demo-picks', kind: 'regular', name: 'Open Music · Demo', songIds: songs.map(song => song.id), revision: 1,
@@ -36,6 +38,13 @@ export function createDemoData({ storage = () => globalThis.localStorage, random
         const shelfIds = [...new Set((Array.isArray(value.shelf?.items) ? value.shelf.items : []).map(p => p?.id))].filter(id => ids.has(id));
         for (const id of ids) if (!shelfIds.includes(id)) shelfIds.push(id);
         memory = { ...initial(), ...value, uiLanguage: isUiLanguage(value.uiLanguage) ? value.uiLanguage : 'auto',
+          memoryEnabled: value.memoryEnabled === true,
+          thread: { revision: Number.isSafeInteger(value.thread?.revision) && value.thread.revision >= 0 ? value.thread.revision : 0,
+            messages: (Array.isArray(value.thread?.messages) ? value.thread.messages : []).filter(message => message
+              && ['user','assistant'].includes(message.role) && typeof message.content === 'string').slice(-60)
+              .map(message => ({ id: String(message.id || crypto.randomUUID()), role: message.role, content: message.content.slice(0,10000),
+                ...(typeof message.clientMessageId === 'string' ? { clientMessageId: message.clientMessageId } : {}),
+                createdAt: Number(message.createdAt) || 0 })) },
           stats: Array.isArray(value.stats) ? value.stats.filter(e => e && byId.has(e.song_id) && typeof e.event_id === 'string').slice(-1000) : [],
           playlists, shelf: { revision: Number.isSafeInteger(value.shelf?.revision) && value.shelf.revision > 0 ? value.shelf.revision : 1,
             items: shelfIds.map(id => ({ kind: 'member', id })) } };
@@ -78,11 +87,49 @@ export function createDemoData({ storage = () => globalThis.localStorage, random
     const state = read();
     if (path === '/api/auth/session' && method === 'GET') return new Response(JSON.stringify({
       authenticated: true, mustChangePassword: false, csrfToken: 'local-demo',
-      user: { accountId: DEMO_ACCOUNT, username: 'demo', displayName: 'Demo', role: 'member', uiLanguage: state.uiLanguage },
+      user: demoUser(state.uiLanguage),
     }), { headers: { 'Content-Type': 'application/json' } });
     let body = {};
     try { if (init.body) body = JSON.parse(init.body); } catch { return result(null, 400, 'INVALID_JSON'); }
     const commit = data => { write(state); return result(data); };
+    const json = data => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+    if (method === 'GET') {
+      const fixture = settingsFixture(path);
+      if (fixture) return json(fixture);
+    }
+    if (path === '/api/admin/catalog/songs' && method === 'GET') {
+      if (!params.has('limit')) params.set('limit','30');
+      const page = slice(filter(params), params);
+      return result({ ...page, songs: page.items.map(song => ({ ...song, version: 1 })), limit: Number(params.get('limit')) || 30 });
+    }
+    if (path.startsWith('/api/admin/catalog/songs/') && method === 'GET') {
+      const song = byId.get(decodeURIComponent(path.split('/').at(-1)));
+      return song ? result({ song: { ...song, version: 1 } }) : result(null,404,'SONG_NOT_FOUND');
+    }
+    if (path === '/api/admin/ingest/devices' && method === 'GET') return result({ devices: [] });
+    if (path === '/api/ai/bootstrap' && method === 'GET') return json({ assistant: { welcomeMessage: fixedAssistantReply(resolveUiLanguage(state.uiLanguage, globalThis.navigator?.languages)) }, imageInput: { enabled: false } });
+    if (path === '/api/ai/thread' && method === 'GET') return json({ thread: state.thread });
+    if (path === '/api/ai/thread' && method === 'DELETE') {
+      if (body.revision !== state.thread.revision) return new Response(JSON.stringify({ error: 'revision_conflict', thread: state.thread }), { status: 409 });
+      state.thread = { revision: state.thread.revision + 1, messages: [] }; write(state);
+      return json({ thread: state.thread });
+    }
+    if (path === '/api/ai/chat' && method === 'POST') {
+      const text = typeof body.message === 'string' ? body.message.trim() : '';
+      if (!text || text.length > 10000) return result(null,400,'INVALID_MESSAGE');
+      if (body.revision !== state.thread.revision) return new Response(JSON.stringify({ error: 'revision_conflict', thread: state.thread }), { status: 409 });
+      const reply = fixedAssistantReply(resolveUiLanguage(state.uiLanguage, globalThis.navigator?.languages));
+      state.thread = { revision: state.thread.revision + 1, messages: [...state.thread.messages,
+        { id: crypto.randomUUID(), role: 'user', content: text, clientMessageId: body.client_message_id, createdAt: now() },
+        { id: crypto.randomUUID(), role: 'assistant', content: reply, createdAt: now() }].slice(-60) };
+      write(state);
+      return new Response([{ type: 'content', content: reply }, { type: 'thread_state', thread: state.thread }, { type: 'done' }]
+        .map(event => `data: ${JSON.stringify(event)}\n\n`).join(''), { headers: { 'Content-Type': 'text/event-stream' } });
+    }
+    if (path === '/api/ai/memory') {
+      if (method === 'PATCH' && typeof body.enabled === 'boolean') { state.memoryEnabled = body.enabled; write(state); }
+      if (method === 'GET' || method === 'PATCH') return json({ enabled: state.memoryEnabled, memories: [] });
+    }
     if (path === '/api/account/ui-language' && method === 'PATCH') {
       if (!isUiLanguage(body.uiLanguage)) return result(null, 400, 'INVALID_LANGUAGE');
       state.uiLanguage = body.uiLanguage; return commit({ uiLanguage: body.uiLanguage });
@@ -211,7 +258,16 @@ export function createDemoData({ storage = () => globalThis.localStorage, random
       const lyric = await import('./lyrics.js');
       return result(lyric.default);
     }
-    // Unknown reads and all shared/admin/AI writes fail closed, locally.
+    const workspace = path.match(/^\/api\/lyrics\/workspace\/([^/]+)(\/candidates)?$/);
+    if (workspace && method === 'GET') {
+      const song = byId.get(decodeURIComponent(workspace[1]));
+      if (!song) return result(null,404,'SONG_NOT_FOUND');
+      if (workspace[2]) return result({ candidates: [], warnings: [], providers: [] });
+      const lyrics = song.language === 'instrumental' ? null : (await import('./lyrics.js')).default;
+      return result({ song, lyrics, asset: lyrics ? { schemaVersion: 2, status: 'ready', original: lyrics,
+        offsetMs: 0, translation: null } : null, etag: 'demo-lyrics-v1', aiCompletionEnabled: false });
+    }
+    // Everything outside the explicit browser-only simulation fails closed.
     return result(null,403,'DEMO_READ_ONLY');
   };
   return { handle, read, isTemporary: () => temporary,

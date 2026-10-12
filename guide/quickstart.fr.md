@@ -1,5 +1,7 @@
 # FlareTune : votre bibliothèque musicale privée, sans VPS
 
+[Essayer la démo sans connexion](https://flaretune.arcinks.com) · [Périmètre et licences (anglais)](demo.en.md). Consultez tous les paramètres en tant qu’administrateur et modifiez les préférences locales. Envoyez un message à l’assistant pour recevoir une réponse de démonstration fixe, sans appel à un modèle.
+
 FlareTune héberge le lecteur web, le service de bibliothèque et vos fichiers musicaux dans votre propre compte Cloudflare. Importez vos fichiers audio, parcourez les titres, artistes et albums, puis écoutez sur ordinateur ou mobile. Vous n'avez pas de VPS à maintenir en fonctionnement.
 
 Vous pouvez commencer en utilisant les quotas gratuits de Cloudflare. Cela ne garantit pas la gratuité pour toutes les collections et tous les usages : R2 Standard comprend 10 GB-month par mois, partagés entre l'audio, les pochettes et les autres fichiers ; les requêtes et le calcul ont aussi leurs limites. Les dépassements et les services d'IA facultatifs peuvent être facturés. Consultez les [tarifs officiels de R2](https://developers.cloudflare.com/r2/pricing/) et le [guide d'installation en anglais](https://github.com/arctan303/FlareTune/blob/main/guide/deployment.en.md).

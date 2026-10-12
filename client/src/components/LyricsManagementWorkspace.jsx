@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import React from 'react';
+import { SettingsInput, useSettingsReadOnly } from './SettingsReadOnly.jsx';
 import { Check, ChevronDown, ChevronUp, Download, FileUp, Languages, Loader2,
   Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
@@ -145,6 +146,7 @@ function Preview({ value, currentTime, followsPlayback, editing = false, rows = 
   </div>;
 }
 function TimelineShiftRail({ value, onChange, onApply, saving, draft = false }) {
+  const readOnly = useSettingsReadOnly();
   const railRef = React.useRef(null);
   const trackRef = React.useRef(null);
   React.useEffect(() => {
@@ -184,11 +186,12 @@ function TimelineShiftRail({ value, onChange, onApply, saving, draft = false }) 
     </div>
     <button type="button" aria-label={t("歌词整体延后50毫秒")} onClick={() => onChange((current) => stepTimelineShift(current, 1))}><ChevronDown size={18} /></button>
     <output className="lyric-studio__shift-value" aria-live="polite">{value === 0 ? '0.00s' : `${value > 0 ? '+' : '−'}${(Math.abs(value) / 1000).toFixed(2)}s`}</output>
-    {draft ? <small>{t("保存时生效")}</small> : <button type="button" className="lyric-studio__shift-apply" disabled={saving || value === 0} onClick={onApply}>{t("应用")}</button>}
+    {draft ? <small>{t("保存时生效")}</small> : <button type="button" className="lyric-studio__shift-apply" disabled={readOnly || saving || value === 0} onClick={onApply}>{t("应用")}</button>}
     <button type="button" className="lyric-studio__shift-clear" disabled={saving || value === 0} onClick={() => onChange(0)}>{t("清零")}</button>
   </div>;
 }
 export default function LyricsManagementWorkspace({ route, songFromLibrary, onNavigate }) {
+  const readOnly = useSettingsReadOnly();
   const selectedSong = useUIStore((state) => state.lyricsWorkspaceSong);
   const baseSong = String(selectedSong?.id) === String(route?.songId) ? selectedSong
     : songFromLibrary || (route?.songId ? { id: route.songId, title: '当前歌曲' } : null);
@@ -394,7 +397,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
           setEditing(true);
         }}>{t("编辑歌词")}</button>}
         {editing && <><button type="button" disabled={draftAiBusy} onClick={discardEdits}>{t("取消")}</button>
-          <button type="button" className="is-primary" disabled={managed.saving || draftAiBusy} onClick={() => void saveRows()}><Check size={15} />{t("保存")}</button></>}
+          <button type="button" className="is-primary" disabled={readOnly || managed.saving || draftAiBusy} onClick={() => void saveRows()}><Check size={15} />{t("保存")}</button></>}
       </div>}
       <PageBackButton className="lyric-studio__back" onClick={leaveWorkspace} />
     </header>
@@ -429,12 +432,12 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
           <section className="lyric-studio__card"><div><strong>{t("文件")}</strong>
             <p>{t("LRC 可用于其他播放器；JSON 备份保留逐字时间。")}</p></div>
             <div className="lyric-studio__file-actions">
-              {isAdmin && <><input ref={fileRef} type="file" accept=".lrc,.txt,text/plain"
+              {isAdmin && <><SettingsInput ref={fileRef} type="file" accept=".lrc,.txt,text/plain"
                 className="lyric-studio__file-input" aria-label={t("导入 LRC 文件")} onChange={(event) => void importFile(event)} />
-                <button type="button" onClick={() => fileRef.current?.click()}><FileUp size={16} />{t("导入 LRC")}</button></>}
-              {isAdmin && <><input ref={backupRef} type="file" accept=".json,application/json"
+                <button type="button" disabled={readOnly} onClick={() => fileRef.current?.click()}><FileUp size={16} />{t("导入 LRC")}</button></>}
+              {isAdmin && <><SettingsInput ref={backupRef} type="file" accept=".json,application/json"
                 className="lyric-studio__file-input" aria-label={t("导入歌词备份")} onChange={(event) => void restoreFile(event)} />
-                <button type="button" onClick={() => backupRef.current?.click()}><FileUp size={16} />{t("导入备份")}</button></>}
+                <button type="button" disabled={readOnly} onClick={() => backupRef.current?.click()}><FileUp size={16} />{t("导入备份")}</button></>}
               <button type="button" disabled={!hasAsset} onClick={() => exportFile('original')}><Download size={16} />{t("导出 LRC")}</button>
               <button type="button" disabled={!managed.asset?.translation} onClick={() => exportFile('translation')}><Download size={16} />{t("导出译文")}</button>
               <button type="button" disabled={!hasAsset} onClick={() => exportFile('backup')}><Download size={16} />{t("完整备份")}</button>
@@ -442,9 +445,9 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
           {isAdmin && <section className="lyric-studio__card"><div><strong>{t("歌词管理")}</strong>
             </div>
             <div className="lyric-studio__file-actions">
-              <button type="button" disabled={!managed.asset?.translation || managed.saving}
+              <button type="button" disabled={readOnly || !managed.asset?.translation || managed.saving}
                 onClick={() => void managed.clearTranslation()}><Trash2 size={16} />{t("清除译文")}</button>
-              <button type="button" disabled={managed.saving} onClick={async () => {
+              <button type="button" disabled={readOnly || managed.saving} onClick={async () => {
                 if (!canDiscardEdits()) return;
                 if (window.confirm(t("确定重置这首歌的共享歌词？")) && await managed.reset()) setShift(0);
               }}><Trash2 size={16} />{t("重置歌词")}</button>

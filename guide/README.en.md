@@ -4,9 +4,11 @@
 
 These guides are for users and instance administrators. The root [README](../README.en.md) introduces the project.
 
+Start with the [live demo](https://flaretune.arcinks.com): listen, try playlists and explore full settings without signing in. Then follow the [deployment guide](deployment.en.md) to create your private library. [Demo details](demo.en.md) explain browser data, fixed assistant replies and music licenses.
+
 | Guide | Contents |
 | --- | --- |
-| [Demo and experience boundaries](demo.en.md) | Public music, browser data and read-only showcases |
+| [Demo and experience boundaries](demo.en.md) | Public music, local data, full settings and fixed assistant replies |
 | [Using FlareTune](using-flaretune.en.md) | Search, playback, personal playlists, assistant, and settings |
 | [Google sign-in](google-login.en.md) | Configuration, account linking and sign-in without the local password |
 | [Deployment and setup](deployment.en.md) | Installation, secret verification, and database upgrades |

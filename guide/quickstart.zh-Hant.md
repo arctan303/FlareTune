@@ -1,10 +1,12 @@
 # FlareTune 快速開始
 
+[免登入試用線上 Demo](https://flaretune.arcinks.com) · [體驗範圍與素材授權（英文）](demo.en.md)。示範以管理員身分呈現完整設定；本機偏好可修改，管理設定僅供查看。助手可傳送訊息並收到固定範例回覆，不呼叫模型。
+
 [繁體中文](quickstart.zh-Hant.md) · [English](../README.en.md) · [简体中文](../README.md)
 
 不必維護 VPS，在 Cloudflare 建立自己的私人音樂庫。Workers 提供應用程式、D1 保存中繼資料、私人 R2 儲存音訊與封面。R2 Standard 每月有 10 GB-month 免費額度；帳號總用量、請求及選用服務仍可能產生費用，請先閱讀[費用說明（英文）](deployment.en.md)。
 
-先試用[免登入 Demo](demo.md)：可播放、搜尋、收藏和編輯播放清單，個人資料只存在目前瀏覽器；管理和 AI 為唯讀範例。
+先試用[免登入 Demo](demo.md)：可播放、搜尋、收藏和編輯播放清單，個人資料只存在目前瀏覽器。
 
 1. 準備 Cloudflare 帳號並開通 R2，按 [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune) 建立獨立資源。
 2. 設定並妥善保存至少 32 字元的隨機 `SETUP_SECRET`。

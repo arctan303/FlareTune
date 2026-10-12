@@ -6,19 +6,11 @@
 
 FlareTune 把网页播放器、账号与曲库服务放在 Cloudflare Workers，元信息放在 D1，音频和封面放在私有 R2。无需运行一台常开的服务器，电脑和手机打开网页就能听自己的收藏，也可以给家人创建独立账号。
 
-Cloudflare R2 Standard 每月提供 **10 GB-month 免费存储额度**，可以作为小型私人曲库的起点；Workers、D1 和存储操作也各有免费额度。能否保持零费用取决于账号总用量、请求量及可选服务，见[免费额度与费用](guide/deployment.md#免费额度与费用)。需要自行开通 Cloudflare/R2、完成初始化并导入有权使用的音频。
-
-**[打开在线 Demo](https://flaretune-demo.arctan.workers.dev)** · [部署自己的曲库](#部署自己的曲库) · [使用指南](guide/using-flaretune.md) · [更新日志](CHANGELOG.md)
+**[打开在线 Demo](https://flaretune.arcinks.com)** · [部署自己的曲库](#部署自己的曲库) · [使用指南](guide/using-flaretune.md) · [更新日志](CHANGELOG.md)
 
 ## 先听一会儿
 
-Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、收藏和个人歌单都能体验；收藏、历史及偏好只保存在当前浏览器。AI、入库和实例管理提供明确标识的只读案例，完整能力由自己的实例提供。素材许可和具体边界见 [Demo 说明](guide/demo.md)。
-
-[![Demo 桌面主页：歌曲、推荐和底部播放器](guide/images/demo-home-desktop.png)](guide/images/demo-home-desktop.png)
-
-| 全屏播放器 | 手机界面 |
-| --- | --- |
-| [<img src="guide/images/demo-player-desktop.png" alt="Demo 全屏播放器与同步歌词" width="640">](guide/images/demo-player-desktop.png) | [<img src="guide/images/demo-mobile.png" alt="Demo 手机全屏播放器" width="230">](guide/images/demo-mobile.png) |
+Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、收藏和个人歌单都能体验；收藏、历史及偏好只保存在当前浏览器。Demo 默认以模拟管理员展示与正式实例相同的完整页面和设置；语言、外观等本地偏好可修改，管理配置可展开查看。助手可以发送消息并接收固定示例回复，不调用真实模型。素材许可和具体边界见 [Demo 说明](guide/demo.md)。
 
 ## 日常听歌，也方便管理
 
@@ -43,6 +35,8 @@ Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、
 2. 填写并妥善保存至少 32 字符的随机 `SETUP_SECRET`。
 3. 部署完成后打开网址，验证密钥、创建首个管理员，然后导入音乐。
 
+Cloudflare R2 Standard 每月提供 **10 GB-month 免费存储额度**，可以作为小型私人曲库的起点；Workers、D1 和存储操作也各有免费额度。能否保持零费用取决于账号总用量、请求量及可选服务，见[免费额度与费用](guide/deployment.md#免费额度与费用)。需要自行开通 Cloudflare/R2、完成初始化并导入有权使用的音频。
+
 公开模板提供部署入口，首次初始化在应用内完成，无需手工运行数据库迁移。完整步骤、手动部署、费用、备份和升级见[部署指南](guide/deployment.md)。全新 Cloudflare 账号的向导行为以平台实际提示为准。
 
 ## 文档与贡献
@@ -52,7 +46,7 @@ Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、
 | [使用指南](guide/using-flaretune.md) | 播放、漫游、歌单、助手、语言与外观 |
 | [管理与维护](guide/administration.md) | 曲库、账号、实例配置与数据维护 |
 | [部署与初始化](guide/deployment.md) | 安装、免费额度、密钥、备份与升级 |
-| [Demo](guide/demo.md) | 浏览器数据、只读边界、素材来源与复现 |
+| [Demo](guide/demo.md) | 浏览器数据、完整设置、固定助手回复与素材来源 |
 | [本地开发](guide/local-development.md) | React/Vite/Workers 开发与验证 |
 | [全部文档](guide/README.md) | 用户、管理员和客户端文档索引 |
 | [参与贡献](CONTRIBUTING.md) | 代码、翻译、设计、测试与问题反馈 |

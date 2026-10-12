@@ -1,3 +1,4 @@
+import { SettingsInput, SettingsWriteButton } from './SettingsReadOnly.jsx';
 import React from 'react';
 import SettingsEditDialog from './SettingsEditDialog.jsx';
 import SettingsSkeleton from './SettingsSkeleton.jsx';
@@ -148,18 +149,18 @@ function FeatureModelCard({ feature, label, data, csrfToken, refresh, onSaved })
               <>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold">{t('模型')}</span>
-                  <button
+                  <SettingsWriteButton
                     type="button"
                     className="text-xs text-[var(--accent)] disabled:opacity-50 cursor-pointer hover:underline"
                     disabled={disabled || loading || !provider?.hasKey}
                     onClick={() => void readModels()}
                   >
                     {loading ? t('正在获取模型…') : t('获取模型')}
-                  </button>
+                  </SettingsWriteButton>
                 </div>
 
                 <div ref={modelFieldRef} className="model-input">
-                  <input
+                  <SettingsInput
                     aria-label={`${t(label)} ${t('模型 ID')}`}
                     className={`${inputClass}${models.length ? ' pr-12' : ''}`}
                     required
@@ -279,12 +280,12 @@ export default function AiProfilesPanel({ csrfToken }) {
     {editing && <SettingsEditDialog title={t('配置供应商')} onClose={closeEditor} busy={busy} size="medium">
       <form onSubmit={saveProvider} className="space-y-4">
         <label className="block space-y-1 text-xs font-semibold">{t('接入方案')}<SelectControl aria-label={t('接入方案')} className={inputClass} disabled={busy || Boolean(existing)} value={draft.source} onChange={event => setDraft(changeProviderSource(draft, event.target.value))}>{Object.entries(AI_SOURCES).map(([source, preset]) => <option key={source} value={source}>{source === 'custom' ? t('自定义供应商') : preset.name}</option>)}</SelectControl></label>
-        <label className="block space-y-1 text-xs font-semibold">{t('显示名称')}<input className={inputClass} disabled={busy} maxLength={80} value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder={draft.source === 'custom' ? t('自定义供应商') : AI_SOURCES[draft.source].name} /></label>
+        <label className="block space-y-1 text-xs font-semibold">{t('显示名称')}<SettingsInput className={inputClass} disabled={busy} maxLength={80} value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder={draft.source === 'custom' ? t('自定义供应商') : AI_SOURCES[draft.source].name} /></label>
         {draft.source === 'custom' && <>
           <label className="block space-y-1 text-xs font-semibold">{t('API 协议')}<SelectControl aria-label={t('API 协议')} className={inputClass} value={draft.protocol} onChange={event => setDraft({ ...draft, protocol: event.target.value, apiKey: '' })}>{Object.entries(AI_PROTOCOLS).map(([protocol, label]) => <option key={protocol} value={protocol}>{t(label)}</option>)}</SelectControl></label>
-          <label className="block space-y-1 text-xs font-semibold">{t('API 基础地址')}<input className={inputClass} type="url" required maxLength={2048} value={draft.baseUrl} onChange={event => setDraft({ ...draft, baseUrl: event.target.value })} placeholder="https://example.com/v1" /><span className="block font-normal text-[var(--muted)]">{t('填写 HTTPS 基础地址，包含版本前缀，不包含具体请求路径。')}</span></label>
+          <label className="block space-y-1 text-xs font-semibold">{t('API 基础地址')}<SettingsInput className={inputClass} type="url" required maxLength={2048} value={draft.baseUrl} onChange={event => setDraft({ ...draft, baseUrl: event.target.value })} placeholder="https://example.com/v1" /><span className="block font-normal text-[var(--muted)]">{t('填写 HTTPS 基础地址，包含版本前缀，不包含具体请求路径。')}</span></label>
         </>}
-        <label className="block space-y-1 text-xs font-semibold">API Key<input className={inputClass} type="password" autoComplete="new-password" required={needsKey} maxLength={4096} value={draft.apiKey} onChange={event => setDraft({ ...draft, apiKey: event.target.value })} placeholder={needsKey ? t('请输入 API Key') : t('留空保留已保存的密钥')} /></label>
+        <label className="block space-y-1 text-xs font-semibold">API Key<SettingsInput className={inputClass} type="password" autoComplete="new-password" required={needsKey} maxLength={4096} value={draft.apiKey} onChange={event => setDraft({ ...draft, apiKey: event.target.value })} placeholder={needsKey ? t('请输入 API Key') : t('留空保留已保存的密钥')} /></label>
         <SettingsActions className="pt-2 border-t border-[var(--line)]">
           <SettingsButton closeDialog variant="quiet" disabled={busy}>{t('取消')}</SettingsButton>
           <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? '保存中…' : '保存配置')}</SettingsButton>

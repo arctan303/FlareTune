@@ -3,6 +3,10 @@ compatibility_date = "2026-10-12"
 workers_dev = true
 preview_urls = false
 
+[[routes]]
+pattern = "flaretune.arcinks.com"
+custom_domain = true
+
 # Assets-only deployment: no script, D1, R2, service binding or secrets.
 [assets]
 directory = "../dist-demo"

@@ -1,3 +1,4 @@
+import { SettingsInput, useSettingsReadOnly } from './SettingsReadOnly.jsx';
 import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
@@ -63,6 +64,7 @@ function LocalAudioPreview({ file }) {
 }
 
 export default function AdminSongCreatePage() {
+  const readOnly = useSettingsReadOnly();
   const pageActive = usePageActivity();
   const sessionGuardRef = React.useRef(null);
   React.useEffect(() => {
@@ -275,6 +277,7 @@ export default function AdminSongCreatePage() {
   };
 
   const addFiles = (fileList) => {
+    if (readOnly) return;
     if (savingRef.current) return;
     const files = Array.from(fileList || []);
     if (!files.length) return;
@@ -648,9 +651,9 @@ export default function AdminSongCreatePage() {
           <UploadCloud className="mx-auto text-[var(--accent)]" size={28} aria-hidden="true" />
           <p className="mt-2 text-sm font-semibold">{t("拖入一首或多首音频")}</p>
           <p className="mt-1 text-xs text-[var(--muted)]">{t("最多 20 首；MP3、FLAC、WAV、OGG、M4A、AAC、WMA；单文件不超过 100 MB")}</p>
-          <button type="button" disabled={saving} onClick={() => fileInput.current?.click()}
+          <button type="button" disabled={saving || readOnly} onClick={() => fileInput.current?.click()}
             className="primary-button mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50">{t("选择音频文件")}</button>
-          <input ref={fileInput} type="file" multiple accept=".mp3,.flac,.wav,.ogg,.m4a,.aac,.wma" className="sr-only"
+          <SettingsInput ref={fileInput} type="file" multiple accept=".mp3,.flac,.wav,.ogg,.m4a,.aac,.wma" className="sr-only"
             onChange={(event) => { addFiles(event.target.files); event.target.value = ''; }} />
         </div>}
       </div>
@@ -700,7 +703,7 @@ export default function AdminSongCreatePage() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-          <input aria-label={t("筛选预览歌曲")} placeholder={t("筛选歌名、歌手、专辑或路径")} value={previewQuery}
+          <SettingsInput aria-label={t("筛选预览歌曲")} placeholder={t("筛选歌名、歌手、专辑或路径")} value={previewQuery}
             onChange={(event) => { setPreviewQuery(event.target.value); setPreviewPage(1); }}
             className={inputClass + ' min-w-48 flex-1'} />
           <SelectControl aria-label={t("筛选入库状态")} value={previewStatus}
@@ -751,7 +754,7 @@ export default function AdminSongCreatePage() {
             return <article key={entry.key}
               className="flex flex-wrap items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 sm:flex-nowrap sm:p-4">
               <label className="shrink-0 pt-3">
-                <input type="checkbox" aria-label={t('选择入库 {title}', { title: entry.draft.title })}
+                <SettingsInput type="checkbox" aria-label={t('选择入库 {title}', { title: entry.draft.title })}
                   checked={entry.selected !== false} disabled={saving || entry.status === 'saved'}
                   onChange={(event) => updateEntry(entry.key, (current) => ({
                     ...current, selected: event.target.checked,
@@ -848,14 +851,14 @@ export default function AdminSongCreatePage() {
               <p className="mt-1 break-all text-xs text-[var(--muted)]">{t("文件：")}{reviewing.audioFile.name}{' '}{t("· 音频将使用本次文件")}</p>
               <div className="mt-2 flex items-center gap-2"><CoverThumbnail file={reviewing.coverFile} previewUrl={reviewing.coverPreviewUrl} /><span className="text-xs text-[var(--muted)]">{t("本次封面；无封面时替换会保留旧封面")}</span></div>
               <LocalAudioPreview file={reviewing.audioFile} /></div>
-            <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><input type="radio" name="duplicate-choice" value="skip"
+            <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><SettingsInput type="radio" name="duplicate-choice" value="skip"
               checked={reviewChoice === 'skip'} onChange={() => setReviewChoice('skip')} /><span>{t("跳过此首（默认）")}</span></label>
-            <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><input type="radio" name="duplicate-choice" value="add"
+            <label className="flex gap-2 rounded-xl border border-[var(--line)] p-3"><SettingsInput type="radio" name="duplicate-choice" value="add"
               checked={reviewChoice === 'add'} onChange={() => setReviewChoice('add')} /><span>{t("新增另一版本：创建新的歌曲 ID")}</span></label>
             {!reviewing.duplicateMatches.length && <p className="text-xs text-[var(--muted)]">{t("当前已找不到原匹配项。请明确选择新增，或保持跳过。")}</p>}
             {reviewing.duplicateMatches.map((match) => <div key={match.source + (match.id || match.key)}
               className="rounded-xl border border-[var(--line)] p-3">
-              {match.source === 'catalog' && <label className="flex gap-2 font-semibold"><input type="radio" name="duplicate-choice"
+              {match.source === 'catalog' && <label className="flex gap-2 font-semibold"><SettingsInput type="radio" name="duplicate-choice"
                 checked={reviewChoice === 'replace:' + match.id} onChange={() => setReviewChoice('replace:' + match.id)} />
                 <span>{t("替换这首曲库歌曲")}</span></label>}
               {match.source !== 'catalog' && <strong>{t("本次清单匹配（尚不能替换）")}</strong>}
@@ -892,13 +895,13 @@ export default function AdminSongCreatePage() {
             {editorError && <p role="alert" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm">{t(editorError)}</p>}
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium sm:col-span-2">{t("歌曲标题")}{' '}<span aria-hidden="true">*</span>
-                <input ref={titleInput} className={inputClass + ' mt-1.5'} value={editing.draft.title}
+                <SettingsInput ref={titleInput} className={inputClass + ' mt-1.5'} value={editing.draft.title}
                   onChange={(event) => setField('title', event.target.value)} /></label>
-              <label className="text-sm font-medium">{t("歌手")}<input className={inputClass + ' mt-1.5'} value={editing.draft.artist}
+              <label className="text-sm font-medium">{t("歌手")}<SettingsInput className={inputClass + ' mt-1.5'} value={editing.draft.artist}
                   onChange={(event) => setField('artist', event.target.value)} /></label>
-              <label className="text-sm font-medium">{t("专辑")}<input className={inputClass + ' mt-1.5'} value={editing.draft.album}
+              <label className="text-sm font-medium">{t("专辑")}<SettingsInput className={inputClass + ' mt-1.5'} value={editing.draft.album}
                   onChange={(event) => setField('album', event.target.value)} /></label>
-              <label className="text-sm font-medium">{t("时长（秒）")}<input className={inputClass + ' mt-1.5'} type="number" min="0" max="86400" step="1"
+              <label className="text-sm font-medium">{t("时长（秒）")}<SettingsInput className={inputClass + ' mt-1.5'} type="number" min="0" max="86400" step="1"
                   value={editing.draft.duration}
                   onChange={(event) => setField('duration', event.target.value)} /></label>
               <label className="text-sm font-medium">{t("歌曲语言")}<SelectControl aria-label={t("歌曲语言")} className={inputClass + ' mt-1.5'} value={editing.draft.language}
@@ -918,7 +921,7 @@ export default function AdminSongCreatePage() {
                 <CoverThumbnail file={editing.coverFile} />
                 <div className="min-w-0 space-y-2">
                   <p className="text-xs text-[var(--muted)]">{t("优先读取内嵌封面，也可替换。")}</p>
-                  <label className="inline-flex cursor-pointer rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold">{t("选择封面图片")}<input type="file" accept=".jpg,.jpeg,.png,.webp" className="sr-only"
+                  <label className="inline-flex cursor-pointer rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold">{t("选择封面图片")}<SettingsInput type="file" accept=".jpg,.jpeg,.png,.webp" className="sr-only"
                       onChange={(event) => {
                         const file = event.target.files?.[0];
                         if (file) setCover(file);

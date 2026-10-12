@@ -2,6 +2,8 @@
 
 [简体中文](administration.md) · [English](administration.en.md)
 
+Explore full pages and configuration dialogs in the [demo administration settings](https://flaretune.arcinks.com/settings/admin/assistant). The demo simulates an administrator with configuration available for viewing; make real changes in your own installation. See [demo details](demo.en.md).
+
 ## Admin entry points
 
 After signing in, administrators can open Library management, Song ingest, AI and assistant, Account management, and Instance settings from the Settings sidebar. Instance settings brings together the instance name, allowed origins, ingest devices, runtime status, and database upgrades. Members cannot access these areas. Administrators import their own music files. The Worker reads media from private R2 and checks session access.

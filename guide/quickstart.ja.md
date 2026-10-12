@@ -1,10 +1,12 @@
 # FlareTune クイックスタート
 
+[ログイン不要のオンラインデモ](https://flaretune.arcinks.com) · [体験範囲と素材ライセンス（英語）](demo.en.md)。管理者としてすべての設定を閲覧でき、ローカル設定は変更できます。助手にはメッセージを送信でき、モデルを呼び出さず固定のデモ返信を表示します。
+
 [日本語](quickstart.ja.md) · [English](../README.en.md) · [简体中文](../README.md)
 
 VPS を管理せずに、Cloudflare で自分の音楽ライブラリを作れます。アプリは Workers、メタデータは D1、音声とカバーは非公開の R2 に置きます。R2 Standard には月 10 GB-month の無料枠があります。アカウント全体の使用量、リクエスト、任意のサービスによって料金が発生するため、[料金の説明（英語）](deployment.en.md)をご確認ください。
 
-まず[ログイン不要のデモ](demo.en.md)で再生、検索、お気に入り、プレイリストを試せます。個人データはこのブラウザーに保存され、管理や AI は読み取り専用の例です。
+まず[ログイン不要のデモ](demo.en.md)で再生、検索、お気に入り、プレイリストを試せます。個人データはこのブラウザーに保存され。
 
 1. Cloudflare アカウントで R2 を有効にし、[Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune) からリソースを作成します。
 2. 32 文字以上のランダムな `SETUP_SECRET` を設定し、安全に保管します。

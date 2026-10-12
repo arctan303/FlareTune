@@ -1817,7 +1817,6 @@
   "浏览器存储不可用，本次体验的数据仅临时保留。": "Le stockage du navigateur est indisponible. Les données restent uniquement pendant cette session.",
   "只清除本浏览器的演示收藏、歌单、历史和偏好。确定重置？": "Effacer les favoris, listes, historique et préférences de démo de ce navigateur ?",
   "演示数据仅保存在当前浏览器，不需要登录。": "Les données de démo restent dans ce navigateur. Aucune connexion nécessaire.",
-  "可以播放、搜索、收藏、编辑本地歌单和切换外观；共享曲库、账号与AI功能只读。": "Écoutez, recherchez, ajoutez des favoris, modifiez les listes locales et l’apparence. Bibliothèque partagée, comptes et IA sont en lecture seule.",
   "同步歌词为预置人工时间轴，不在演示中联网搜词。": "Les paroles utilisent une synchronisation manuelle par ligne. La démo ne recherche pas de paroles en ligne.",
   "创建自己的音乐库": "Créer votre bibliothèque",
   "演示模式下此功能只读。": "Cette fonction est en lecture seule dans la démo.",
@@ -1830,5 +1829,7 @@
   "保存歌单": "Enregistrer la liste",
   "操作": "Actions",
   "导入": "Importer",
-  "上传歌曲": "Importer des morceaux"
+  "上传歌曲": "Importer des morceaux",
+  "可以播放、搜索、收藏、编辑本地歌单和切换外观；管理配置仅供查看，助手使用固定示例回复。": "Écoutez, recherchez, ajoutez des favoris, modifiez les playlists locales et l’apparence. Consultez les réglages administratifs et discutez avec des réponses de démonstration fixes.",
+  "演示模式下，管理配置仅供查看；本地偏好可以修改。": "Dans la démo, les paramètres d’administration sont consultables ; les préférences locales peuvent être modifiées."
 }

@@ -2,6 +2,8 @@
 
 [简体中文](deployment.md) · [English](deployment.en.md)
 
+Try the player and full settings in the [live demo](https://flaretune.arcinks.com) before deploying your own library. The demo uses publicly licensed music; your installation needs your own audio and stores data separately from the [demo](demo.en.md).
+
 ## Free allowances and costs
 
 The core uses Workers, D1 and private R2, without a VPS. These Cloudflare allowances were checked on 2026-10-12 and apply across the account, including other applications:

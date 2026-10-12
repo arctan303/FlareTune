@@ -4,6 +4,8 @@
 
 FlareTune works with a music library maintained by your instance administrator. The administrator imports songs and creates member accounts; members can then listen, organize personal playlists, and use enabled assistant features.
 
+Before deploying, try the player, playlists and settings in the [live demo](https://flaretune.arcinks.com), with no sign-in. Demo personal data stays in your browser and the assistant returns a fixed example; see [demo details](demo.en.md).
+
 ## Find and play music
 
 - **Home** shows library content, recent listening, and quick playback entry points.
