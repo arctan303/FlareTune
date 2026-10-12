@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deviceFolder, resolveDeviceLanguage } from './deviceFolderLanguage.js';
+import { setUiLanguage } from '../i18n/index.js';
+await setUiLanguage('zh');
 
 test('device language mapping applies only to the chosen directory', () => {
   const instrumental = { path: 'music/ambient/Track.mp3', common: { title: 'Track', artist: 'Artist' } };

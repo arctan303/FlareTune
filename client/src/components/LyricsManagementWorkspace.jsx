@@ -162,8 +162,8 @@ function TimelineShiftRail({ value, onChange, onApply, saving, draft = false }) 
     const bounds = trackRef.current?.getBoundingClientRect();
     if (bounds) onChange(timelineShiftAtY(event.clientY, bounds.top, bounds.height));
   };
-  const description = value < 0 ? `提前 ${(Math.abs(value) / 1000).toFixed(2)} 秒`
-    : value > 0 ? `延后 ${(value / 1000).toFixed(2)} 秒` : '未位移';
+  const description = value < 0 ? t("提前 {p0} 秒", { p0: ((Math.abs(value) / 1000).toFixed(2)) })
+    : value > 0 ? t("延后 {p0} 秒", { p0: ((value / 1000).toFixed(2)) }) : '未位移';
   return <div ref={railRef} className="lyric-studio__shift-rail" aria-label={t("整体调整歌词时间轴")}>
     <span className="lyric-studio__shift-label">{t("时间轴位移")}</span>
     <button type="button" aria-label={t("歌词整体提前50毫秒")} onClick={() => onChange((current) => stepTimelineShift(current, -1))}><ChevronUp size={18} /></button>

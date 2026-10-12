@@ -420,7 +420,7 @@ export default function ArtistDrawer() {
                               : 'text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/10'
                           }`}
                           title={isFavorite(song) ? t("移出我的收藏") : t("加入我的收藏")}
-                          aria-label={t("{p0}我的收藏：{p1}", { p0: (isFavorite(song) ? '移出' : '加入'), p1: (song.title) })}
+                          aria-label={`${isFavorite(song) ? t('移出我的收藏') : t('加入我的收藏')}: ${song.title}`}
                         >
                           <Star size={15} fill={isFavorite(song) ? 'currentColor' : 'none'} />
                         </button>

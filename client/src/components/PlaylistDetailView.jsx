@@ -25,13 +25,14 @@ import {
 import TrackRow from './TrackRow';
 import UserImageEditor from './UserImageEditor.jsx';
 import { accountPlaylistsStore } from '../accountPlaylists.js';
+import { localizeLibraryPlaylist } from '../constants/roamLanguages.js';
 
 export default function PlaylistDetailView({
     isViewingPlaylist,
     loadState,
     leaving,
-    playlist,
-    playlistInfo,
+    playlist: sourcePlaylist,
+    playlistInfo: sourcePlaylistInfo,
     playlistSongs,
     invalidSongCount,
     ambientCoverUrl,
@@ -56,6 +57,7 @@ export default function PlaylistDetailView({
     isDailyRecommendCoolingDown,
     dailyRecommendationError,
 }) {
+    const { playlist, info: playlistInfo } = localizeLibraryPlaylist(sourcePlaylist, sourcePlaylistInfo);
     const isDailyRecommend = playlist?.id === 'daily-recommend';
     const isLibraryCategory = playlist?.type === 'library';
     const pagination = playlist?.pagination;

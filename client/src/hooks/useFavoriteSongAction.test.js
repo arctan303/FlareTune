@@ -3,6 +3,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getFavoriteActionSuccessMessage } from './useFavoriteSongAction.js';
+import { setUiLanguage } from '../i18n/index.js';
+await setUiLanguage('zh');
 
 const readSource = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
 
@@ -30,4 +32,14 @@ test('favorite writes and search playlist submission have one production boundar
   assert.match(components, /useFavoriteSongAction/);
   assert.match(search, /openAddToPlaylist\(selectedSong\)/);
   assert.doesNotMatch(search, /playlistPickerOpen|selectedTargetIds|addSelectionToPlaylists/);
+});
+
+test('favorite feedback follows the active language and preserves song titles', async () => {
+  const song = {title:'日本語 · A song'};
+  try {
+    await setUiLanguage('en');
+    assert.equal(getFavoriteActionSuccessMessage(song), '"日本語 · A song" has been added to my collection');
+    await setUiLanguage('fr');
+    assert.equal(getFavoriteActionSuccessMessage(song), '« 日本語 · A song » ajouté aux favoris');
+  } finally { await setUiLanguage('zh'); }
 });

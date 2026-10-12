@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { t } from '../i18n/index.js';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createResilientStorage } from '../utils/browserStorage.js';
 import {
@@ -304,7 +305,7 @@ export const useUIStore = create(
 
 let toastTimer = null;
 export const showToast = (msg, duration = 3000) => {
-    useUIStore.getState().setToastMessage(msg);
+    useUIStore.getState().setToastMessage(t(msg));
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
         useUIStore.getState().setToastMessage('');

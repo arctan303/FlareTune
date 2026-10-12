@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { authenticatedFetch } from './authenticatedFetch.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { hydratePlayableSong } from '../utils.js';
@@ -21,7 +22,7 @@ if (typeof window !== 'undefined') {
 
 async function read(path, signal) {
   const response = await authenticatedFetch(`${getApiBaseUrl()}${path}`, { credentials: 'include', signal });
-  if (!response.ok) throw new Error(`曲库请求失败（${response.status}）`);
+  if (!response.ok) throw new Error(t("曲库请求失败（{p0}）", { p0: (response.status) }));
   const body = await response.json();
   return body?.data || {};
 }

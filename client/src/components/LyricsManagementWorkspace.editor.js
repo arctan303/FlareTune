@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { projectTimelineShift } from './lyricTimelineShift.js';
 
 export function parseLyricTime(value) {
@@ -57,8 +58,8 @@ export function validateLyricRows(rows) {
   rows.forEach((row, index) => {
     if (typeof times[index] !== 'number') return;
     if (previousIndex >= 0 && times[index] < times[previousIndex]) {
-      mark(rows[previousIndex].key, 'time', `应不晚于下一行 ${rows[index].time}`);
-      mark(row.key, 'time', `应不早于上一行 ${rows[previousIndex].time}`);
+      mark(rows[previousIndex].key, 'time', t("应不晚于下一行 {p0}", { p0: (rows[index].time) }));
+      mark(row.key, 'time', t("应不早于上一行 {p0}", { p0: (rows[previousIndex].time) }));
     }
     previousIndex = index;
   });

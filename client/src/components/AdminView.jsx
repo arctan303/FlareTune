@@ -73,7 +73,7 @@ function AccountRow({ account, csrfToken, onSaved, onMessage, busy, setBusy }) {
       await resetManagedPassword(account.accountId, password, csrfToken);
       form.reset();
       setResetOpen(false);
-      onMessage(`已重置 ${account.username} 的临时密码；请通过安全渠道交给本人，首次登录须改密。`);
+      onMessage(t("已重置 {p0} 的临时密码；请通过安全渠道交给本人，首次登录须改密。", { p0: (account.username) }));
     } catch (error) { onMessage(adminErrorMessage(error)); }
     finally { setBusy(false); }
   }

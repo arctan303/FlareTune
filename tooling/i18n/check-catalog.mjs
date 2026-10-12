@@ -27,6 +27,16 @@ for (const {id} of UI_LANGUAGES.filter(item => !['zh','en'].includes(item.id))) 
 for (const file of [...sourceFiles('client/src'), ...sourceFiles('demo')]) {
   const ast = parse(readFileSync(file, 'utf8'), { sourceType: 'module', plugins: ['jsx'] });
   traverse(ast, {
+    TemplateLiteral(path) {
+      if (!path.node.quasis.some(part => /[\u3400-\u9fff]/u.test(part.value.cooked))) return;
+      // Logs and shader/HTML source are not UI messages. Catch cataloged dynamic
+      // messages whose translations exist but were never called at runtime.
+      const call = path.findParent(parent => parent.isCallExpression());
+      if (call?.node.callee.type === 'MemberExpression' && call.node.callee.object.name === 'console') return;
+      const key = path.node.quasis.map((part, index) => part.value.cooked
+        + (index < path.node.expressions.length ? `{p${index}}` : '')).join('');
+      if (Object.hasOwn(english, key)) missing.push(`${file}:${path.node.loc.start.line}: untranslated dynamic message ${key}`);
+    },
     CallExpression(path) {
       if (path.node.callee.type !== 'Identifier' || path.node.callee.name !== 't') return;
       const key = path.node.arguments[0];

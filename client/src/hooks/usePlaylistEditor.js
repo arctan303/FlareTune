@@ -324,7 +324,7 @@ export default function usePlaylistEditor({ playlist, playlistInfo, playlistSong
     }, [draftDescription, draftName, draftSongs, playlist, playlistInfo, playlistSongs]);
 
     const handleDeletePlaylist = React.useCallback(async () => {
-        if (!window.confirm(`确认删除歌单《${playlist?.name}》？删除后不可恢复。`)) return;
+        if (!window.confirm(t("确认删除歌单《{p0}》？删除后不可恢复。", { p0: (playlist?.name) }))) return;
         setIsSaving(true);
         try {
             await accountPlaylistsStore.getState().deletePlaylist(playlist.id, playlist.revision);

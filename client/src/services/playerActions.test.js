@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInsertNextWithFeedback } from './playerActionsCore.js';
+import { setUiLanguage } from '../i18n/index.js';
+await setUiLanguage('zh');
 
 test('insert-next action inserts once, reports the current playback state and emits bounce', () => {
   const notifications = [];

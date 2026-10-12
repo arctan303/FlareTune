@@ -3,6 +3,7 @@ import React from 'react';
 import { BookOpen, RefreshCw, X } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore.js';
 import PageBackButton from './PageBackButton.jsx';
+import { localizeLibraryPlaylist } from '../constants/roamLanguages.js';
 
 export const cleanPlaylistDescription = (value) => value
     ? value.replace(/\\r\\n|\\n|\\r/g, '\n')
@@ -84,7 +85,7 @@ export function PendingPlaylistDetail({ loadState, onClose, onRetry, headingRef 
                             <div className="image-loading-placeholder playlist-loading-shell__cover" aria-hidden="true" />
                             <div className="playlist-loading-shell__copy">
                                 <p className="playlist-eyebrow">{t("正在打开")}</p>
-                                <h2 ref={headingRef} id="playlist-loading-title" tabIndex={-1} className="line-clamp-2">{loadState.playlist?.kind === 'favorite' ? t("我的收藏") : (loadState.playlist?.name || t("歌单"))}</h2>
+                                <h2 ref={headingRef} id="playlist-loading-title" tabIndex={-1} className="line-clamp-2">{loadState.playlist?.kind === 'favorite' ? t("我的收藏") : (localizeLibraryPlaylist(loadState.playlist).playlist?.name || t("歌单"))}</h2>
                                 <div className="loading-line w-3/4" aria-hidden="true" />
                                 <div className="loading-line w-1/2" aria-hidden="true" />
                             </div>

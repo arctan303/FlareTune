@@ -10,11 +10,11 @@ import { showToast } from '../store/useUIStore.js';
 const pendingFavoriteSongIds = new Set();
 
 export function getFavoriteActionSuccessMessage(song, { isRemoving, outcome, refreshFailed } = {}) {
-  const title = song?.title || '歌曲';
-  if (isRemoving) return `已从我的收藏移除《${title}》`;
-  if (refreshFailed) return `已加入《${title}》，列表刷新失败`;
-  if (outcome === 'noop') return `《${title}》已在我的收藏中`;
-  return `已将《${title}》加入我的收藏`;
+  const title = song?.title || t('歌曲');
+  if (isRemoving) return t("已从我的收藏移除《{p0}》", { p0: (title) });
+  if (refreshFailed) return t("已加入《{p0}》，列表刷新失败", { p0: (title) });
+  if (outcome === 'noop') return t("《{p0}》已在我的收藏中", { p0: (title) });
+  return t("已将《{p0}》加入我的收藏", { p0: (title) });
 }
 
 export function useFavoriteSongAction() {

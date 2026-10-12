@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { t, useLocale } from '../i18n/index.js';
 import React, { useMemo, useCallback } from 'react';
 import {
     Play,
@@ -81,13 +81,14 @@ export default function RoamOverview({
     }, [setRandomRoamBatchSize]);
 
     // 当前语种文案摘要
+    const locale = useLocale();
     const languageSummary = useMemo(() => {
-        if (isAllSelected) return '全曲库';
+        if (isAllSelected) return t('全曲库');
         if (selectedKeys.length === 1) {
             return t(ROAM_LANGUAGES.find((item) => item.key === selectedKeys[0])?.label || '单语种');
         }
-        return `${selectedKeys.length} 个语种`;
-    }, [isAllSelected, selectedKeys]);
+        return t("{p0} 个语种", { p0: (selectedKeys.length) });
+    }, [isAllSelected, selectedKeys, locale]);
 
     return (
         <div className="app-page roam-page pb-16">

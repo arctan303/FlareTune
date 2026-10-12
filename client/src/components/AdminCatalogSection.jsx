@@ -130,7 +130,7 @@ export default function AdminCatalogSection() {
   async function confirmDelete() {
     if (!itemToDelete) return;
     const item = itemToDelete;
-    const label = `歌曲「${item.title}」`;
+    const label = t("歌曲「{p0}」", { p0: (item.title) });
     setBusy(true);
     setMessage('');
     try {
@@ -158,9 +158,9 @@ export default function AdminCatalogSection() {
           [kindToUpload === 'audio' ? 'audio_url' : 'cover_url']: result.url,
         },
       }));
-      setUploadNotice(`文件上传成功！请点击底部「保存」以写入曲库。`);
+      setUploadNotice(t("文件上传成功！请点击底部「保存」以写入曲库。"));
     } catch (error) {
-      setUploadNotice(`上传失败：${error.message}`);
+      setUploadNotice(t("上传失败：{p0}", { p0: (error.message) }));
     } finally {
       setBusy(false);
     }

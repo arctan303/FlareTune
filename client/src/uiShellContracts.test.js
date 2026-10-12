@@ -262,8 +262,8 @@ test('manual insert-next actions only show accurate feedback after a successful 
 
   assert.match(main, /import \{ insertNextWithFeedback \} from '\.\.\/services\/playerActions\.js'/);
   assert.match(playerActions, /if \(!player\.insertAndPlay\(song, null\)\) return false;/);
-  assert.match(playerActions, /已将《\$\{song\.title\}》插播为下一首/);
-  assert.match(playerActions, /已开始播放《\$\{song\.title\}》/);
+  assert.match(playerActions, /t\("已将《\{p0\}》插播为下一首"/);
+  assert.match(playerActions, /t\("已开始播放《\{p0\}》"/);
   assert.match(trackRow, /onInsertNext=\{onInsertNext\}/);
   assert.match(home, /onInsertNext=\{insertNextWithFeedback\}/);
   assert.match(main, /onInsertNext=\{insertNextWithFeedback\}/);

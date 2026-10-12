@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { runtimeFetch } from './runtimeFetch.js';
 import { accountPlaylistsStore } from '../accountPlaylists.js';
 import { useUIStore } from '../store/useUIStore.js';
@@ -64,20 +65,20 @@ export const createPlaylistPayloadLoader = ({
     const loader = async () => {
       const apiUrl = `${apiBase}/api/songs?language=${encodeURIComponent(langKey)}&page=${page}&limit=${limit}&sort=${sort}`;
       const response = await authenticatedFetch(apiUrl, { credentials: 'include', cache: 'no-store' }, fetchImpl);
-      if (!response.ok) throw new Error(`曲库加载失败（${response.status}）`);
+      if (!response.ok) throw new Error(t("曲库加载失败（{p0}）", { p0: (response.status) }));
       const json = await response.json();
       if (json.code !== 200 || !json.data) throw new Error('曲库数据格式无效');
       const rawSongs = json.data.songs || [];
       const songs = rawSongs.map((songObj) => hydrate(songObj)).filter(Boolean);
       const langLabelMap = { zh: '中文', en: '英语', ja: '日语', ko: '韩语', instrumental: '纯音乐', other: '其他' };
-      const label = langLabelMap[langKey] || langKey;
+      const label = t(langLabelMap[langKey] || langKey);
       const total = json.data.total != null ? json.data.total : songs.length;
       const hasMore = Boolean(json.data.hasMore);
       return {
         playlist: {
           ...playlist,
           id: `lang-${langKey}`,
-          name: `${label}歌曲`,
+          name: t("{p0}歌曲", { p0: (label) }),
           type: 'library',
           langKey,
           cover_url: songs[0]?.cover_url || playlist.cover_url,
@@ -93,7 +94,7 @@ export const createPlaylistPayloadLoader = ({
         },
         songs,
         info: {
-          description: `全库共收录 ${total} 首${label}歌曲 · 支持新旧排序与单曲收听`,
+          description: t("全库共收录 {p0} 首{p1}歌曲 · 支持新旧排序与单曲收听", { p0: (total), p1: (label) }),
           creator: '官方曲库',
           createdAt: sort === 'desc' ? '按最新收录' : '按最早收录',
         },

@@ -204,7 +204,7 @@ export function useManagedLyricsAsset({ songId, enabled }) {
 
     const updateOffset = React.useCallback((offsetMs) => runMutation(
         () => lyricsWorkspaceApi.updateLyricsOffset(songId, { offsetMs, etag: state.etag }),
-        `歌词偏移已设为 ${offsetMs}ms`,
+        t("歌词偏移已设为 {p0}ms", { p0: (offsetMs) }),
     ), [runMutation, songId, state.etag]);
 
     const shiftTimeline = React.useCallback((deltaMs) => runMutation(

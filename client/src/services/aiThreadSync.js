@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { runtimeFetch } from './runtimeFetch.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { authenticatedFetch } from './authenticatedFetch.js';
@@ -65,7 +66,7 @@ export async function fetchCloudThread({
   }, fetchImpl);
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new AiThreadRequestError(`云端线程响应异常 (${response.status})`, {
+    throw new AiThreadRequestError(t("云端线程响应异常 ({p0})", { p0: (response.status) }), {
       status: response.status,
       data,
     });
