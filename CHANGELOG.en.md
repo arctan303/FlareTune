@@ -7,7 +7,7 @@
 ### Public demo and project introduction
 
 - Add an independent, sign-in-free demo with 24 license-verified public tracks, real playback and queues, preset line-timed lyrics, search and roam. Favorites, personal playlists, history and preferences stay in the current browser, with tab synchronization, scoped reset and temporary operation when storage is unavailable.
-- Deploy Demo as static assets without accounts, D1, R2 or a live AI service. A simulated administrator sees the real, complete settings and configuration dialogs; administrative writes are disabled, while the assistant accepts messages and returns a fixed example reply. Normal instance authentication and private-media permissions remain effective.
+- Demo pages and its catalog use static assets, with audio served through an independent read-only media Worker. It has no accounts, D1, R2 or live AI services. A simulated administrator sees the real, complete settings and configuration dialogs; administrative writes are disabled, while the assistant accepts messages and returns a fixed example reply. Normal instance authentication and private-media permissions remain effective.
 - Rewrite both READMEs with a direct link to the [live demo](https://flaretune.arcinks.com), and add demo guides, asset credits and quick starts in seven additional languages. Explain Cloudflare core hosting without a VPS, conditional 10 GB-month storage and other free allowances, account-wide usage and optional-service costs.
 
 ### Languages and everyday use
@@ -17,10 +17,11 @@
 - Describe roam categories as song languages, with instrumentals separate. Turning roam off stops automatic queue additions. Correct empty states, notifications and account-data versus browser-history descriptions.
 - Improve Home song columns/fixed cards, large-screen classic cover/lyrics/control layout and lyric/interlude animation lifecycles while retaining existing player design decisions.
 - Fix initialization and playback-state errors when browser storage is disabled, allowing the current session to continue.
+- Use LRCLIB by default and let administrators configure optional word/line lyric interfaces, retaining candidate matching, provider translations and manual editing. Add bilingual generic protocol guides and preserve existing shared assets. Fix completed candidates lost at upgrade deadlines and incorrect translation-language labels after editing.
 
 ### Compatibility and limitations
 
-- No new database migration. Demo does not synchronize devices, call live models or allow administrative writes; static audio hosting does not guarantee successful seeking. Preset lyric timings are approximate manual line timings, without word-level precision.
+- No new database migration. Demo does not synchronize devices, call live models or allow administrative writes; its independent read-only media Worker provides byte-range responses for seeking. Preset lyric timings are approximate manual line timings, without word-level precision.
 - New languages pass catalog, interpolation, loading and browser-layout checks; native-speaker feedback is welcome. Real iOS listening and the deployment wizard on a fresh Cloudflare account still require device/platform validation.
 
 ## 1.1.4 — 2026-10-06

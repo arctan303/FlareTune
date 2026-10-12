@@ -68,7 +68,9 @@ export async function fetchLimitedJson(fetchImpl, url, {
       throw new LyricSourceError('aborted', provider, stage, `${provider} ${stage} aborted`);
     }
     const response = await fetchImpl(url, {
-      redirect: 'error',
+      // Workers supports follow/manual. Treat every non-2xx (including a
+      // redirect) as failure without making a second, unconfigured request.
+      redirect: 'manual',
       signal: controller.signal,
       headers: provider === 'lrclib'
         ? { Accept: 'application/json', 'User-Agent': LRCLIB_USER_AGENT, 'Lrclib-Client': 'FlareTune' }

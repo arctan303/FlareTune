@@ -12,7 +12,7 @@ const song = { id: 's1', title: 'Song', artist: 'Artist', duration: 200 };
 test('defaults query only LRCLIB; unconfigured adapters never fetch', async () => {
   const calls = [];
   const loader = createLyricSourceLoader({ fetchImpl: async (url, init) => {
-    calls.push(new URL(url)); assert.equal(init.redirect, 'error');
+    calls.push(new URL(url)); assert.equal(init.redirect, 'manual');
     return Response.json(new URL(url).pathname.endsWith('/get') ? {id:1,trackName:'Song',artistName:'Artist',duration:200,syncedLyrics:'[00:01.00]Hello'} : []);
   } });
   assert.deepEqual(loader.enabledSources, ['lrclib']);
