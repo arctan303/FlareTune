@@ -1,5 +1,5 @@
 import { LYRIC_DOCUMENT_LIMITS, createLyricDocument, isSingableLineText } from '../utils/lyricDocument.js';
-import { LEGACY_LYRIC_SOURCES } from '../../../shared/lyricSources.js';
+import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId } from '../../../shared/lyricSources.js';
 import { isValidSongLanguage } from '../utils/songLanguage.js';
 import { mediaObjectKey, mediaPrefix } from './adminMusicMedia.js';
 import { createRequestSingleFlight } from '../utils/sharedRequestTask.js';
@@ -216,7 +216,7 @@ function normalizeTranslation(value, original, textHash) {
   if (value === null) return null;
   assertExactFields(value, TRANSLATION_FIELDS,
     ['source', 'originalTextHash', 'lines', 'updatedAt'], 'translation');
-  if (!['custom_krc', 'custom_lrc', 'ai', 'manual', ...Object.keys(LEGACY_LYRIC_SOURCES)].includes(value.source)) {
+  if (!isCustomLyricSourceId(value.source) && !['ai', 'manual', ...Object.keys(LEGACY_LYRIC_SOURCES)].includes(value.source)) {
     validationError('invalid translation.source');
   }
   const originalTextHash = normalizeHash(value.originalTextHash, 'translation.originalTextHash');

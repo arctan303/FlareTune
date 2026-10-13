@@ -9,7 +9,7 @@ import { analyzeLrcLanguage, computeHash } from '../utils/lyricsParsing.js';
 import { resolveSongTranslationNeed, isValidSongLanguage } from '../utils/songLanguage.js';
 import { scheduleLyricAssetUpgrade } from './lyricAssetUpgrade.js';
 import { lyricSourceLoaderForDb } from './lyricSourcesConfig.js';
-import { LEGACY_LYRIC_SOURCES } from '../../../shared/lyricSources.js';
+import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId } from '../../../shared/lyricSources.js';
 
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/u;
 export const LYRIC_AI_PENDING_FRESH_MS = 30_000;
@@ -91,6 +91,7 @@ export async function buildReadyLyricArtifact(song, document, {
   const hasProviderTranslation = (
     (canonical.source === 'custom_krc' && canonical.format === 'krc')
     || (canonical.source === 'custom_lrc' && canonical.format === 'lrc')
+    || (isCustomLyricSourceId(canonical.source) && !['custom_krc', 'custom_lrc'].includes(canonical.source))
     || canonical.source === 'manual'
     || Object.hasOwn(LEGACY_LYRIC_SOURCES, canonical.source)
   ) && providerTranslationLines.some(Boolean);

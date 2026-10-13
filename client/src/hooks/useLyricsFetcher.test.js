@@ -195,6 +195,23 @@ test('one response attaches static translations without changing original word t
   assert.deepEqual(result.provenance, { matchedTitle: '歌', matchedArtist: '歌手' });
 });
 
+test('named source documents reach the player with source identity, words and translation intact', async () => {
+  const source='lyric_'+'1'.repeat(32), song={id:'named-player',language:'ja'};
+  const payload=canonicalPayload({source,songId:song.id});
+  payload.data.format='krc'; payload.data.syncMode='word'; payload.data.translation.source=source;
+  const result=createLyricsResultFromResponse(payload);
+  assert.equal(normalizeLyricsResult(result).source,source);
+  const harness=createPlayerHarness(song);
+  await loadLyricsDocumentIntoStore({currentSong:song,resolvedHasLyrics:true,getPlayerState:harness.getPlayerState,
+    fetchLyrics:async()=>result});
+  assert.equal(harness.state.lyricsStatus,'ready');
+  assert.equal(harness.state.resolvedLyricSource,source);
+  assert.equal(harness.state.lyricSyncMode,'word');
+  assert.deepEqual(harness.state.lyrics[0].words,payload.data.lines[0].words);
+  assert.equal(harness.state.lyrics[0].translation,payload.data.translation.lines[0]);
+  assert.throws(()=>createLyricsResultFromResponse({...payload,data:{...payload.data,source:'lyric_invalid'}}),/Invalid canonical/);
+});
+
 test('translation button availability follows actual returned content', () => {
   const withoutTranslation = createLyricsResultFromResponse(canonicalPayload({ translation: null }));
   assert.equal(withoutTranslation.translationAvailable, false);
@@ -882,7 +899,7 @@ test('a confirmed lyric miss does not retry', async () => {
 
 test('the normal lyric hook stays source-agnostic while polling only an explicit pending state', () => {
   const source = readFileSync(new URL('./useLyricsFetcher.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /lyricSource|translationStatus|requestAiTranslation|\/api\/lyrics\/translation|source=/);
+  assert.doesNotMatch(source, /\blyricSource\b|translationStatus|requestAiTranslation|\/api\/lyrics\/translation|source=/);
   assert.match(source, /\/api\/lyrics\?songId=/);
   assert.match(source, /state\.translationState === 'pending'/);
   assert.match(source, /preserveExisting: true/);

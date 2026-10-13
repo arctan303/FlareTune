@@ -35,10 +35,16 @@ test('configured workflow upgrade retains decoded progress at its deadline and a
   const key = [64, 71, 97, 119, 94, 50, 116, 71, 81, 54, 49, 45, 206, 210, 110, 105];
   const compressed = deflateSync(Buffer.from('[1000,1000]<0,1000,0>Hello'));
   const content = Buffer.concat([Buffer.from('krc1'), Buffer.from(compressed.map((v, i) => v ^ key[i % key.length]))]).toString('base64');
-  let releaseSlow; let cancelled = false;
+  let releaseSlow; let cancelled = false; let builtinQueried = false;
   const slowStarted = new Promise(resolve => { releaseSlow = resolve; });
   t.mock.method(globalThis, 'fetch', async (url, init) => {
     const parsed = new URL(url);
+    // LRCLIB is now fixed enabled, including when reading old settings that
+    // disabled it. Its requests must not release the custom download barrier.
+    if (parsed.hostname === 'lrclib.net') {
+      builtinQueried = true;
+      return parsed.pathname.endsWith('/get') ? new Response('', { status: 404 }) : Response.json([]);
+    }
     if (parsed.pathname.endsWith('/search')) return Response.json({ candidates: ['good', 'slow'].map(id => ({
       id, accesskey: 'private', song: song.title, singer: song.artist, duration: song.duration * 1000,
     })) });
@@ -55,6 +61,7 @@ test('configured workflow upgrade retains decoded progress at its deadline and a
   t.mock.timers.tick(20_000);
   await ctx.finish();
   assert.equal(cancelled, true);
+  assert.equal(builtinQueried, true);
   assert.equal((await store.get(song.id)).artifact.original.syncMode, 'word');
   assert.equal((await store.get(song.id)).artifact.provenance.providerLyricId, 'good');
 });

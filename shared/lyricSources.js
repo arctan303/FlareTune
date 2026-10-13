@@ -6,6 +6,11 @@ export const LEGACY_LYRIC_SOURCES = Object.freeze({ kugou: 'custom_krc', netease
 export const lyricSourceLabel = source => LYRIC_SOURCE_LABELS[LEGACY_LYRIC_SOURCES[source] || source] || '某歌词源';
 export const storedLyricTranslationLanguage = translation => translation?.language
   || (['custom_krc', 'custom_lrc', 'kugou', 'netease', 'ai'].includes(translation?.source) ? 'zh' : null);
+export const isCustomLyricSourceId = id => typeof id === 'string'
+  && (/^lyric_[a-f0-9]{32}$/u.test(id) || ['custom_krc', 'custom_lrc'].includes(id));
+export const isLyricSourceId = id => id === 'lrclib' || isCustomLyricSourceId(id);
+export const MAX_LYRIC_SOURCES = 8;
+export const DEFAULT_LYRIC_CHANNELS = Object.freeze({ version: 2, sources: Object.freeze([]) });
 export const DEFAULT_LYRIC_SOURCES = Object.freeze({
   lrclib: Object.freeze({ enabled: true, baseUrl: 'https://lrclib.net/api' }),
   custom_krc: Object.freeze({ enabled: false, searchUrl: '', downloadUrl: '', translationLanguage: 'zh' }),
@@ -44,4 +49,43 @@ export function normalizeLyricSources(value) {
     result[id] = config;
   }
   return result;
+}
+
+// The built-in LRCLIB is implicit. It cannot be edited, disabled or shadowed.
+// Keep legacy IDs when reading previous settings so saved candidates/assets
+// continue to identify the same source. Only a settings save writes version 2.
+export function normalizeLyricChannels(value, { migrateLegacy = false } = {}) {
+  if (value?.version !== 2) {
+    const legacy = normalizeLyricSources(value);
+    if (!migrateLegacy && JSON.stringify(legacy.lrclib) !== JSON.stringify(DEFAULT_LYRIC_SOURCES.lrclib)) {
+      throw new Error('LYRIC_SOURCES_INVALID');
+    }
+    value = { version: 2, sources: ['custom_krc', 'custom_lrc'].filter(id => {
+      const source = legacy[id];
+      return source.enabled || source.searchUrl || source.downloadUrl;
+    }).map(id => ({ id, name: LYRIC_SOURCE_LABELS[id], note: '', protocol: id,
+      ...legacy[id] })) };
+  }
+  if (!value || Object.keys(value).some(key => !['version', 'sources'].includes(key))
+    || !Array.isArray(value.sources) || value.sources.length > MAX_LYRIC_SOURCES) throw new Error('LYRIC_SOURCES_INVALID');
+  const ids = new Set();
+  const sources = value.sources.map(source => {
+    const fields = ['id', 'name', 'note', 'protocol', 'enabled', 'searchUrl', 'downloadUrl', 'translationLanguage'];
+    if (!source || typeof source !== 'object' || Array.isArray(source)
+      || Object.keys(source).length !== fields.length || Object.keys(source).some(key => !fields.includes(key))
+      || !isCustomLyricSourceId(source.id) || ids.has(source.id)
+      || !['custom_krc', 'custom_lrc'].includes(source.protocol)
+      || (['custom_krc', 'custom_lrc'].includes(source.id) && source.protocol !== source.id)
+      || typeof source.name !== 'string' || !source.name.trim() || source.name.length > 80
+      || typeof source.note !== 'string' || source.note.length > 500
+      || /[\u0000-\u001f\u007f]/u.test(source.name)
+      || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(source.note)) throw new Error('LYRIC_SOURCES_INVALID');
+    ids.add(source.id);
+    const config = normalizeLyricSources({ [source.protocol]: {
+      enabled: source.enabled, searchUrl: source.searchUrl, downloadUrl: source.downloadUrl,
+      translationLanguage: source.translationLanguage,
+    } })[source.protocol];
+    return { id: source.id, name: source.name.trim(), note: source.note.trim(), protocol: source.protocol, ...config };
+  });
+  return { version: 2, sources };
 }

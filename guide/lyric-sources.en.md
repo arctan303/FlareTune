@@ -2,9 +2,11 @@
 
 [简体中文](lyric-sources.md) · [English](lyric-sources.en.md)
 
-Administrators manage **Default channels** and **Custom channels** separately under **Settings → AI and assistant → Lyric sources**. LRCLIB is configured and enabled by default at `https://lrclib.net/api`; edit its URL separately or use its switch to enable or disable it. Choose **Add custom channel**, select the word-timed or line-timed protocol, and enter only that channel’s search/download URLs and translation language. Each added channel has its own Edit, Delete and enable switch. Disabling retains its configuration; deleting removes only that configuration, preserving saved lyrics. Each protocol supports one endpoint pair; use Edit to update an existing channel. Save changes only the selected channel, while Cancel discards its draft. Refresh the page and reopen after a revision conflict.
+Administrators manage one list under **Settings → AI and assistant → Lyric sources**. Built-in LRCLIB is always enabled and has no Edit, Delete or toggle controls. Choose **Add source**, enter a name and optional note, select the word-timed or line-timed protocol, then provide its search/download URLs and translation language. You can add multiple sources using the same protocol, up to eight sources in total. Each has its own Edit, Delete and enable controls. Names distinguish sources in candidate lists; notes are visible only to administrators. An existing source keeps its protocol; add a new source to use another protocol. Disabling retains its configuration; deleting preserves saved lyrics. Save changes only the selected source, while Cancel discards the draft. Refresh the page and reopen after a revision conflict.
 
-Custom services must implement the relevant protocol below. Use HTTPS search and download endpoint URLs you are entitled to access. The domains below are examples. URLs cannot include credentials, query strings or fragments; IP literals, local hostnames, nonstandard ports and redirects are unsupported. Requests contain song metadata and candidate identifiers, without application login credentials. Only administrators receive endpoint URLs; members can read enabled source IDs and lyrics.
+Previous custom configurations retain their endpoints and IDs when read, and the first save writes the new named-source list. LRCLIB always uses its official URL, `https://lrclib.net/api`; previous changes to its URL or enabled state no longer apply. Restore the previous lyric-source settings snapshot together with older code when rolling back.
+
+Custom services must implement the relevant protocol below. Use HTTPS search and download endpoint URLs you are entitled to access. The domains below are examples. URLs cannot include credentials, query strings or fragments; IP literals, local hostnames, nonstandard ports and redirects are unsupported. Requests contain song metadata and candidate identifiers, without application login credentials. Only administrators receive endpoint URLs; members can read enabled source IDs, names and lyrics.
 
 ## Word-timed search/download protocol
 
@@ -30,7 +32,7 @@ Download GET parameters are `id`, `lv=1`, `kv=1` and `tv=1`:
 {"code":200,"lrc":{"lyric":"[00:01.000]Example lyric"},"tlyric":{"lyric":"[00:01.000]Example translation"}}
 ```
 
-`tlyric` is optional and aligned by timestamp. Set **Source translation language** to identify supplied translations correctly when comparing the lyrics AI target language. Each generic protocol supports one optional endpoint pair. Services using another response shape need their own server-side adapter.
+`tlyric` is optional and aligned by timestamp. Set **Source translation language** to identify supplied translations correctly when comparing the lyrics AI target language. Each source stores its own endpoint pair. Services using another response shape need their own server-side adapter.
 
 Requests have timeout, response-size and decoding limits. Failures retain existing lyrics. Matching still considers title, artist, version and duration; administrators can preview and import candidates in the workspace. Disabling a source does not delete saved lyrics. Older assets remain readable, while new requests use only enabled sources. The [demo](https://flaretune.arcinks.com/settings/admin/assistant) shows the same read-only configuration without fetching external lyrics.
 

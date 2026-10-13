@@ -16,6 +16,8 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
   const [artist, setArtist] = React.useState(song.artist || '');
   const [source, setSource] = React.useState('all');
   const [sources, setSources] = React.useState([]);
+  const [sourceNames, setSourceNames] = React.useState({});
+  const sourceName = id => sourceNames[id] || t(SOURCES[id] || '某歌词源');
   const [mode, setMode] = React.useState('all');
   const [translation, setTranslation] = React.useState('all');
   const [snapshot, setSnapshot] = React.useState(null);
@@ -43,7 +45,10 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
     requests.current.disposed = false;
     let active = true;
     lyricsWorkspaceApi.getSources().then(response => {
-      if (active) setSources(response.data.sources || []);
+      if (active) {
+        setSources(response.data.sources || []);
+        setSourceNames(Object.fromEntries((response.data.details || []).map(item => [item.id, item.name])));
+      }
     }).catch(() => { if (active) setError(t('歌词源加载失败，请重试。')); });
     return () => {
       active = false;
@@ -139,7 +144,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
     </form>
     <div className="lyric-studio__candidate-filters">
       <label>{t('歌词来源')}<SelectControl aria-label={t('歌词来源')} value={source} onChange={event => changeSource(event.target.value)}>
-        <option value="all">{t('全部来源')}</option>{sources.map(id => <option key={id} value={id}>{t(SOURCES[id] || '某歌词源')}</option>)}
+        <option value="all">{t('全部来源')}</option>{sources.map(id => <option key={id} value={id}>{sourceName(id)}</option>)}
       </SelectControl></label>
       <label>{t('同步类型')}<SelectControl aria-label={t('同步类型')} value={mode} onChange={event => setMode(event.target.value)}>
         <option value="all">{t('全部类型')}</option><option value="word">{t('逐字')}</option>
@@ -167,7 +172,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
           className={'lyric-studio__candidate' + (keyOf(candidate) === keyOf(selected) ? ' is-selected' : '')}
           onClick={() => setSelectedKey(keyOf(candidate))}>
           <strong>{candidate.matchedTitle || song.title}</strong>
-          <small>{candidate.matchedArtist || song.artist || t('未知歌手')} · {t(SOURCES[candidate.source] || candidate.source)}</small>
+          <small>{candidate.matchedArtist || song.artist || t('未知歌手')} · {sourceName(candidate.source)}</small>
           {candidate.matchedAlbum && <small>{candidate.matchedAlbum}</small>}
           <span>{result?.state === 'ready' ? `${t(MODES[result.syncMode] || '无时间轴')} · ${result.translationAvailable ? t('有翻译') : t('无翻译')}`
             : inspecting.includes(keyOf(candidate)) ? t('正在检查候选…') : result?.state === 'error' ? t('检测失败') : t('选中后检测')}</span>
@@ -182,7 +187,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
       <div className="lyric-studio__candidate-preview-heading">
         <div className="lyric-studio__candidate-navigation">
           <button type="button" disabled={selectedIndex <= 0} onClick={() => setSelectedKey(keyOf(visible[selectedIndex - 1]))} aria-label={t('上一份候选')}>‹</button>
-          <strong>{selectedIndex + 1} / {visible.length} · {t(SOURCES[selected.source] || selected.source)} · {t(MODES[inspection?.syncMode] || (inspection?.state === 'error' ? '检测失败' : '读取中'))}</strong>
+          <strong>{selectedIndex + 1} / {visible.length} · {sourceName(selected.source)} · {t(MODES[inspection?.syncMode] || (inspection?.state === 'error' ? '检测失败' : '读取中'))}</strong>
           <button type="button" disabled={selectedIndex >= visible.length - 1} onClick={() => setSelectedKey(keyOf(visible[selectedIndex + 1]))} aria-label={t('下一份候选')}>›</button>
         </div>
         {inspection?.state === 'error' && <button type="button" disabled={inspecting.length > 0} onClick={() => void inspect([selected])}>{t('重试预览')}</button>}

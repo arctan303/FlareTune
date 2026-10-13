@@ -9,7 +9,7 @@ export const LYRIC_CANDIDATE_INSPECTION_LIMITS = Object.freeze({
 });
 
 const PROVIDER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
-const VALID_SOURCES = new Set(['custom_krc', 'custom_lrc', 'lrclib']);
+import { isLyricSourceId } from '../../../shared/lyricSources.js';
 const SAFE_UPSTREAM_KINDS = new Set([
   'circuit_open', 'invalid', 'network', 'rate_limited', 'timeout', 'unavailable', 'upstream',
 ]);
@@ -44,7 +44,7 @@ function normalizeCandidates(candidates) {
     }
     const source = candidate.source;
     const providerLyricId = candidate.providerLyricId;
-    if (!VALID_SOURCES.has(source) || typeof providerLyricId !== 'string'
+    if (!isLyricSourceId(source) || typeof providerLyricId !== 'string'
       || !PROVIDER_ID_PATTERN.test(providerLyricId)) {
       fail('invalid_candidate', 'candidate source or providerLyricId is invalid');
     }

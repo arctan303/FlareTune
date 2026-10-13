@@ -17,7 +17,7 @@
 - Describe roam categories as song languages, with instrumentals separate. Turning roam off stops automatic queue additions. Correct empty states, notifications and account-data versus browser-history descriptions.
 - Improve Home song columns/fixed cards, large-screen classic cover/lyrics/control layout and lyric/interlude animation lifecycles while retaining existing player design decisions.
 - Fix initialization and playback-state errors when browser storage is disabled, allowing the current session to continue.
-- Use LRCLIB by default and let administrators manage default and custom channels separately, with individual add, edit, enable and remove actions for optional word/line interfaces, retaining candidate matching, provider translations and manual editing. Add bilingual generic protocol guides and preserve existing shared assets. Fix completed candidates lost at upgrade deadlines and incorrect translation-language labels after editing.
+- Keep built-in LRCLIB enabled and let administrators add named sources with notes in one list. Multiple sources can use the same protocol, with independent edit, enable and remove actions, retaining candidate matching, provider translations and manual editing. Preserve previous custom endpoint URLs and IDs; the first save upgrades settings to the named-source list. Add bilingual generic protocol guides and preserve existing shared assets. Fix completed candidates lost at upgrade deadlines and incorrect translation-language labels after editing.
 - Use smaller lyric AI JSON batches for current DeepSeek models and retry malformed JSON at most once within the existing total deadline. Failures preserve the original lyrics and any existing translation.
 
 ### Compatibility and limitations

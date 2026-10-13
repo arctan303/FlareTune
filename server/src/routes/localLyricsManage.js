@@ -31,13 +31,13 @@ import {
 } from '../services/lyricCandidateInspection.js';
 import { readBoundedJson } from '../instance/httpSecurity.js';
 import { isValidSongLanguage } from '../utils/songLanguage.js';
-import { storedLyricTranslationLanguage } from '../../../shared/lyricSources.js';
+import { storedLyricTranslationLanguage, isLyricSourceId } from '../../../shared/lyricSources.js';
 
 // Only the new account-gated workspace path is dispatched here. Origin and CSRF
 // are verified by the outer router before any mutation reaches this module.
 const BASE = /^\/api\/lyrics\/workspace\/([^/]+)$/u;
 const CHILD = /^\/api\/lyrics\/workspace\/([^/]+)\/(candidates(?:\/inspect)?|offset|timeline|document|import|restore|translation|ai-completion|draft-ai)$/u;
-const SOURCE = new Set(['auto', 'custom_krc', 'custom_lrc', 'lrclib']);
+const SOURCE = { has: source => source === 'auto' || isLyricSourceId(source) };
 const encoder = new TextEncoder();
 
 function response(payload, status, headers) {
@@ -223,7 +223,10 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
   if (!db?.prepare) return failure(503, 'DATABASE_UNAVAILABLE', 'Database unavailable', headers);
   if (sourcesRoute) {
     if (request.method !== 'GET') return failure(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', { ...headers, Allow: 'GET' });
-    try { return success({ sources: (await lyricSourceLoaderForDb(db)).enabledSources }, 200, headers); }
+    try {
+      const loader = await lyricSourceLoaderForDb(db);
+      return success({ sources: loader.enabledSources, details: loader.sourceDetails }, 200, headers);
+    }
     catch { return failure(503, 'LYRIC_SOURCES_UNAVAILABLE', 'Lyric sources unavailable', headers); }
   }
   const songId = parseSongId((base || child)[1]);

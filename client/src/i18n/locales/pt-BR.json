@@ -1848,5 +1848,13 @@
   "配置{p0}": "Configurar {p0}",
   "移除“{p0}”渠道？已保存的歌词不会删除。": "Remover o canal “{p0}”? As letras salvas serão mantidas.",
   "已启用": "Ativado",
-  "未启用": "Desativado"
+  "未启用": "Desativado",
+  "添加源": "Adicionar fonte",
+  "内置": "Integrada",
+  "备注": "Nota",
+  "协议": "Protocolo",
+  "逐字协议": "Protocolo sincronizado por palavra",
+  "逐行协议": "Protocolo sincronizado por linha",
+  "最多添加 {count} 个歌词源。": "Você pode adicionar até {count} fontes de letras.",
+  "移除“{p0}”歌词源？已保存的歌词不会删除。": "Remover a fonte de letras “{p0}”? As letras salvas serão mantidas."
 }

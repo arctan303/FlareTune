@@ -1848,5 +1848,13 @@
   "配置{p0}": "Configurer {p0}",
   "移除“{p0}”渠道？已保存的歌词不会删除。": "Supprimer le canal « {p0} » ? Les paroles enregistrées seront conservées.",
   "已启用": "Activé",
-  "未启用": "Désactivé"
+  "未启用": "Désactivé",
+  "添加源": "Ajouter une source",
+  "内置": "Intégrée",
+  "备注": "Note",
+  "协议": "Protocole",
+  "逐字协议": "Protocole synchronisé par mot",
+  "逐行协议": "Protocole synchronisé par ligne",
+  "最多添加 {count} 个歌词源。": "Vous pouvez ajouter jusqu’à {count} sources de paroles.",
+  "移除“{p0}”歌词源？已保存的歌词不会删除。": "Supprimer la source de paroles « {p0} » ? Les paroles enregistrées seront conservées."
 }

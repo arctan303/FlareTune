@@ -4,6 +4,14 @@ import database from './database.js';
 // Chinese source copy is the stable key until every screen has migrated.
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
+  "添加源": "Add source",
+  "内置": "Built-in",
+  "备注": "Note",
+  "协议": "Protocol",
+  "逐字协议": "Word-timed protocol",
+  "逐行协议": "Line-timed protocol",
+  "最多添加 {count} 个歌词源。": "You can add up to {count} lyric sources.",
+  "移除“{p0}”歌词源？已保存的歌词不会删除。": "Remove the lyric source “{p0}”? Saved lyrics will be kept.",
   "默认渠道": "Default channels",
   "自定义渠道": "Custom channels",
   "添加自定义渠道": "Add custom channel",

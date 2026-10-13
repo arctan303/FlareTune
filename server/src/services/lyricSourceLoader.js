@@ -20,7 +20,7 @@ import {
 import { LyricSourceError } from './lyricSourceError.js';
 import { searchCustomLrcSelections, loadCustomLrcSelection } from './customLrcLyricLoader.js';
 import { parseLyricsfile } from './lyricPlainParsers.js';
-import { DEFAULT_LYRIC_SOURCES, normalizeLyricSources } from '../../../shared/lyricSources.js';
+import { DEFAULT_LYRIC_SOURCES, normalizeLyricSources, isLyricSourceId } from '../../../shared/lyricSources.js';
 import {
   AUTOMATIC_LYRIC_CANDIDATE_LIMIT, documentQuality, isBestPossibleAutomaticDocument,
   preferredAutomaticDocument, reliableAutomaticMatch, reliableAutomaticMetadata, resolutionQuality,
@@ -30,15 +30,15 @@ export { LyricSourceError } from './lyricSourceError.js';
 export { parseLyricsfile } from './lyricPlainParsers.js';
 export { buildCustomKrcDurationMsCandidates, buildCustomKrcSearchKeyword, buildCustomKrcSearchKeywords, rankLyricCandidates, scoreLyricCandidate } from './lyricSourceMatching.js';
 
-const VALID_SOURCES = new Set(['custom_krc', 'custom_lrc', 'lrclib']);
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAX_KRC_COMPRESSED_BYTES = 2_000_000;
 const MAX_KRC_DECOMPRESSED_BYTES = LYRIC_DOCUMENT_LIMITS.maxLyricTextLength;
 
-export const isValidLyricSource = (source) => VALID_SOURCES.has(source);
+export const isValidLyricSource = isLyricSourceId;
 
 export function resolveLyricSourceOrder(source, enabledSources) {
-  if (enabledSources) return resolveLyricSourceOrder(source).filter(id => enabledSources.includes(id));
+  if (enabledSources) return (source === 'auto' ? enabledSources : [source]).filter(id => isLyricSourceId(id) && enabledSources.includes(id));
+  if (isLyricSourceId(source)) return [source];
   if (source === 'lrclib') return ['lrclib'];
   if (source === 'custom_lrc') return ['custom_lrc'];
   if (source === 'custom_krc') return ['custom_krc'];

@@ -1848,5 +1848,13 @@
   "配置{p0}": "{p0} konfigurieren",
   "移除“{p0}”渠道？已保存的歌词不会删除。": "Kanal „{p0}“ entfernen? Gespeicherte Liedtexte bleiben erhalten.",
   "已启用": "Aktiviert",
-  "未启用": "Deaktiviert"
+  "未启用": "Deaktiviert",
+  "添加源": "Quelle hinzufügen",
+  "内置": "Integriert",
+  "备注": "Notiz",
+  "协议": "Protokoll",
+  "逐字协议": "Protokoll mit Worttiming",
+  "逐行协议": "Protokoll mit Zeilentiming",
+  "最多添加 {count} 个歌词源。": "Sie können bis zu {count} Liedtextquellen hinzufügen.",
+  "移除“{p0}”歌词源？已保存的歌词不会删除。": "Liedtextquelle „{p0}“ entfernen? Gespeicherte Liedtexte bleiben erhalten."
 }

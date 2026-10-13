@@ -30,6 +30,18 @@ async function search(subject) {
   return settle(subject);
 }
 
+test('configured source names distinguish same-protocol candidates and filters without translating user names', async () => {
+  const id='lyric_'+'1'.repeat(32), name='My account lyrics';
+  const s=setup({getSources:async()=>({data:{sources:[id],details:[{id,name}]}}),
+    getLyricsCandidates:async()=>({data:{candidates:[candidate(1,id)]}}),
+    inspectLyricsCandidates:async(_,items)=>({data:{results:items.map(item=>ready(item))}})});
+  const tree=await search(s);
+  assert.ok(text(cards(tree)[0]).includes(name));
+  const select=nodes(tree).find(node=>node.type==='SelectControl'&&node.props['aria-label']==='歌词来源');
+  assert.ok(text(select).includes(name));
+  s.component.unmount();
+});
+
 test('all candidate summaries remain reachable while default inspection reads only four nearby bodies', async () => {
   const all = [...Array.from({ length: 12 }, (_, i) => candidate(i)), candidate(13, 'custom_lrc')];
   const inspections = [];

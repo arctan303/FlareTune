@@ -1,4 +1,5 @@
 import { createLyricDocument } from '../utils/lyricDocument.js';
+import { isLyricSourceId } from '../../../shared/lyricSources.js';
 import {
   invalidateSourceLyricsDocumentCache,
   listSourceLyricCandidates,
@@ -38,6 +39,7 @@ const compareResolutionCandidates = (left, right) => (
   || finiteOr(SOURCE_RANK[left?.source], Number.POSITIVE_INFINITY)
     - finiteOr(SOURCE_RANK[right?.source], Number.POSITIVE_INFINITY)
   || compareText(left?.providerLyricId, right?.providerLyricId)
+  || compareText(left?.source, right?.source)
   || compareText(left?.matchedTitle, right?.matchedTitle)
   || compareText(left?.matchedArtist, right?.matchedArtist)
   || compareText(left?.matchedAlbum, right?.matchedAlbum)
@@ -100,12 +102,12 @@ export async function listLyricsResolutionCandidates(song, {
   listCandidates = listSourceLyricCandidates,
   enabledSources,
 } = {}) {
-  if (!['all', 'custom_krc', 'custom_lrc', 'lrclib'].includes(selectedSource)) {
+  if (selectedSource !== 'all' && !isLyricSourceId(selectedSource)) {
     throw new RangeError('invalid lyric source filter');
   }
   const providerCandidateGroups = [];
   const warnings = [];
-  for (const source of (selectedSource === 'all' ? ['custom_krc', 'custom_lrc', 'lrclib'] : [selectedSource]).filter(id => !enabledSources || enabledSources.includes(id))) {
+  for (const source of (selectedSource === 'all' ? (enabledSources || ['custom_krc', 'custom_lrc', 'lrclib']) : [selectedSource]).filter(id => !enabledSources || enabledSources.includes(id))) {
     try {
       const providerCandidates = await listCandidates(source, song, { signal });
       if (!Array.isArray(providerCandidates)) throw new TypeError('provider candidates must be an array');

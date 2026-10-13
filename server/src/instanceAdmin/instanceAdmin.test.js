@@ -6,7 +6,7 @@ import { createAccount, listAccounts, resetAccountPassword, updateAccount } from
 import { getAdminSettings, updateAdminSetting, updateAssistantConfig } from './settings.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
 import { KNOWN_MIGRATIONS } from '../instance/schemaManifest.js';
-import { DEFAULT_LYRIC_SOURCES } from '../../../shared/lyricSources.js';
+import { DEFAULT_LYRIC_SOURCES, DEFAULT_LYRIC_CHANNELS, normalizeLyricChannels } from '../../../shared/lyricSources.js';
 
 const baseline = readFileSync(new URL('../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8');
 const secondMigration = readFileSync(new URL('../../db/migrations-flaretune/0002_expand_playlist_count.sql', import.meta.url), 'utf8');
@@ -78,18 +78,26 @@ async function rejectsCode(callback, code) {
 test('lyric source configuration is admin-only, revision checked and audited', async () => {
   const {sqlite,db,close}=fixture();
   try {
-    const defaults=await getAdminSettings(db,'a1'); assert.deepEqual(defaults.settings['lyrics.sources'].value,DEFAULT_LYRIC_SOURCES);
+    const defaults=await getAdminSettings(db,'a1'); assert.deepEqual(defaults.settings['lyrics.sources'].value,DEFAULT_LYRIC_CHANNELS);
     sqlite.exec("INSERT INTO accounts (account_id,username,display_name,role,status,created_at,updated_at) VALUES ('m1','listener','Listener','member','active',1,1)");
     await rejectsCode(()=>updateAdminSetting(db,'m1','lyrics.sources',DEFAULT_LYRIC_SOURCES,0,now),'forbidden');
     await rejectsCode(()=>getAdminSettings(db,'m1'),'forbidden');
     const config=structuredClone(DEFAULT_LYRIC_SOURCES);config.custom_krc={enabled:true,searchUrl:'https://lyrics.example.com/search',downloadUrl:'https://lyrics.example.com/download',translationLanguage:'en'};
     const saved=await updateAdminSetting(db,'a1','lyrics.sources',config,0,now); assert.equal(saved.revision,1);
+    const renamed=normalizeLyricChannels(config); renamed.sources[0].name='Work lyrics'; renamed.sources[0].note='Separate purpose';
+    const changedProtocol=structuredClone(renamed); changedProtocol.sources[0].protocol='custom_lrc';
+    await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',changedProtocol,1,now+1),'invalid_setting');
+    await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',{version:2,sources:[],lrclib:{enabled:false}},1,now+1),'invalid_setting');
     await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',config,0,now+1),'revision_conflict');
-    assert.deepEqual((await getAdminSettings(db,'a1')).settings['lyrics.sources'].value,config);
+    assert.deepEqual((await getAdminSettings(db,'a1')).settings['lyrics.sources'].value,normalizeLyricChannels(config));
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE target_id='lyrics.sources'").get().n,1);
     config.custom_krc.searchUrl='https://127.0.0.1/private';
     await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',config,1,now+2),'invalid_setting');
     assert.equal((await getAdminSettings(db,'a1')).settings['lyrics.sources'].revision,1);
+    await updateAdminSetting(db,'a1','lyrics.sources',renamed,1,now+3);
+    const read=(await getAdminSettings(db,'a1')).settings['lyrics.sources'];
+    assert.equal(read.value.sources[0].name,'Work lyrics'); assert.equal(read.value.sources[0].note,'Separate purpose');
+    assert.equal(JSON.parse(sqlite.prepare("SELECT value_json FROM instance_settings WHERE key='lyrics.sources'").get().value_json).version,2);
   } finally {close();}
 });
 
