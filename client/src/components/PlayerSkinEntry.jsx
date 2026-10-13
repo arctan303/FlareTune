@@ -30,7 +30,7 @@ export default function PlayerSkinEntry({ variant = 'classic' }) {
         <Icon size={19} strokeWidth={1.8} />
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 -translate-x-1 whitespace-nowrap !rounded-full px-3 py-2 text-xs opacity-0 shadow-xl transition-[opacity,transform] duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 motion-reduce:transition-none ${variant === 'classic' ? 'glass-panel' : 'border border-white/10 bg-black/75 text-white backdrop-blur-xl'}`}
+          className={`pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 -translate-x-1 whitespace-nowrap !rounded-full px-3 py-2 text-xs opacity-0 shadow-xl transition-[opacity,transform] duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 ${variant === 'classic' ? 'glass-panel' : 'border border-white/10 bg-black/75 text-white backdrop-blur-xl'}`}
         >{t("当前：")}{currentLabel}
         </span>
       </button>

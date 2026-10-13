@@ -140,7 +140,7 @@ export default function IngestDeviceSource({ disabled, onAdd, sessionGuardRef, q
     {(message || !deviceId) && <p role="status" className="text-sm text-[var(--muted)]">{message || t("在运行 Node 程序的设备执行 npm run ingest:configure，然后 npm run ingest。")}</p>}
     {checkError && <p role="alert" className="text-sm text-rose-600">{t('查重未完成，暂时不能选择新增。')}{' '}{t(checkError)}</p>}
     {busy && !files.length && <div aria-label={t('正在检查新增与重复歌曲…')} className="space-y-2">
-      {[0, 1, 2].map((item) => <div key={item} className="h-24 animate-pulse rounded-xl bg-[var(--line)] motion-reduce:animate-none" />)}
+      {[0, 1, 2].map((item) => <div key={item} className="h-24 animate-pulse rounded-xl bg-[var(--line)]" />)}
     </div>}
     {!busy && catalog && !files.length && <p className="py-8 text-center text-sm text-[var(--muted)]">{t('此设备尚无扫描结果。')}</p>}
     {files.length > 0 && <>
