@@ -37,7 +37,8 @@ const safeErrorCode = (error) => {
   if (message.includes('AI_UPSTREAM_429')) return 'upstream_rate_limited';
   if (/AI_UPSTREAM_5\d\d/u.test(message)) return 'upstream_unavailable';
   if (message.includes('AI_ASSISTANT_CONFIG') || message.includes('AI_CONFIG_INVALID')) return 'configuration_unavailable';
-  if (message.includes('AI_EMPTY_RESPONSE') || message.includes('NO_TRANSLATABLE_LINES')) return 'invalid_output';
+  if (message.includes('AI_EMPTY_RESPONSE') || message.includes('NO_TRANSLATABLE_LINES')
+    || message === 'INVALID_JSON') return 'invalid_output';
   return 'completion_failed';
 };
 
@@ -254,6 +255,7 @@ export async function runLyricAssetAiCompletion({
       const translatedByIndex = new Map();
       const notNeededBatches = [];
       let inferredLanguage = null;
+      let retriedInvalidJson = false;
       const askForBatch = async (batch, requireComplete = false, firstAnalysis = false,
         analysisOnly = false) => {
         let messages = firstAnalysis
@@ -281,27 +283,47 @@ export async function runLyricAssetAiCompletion({
             ...messages.slice(1),
           ];
         }
-        const timeoutMs = deadline.remainingMs();
-        if (timeoutMs < MIN_AI_REQUEST_BUDGET_MS) throw completionTimeoutError();
         const requestConfig = assistantConfig.provider === 'deepseek'
           ? { ...assistantConfig, enableThinking: false }
           : assistantConfig;
-        const response = await (deps.askAI || askAI)(messages, requestConfig, aiEnv, {
-          timeoutMs,
-        });
-        deadline.assertRemaining();
-        if (firstAnalysis) {
-          const parsed = parseLanguageAwareTranslationResponse(response, batch.units,
-            { targetLanguage, allowedCleanupIndices });
-          inferredLanguage = detectLanguage ? parsed.language : null;
-          parsed.discardLineIndices.forEach((index) => suggestedCleanup.add(index));
-          return parsed.translations;
+        const parseResponse = (response) => {
+          if (firstAnalysis) {
+            const parsed = parseLanguageAwareTranslationResponse(response, batch.units,
+              { targetLanguage, allowedCleanupIndices });
+            inferredLanguage = detectLanguage ? parsed.language : null;
+            parsed.discardLineIndices.forEach((index) => suggestedCleanup.add(index));
+            return parsed.translations;
+          }
+          return parseTranslationResponse(response, batch.units, { targetLanguage });
+        };
+        const request = async (requestMessages) => {
+          const remainingMs = deadline.remainingMs();
+          if (remainingMs < MIN_AI_REQUEST_BUDGET_MS) throw completionTimeoutError();
+          const response = await (deps.askAI || askAI)(requestMessages, requestConfig, aiEnv, {
+            timeoutMs: remainingMs,
+          });
+          deadline.assertRemaining();
+          return parseResponse(response);
+        };
+        try { return await request(messages); }
+        catch (error) {
+          if (error?.message !== 'INVALID_JSON' || retriedInvalidJson) throw error;
+          retriedInvalidJson = true;
+          // Reissue the original task once. Never repair untrusted output or send
+          // it back as instructions; keep the original whole-completion deadline.
+          const retryMessages = messages.map((message, index) => index === 0 && message.role === 'system'
+            ? { ...message, content: `${message.content}\n\n上一轮响应不是有效 JSON。请重新完成原任务，严格检查 JSON 语法，特别是数字 unitId 后不得多出引号；不要输出 Markdown 或说明。` }
+            : message);
+          return request(retryMessages);
         }
-        return parseTranslationResponse(response, batch.units, { targetLanguage });
       };
 
+      // These DeepSeek models can emit malformed numeric IDs in long JSON
+      // responses. Smaller outputs retain context while fitting the same deadline.
+      const compactJsonBatches = (assistantConfig.source || assistantConfig.provider) === 'deepseek'
+        && ['deepseek-flash', 'deepseek-v4-pro'].includes(assistantConfig.model);
       const batches = buildTranslationBatches(units, song.title, song.artist,
-        { targetLanguage, referenceByUnitId });
+        { targetLanguage, referenceByUnitId, ...(compactJsonBatches ? { maxUnits: 16 } : {}) });
       if (!translateLyrics) {
         if (detectLanguage || cleanDirtyLyrics) {
           await askForBatch(batches[0], false, true, true);
