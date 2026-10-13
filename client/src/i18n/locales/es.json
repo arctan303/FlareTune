@@ -1840,5 +1840,13 @@
   "下载接口地址": "URL del endpoint de descarga",
   "来源译文语言": "Idioma de traducción de la fuente",
   "自定义接口须符合歌词源协议，仅支持 HTTPS 地址。": "Los endpoints personalizados deben seguir el protocolo de letras y usar HTTPS.",
-  "歌词源加载失败，请重试。": "No se pudieron cargar las fuentes de letras. Inténtalo de nuevo."
+  "歌词源加载失败，请重试。": "No se pudieron cargar las fuentes de letras. Inténtalo de nuevo.",
+  "默认渠道": "Canales predeterminados",
+  "自定义渠道": "Canales personalizados",
+  "添加自定义渠道": "Añadir canal personalizado",
+  "尚未添加自定义渠道。": "No hay canales personalizados.",
+  "配置{p0}": "Configurar {p0}",
+  "移除“{p0}”渠道？已保存的歌词不会删除。": "¿Eliminar el canal «{p0}»? Las letras guardadas no se eliminarán.",
+  "已启用": "Activado",
+  "未启用": "Desactivado"
 }

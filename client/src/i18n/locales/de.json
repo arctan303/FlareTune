@@ -1840,5 +1840,13 @@
   "下载接口地址": "URL für den Download",
   "来源译文语言": "Übersetzungssprache der Quelle",
   "自定义接口须符合歌词源协议，仅支持 HTTPS 地址。": "Eigene Endpunkte müssen dem Liedtextprotokoll folgen und HTTPS verwenden.",
-  "歌词源加载失败，请重试。": "Liedtextquellen konnten nicht geladen werden. Bitte erneut versuchen."
+  "歌词源加载失败，请重试。": "Liedtextquellen konnten nicht geladen werden. Bitte erneut versuchen.",
+  "默认渠道": "Standardkanäle",
+  "自定义渠道": "Benutzerdefinierte Kanäle",
+  "添加自定义渠道": "Benutzerdefinierten Kanal hinzufügen",
+  "尚未添加自定义渠道。": "Keine benutzerdefinierten Kanäle vorhanden.",
+  "配置{p0}": "{p0} konfigurieren",
+  "移除“{p0}”渠道？已保存的歌词不会删除。": "Kanal „{p0}“ entfernen? Gespeicherte Liedtexte bleiben erhalten.",
+  "已启用": "Aktiviert",
+  "未启用": "Deaktiviert"
 }

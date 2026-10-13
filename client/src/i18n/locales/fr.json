@@ -1840,5 +1840,13 @@
   "下载接口地址": "URL de téléchargement",
   "来源译文语言": "Langue de traduction de la source",
   "自定义接口须符合歌词源协议，仅支持 HTTPS 地址。": "Les points d’accès personnalisés doivent suivre le protocole de paroles et utiliser HTTPS.",
-  "歌词源加载失败，请重试。": "Impossible de charger les sources de paroles. Réessayez."
+  "歌词源加载失败，请重试。": "Impossible de charger les sources de paroles. Réessayez.",
+  "默认渠道": "Canaux par défaut",
+  "自定义渠道": "Canaux personnalisés",
+  "添加自定义渠道": "Ajouter un canal personnalisé",
+  "尚未添加自定义渠道。": "Aucun canal personnalisé ajouté.",
+  "配置{p0}": "Configurer {p0}",
+  "移除“{p0}”渠道？已保存的歌词不会删除。": "Supprimer le canal « {p0} » ? Les paroles enregistrées seront conservées.",
+  "已启用": "Activé",
+  "未启用": "Désactivé"
 }

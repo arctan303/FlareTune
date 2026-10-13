@@ -4,6 +4,14 @@ import database from './database.js';
 // Chinese source copy is the stable key until every screen has migrated.
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
+  "默认渠道": "Default channels",
+  "自定义渠道": "Custom channels",
+  "添加自定义渠道": "Add custom channel",
+  "尚未添加自定义渠道。": "No custom channels added.",
+  "配置{p0}": "Configure {p0}",
+  "移除“{p0}”渠道？已保存的歌词不会删除。": "Remove the “{p0}” channel? Saved lyrics will not be deleted.",
+  "已启用": "Enabled",
+  "未启用": "Disabled",
   '上传歌曲': 'Upload songs',
   ...generated,
   ...database,

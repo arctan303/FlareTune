@@ -2,7 +2,7 @@
 
 [简体中文](lyric-sources.md) · [English](lyric-sources.en.md)
 
-Administrators open **Settings → AI and assistant → Lyric sources**. Only LRCLIB is enabled by default, at `https://lrclib.net/api`. Disable it or use a compatible hosted service if needed. Custom sources start disabled with empty URLs. Save applies changes; Cancel discards the draft. Reopen the dialog after a revision conflict.
+Administrators manage **Default channels** and **Custom channels** separately under **Settings → AI and assistant → Lyric sources**. LRCLIB is configured and enabled by default at `https://lrclib.net/api`; edit its URL separately or use its switch to enable or disable it. Choose **Add custom channel**, select the word-timed or line-timed protocol, and enter only that channel’s search/download URLs and translation language. Each added channel has its own Edit, Delete and enable switch. Disabling retains its configuration; deleting removes only that configuration, preserving saved lyrics. Each protocol supports one endpoint pair; use Edit to update an existing channel. Save changes only the selected channel, while Cancel discards its draft. Refresh the page and reopen after a revision conflict.
 
 Custom services must implement the relevant protocol below. Use HTTPS search and download endpoint URLs you are entitled to access. The domains below are examples. URLs cannot include credentials, query strings or fragments; IP literals, local hostnames, nonstandard ports and redirects are unsupported. Requests contain song metadata and candidate identifiers, without application login credentials. Only administrators receive endpoint URLs; members can read enabled source IDs and lyrics.
 
