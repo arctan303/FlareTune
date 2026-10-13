@@ -155,7 +155,6 @@ export default function AllPlaylistsView({
             .filter((element) => element.hasAttribute('data-playlist-key'));
 
         const animateReorder = (fromIdx, targetIdx) => {
-            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
             const before = new Map(gridCards().map((card) => [card.dataset.playlistKey, card.getBoundingClientRect()]));
             for (const animation of reorderAnimationsRef.current.values()) animation.cancel();
             reorderAnimationsRef.current.clear();
@@ -170,7 +169,6 @@ export default function AllPlaylistsView({
                 });
             });
 
-            if (reduceMotion) return;
             for (const card of gridCards()) {
                 if (Number(card.dataset.playlistIndex) === targetIdx) continue;
                 const previous = before.get(card.dataset.playlistKey);
@@ -257,10 +255,6 @@ export default function AllPlaylistsView({
             }
             const destination = gridCards().find((card) => Number(card.dataset.playlistIndex) === dragIndexRef.current);
             if (!destination || !floatingElRef.current) {
-                cleanupDrag();
-                return;
-            }
-            if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
                 cleanupDrag();
                 return;
             }

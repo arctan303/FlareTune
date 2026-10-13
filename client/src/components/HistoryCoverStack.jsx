@@ -147,13 +147,11 @@ export default function HistoryCoverStack({ history }) {
       setVisible((entries) => reconcileHistoryCoverEntries(previous.slice(0, 3), entries, interruptedEntry));
     }
     setStaged(null);
-
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const newPlay = nextTop && nextTop.id !== previousTop?.id
       && nextTop.playedAt >= (previousTop?.playedAt || 0)
       && Date.now() - nextTop.playedAt < 5000;
 
-    if (!newPlay || reducedMotion || !nextTop.cover_url || returnedBeforeLanding) {
+    if (!newPlay || !nextTop.cover_url || returnedBeforeLanding) {
       setVisible((entries) => reconcileHistoryCoverEntries(history.slice(0, 3), entries));
       return;
     }

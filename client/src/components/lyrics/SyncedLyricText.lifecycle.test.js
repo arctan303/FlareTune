@@ -54,8 +54,8 @@ test('real word renderer acquires RAF only while active, visible and text-matche
   clock.sample('play');
   assert.equal(frames.size, 1);
   for (const listener of motionListeners) listener({ matches: true });
-  assert.equal(frames.size, 0);
-  assert.equal(timers.size, 1);
+  assert.equal(frames.size, 1);
+  assert.equal(motionListeners.size, 0);
   for (const listener of motionListeners) listener({ matches: false });
   assert.equal(frames.size, 1);
   audio.currentTime = 2;

@@ -22,12 +22,11 @@ test('XiaoA uses the music site API in both development and production', () => {
   assert.doesNotMatch(development, /VITE_XIAOA_API_BASE/);
   assert.doesNotMatch(production, /VITE_XIAOA_API_BASE/);
 });
-test('reduced-motion and hidden-page rules stop continuous shell animations', () => {
+test('hidden-page rules stop continuous shell animations without consulting system motion', () => {
   const css = readSource('./index.css');
 
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.playing-bars > div[\s\S]*animation: none !important/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\[style\*="text-scroll"\][\s\S]*animation: none !important/);
   assert.match(css, /html\[data-page-hidden='true'\][\s\S]*animation-play-state: paused !important/);
+  assert.doesNotMatch(readSource("./index.css"), /prefers-reduced-motion/);
 });
 
 test('application shell does not render or track the retired pointer halo', () => {
@@ -344,5 +343,6 @@ test('private displayed media reuses session memory while other images retain di
   assert.doesNotMatch(registry, /Image load timed out|IMAGE_LOAD_TIMEOUT_ERROR_CODE/);
   assert.match(css, /\.lazy-image__asset\.is-revealing[\s\S]*image-reveal 220ms/);
   assert.match(css, /html\[data-page-hidden='true'\] \.image-loading-placeholder::after[\s\S]*animation-play-state: paused !important/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.image-loading-placeholder::after[\s\S]*animation: none !important/);
+
+  assert.doesNotMatch(readSource("./index.css"), /prefers-reduced-motion/);
 });

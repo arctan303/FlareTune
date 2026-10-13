@@ -47,8 +47,9 @@ test('characters maintain a stable flat baseline with zero lift while filling, i
     tree.props.ref.current = root;
     nodes(tree).filter(node => node.props.className === 'synced-lyric-text__word').forEach((node, index) => node.props.ref(words[index]));
     nodes(tree).filter(node => node.props.className === 'synced-lyric-text__char').forEach((node, index) => node.props.ref(characters[index]));
-    // This harness attaches refs after effects; reapply the initial snapshot with them attached.
-    s.motionListeners.forEach(fn => fn({ matches: false }));
+    // Re-enter after attaching harness refs; real React attaches them before layout effects.
+    s.harness.render({ ...props, active: false });
+    s.harness.render(props);
     s.clock.sample('timeupdate');
     assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
@@ -103,7 +104,7 @@ test('a combined letter and emoji remain individual visible characters within on
     s.harness.unmount();
 });
 
-test('actual interval dots keep continuous progress without React renders and release work on pause, hide and reduced motion', () => {
+test('actual interval dots keep continuous progress without React renders and release work on pause and hide while ignoring system preference', () => {
     const s = subject('./InterludeDots.jsx', 25);
     const props = { active: true, window: { start: 10, end: 100, duration: 90 }, clock: s.clock };
     const tree = s.harness.render(props);
@@ -133,7 +134,8 @@ test('actual interval dots keep continuous progress without React renders and re
     s.clock.sample('visibilitychange');
     assert.equal(s.frames.size, 1);
     s.motionListeners.forEach(fn => fn({ matches: true }));
-    assert.equal(s.frames.size, 0);
+    assert.equal(s.frames.size, 1);
+    assert.equal(s.motionListeners.size, 0);
     s.audio.currentTime = 45;
     s.clock.sample('timeupdate');
     assert.equal(dots[0].dataset.fillState, 'complete');

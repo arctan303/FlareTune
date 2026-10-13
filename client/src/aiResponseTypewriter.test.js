@@ -151,16 +151,16 @@ test('typewriter cancel stops pending output and resolves an in-flight drain wit
   assert.equal(typewriter.getFullText(), '不');
 });
 
-test('reduced motion displays received text immediately', async () => {
-  const updates = [];
-  const typewriter = createAiResponseTypewriter({
-    onDisplay: (text) => updates.push(text),
-    prefersReducedMotion: true,
-  });
-
-  typewriter.append('立即显示');
-  assert.deepEqual(updates, ['立即显示']);
-  assert.equal(await typewriter.finish(), '立即显示');
+test("received assistant text finishes through the normal incremental animation", async () => {
+  const scheduler = makeScheduler(), updates = [];
+  const typewriter = createAiResponseTypewriter({ onDisplay: text => updates.push(text), schedule: scheduler.schedule, cancelSchedule: scheduler.cancel });
+  typewriter.append('逐字显示');
+  assert.deepEqual(updates, []);
+  const finished = typewriter.finish();
+  scheduler.runAll();
+  assert.equal(await finished, '逐字显示');
+  assert.equal(updates.at(-1), '逐字显示');
+  assert.ok(updates.length > 1);
 });
 
 test('inline cursor follows the last visible markdown character', () => {

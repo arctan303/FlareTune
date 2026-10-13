@@ -5,7 +5,6 @@ import InterludeHost from './lyrics/InterludeHost';
 import SyncedLyricText from './lyrics/SyncedLyricText';
 
 import { useLyricSurfacePresentation } from './lyrics/lyricSurfacePresentation.js';
-import { useMediaQuery } from './fullscreen/useMediaQuery';
 import { getLyricKeyboardTarget, getSeekableLyricIndices } from './lyricKeyboardNavigation.js';
 import { usePlayerInteractionLock } from '../hooks/usePlayerAutoHide.js';
 import { CLASSIC_LYRIC_SCROLL_MS, classicLyricEase } from './classicLyricMotion.js';
@@ -33,7 +32,6 @@ export default function LyricsScroller({
     const scrollTimeoutRef = React.useRef(null);
     const lyricFocusRefs = React.useRef([]);
     const [focusedLyricIndex, setFocusedLyricIndex] = React.useState(null);
-    const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)', false);
     const iconStrokeWidth = 1.75;
     const resolvedTranslationState = translationState || (canTranslate ? 'ready' : 'unavailable');
     const translationPending = resolvedTranslationState === 'pending';
@@ -116,7 +114,7 @@ export default function LyricsScroller({
         setIsUserScrolling(true);
         if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
-    
+
     const userInteractEnd = () => {
         if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
         scrollTimeoutRef.current = setTimeout(() => {
@@ -227,7 +225,7 @@ export default function LyricsScroller({
 
                     // 首次进入全屏：跳过 680ms 平滑滚动，直接定位当前行。
                     // 滑入转场期间不再每帧驱动 scrollTop 重绘，切入切出不再卡顿。
-                    if (prefersReducedMotion || !hasPositionedOnEnterRef.current) {
+                    if (!hasPositionedOnEnterRef.current) {
                         if (scrollAnimRef.current) {
                             window.cancelAnimationFrame(scrollAnimRef.current);
                             scrollAnimRef.current = null;
@@ -276,10 +274,7 @@ export default function LyricsScroller({
                 window.cancelAnimationFrame(scrollLayoutFrameRef.current);
                 scrollLayoutFrameRef.current = null;
             }
-            if (prefersReducedMotion) {
-                scrollToActive();
-                return;
-            }
+
             scrollLayoutFrameRef.current = window.requestAnimationFrame(() => {
                 scrollLayoutFrameRef.current = null;
                 scrollToActive();
@@ -314,7 +309,7 @@ export default function LyricsScroller({
             if (resizeObserver) resizeObserver.disconnect();
             if (scrollAnimRef.current) window.cancelAnimationFrame(scrollAnimRef.current);
         };
-    }, [displayedLyricIndex, isFullScreen, currentSong?.id, isUserScrolling, lyrics, prefersReducedMotion, surfaceVisible, translationEnabled]);
+    }, [displayedLyricIndex, isFullScreen, currentSong?.id, isUserScrolling, lyrics, surfaceVisible, translationEnabled]);
 
     return (
         <div className="classic-lyrics w-full flex-1 flex flex-col h-full pt-0 pb-0 lg:pt-12 lg:pb-0 px-1 sm:px-4 lg:px-0 relative min-w-0">

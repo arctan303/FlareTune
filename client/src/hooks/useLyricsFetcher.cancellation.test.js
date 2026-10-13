@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { transformSync } from 'esbuild';
 import { songLanguageHasLyrics } from '../constants/language.js';
 import { getLyricVocalStart } from '../utils/lyricTimeline.js';
+import * as lyricSources from '../../../shared/lyricSources.js';
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -37,6 +38,7 @@ function createHarness({ failFirst = false } = {}) {
   const requests = [];
   const modules = {
     react,
+    '../../../shared/lyricSources.js': lyricSources,
     '../utils.js': { getApiBaseUrl: () => '' },
     '../store/usePlayerStore.js': { usePlayerStore: store },
     '../constants/language.js': { songLanguageHasLyrics },

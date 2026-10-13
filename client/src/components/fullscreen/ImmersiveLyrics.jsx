@@ -196,7 +196,6 @@ function ActiveLyricLine({
     lyricSyncMode,
     surfaceVisible,
     translationEnabled,
-    prefersReducedMotion,
     lyricShadow,
 }) {
     const translationProgressRef = React.useRef(null);
@@ -209,7 +208,6 @@ function ActiveLyricLine({
 
     const canRenderWordEffect = lyricSyncMode === 'word'
         && layer.kind === 'line'
-        && !prefersReducedMotion
         && hasRenderableWordTiming(layer.line, layer.text);
     const canTrackLineProgress = effect.translationProgress === 'line'
         && canRenderWordEffect;
@@ -270,7 +268,6 @@ export default function ImmersiveLyrics({
     lyricIntro = null,
     isPlaying = false,
     isBuffering = false,
-    prefersReducedMotion = false,
     surfaceVisible = true,
     motionEnabled = true,
     clock = lyricPlaybackClock,
@@ -313,7 +310,6 @@ export default function ImmersiveLyrics({
         && surfaceVisible
         && isPlaying
         && !isBuffering
-        && !prefersReducedMotion
         && clockSnapshot.visible !== false
         && !clockSnapshot.paused
         && !clockSnapshot.seeking
@@ -358,7 +354,6 @@ export default function ImmersiveLyrics({
         // readability. A paused/buffered/suspended surface keeps the active
         // line but immediately drops any decorative exit layer.
         visible: motionRunning,
-        reducedMotion: prefersReducedMotion,
     }), [
         clockSnapshot.visible,
         effect.id,
@@ -366,7 +361,6 @@ export default function ImmersiveLyrics({
         isLyricsLoading,
         motionRunning,
         nextLine,
-        prefersReducedMotion,
         presentation.index,
         presentation.kind,
         presentationLine,
@@ -411,7 +405,6 @@ export default function ImmersiveLyrics({
     const activeTranslationProgress = activeEffect.translationProgress === 'line'
         && lyricSyncMode === 'word'
         && lyricState.active.kind === 'line'
-        && !prefersReducedMotion
         && hasRenderableWordTiming(lyricState.active.line, lyricState.active.text)
         ? 'line'
         : 'none';
@@ -426,7 +419,6 @@ export default function ImmersiveLyrics({
             data-sync-mode={lyricSyncMode}
             data-motion-running={motionRunning ? 'true' : 'false'}
             data-translation-progress={activeTranslationProgress}
-            data-reduced-motion={prefersReducedMotion ? 'true' : 'false'}
         >
             <div className={`immersive-lyrics__stage ${activeScheme}`} data-scheme={activeScheme}>
                 {lyricState.exiting && (
@@ -445,7 +437,6 @@ export default function ImmersiveLyrics({
                     lyricSyncMode={lyricSyncMode}
                     surfaceVisible={surfaceVisible}
                     translationEnabled={translationEnabled}
-                    prefersReducedMotion={prefersReducedMotion}
                     lyricShadow={lyricShadow}
                 />
             </div>

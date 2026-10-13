@@ -199,7 +199,7 @@ export default function App({ validatedSession }) {
         themePreference,
         selectTheme,
         activeShellTheme,
-    } = useTheme(isDarkMode, setIsDarkMode, motionProfile);
+    } = useTheme(isDarkMode, setIsDarkMode);
 
     const coverAccent = useCoverAccent();
     const hasWallpaper = useWallpaperStore(selectHasRenderableWallpaper);
@@ -501,7 +501,7 @@ export default function App({ validatedSession }) {
         fallbackTimer = window.setTimeout(warmPlayerCode, 2400);
         return () => window.clearTimeout(fallbackTimer);
     }, []);
-    
+
     useLyricsFetcher({ enabled: authenticated });
 
     useGlobalKeyboardShortcuts({ 

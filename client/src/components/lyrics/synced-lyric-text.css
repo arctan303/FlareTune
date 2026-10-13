@@ -82,12 +82,6 @@ html.dark .synced-lyric-text[data-surface='playerbar'] {
   will-change: transform;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .synced-lyric-text[data-surface='playerbar'][data-synced='word'] {
-    transition: none !important;
-  }
-}
-
 .synced-lyric-text[data-surface='immersive'] .synced-lyric-text__word {
   color: inherit !important;
   -webkit-text-fill-color: inherit !important;
@@ -125,15 +119,5 @@ html.dark .synced-lyric-text[data-surface='playerbar'] {
   50% {
     transform: translateY(0);
     filter: brightness(1.12);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .synced-lyric-text[data-surface='classic'] .synced-lyric-text__char {
-    top: 0 !important;
-  }
-  .synced-lyric-text[data-surface='classic'] .synced-lyric-text__visual {
-    animation: none !important;
-    transform: none !important;
   }
 }

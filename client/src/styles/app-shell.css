@@ -1091,7 +1091,6 @@
   animation: editorial-marquee-right 88s linear infinite;
 }
 
-
 @keyframes editorial-marquee-left {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
@@ -2185,43 +2184,4 @@ html[data-page-hidden='true'] .editorial-card__marquee-row {
 @keyframes sidebar-backdrop-enter {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-nav-item:active:not(:disabled) {
-    transform: none;
-  }
-
-  .app-nav-item,
-  .app-sidebar-backdrop {
-    animation: none;
-    transition: none;
-  }
-  .roam-radio__language,
-  .roam-radio__language::after {
-    transition: none;
-  }
-
-  .sidebar-mini-player--exit,
-  .sidebar-mini-player--enter {
-    animation: none;
-  }
-
-  .player-dock:not(.player-dock--immersive) {
-    transition-duration: 0ms !important;
-  }
-
-  .app-page,
-  .editorial-card__image,
-  .editorial-card__marquee-row,
-  .editorial-card__fanout-card,
-  .editorial-card__ambient-blur,
-  .editorial-card__history-ambient,
-  .editorial-card__history-cover,
-  .editorial-card__history-empty-art,
-  .page-back-button,
-  .app-sidebar {
-    animation: none;
-    transition: none;
-  }
 }

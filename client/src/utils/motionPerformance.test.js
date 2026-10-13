@@ -101,7 +101,7 @@ test('fine-pointer desktops keep full motion even at high resolution', () => {
 
 test('touch-capable desktops with fine pointer keep full theme transitions', () => {
   const matches = new Map([
-    ['(prefers-reduced-motion: reduce)', false],
+    ['(prefers-system-motion: reduce)', false],
     ['(pointer: coarse)', false],
     ['(pointer: fine)', true],
     ['(hover: none)', false],
@@ -120,7 +120,7 @@ test('touch-capable desktops with fine pointer keep full theme transitions', () 
 
 test('touch viewport remains compact when desktop input is narrowed below tablet size', () => {
   const matches = new Map([
-    ['(prefers-reduced-motion: reduce)', false],
+    ['(prefers-system-motion: reduce)', false],
     ['(pointer: coarse)', false],
     ['(pointer: fine)', true],
     ['(hover: none)', false],
@@ -137,18 +137,14 @@ test('touch viewport remains compact when desktop input is narrowed below tablet
   assert.equal(getVisualMotionProfile(narrowTouchWindow), VISUAL_MOTION_PROFILE.COMPACT_TOUCH);
 });
 
-test('reduced motion always wins over the device performance tier', () => {
-  assert.equal(
-    resolveVisualMotionProfile({
-      prefersReducedMotion: true,
-      coarsePointer: true,
-      hoverNone: true,
-      viewportWidth: 1280,
-      viewportHeight: 800,
-      physicalPixels: 8_294_400,
-    }),
-    VISUAL_MOTION_PROFILE.REDUCED,
-  );
+test("visual quality follows touch size without querying the system motion setting", () => {
+  const queries = [];
+  const target = { innerWidth: 1280, innerHeight: 800, navigator: { maxTouchPoints: 10 },
+    matchMedia: query => { queries.push(query); assert.doesNotMatch(query, /prefers-reduced-motion/); return { matches: query === '(pointer: coarse)' || query === '(hover: none)' }; } };
+  assert.equal(getVisualMotionProfile(target), VISUAL_MOTION_PROFILE.FULL);
+  target.innerWidth = 390;
+  assert.equal(getVisualMotionProfile(target), VISUAL_MOTION_PROFILE.COMPACT_TOUCH);
+  assert.ok(queries.length > 0);
 });
 
 test('playlist visibility and drawer phase change atomically in both directions', () => {

@@ -25,7 +25,6 @@
   animation: instance-portal-enter 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-
 /* 字标沿用侧边栏品牌字号，作为内容列的起点 */
 .instance-wordmark.tune-wordmark {
   display: block;
@@ -571,8 +570,4 @@ html.dark .instance-page--login .instance-primary { color: var(--page, #09090b);
 @media (max-width: 400px) {
   .instance-field { grid-template-columns: 68px minmax(0, 1fr); column-gap: 12px; }
   .instance-page--login .instance-field { grid-template-columns: minmax(0, 1fr); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .instance-page *, .instance-page *::before, .instance-page *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

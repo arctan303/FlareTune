@@ -2,18 +2,7 @@ export const ARTIST_HEADER_MAX_HEIGHT = 340;
 export const ARTIST_HEADER_MIN_HEIGHT = 96;
 const ARTIST_HEADER_SCROLL_RANGE = ARTIST_HEADER_MAX_HEIGHT - ARTIST_HEADER_MIN_HEIGHT;
 
-export function getArtistDrawerMotion(scrollTop, prefersReducedMotion) {
-  if (prefersReducedMotion) {
-    return {
-      headerHeight: ARTIST_HEADER_MIN_HEIGHT,
-      avatarScale: 0.64,
-      badgeOpacity: 0,
-      badgeTranslateY: -8,
-      titleScale: 0.78,
-      metaTranslateY: -2,
-      photoTransform: 'none',
-    };
-  }
+export function getArtistDrawerMotion(scrollTop) {
 
   const safeScrollTop = Number.isFinite(scrollTop) ? scrollTop : 0;
   const clampedScroll = Math.max(0, Math.min(ARTIST_HEADER_SCROLL_RANGE, safeScrollTop));

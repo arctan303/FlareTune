@@ -43,9 +43,7 @@ export const useUIStore = create(
         if (value !== 'dock' && value !== 'sidebar') return;
         const from = get().compactPlayerPlacement;
         if (value === from || get().compactPlayerTransition) return;
-        const reducedMotion = typeof window === 'undefined'
-          || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-        if (reducedMotion) {
+        if (typeof window === 'undefined') {
           set({ compactPlayerPlacement: value, compactPlayerTransition: null });
           return;
         }

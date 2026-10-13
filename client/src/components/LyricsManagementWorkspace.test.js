@@ -41,7 +41,8 @@ test('workspace follows app page scrolling and light and dark themes', () => {
   assert.match(css, /\.lyric-studio__layout \{[\s\S]*display: block;/);
   assert.doesNotMatch(css, /position: fixed;/);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
-  assert.match(css, /prefers-reduced-motion: reduce/);
+
+  assert.doesNotMatch(readFileSync(new URL("./lyrics-management-workspace.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
 test('candidate quality ordering and safe warnings stay available', () => {

@@ -44,31 +44,17 @@ test('player-bar preview receives low-frequency lyric fields and visibility as e
   assert.doesNotMatch(source, /usePlayerStore|useStore|zustand/);
 });
 
-test('player-bar reduced motion keeps the final roller position without row scale or transitions', () => {
+test('player-bar roller retains row position and scale transitions', () => {
   assert.match(source, /player-console__lyric-roller w-full transition-transform duration-300/);
   assert.match(source, /player-console__lyric-row h-\[18px\][\s\S]*?transition-all duration-300/);
   assert.equal(source.match(/player-console__lyric-row/g)?.length, 3);
   assert.match(source, /isActive \? 'player-console__lyric--current scale-100 opacity-100' : 'player-console__lyric scale-\[0\.88\] opacity-70'/);
   assert.match(source, /style=\{\{ transform: `translateY\(-\$\{translateY\}px\)` \}\}/);
 
-  const reducedMotionBlock = playerBarCss.slice(
-    playerBarCss.indexOf('@media (prefers-reduced-motion: reduce)'),
-  );
-  assert.match(
-    reducedMotionBlock,
-    /\.player-console__lyric-roller,[\s\S]*?\.player-console__lyric-row \{[\s\S]*?transition: none !important;/,
-  );
-  assert.match(
-    reducedMotionBlock,
-    /\.player-console__lyric-row \{[\s\S]*?transform: none !important;/,
-  );
-  assert.doesNotMatch(
-    reducedMotionBlock,
-    /\.player-console__lyric-roller\s*\{[\s\S]*?transform: none/,
-  );
+  assert.doesNotMatch(readFileSync(new URL("../../styles/player-bar.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
-test('player-bar reduced motion skips keyed content drift and exposes its stable final state', () => {
+test('player-bar content retains its keyed enter animation', () => {
   assert.equal(source.match(/player-console__lyric-content/g)?.length, 2);
   assert.match(
     source,
@@ -79,18 +65,11 @@ test('player-bar reduced motion skips keyed content drift and exposes its stable
     /key=\{`\$\{currentSong\?\.id\}-meta`\}[\s\S]*?className="player-console__lyric-content[^"]*animate-player-content-drift-in/,
   );
 
-  const reducedMotionBlock = playerBarCss.slice(
-    playerBarCss.indexOf('@media (prefers-reduced-motion: reduce)'),
-  );
-  assert.match(
-    reducedMotionBlock,
-    /\.player-console__lyric-content \{[\s\S]*?animation: none !important;[\s\S]*?opacity: 1 !important;[\s\S]*?transform: none !important;[\s\S]*?filter: none !important;/,
-  );
-
   assert.match(
     animationsCss,
     /\.animate-player-content-drift-in \{\s*animation: player-content-drift-in 700ms cubic-bezier\(0\.22, 1, 0\.36, 1\) both;/,
   );
+  assert.doesNotMatch(readFileSync(new URL("../../styles/player-bar.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
 test('player-bar console provides soft contrast fallbacks and color transition in dark mode', () => {
@@ -114,4 +93,3 @@ test('player-bar active lyric row clips text overflow smoothly and applies gradi
     /mask-image:\s*linear-gradient\(\s*90deg,\s*transparent\s+0%,\s*black\s+14px/,
   );
 });
-

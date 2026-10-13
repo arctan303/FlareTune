@@ -13,7 +13,6 @@ export default function SettingsEditDialog({ title, onClose, children, message, 
   const [closing, setClosing] = React.useState(false);
   const requestClose = () => {
     if (busy || closeTimer.current !== null) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { onCloseRef.current(); return; }
     setClosing(true);
     closeTimer.current = setTimeout(() => {
       closeTimer.current = null;

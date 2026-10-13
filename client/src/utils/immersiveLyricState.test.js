@@ -174,11 +174,6 @@ test('only same-song adjacent line advances are allowed to exit', () => {
             transition: IMMERSIVE_LYRIC_TRANSITIONS.ADVANCE,
             visible: false,
         }],
-        ['reduced motion', {}, {
-            lineIndex: 1,
-            transition: IMMERSIVE_LYRIC_TRANSITIONS.ADVANCE,
-            reducedMotion: true,
-        }],
     ];
 
     for (const [label, initialAction, action] of cases) {
@@ -248,7 +243,6 @@ test('suppression events clear an already-running exit without replaying the act
         ['effect change', { lineIndex: 1, effectId: 'wind' }],
         ['loading', { lineIndex: 1, loading: true }],
         ['hidden', { lineIndex: 1, visible: false }],
-        ['reduced motion', { lineIndex: 1, reducedMotion: true }],
     ];
 
     for (const [label, action] of cases) {

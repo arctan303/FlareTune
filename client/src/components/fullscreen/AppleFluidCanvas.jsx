@@ -291,7 +291,6 @@ export default function AppleFluidCanvas({
     isPlaying = true,
     isBuffering = false,
     suspended = false,
-    prefersReducedMotion = false,
     className = '',
 }) {
     const routeRevision = usePrivateMediaRouteRevision();
@@ -314,11 +313,9 @@ export default function AppleFluidCanvas({
     const isPlayingRef = useRef(isPlaying);
     const isBufferingRef = useRef(isBuffering);
     const suspendedRef = useRef(suspended);
-    const prefersReducedMotionRef = useRef(prefersReducedMotion);
     isPlayingRef.current = isPlaying;
     isBufferingRef.current = isBuffering;
     suspendedRef.current = suspended || !pageVisible;
-    prefersReducedMotionRef.current = prefersReducedMotion;
 
     // 渲染循环（内部始终读取最新的 Ref 状态）
     const renderLoop = (timestamp) => {
@@ -333,8 +330,7 @@ export default function AppleFluidCanvas({
 
         gl.useProgram(program);
 
-        const reducedMotion = prefersReducedMotionRef.current;
-        const playing = isPlayingRef.current && !isBufferingRef.current && !reducedMotion;
+        const playing = isPlayingRef.current && !isBufferingRef.current;
         if (playing) {
             const previous = lastFrameTimeRef.current;
             // 原 60Hz 每帧 0.008；首帧/恢复帧仅建立时间基准，长间隔不跳跃。
@@ -343,9 +339,7 @@ export default function AppleFluidCanvas({
             lastFrameTimeRef.current = timestamp;
         } else lastFrameTimeRef.current = null;
 
-        if (reducedMotion) {
-            crossfadeRef.current.progress = 1.0;
-        } else if (crossfadeRef.current.progress < 1.0) {
+        if (crossfadeRef.current.progress < 1.0) {
             const elapsed = performance.now() - crossfadeRef.current.startTime;
             crossfadeRef.current.progress = Math.min(1.0, elapsed / 850);
         }
@@ -392,7 +386,7 @@ export default function AppleFluidCanvas({
             antialias: false,
             powerPreference: 'high-performance' 
         }) || canvas.getContext('experimental-webgl');
-        
+
         if (!gl) return;
         glRef.current = gl;
 
@@ -549,7 +543,7 @@ export default function AppleFluidCanvas({
     useEffect(() => {
         lastFrameTimeRef.current = null;
         if (!suspended && pageVisible) triggerRender();
-    }, [suspended, isPlaying, isBuffering, prefersReducedMotion, pageVisible]);
+    }, [suspended, isPlaying, isBuffering, pageVisible]);
 
     const textureVisible = isTextureAuthorized(coverUrl, routeRevision, textureAuthorization, imageLoadRegistry);
 

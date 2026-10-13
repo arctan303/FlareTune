@@ -15,7 +15,5 @@ export function moveHorizontalScroll(element, direction, pitch, { snap = true } 
   const next = snap
     ? (Math.round(element.scrollLeft / pitch) + direction) * pitch
     : element.scrollLeft + direction * pitch;
-  const reducedMotion = typeof window !== 'undefined'
-    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  element.scrollTo({ left: Math.max(0, Math.min(maxScroll, next)), behavior: reducedMotion ? 'auto' : 'smooth' });
+  element.scrollTo({ left: Math.max(0, Math.min(maxScroll, next)), behavior: 'smooth' });
 }

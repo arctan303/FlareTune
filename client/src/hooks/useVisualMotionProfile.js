@@ -43,7 +43,6 @@ export function useVisualMotionProfile(visualMotionPhase = VISUAL_MOTION_PHASE.I
     }
 
     const mediaQueries = [
-      '(prefers-reduced-motion: reduce)',
       '(pointer: coarse)',
       '(pointer: fine)',
       '(hover: none)',

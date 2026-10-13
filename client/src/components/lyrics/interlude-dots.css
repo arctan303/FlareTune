@@ -76,12 +76,3 @@
 @media (min-width: 768px) {
   .classic-interlude-dot { width: 18px; height: 18px; }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .classic-interlude-dot,
-  .classic-interlude-dot__fill {
-    animation: none !important;
-    transform: none !important;
-    transition: none !important;
-  }
-}

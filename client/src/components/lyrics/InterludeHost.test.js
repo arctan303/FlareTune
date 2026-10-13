@@ -56,7 +56,10 @@ test('candidate promotion derives the first painted state from the current share
     assert.doesNotMatch(source, /const isInterlude = interludeState\.isInterlude/);
 });
 
-test('reduced motion keeps interlude semantics without scale, blur, transition or dot animation', () => {
-    assert.match(classicCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.classic-lyrics__text-wrap,[\s\S]*?\.classic-lyrics__dots-overlay[\s\S]*?transform: none !important;[\s\S]*?filter: none !important;[\s\S]*?transition: none !important;/);
-    assert.match(classicCss, /\.classic-lyrics__interlude-dots[\s\S]*?animation: none !important;/);
+test('interlude progress keeps its normal scale and breathing without a system override', () => {
+    const dots = readFileSync(new URL('./interlude-dots.css', import.meta.url), 'utf8');
+    assert.doesNotMatch(classicCss + dots, /prefers-reduced-motion/);
+    assert.match(dots, /transform: scale\(calc\(0\.25 \+ 0\.75/);
+    assert.match(dots, /classic-interlude-inner-pulse 2\.4s/);
+    assert.match(dots, /data-motion-running='true'/);
 });

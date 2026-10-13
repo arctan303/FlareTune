@@ -109,7 +109,7 @@ test('touch tablets keep desktop visual quality while expensive work remains ser
 
   assert.doesNotMatch(themeHook, /getVisualMotionProfile\(window\)/);
   assert.match(themeHook, /const THEME_TRANSITION_MS = 360/);
-  assert.match(themeHook, /motionProfile = VISUAL_MOTION_PROFILE\.FULL/);
+  assert.doesNotMatch(themeHook, /VISUAL_MOTION_PROFILE/);
   assert.match(themeHook, /current === VISUAL_MOTION_PHASE\.THEME[\s\S]{0,120}VISUAL_MOTION_PHASE\.IDLE/);
   assert.doesNotMatch(themeHook, /runInPlaceThemeTransition|runLightweightThemeTransition/);
   assert.match(motionProfileHook, /visualMotionPhaseRef\.current = visualMotionPhase/);
@@ -127,9 +127,8 @@ test('touch tablets keep desktop visual quality while expensive work remains ser
 
   const coverAccentHook = readSource('./hooks/useCoverAccent.js');
   assert.match(coverAccentHook, /DEFAULT_COVER_ACCENT/);
-  assert.match(app, /const \{[\s\S]*toggleTheme[\s\S]*\} = useTheme\(isDarkMode, setIsDarkMode, motionProfile\);/);
+  assert.match(app, /const \{[\s\S]*toggleTheme[\s\S]*\} = useTheme\(isDarkMode, setIsDarkMode\);/);
   assert.match(app, /const coverAccent = useCoverAccent\(\);/);
-
 
   assert.match(desktopPlayer, /mediaEnabled=\{hasEntered\}\s+active=\{hasEntered && !isClosing\}/);
   assert.doesNotMatch(desktopPlayer, /deferMedia=/);
@@ -170,15 +169,16 @@ test('theme switching interpolates semantic colors without snapshots, clipping, 
   assert.match(themeHook, /const THEME_TRANSITION_MS = 360/);
   assert.match(themeHook, /Object\.entries\(colors\)\.forEach[\s\S]*root\.style\.setProperty\(`--\$\{name\}`, value\)/);
   assert.match(themeHook, /const nextIsDark = !document\.documentElement\.classList\.contains\('dark'\)/);
-  assert.match(themeHook, /motionProfile !== VISUAL_MOTION_PROFILE\.REDUCED[\s\S]*setVisualMotionPhase\(VISUAL_MOTION_PHASE\.THEME\)/);
+
   assert.doesNotMatch(themeHook, /startViewTransition|getEventCoordinates|clipPath|pseudoElement|nativeEvent|flushSync/);
 
   assert.match(css, /@property --page \{[\s\S]*syntax: '<color>';[\s\S]*inherits: true;/);
   assert.match(css, /:root,[\s\S]*\.music-shell \{[\s\S]*--page 360ms ease,[\s\S]*--drawer-line 360ms ease/);
   assert.match(css, /html,[\s\S]*body,[\s\S]*#root \{[\s\S]*background: var\(--page\)/);
   assert.doesNotMatch(css, /transition: background-color 360ms ease, color 360ms ease/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*:root,[\s\S]*\.music-shell \{[\s\S]*transition: none !important/);
+
   assert.doesNotMatch(css, /::view-transition|view-transition-name|--vt-|--theme-origin-|in-place-mode-glow|data-theme-to/);
+  assert.doesNotMatch(readSource("./index.css"), /prefers-reduced-motion/);
 });
 
 test('the confirmed brand name is consistent across metadata, the unique sidebar wordmark, and player titles', () => {

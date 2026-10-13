@@ -28,7 +28,7 @@ test('translation stays one text node and only declared effects consume original
   assert.match(immersive, /effect\.translationProgress === 'line'/);
   assert.match(immersive, /const canRenderWordEffect = lyricSyncMode === 'word'/);
   assert.match(immersive, /data-word-event=\{canRenderWordEffect \? effect\.wordEvent : 'none'\}/);
-  assert.match(immersive, /!prefersReducedMotion/);
+
   assert.match(immersive, /data-translation-progress=\{translationProgress\}/);
   assert.doesNotMatch(immersive, /words\.map[\s\S]{0,180}translation|SyncedLyricText[\s\S]{0,120}translation/);
   assert.match(css, /\.immersive-lyrics__translation\[data-translation-progress='line'\]/);
@@ -87,14 +87,9 @@ test('layout preserves full text, wraps long tokens, and keeps a readable floor'
   assert.doesNotMatch(immersive, /whitespace-nowrap|truncate|calcFontSize/);
 });
 
-test('reduced motion stabilizes wrappers, word decoration, loading, and translation', () => {
-  const reducedBlock = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
-  assert.match(reducedBlock, /\.immersive-lyrics__line/);
-  assert.match(reducedBlock, /\.synced-lyric-text__word/);
-  assert.match(reducedBlock, /animation: none !important/);
-  assert.match(reducedBlock, /filter: none !important/);
-  assert.match(reducedBlock, /transform: none !important/);
-  assert.match(reducedBlock, /\.immersive-lyrics__translation\[data-translation-progress='line'\][\s\S]*background: none/);
+test('immersive styles no longer override effects based on system motion', () => {
+
+  assert.doesNotMatch(readFileSync(new URL("../../theme-animations.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
 test('desktop cinematic wiring resolves transition state before use and preserves user effect choice', () => {
@@ -107,7 +102,6 @@ test('desktop cinematic wiring resolves transition state before use and preserve
     'lyricIntro={lyricIntro}',
     'isPlaying={isPlaying}',
     'isBuffering={isBuffering}',
-    'prefersReducedMotion={prefersReducedMotion}',
     'surfaceVisible={Boolean(isFullScreen && hasEntered && !isClosing)}',
   ]) {
     assert.ok(desktop.includes(prop), `missing immersive prop: ${prop}`);

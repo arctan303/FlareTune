@@ -389,7 +389,6 @@ export default function AssistantView({ section = 'conversation' }) {
 
         try {
             typewriter = createAiResponseTypewriter({
-                prefersReducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true,
                 onDisplay: (renderedText) => {
                     if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
                     renderedContent = renderedText;

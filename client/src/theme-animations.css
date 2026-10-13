@@ -488,32 +488,6 @@ html[data-page-hidden='true'] .immersive-lyrics__loading-shimmer {
 }
 
 /* Reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
-  .immersive-lyrics__line,
-  .immersive-lyrics__content,
-  .immersive-lyrics .synced-lyric-text__word,
-  .immersive-lyrics .word-char,
-  .immersive-lyrics__loading-spinner,
-  .immersive-lyrics__loading-shimmer {
-    animation: none !important;
-    filter: none !important;
-    transform: none !important;
-    transition: none !important;
-  }
-
-  .immersive-lyrics .synced-lyric-text__word,
-  .immersive-lyrics .word-char {
-    opacity: 1 !important;
-    text-shadow: none !important;
-  }
-
-  .immersive-lyrics__translation,
-  .immersive-lyrics__translation[data-translation-progress='line'] {
-    color: rgba(203, 213, 225, 0.55) !important;
-    -webkit-text-fill-color: currentColor !important;
-    background: none !important;
-  }
-}
 
 @media (max-height: 720px) {
   .immersive-lyrics__stage {

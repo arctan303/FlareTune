@@ -30,13 +30,10 @@ export default function InterludeDots({
             if (rootRef.current?.dataset) rootRef.current.dataset.motionRunning = 'false';
             return undefined;
         }
-        const mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-        let reducedMotion = mediaQuery?.matches === true;
         const update = (snapshot) => {
             const fills = getInterludeDotProgress(snapshot.currentTime, { start, duration });
             if (rootRef.current?.dataset) {
-                rootRef.current.dataset.motionRunning = !reducedMotion
-                    && snapshot.visible !== false && !snapshot.paused
+                rootRef.current.dataset.motionRunning = snapshot.visible !== false && !snapshot.paused
                     && !snapshot.buffering && !snapshot.seeking && !snapshot.ended
                     ? 'true' : 'false';
             }
@@ -52,19 +49,11 @@ export default function InterludeDots({
         };
         update(clock.getSnapshot());
         const unsubscribe = clock.subscribe(update, {
-            animationFrames: snapshot => !reducedMotion
-                && snapshot.currentTime >= start && snapshot.currentTime < end,
+            animationFrames: snapshot => snapshot.currentTime >= start && snapshot.currentTime < end,
             getNextBoundary: snapshot => [start, end].find(time => time > snapshot.currentTime) ?? null,
         });
-        const handleMotionChange = event => {
-            reducedMotion = event.matches === true;
-            update(clock.getSnapshot());
-            clock.sample?.('motion-preference-change');
-        };
-        mediaQuery?.addEventListener?.('change', handleMotionChange);
         return () => {
             unsubscribe?.();
-            mediaQuery?.removeEventListener?.('change', handleMotionChange);
         };
     }, [active, clock, start, end, duration]);
 

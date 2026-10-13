@@ -30,10 +30,11 @@ test('artist photo rotation uses a real crossfade stack instead of a hard-coded 
   assert.doesNotMatch(src, /isCrossFading/);
 });
 
-test('reduces motion to a single static photo layer', () => {
+test('photo crossfade keeps bounded layers and clears its transition timers', () => {
   const hookSrc = readHookSource();
-  assert.match(hookSrc, /if \(prefersReducedMotion\) \{/);
-  assert.match(hookSrc, /setPhotoLayers\(\[\{[\s\S]*?id,[\s\S]*?url,[\s\S]*?opacity: 1/);
+  assert.match(hookSrc, /prev\.slice\(0, Math\.max\(0, prev\.length - 1\)\)/);
+  assert.match(hookSrc, /clearTimeout\(crossFadeTimerRef\.current\)/);
+  assert.match(hookSrc, /requestAnimationFrame/);
 });
 
 test('empty or failed photos use a darkened cover without starting scenery video', () => {
@@ -61,7 +62,7 @@ test('artist photo rotation remembers progress per artist to avoid restarting fr
 test('artist photo layers apply alternating Ken Burns zoom animations with active play state control', () => {
   const src = readSource();
   assert.match(src, /const animName = \(layer\.index % 2 === 0\) \? 'kenburnsZoomIn' : 'kenburnsZoomOut'/);
-  assert.match(src, /prefersReducedMotion \? 'none' : `\$\{animName\} 20s infinite alternate ease-in-out`/);
+
   assert.match(src, /animationPlayState: isPhotoMotionActive \? 'running' : 'paused'/);
   assert.match(src, /will-change-transform/);
 });

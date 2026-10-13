@@ -126,12 +126,13 @@ test('the primary action and error block reuse the shared accent and radius toke
   assert.match(css, /\.instance-primary:focus-visible,[\s\S]*outline: 3px solid var\(--accent/);
 });
 
-test('the portal degrades on phone widths and honours reduced motion', () => {
+test('the portal adapts to phone widths without a system animation override', () => {
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*\.instance-login \{[\s\S]*display: block/);
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*safe-area-inset-bottom/);
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*\.instance-login__identity \{[\s\S]*min-height: clamp\(220px, 33svh, 320px\)/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*env\(safe-area-inset-bottom\)/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*font-size: clamp\(30px, 9vw, 38px\)/);
   assert.match(css, /@media \(max-width: 400px\)[\s\S]*grid-template-columns: 68px minmax\(0, 1fr\)/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-duration: \.01ms !important/);
+
+  assert.doesNotMatch(readFileSync(new URL("./instance.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });

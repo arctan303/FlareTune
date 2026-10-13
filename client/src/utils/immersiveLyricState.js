@@ -12,7 +12,7 @@ export const IMMERSIVE_LYRIC_TRANSITIONS = Object.freeze({
 
 /**
  * SYNC accepts the resolved song/effect/presentation plus the current lifecycle
- * gates (`loading`, `visible`, `reducedMotion`) and an explicit transition
+ * gates (`loading`, `visible`) and an explicit transition
  * reason. Only `transition: 'advance'` is eligible for decorative entry/exit.
  * ANIMATION_END is deliberately fail-closed and requires the exiting layer's
  * token, identity and CSS animationName.
@@ -128,7 +128,6 @@ const syncState = (state, action) => {
     const kind = normalizePresentationKind(presentation);
     const loading = action.loading === true;
     const visible = action.visible !== false;
-    const reducedMotion = action.reducedMotion === true;
 
     if (loading || kind === 'none') {
         if (state.active === null && state.exiting === null) return state;
@@ -136,7 +135,7 @@ const syncState = (state, action) => {
     }
 
     const nextBase = createLayer(action, false);
-    if (!visible || reducedMotion) {
+    if (!visible) {
         const active = sameLayerContent(state.active, nextBase) ? state.active : nextBase;
         if (active === state.active && state.exiting === null) return state;
         return { ...state, active, exiting: null };

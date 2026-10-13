@@ -7,7 +7,6 @@ import { useUIStore } from '../store/useUIStore';
 import { readThemePreference, resolveDarkAppearance, THEME_PREFERENCES, writeThemePreference } from '../utils/themePreference.js';
 import {
   VISUAL_MOTION_PHASE,
-  VISUAL_MOTION_PROFILE,
 } from '../utils/motionPerformance';
 
 const THEME_TRANSITION_MS = 360;
@@ -30,7 +29,6 @@ function applyTheme(themeMode) {
 export function useTheme(
   isDark,
   setIsDark,
-  motionProfile = VISUAL_MOTION_PROFILE.FULL,
 ) {
   const transitionTimerRef = useRef(null);
   const [themePreference, setThemePreferenceState] = useState('system');
@@ -81,23 +79,19 @@ export function useTheme(
       transitionTimerRef.current = null;
     }
 
-    if (motionProfile !== VISUAL_MOTION_PROFILE.REDUCED) {
-      useUIStore.getState().setVisualMotionPhase(VISUAL_MOTION_PHASE.THEME);
-    }
+    useUIStore.getState().setVisualMotionPhase(VISUAL_MOTION_PHASE.THEME);
 
     applyTheme(nextMode);
     selectTheme(nextMode);
 
-    if (motionProfile !== VISUAL_MOTION_PROFILE.REDUCED) {
-      transitionTimerRef.current = window.setTimeout(() => {
-        transitionTimerRef.current = null;
-        useUIStore.getState().setVisualMotionPhase((current) => (
-          current === VISUAL_MOTION_PHASE.THEME
-            ? VISUAL_MOTION_PHASE.IDLE
-            : current
-        ));
-      }, THEME_TRANSITION_MS);
-    }
+    transitionTimerRef.current = window.setTimeout(() => {
+      transitionTimerRef.current = null;
+      useUIStore.getState().setVisualMotionPhase((current) => (
+        current === VISUAL_MOTION_PHASE.THEME
+          ? VISUAL_MOTION_PHASE.IDLE
+          : current
+      ));
+    }, THEME_TRANSITION_MS);
   };
 
   return {

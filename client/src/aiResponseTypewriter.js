@@ -32,7 +32,6 @@ export function insertInlineCursorHtml(rawHtml) {
 
 export function createAiResponseTypewriter({
   onDisplay,
-  prefersReducedMotion = false,
   intervalMs = AI_TYPEWRITER_INTERVAL_MS,
   schedule = (callback, delay) => setTimeout(callback, delay),
   cancelSchedule = (timerId) => clearTimeout(timerId),
@@ -85,12 +84,7 @@ export function createAiResponseTypewriter({
       graphemes = segmentGraphemes(sourceText);
       if (displayedCount > graphemes.length) displayedCount = graphemes.length;
       if (getDisplayedText() !== previousDisplayedText) onDisplay(getDisplayedText());
-      if (prefersReducedMotion) {
-        displayedCount = graphemes.length;
-        onDisplay(getDisplayedText());
-        settleIfReady();
-        return;
-      }
+
       scheduleNext();
     },
     reset() {
@@ -106,10 +100,7 @@ export function createAiResponseTypewriter({
     finish() {
       if (cancelled) return Promise.resolve(getDisplayedText());
       inputClosed = true;
-      if (prefersReducedMotion && displayedCount < graphemes.length) {
-        displayedCount = graphemes.length;
-        onDisplay(getDisplayedText());
-      }
+
       if (displayedCount >= graphemes.length && timerId === null) {
         return Promise.resolve(getDisplayedText());
       }

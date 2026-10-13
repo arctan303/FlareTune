@@ -132,12 +132,9 @@ test('mobile preview leaves translation static and intro does not offset canonic
     assert.doesNotMatch(panes, /unshift|splice|\[lyricIntro,\s*\.\.\./);
 });
 
-test('mobile lyric pane keeps its slide animation normally and exposes the final state for reduced motion', () => {
+test('mobile lyric pane keeps its slide-in and slide-out animations', () => {
     const panes = readClassicPanes();
     const mobileCss = readMobileCss();
-    const reducedMotionStart = mobileCss.indexOf('@media (prefers-reduced-motion: reduce)');
-    const reducedMotionEnd = mobileCss.indexOf('/* =========================================================================', reducedMotionStart);
-    const reducedMotionBlock = mobileCss.slice(reducedMotionStart, reducedMotionEnd);
 
     assert.match(
         panes,
@@ -145,10 +142,8 @@ test('mobile lyric pane keeps its slide animation normally and exposes the final
     );
     assert.match(mobileCss, /\.animate-lyrics-slide-in \{\s*animation: lyricsFadeSlideIn 400ms/);
     assert.match(mobileCss, /\.animate-lyrics-slide-out \{\s*animation: lyricsFadeSlideOut 320ms/);
-    assert.match(
-        reducedMotionBlock,
-        /\.paper-classic-player \.classic-lyrics__pane-motion \{[\s\S]*?animation: none !important;[\s\S]*?opacity: 1 !important;[\s\S]*?transform: none !important;/,
-    );
+
+  assert.doesNotMatch(readFileSync(new URL("./classic-mobile.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
 test('MobileClassicPlayer routes missing translation clicks through the member completion action', () => {

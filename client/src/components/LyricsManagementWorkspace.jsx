@@ -79,8 +79,7 @@ function Preview({ value, currentTime, followsPlayback, editing = false, rows = 
       lineTop: lineRect.top,
       lineHeight: lineRect.height,
     });
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    container.scrollTo({ top: target, behavior: hasShownFirstLine.current && !reducedMotion ? 'smooth' : 'auto' });
+    container.scrollTo({ top: target, behavior: hasShownFirstLine.current ? 'smooth' : 'auto' });
     hasShownFirstLine.current = true;
   }, [active, editing]);
   if (!editing && !lines.length) return <div className="lyric-studio__empty">{t("没有可预览的歌词正文。")}</div>;
