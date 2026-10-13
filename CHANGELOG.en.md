@@ -12,7 +12,7 @@
 
 ### Languages and everyday use
 
-- Expand the interface to nine languages: add Traditional Chinese, Japanese, Korean, Spanish, French, German and Brazilian Portuguese. Support pre-login selection, account preferences, lazy loading, retry, English fallback and localized dates/plurals. Song metadata and user content stay in their original language.
+- Expand the interface to nine languages: add Traditional Chinese, Japanese, Korean, Spanish, French, German and Brazilian Portuguese. Match the browser language before sign-in and keep manual selection in personal settings. Support account preferences, lazy loading, retry, English fallback and localized dates/plurals. Song metadata and user content stay in their original language.
 - Standardize daily picks at a target of 20 tracks and up to 8 on Home, showing actual counts for smaller libraries. Update by local date and support manual refresh, cancellation and retry while retaining previous results and the playback queue.
 - Describe roam categories as song languages, with instrumentals separate. Turning roam off stops automatic queue additions. Correct empty states, notifications and account-data versus browser-history descriptions.
 - Improve Home song columns/fixed cards, large-screen classic cover/lyrics/control layout and lyric/interlude animation lifecycles while retaining existing player design decisions.
