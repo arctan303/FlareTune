@@ -174,14 +174,21 @@ export function createAppleFluidHarness() {
   const images = new Map(), listeners = new Map(), uniforms = new Map();
   const draws = [];
   let rect = { width: 1000, height: 600 }, now = 0, uniformLookups = 0;
+  let boundFramebuffer = null;
   const gl = new Proxy({
     getShaderParameter: () => true,
     getProgramParameter: () => true,
     createShader: () => ({}), createProgram: () => ({}),
     createTexture: () => ({}), createBuffer: () => ({}),
+    createFramebuffer: () => ({}),
+    bindFramebuffer: (_target, fb) => { boundFramebuffer = fb; },
     getUniformLocation: (_program, name) => { uniformLookups++; return name; },
     uniform1f: (name, value) => uniforms.set(name, value),
-    drawArrays: () => draws.push(Object.fromEntries(uniforms)),
+    drawArrays: () => {
+      if (boundFramebuffer === null) {
+        draws.push(Object.fromEntries(uniforms));
+      }
+    },
   }, { get: (target, key) => target[key] ?? (() => {}) });
   const canvas = { width: 0, height: 0, getContext: () => gl, getBoundingClientRect: () => rect };
   class MockImage { set src(url) { images.set(url, this); } }

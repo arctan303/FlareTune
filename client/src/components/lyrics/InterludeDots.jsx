@@ -27,15 +27,21 @@ export default function InterludeDots({
 
     React.useLayoutEffect(() => {
         if (!active || !Number.isFinite(start) || !Number.isFinite(end)) {
-            if (rootRef.current?.dataset) rootRef.current.dataset.motionRunning = 'false';
+            if (rootRef.current?.dataset) {
+                rootRef.current.dataset.motionRunning = 'false';
+                rootRef.current.dataset.ending = 'false';
+            }
             return undefined;
         }
         const update = (snapshot) => {
             const fills = getInterludeDotProgress(snapshot.currentTime, { start, duration });
+            const remaining = end - snapshot.currentTime;
+            const isEnding = remaining <= 1.5 && remaining > 0;
             if (rootRef.current?.dataset) {
                 rootRef.current.dataset.motionRunning = snapshot.visible !== false && !snapshot.paused
                     && !snapshot.buffering && !snapshot.seeking && !snapshot.ended
                     ? 'true' : 'false';
+                rootRef.current.dataset.ending = isEnding ? 'true' : 'false';
             }
             fills.forEach((fill, index) => {
                 const dot = dotRefs.current[index];

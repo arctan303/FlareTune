@@ -59,7 +59,6 @@ test('candidate promotion derives the first painted state from the current share
 test('interlude progress keeps its normal scale and breathing without a system override', () => {
     const dots = readFileSync(new URL('./interlude-dots.css', import.meta.url), 'utf8');
     assert.doesNotMatch(classicCss + dots, /prefers-reduced-motion/);
-    assert.match(dots, /transform: scale\(calc\(0\.25 \+ 0\.75/);
-    assert.match(dots, /classic-interlude-inner-pulse 2\.4s/);
+    assert.match(dots, /apple-interlude-heartbeat/);
     assert.match(dots, /data-motion-running='true'/);
 });
