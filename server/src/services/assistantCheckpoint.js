@@ -12,32 +12,46 @@ export function createAssistantCheckpoint(db, accountId, turnId, revision, now =
   let trace = {};
   let queue = Promise.resolve();
   let closed = false;
+  let closing;
+  let dirty = false;
   let lastWrite = 0;
   const flush = () => {
     if (closed) return queue;
-    const snapshot = JSON.stringify(trace);
+    const snapshot = dirty ? JSON.stringify(trace) : null;
+    dirty = false;
     const timestamp = now();
     lastWrite = timestamp;
-    queue = queue.then(() => db.batch([
+    const heartbeatStatement = db.prepare(`UPDATE music_chat_turns SET updated_at = ?
+      WHERE id = ? AND account_id = ? AND reserved_revision = ? AND status = 'running'`)
+      .bind(timestamp, turnId, accountId, revision);
+    queue = queue.then(async () => snapshot === null ? [await heartbeatStatement.run()] : db.batch([
       db.prepare(`UPDATE music_chat_thread_messages
         SET extra_json = json_set(COALESCE(extra_json, '{}'), '$.checkpoint', json(?))
         WHERE account_id = ? AND turn_id = ? AND role = 'user'
           AND EXISTS (SELECT 1 FROM music_chat_turns WHERE id = ? AND account_id = ?
             AND reserved_revision = ? AND status = 'running')`)
         .bind(snapshot, accountId, turnId, turnId, accountId, revision),
-      db.prepare(`UPDATE music_chat_turns SET updated_at = ?
-        WHERE id = ? AND account_id = ? AND reserved_revision = ? AND status = 'running'`)
-        .bind(timestamp, turnId, accountId, revision),
+      heartbeatStatement,
     ])).then(results => {
-      if (Number(results[1]?.meta?.changes ?? results[1]?.changes) !== 1) throw new Error('AI_STREAM_CANCELLED');
+      const result = results.at(-1);
+      if (Number(result?.meta?.changes ?? result?.changes) !== 1) throw new Error('AI_STREAM_CANCELLED');
     });
     return queue;
   };
   const heartbeat = setInterval(() => { void flush().catch(() => {}); }, 15000);
   return {
-    update(next) { trace = { ...trace, ...next }; if (now() - lastWrite >= 1000) void flush().catch(() => {}); },
+    update(next) {
+      if (closed) return;
+      trace = { ...trace, ...next }; dirty = true;
+      if (now() - lastWrite >= 5000) void flush().catch(() => {});
+    },
     flush,
-    async close() { clearInterval(heartbeat); await flush(); closed = true; },
+    close() {
+      if (closing) return closing;
+      clearInterval(heartbeat);
+      closing = flush(); closed = true;
+      return closing;
+    },
   };
 }
 

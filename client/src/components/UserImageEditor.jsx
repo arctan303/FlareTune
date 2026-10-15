@@ -120,14 +120,16 @@ export default function UserImageEditor({
 
   return (
     <div className={`${isCompact ? 'mt-2 space-y-1' : 'mt-3 space-y-2'} ${className}`}>
-      <div className={`flex flex-wrap items-center gap-2 ${isCompact ? 'justify-center' : ''}`}>
-        <label className={`inline-flex cursor-pointer items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-raised)] hover:border-[var(--line-strong)] transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)] ${isCompact ? 'px-2.5 py-1 text-xs font-medium' : 'min-h-11 px-4 text-sm'}`}>
-          {t(purpose === 'avatar' ? (slot?.url ? '更换头像' : '上传头像') : (slot?.url ? '更换封面' : '上传封面'))}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-raised)] hover:border-[var(--line-strong)] transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)] shadow-2xs ${isCompact ? 'px-3 py-1.5 text-xs font-semibold' : 'min-h-11 px-4 text-sm'}`}>
+          <Camera size={isCompact ? 13 : 16} className="shrink-0 text-[var(--muted)]" />
+          <span>{t(purpose === 'avatar' ? (slot?.url ? '更换头像' : '上传头像') : (slot?.url ? '更换封面' : '上传封面'))}</span>
           <SettingsInput className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e => { setFile(e.target.files?.[0] || null); e.target.value = ''; }} />
         </label>
         {slot?.url && (
-          <button type="button" className={`rounded-lg text-[var(--muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors ${isCompact ? 'px-2 py-1 text-xs' : 'min-h-11 px-3 text-sm'}`} disabled={busy || readOnly} onClick={remove}>
-            {t('移除图片')}
+          <button type="button" className={`inline-flex items-center gap-1 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-500/10 transition-colors font-medium cursor-pointer ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'min-h-11 px-3 text-sm'}`} disabled={busy || readOnly} onClick={remove}>
+            <Trash2 size={isCompact ? 12 : 14} className="shrink-0" />
+            <span>{t('移除图片')}</span>
           </button>
         )}
       </div>

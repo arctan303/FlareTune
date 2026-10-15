@@ -1,6 +1,6 @@
 import { localizeUnknownArtist, t } from '../i18n/index.js';
 import React from 'react';
-import { Play, Pause, Menu, PanelLeft } from 'lucide-react';
+import { Play, Pause, Menu, Star } from 'lucide-react';
 import { SolidRoundedSkipBack, SolidRoundedSkipForward } from './icons/SolidSkipIcons';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { showToast, useUIStore } from '../store/useUIStore';
@@ -19,6 +19,7 @@ import ScrollingText from './playerbar/ScrollingText.jsx';
 import { useShallow } from 'zustand/react/shallow';
 import { requestLyricsTranslationCompletion } from '../hooks/useLyricsFetcher.js';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
+import { useFavoriteSongAction } from '../hooks/useFavoriteSongAction.js';
 import './fullscreen/player-interactions.css';
 
 const formatTime = (time) => {
@@ -39,7 +40,8 @@ const PlayerBarTimeDisplay = React.memo(function PlayerBarTimeDisplay({ classNam
 });
 
 export default function PlayerBar({ motionProfile = 'full', activePage }) {
-    const { placement, transition, canSwitchPlacement } = useCompactPlayerPlacement(activePage);
+    const { placement, transition } = useCompactPlayerPlacement(activePage);
+    const { isFavorite, toggleFavorite, pendingSongIds } = useFavoriteSongAction();
     const {
         currentSong,
         isPlaying,
@@ -76,6 +78,9 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         switchDirection: state.switchDirection,
     })));
     
+    const isInFavorite = isFavorite(currentSong);
+    const isPendingFavorite = currentSong?.id ? pendingSongIds.has(String(currentSong.id)) : false;
+
     const {
         isFullScreen,
         isFullScreenClosing,
@@ -86,7 +91,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         immersiveControlsVisible,
         authenticated,
         canManageLyrics,
-        setCompactPlayerPlacement,
     } = useUIStore(useShallow((state) => ({
         isFullScreen: state.isFullScreen,
         isFullScreenClosing: state.isFullScreenClosing,
@@ -97,7 +101,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         immersiveControlsVisible: state.immersiveControlsVisible,
         authenticated: Boolean(state.authSession?.authenticated),
         canManageLyrics: state.authSession?.user?.role === 'admin',
-        setCompactPlayerPlacement: state.setCompactPlayerPlacement,
     })));
     const { glassMaterial } = useThemeStore(useShallow((state) => ({
         glassMaterial: state.glassMaterial,
@@ -339,6 +342,21 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             </span>
                             <PlayModeToggle isExpanded={true} />
                             <VolumeControl isExpanded={true} />
+                            <button
+                                type="button"
+                                aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
+                                title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
+                                aria-busy={isPendingFavorite || undefined}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (currentSong) void toggleFavorite(currentSong, event);
+                                }}
+                                className={`text-white/70 hover:text-white transition-colors outline-none flex items-center justify-center p-1.5 ${
+                                    isInFavorite ? 'text-rose-400 hover:text-rose-300' : ''
+                                } ${isPendingFavorite ? 'animate-heart-pending' : ''}`}
+                            >
+                                <Star size={20} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
+                            </button>
                             <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`text-white/70 hover:text-white transition-colors outline-none flex items-center justify-center ${playlistBouncing ? 'animate-playlist-bounce text-white' : ''}`}>
                                 <Menu size={20} />
                             </button>
@@ -421,21 +439,21 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             <div className="hidden lg:flex items-center">
                                 <PlayModeToggle isExpanded={false} />
                             </div>
-                            {canSwitchPlacement && (
-                                <button
-                                    type="button"
-                                    aria-label={t("切换到侧边播放器")}
-                                    title={t("切换到侧边播放器")}
-                                    disabled={Boolean(transition)}
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        setCompactPlayerPlacement('sidebar');
-                                    }}
-                                    className="player-console__icon p-1.5 transition-all duration-300 active:scale-90"
-                                >
-                                    <PanelLeft size={20} />
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
+                                title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
+                                aria-busy={isPendingFavorite || undefined}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (currentSong) void toggleFavorite(currentSong, event);
+                                }}
+                                className={`player-console__icon p-1.5 transition-all duration-300 active:scale-90 ${
+                                    isInFavorite ? 'text-rose-400 hover:text-rose-300' : ''
+                                } ${isPendingFavorite ? 'animate-heart-pending' : ''}`}
+                            >
+                                <Star size={19} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
+                            </button>
                             <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`player-console__icon p-1.5 transition-all duration-300 active:scale-90 ${playlistBouncing ? 'animate-playlist-bounce text-[var(--accent-strong)]' : ''}`}>
                                 <Menu size={20} />
                             </button>

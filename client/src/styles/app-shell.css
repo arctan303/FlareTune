@@ -242,6 +242,7 @@
 }
 
 .sidebar-mini-player__actions button {
+  position: relative;
   display: grid;
   width: 28px;
   height: 28px;
@@ -254,13 +255,28 @@
   cursor: pointer;
 }
 
+.sidebar-mini-player__actions button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 44px;
+}
+
 .sidebar-mini-player__actions button:hover {
   background: var(--hover-tint);
 }
 
-.sidebar-mini-player__actions .sidebar-mini-player__layout {
+.sidebar-mini-player__actions .sidebar-mini-player__queue {
   margin-left: auto;
   color: var(--muted);
+}
+
+.sidebar-mini-player__actions .sidebar-mini-player__queue:hover {
+  color: var(--ink);
+  background: var(--hover-tint);
 }
 
 .sidebar-mini-player button:focus-visible {
@@ -338,12 +354,44 @@
   min-width: 0;
 }
 
+.app-sidebar__placement-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.app-sidebar__placement-btn:hover {
+  color: var(--ink);
+  background: var(--hover-tint);
+}
+
+.app-sidebar__placement-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.app-sidebar__placement-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .account-menu-wrapper--sidebar .app-nav-item--account {
   width: 100%;
-  min-height: 42px;
-  height: 42px;
-  padding: 0 8px;
-  gap: 10px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 10px;
+  gap: 12px;
   border-radius: var(--radius-control);
   justify-content: flex-start;
   color: var(--ink);
@@ -358,10 +406,10 @@
 }
 
 .account-menu-wrapper--sidebar .account-avatar-char {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
   display: flex;
@@ -381,42 +429,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: inherit;
   letter-spacing: -0.01em;
-}
-
-.app-sidebar__logout-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 38px;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-  transition: color 160ms ease, background-color 160ms ease;
-}
-
-.app-sidebar__logout-btn:hover {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-}
-
-.app-sidebar__logout-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.app-sidebar__logout-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .app-sidebar__close,
@@ -1897,8 +1913,8 @@ html[data-page-hidden='true'] .editorial-card__marquee-row {
   .app-nav-item[data-tooltip]:focus-visible::after,
   .app-sidebar__brand[data-tooltip]:hover::after,
   .app-sidebar__brand[data-tooltip]:focus-visible::after,
-  .app-sidebar__logout-btn[data-tooltip]:hover::after,
-  .app-sidebar__logout-btn[data-tooltip]:focus-visible::after {
+  .app-sidebar__placement-btn[data-tooltip]:hover::after,
+  .app-sidebar__placement-btn[data-tooltip]:focus-visible::after {
     opacity: 1;
     transform: translate(0, -50%);
   }
@@ -1924,14 +1940,14 @@ html[data-page-hidden='true'] .editorial-card__marquee-row {
     padding: 0;
   }
 
-  .app-sidebar__logout-btn {
-    width: 100%;
+  .app-sidebar__placement-btn {
+    width: 44px;
     min-height: 44px;
     height: 44px;
     border-radius: var(--radius-control);
   }
 
-  .app-sidebar__logout-btn[data-tooltip]::after {
+  .app-sidebar__placement-btn[data-tooltip]::after {
     position: absolute;
     left: calc(100% + 12px);
     top: 50%;
@@ -1991,20 +2007,20 @@ html[data-page-hidden='true'] .editorial-card__marquee-row {
 
   .app-sidebar[data-player-placement='sidebar'] .app-sidebar__footer {
     flex-direction: row;
-    padding-top: 10px;
     gap: 6px;
+    padding-top: 10px;
     border-top: 1px solid var(--line);
   }
 
   .app-sidebar[data-player-placement='sidebar'] .account-menu-wrapper--sidebar .app-nav-item--account {
     justify-content: flex-start;
-    padding: 0 8px;
+    padding: 0 10px;
   }
 
-  .app-sidebar[data-player-placement='sidebar'] .app-sidebar__logout-btn {
-    width: 38px;
-    min-height: 38px;
-    height: 38px;
+  .app-sidebar[data-player-placement='sidebar'] .app-sidebar__placement-btn {
+    width: 34px;
+    min-height: 34px;
+    height: 34px;
   }
 
   .app-sidebar[data-player-placement='sidebar'] [data-tooltip]::after {

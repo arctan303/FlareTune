@@ -1,4 +1,5 @@
 import React from 'react';
+import { Plus, Edit3, Trash2 } from 'lucide-react';
 import { t } from '../i18n/index.js';
 import { DEFAULT_LYRIC_CHANNELS, MAX_LYRIC_SOURCES, normalizeLyricChannels } from '../../../shared/lyricSources.js';
 import Section from './SettingsSection.jsx';
@@ -49,24 +50,68 @@ export default function LyricSourcesSettings({ setting, csrfToken, onSaved }) {
     return persist({ version: 2, sources: value.sources.filter(item => item.id !== source.id) }, current.revision);
   }
   return <>
-    <Section title={t('歌词源')} action={<SettingsButton variant="primary" disabled={busy || value.sources.length >= MAX_LYRIC_SOURCES} onClick={() => open()}>{t('添加源')}</SettingsButton>}>
+    <Section
+      title={t('歌词源')}
+      action={
+        <SettingsButton
+          variant="primary"
+          disabled={busy || value.sources.length >= MAX_LYRIC_SOURCES}
+          onClick={() => open()}
+          className="inline-flex items-center gap-1.5"
+        >
+          <Plus size={13} className="shrink-0" />
+          <span>{t('添加源')}</span>
+        </SettingsButton>
+      }
+    >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className={cardClass}>
-          <strong className="block text-sm text-[var(--ink)]">LRCLIB</strong>
-          <p className="text-xs text-[var(--muted)]">{t('内置')}</p>
+          <div className="flex items-center justify-between gap-2">
+            <strong className="block text-sm font-bold text-[var(--ink)]">LRCLIB</strong>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              {t('内置')}
+            </span>
+          </div>
+          <p className="text-xs text-[var(--muted)]">{t('逐行协议')}</p>
         </div>
         {value.sources.map(source => <div key={source.id} className={cardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <strong className="min-w-0 break-words text-sm text-[var(--ink)]">{source.name}</strong>
+            <strong className="min-w-0 break-words text-sm font-bold text-[var(--ink)]">{source.name}</strong>
             <SettingsActions>
-              <SettingsButton aria-label={t('编辑') + ' ' + source.name} disabled={busy} onClick={() => open(source)}>{t('编辑')}</SettingsButton>
-              <SettingsButton variant="danger" aria-label={t('删除') + ' ' + source.name} disabled={busy} onClick={() => void remove(source)}>{t('删除')}</SettingsButton>
+              <SettingsButton
+                aria-label={t('编辑') + ' ' + source.name}
+                disabled={busy}
+                onClick={() => open(source)}
+                className="inline-flex items-center gap-1"
+              >
+                <Edit3 size={11} className="shrink-0" />
+                <span>{t('编辑')}</span>
+              </SettingsButton>
+              <SettingsButton
+                variant="danger"
+                aria-label={t('删除') + ' ' + source.name}
+                disabled={busy}
+                onClick={() => void remove(source)}
+                className="inline-flex items-center gap-1"
+              >
+                <Trash2 size={11} className="shrink-0" />
+                <span>{t('删除')}</span>
+              </SettingsButton>
             </SettingsActions>
           </div>
-          <p className="text-xs text-[var(--muted)]">{t(protocols[source.protocol])}</p>
-          {source.note && <p className="break-words text-xs text-[var(--muted)]">{t('备注')}：{source.note}</p>}
-          <SettingsToggle aria-label={source.name} label={t(source.enabled ? '已启用' : '未启用')} checked={source.enabled} disabled={busy}
-            onChange={event => void persist({ version: 2, sources: value.sources.map(item => item.id === source.id ? { ...source, enabled: event.target.checked } : item) }, current.revision)} />
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-[var(--muted)]">{t(protocols[source.protocol])}</span>
+            {source.note && <span className="text-[var(--muted)] truncate">· {source.note}</span>}
+          </div>
+          <div className="pt-2 border-t border-[var(--line)]">
+            <SettingsToggle
+              aria-label={source.name}
+              label={t(source.enabled ? '已启用' : '未启用')}
+              checked={source.enabled}
+              disabled={busy}
+              onChange={event => void persist({ version: 2, sources: value.sources.map(item => item.id === source.id ? { ...source, enabled: event.target.checked } : item) }, current.revision)}
+            />
+          </div>
         </div>)}
       </div>
       {value.sources.length >= MAX_LYRIC_SOURCES && <p className="mt-3 text-xs text-[var(--muted)]">{t('最多添加 {count} 个歌词源。', { count: MAX_LYRIC_SOURCES })}</p>}

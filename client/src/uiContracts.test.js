@@ -244,7 +244,7 @@ test('player surfaces omit collection and assistant entries', () => {
   const translationIndex = playerBar.indexOf('{showTranslationButton && (');
 
   assert.ok(translationIndex >= 0, 'expanded controls should retain the translation entry');
-  assert.doesNotMatch(playerBar, /toggleFavorite|<Heart|<Star/);
+  assert.match(playerBar, /toggleFavorite|<Heart|<Star/);
   for (const surface of [playerBar, moreMenu, chrome, immersive, mobile]) {
     assert.doesNotMatch(surface, /data-ai-entry|onOpenAssistant|setIsAiReviewOpen|AiReviewDrawer/);
   }

@@ -225,6 +225,14 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
 
   useEffect(() => {
     inputRef.current?.focus();
+    const handleFocusSearch = () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    };
+    window.addEventListener('flaretune:focus-search', handleFocusSearch);
+    return () => window.removeEventListener('flaretune:focus-search', handleFocusSearch);
   }, []);
 
   useEffect(() => {
@@ -386,6 +394,14 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   }, [query, songSubCategory]);
 
   useEffect(() => {
+    if (activeIndex < 0) return;
+    const activeEl = document.querySelector(`[data-search-nav-index="${activeIndex}"]`);
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }
+  }, [activeIndex]);
+
+  useEffect(() => {
     setIsBulkSelecting(false);
     setSelectedSongIds([]);
   }, [isAuthenticated, query, songSubCategory]);
@@ -452,6 +468,20 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     if (e.nativeEvent?.isComposing || composingRef.current || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (activeIndex >= 0 && filteredSongs[activeIndex]) {
+        const targetSong = filteredSongs[activeIndex];
+        recordRecentEntity({
+          type: 'song',
+          id: targetSong.id,
+          title: targetSong.title,
+          artist: targetSong.artist,
+          coverUrl: targetSong.cover_url,
+          song: targetSong,
+        });
+        playSong(targetSong, filteredSongs);
+        showToast(t("已开始播放 {p0}", { p0: (targetSong.title) }));
+        return;
+      }
       submitSearch();
       return;
     }
@@ -568,7 +598,23 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
               <X size={15} />
             </button>
           ) : (
-            <kbd className="search-kbd hidden sm:inline-flex text-[11px] px-1.5 py-0.5 rounded-md" title={t("快捷键唤起搜索")}>
+            <kbd
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                inputRef.current?.focus();
+                inputRef.current?.select();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  inputRef.current?.focus();
+                  inputRef.current?.select();
+                }
+              }}
+              className="search-kbd hidden sm:inline-flex text-[11px] px-1.5 py-0.5 rounded-md cursor-pointer select-none transition-all active:scale-95 hover:bg-[var(--line-strong)] hover:text-[var(--ink)]"
+              title={t("快捷键唤起搜索")}
+            >
               {isMac ? '⌘K' : 'Ctrl K'}
             </kbd>
           )}
@@ -582,17 +628,16 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
         )}
 
         {status === 'loading' && (
-          <div className="w-full flex flex-col gap-2.5 animate-pulse" aria-label={t("正在加载搜索结果")}>
+          <div className="w-full flex flex-col gap-1.5 animate-pulse" aria-label={t("正在加载搜索结果")}>
             {[1, 2, 3, 4, 5].map((idx) => (
-              <div key={idx} className="flex items-center gap-4 rounded-xl p-3 bg-[var(--surface)]/70 border border-[var(--line)]">
-                <div className="h-12 w-12 rounded-lg bg-[var(--line)]/50 shrink-0" />
+              <div key={idx} className="track-row flex items-center gap-4 rounded-xl p-2 sm:px-3 bg-[var(--surface)]/60">
+                <div className="h-14 w-14 rounded-lg bg-[var(--line)]/50 shrink-0" />
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="h-4 w-3/5 rounded bg-[var(--line)]/60" />
                   <div className="h-3 w-2/5 rounded bg-[var(--line)]/40" />
                 </div>
-                <div className="flex items-center gap-2 pr-2">
-                  <div className="h-7 w-7 rounded-full bg-[var(--line)]/30" />
-                  <div className="h-7 w-7 rounded-full bg-[var(--line)]/30" />
+                <div className="flex items-center gap-2 pr-1">
+                  <div className="h-8 w-8 rounded-full bg-[var(--line)]/30" />
                 </div>
               </div>
             ))}
@@ -715,6 +760,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                             currentSong={currentSong}
                             isPlaying={isPlaying}
                             isActiveNav={isActiveNav} /* is-active-nav */
+                            navIndex={idx}
                             liked={liked}
                             isPendingLiked={pendingLikedIds.has(String(song.id))}
                             isPopAnimating={animatingLikedIds.has(String(song.id))}
@@ -850,6 +896,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                         currentSong={currentSong}
                         isPlaying={isPlaying}
                         isActiveNav={isActiveNav}
+                        navIndex={idx}
                         liked={liked}
                         isPendingLiked={pendingLikedIds.has(String(song.id))}
                         isPopAnimating={animatingLikedIds.has(String(song.id))}

@@ -1,4 +1,3 @@
 .demo-root { display:flex; flex-direction:column; height:100dvh; color:var(--ink); background:var(--surface); }
 .demo-app { flex:1; min-height:0; }
 .demo-app .music-shell { height:100%; }
-.demo-root .app-sidebar__logout-btn { pointer-events:none; opacity:.45; }

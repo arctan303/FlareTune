@@ -32,9 +32,17 @@ export function normalizeCloudThreadMessages(messages) {
   }));
 }
 
+export function pendingAssistantTurn(thread) {
+  const last = thread?.messages?.at(-1);
+  return last?.role === 'user' && typeof thread?.pendingTurn?.clientMessageId === 'string'
+    && last.clientMessageId === thread.pendingTurn.clientMessageId
+    ? { clientMessageId: thread.pendingTurn.clientMessageId } : null;
+}
+
 export function normalizeCloudThread(thread) {
   return {
     revision: Number(thread?.revision || 0),
+    pendingTurn: pendingAssistantTurn(thread),
     messages: normalizeCloudThreadMessages(thread?.messages),
   };
 }

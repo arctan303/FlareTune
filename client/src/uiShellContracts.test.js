@@ -102,9 +102,9 @@ test('sidebar account entry revalidates local session and opens account settings
   const accountSettings = readSource('./components/AccountSettings.jsx');
 
   assert.match(sidebar, /<AccountMenu onNavigate=\{navigate\} \/>/);
-  assert.match(sidebar, /app-sidebar__logout-btn/);
+  assert.doesNotMatch(sidebar, /app-sidebar__logout-btn/);
   assert.match(sidebar, /onClick=\{\(\) => navigate\('settings'\)\}/);
-  assert.match(sidebar, /logout\(authSession\?\.csrfToken\)/);
+  assert.doesNotMatch(sidebar, /logout\(authSession/);
   assert.match(accountMenu, /onNavigate\?\.\('settings', 'personal'\)/);
   assert.match(accountMenu, /getSession\(\)/);
   assert.match(accountSettings, /logout\(authSession\.csrfToken\)/);
@@ -346,3 +346,31 @@ test('private displayed media reuses session memory while other images retain di
 
   assert.doesNotMatch(readSource("./index.css"), /prefers-reduced-motion/);
 });
+
+test('search shortcut, keyboard navigation, touch targets and lyrics containment contracts', () => {
+  const app = readSource('./app.jsx');
+  const searchView = readSource('./components/SearchView.jsx');
+  const searchRow = readSource('./components/search/SearchTrackRow.jsx');
+  const appShellCss = readSource('./styles/app-shell.css');
+  const classicPlayerCss = readSource('./components/fullscreen/classic-player.css');
+
+  // 1. 快捷键唤起与焦点广播契约
+  assert.match(app, /handleOpenSearch/);
+  assert.match(app, /flaretune:focus-search/);
+  assert.match(searchView, /flaretune:focus-search/);
+  assert.match(searchView, /inputRef\.current\?\.select\(\)/);
+  assert.match(searchView, /<kbd[\s\S]*onClick=\{[\s\S]*inputRef\.current\?\.focus/);
+
+  // 2. 方向键视口跟随与回车即播契约
+  assert.match(searchView, /data-search-nav-index/);
+  assert.match(searchView, /scrollIntoView\(\{ block: 'nearest'/);
+  assert.match(searchView, /if \(activeIndex >= 0 && filteredSongs\[activeIndex\]\) \{/);
+  assert.match(searchRow, /data-search-nav-index=\{navIndex\}/);
+
+  // 3. 迷你播放器 44px 触控目标契约
+  assert.match(appShellCss, /\.sidebar-mini-player__actions button::after \{[\s\S]*height: 44px;/);
+
+  // 4. 歌词视口图层隔离契约
+  assert.match(classicPlayerCss, /\.classic-lyrics__viewport \{[\s\S]*contain: layout style;/);
+});
+

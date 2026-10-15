@@ -1,4 +1,6 @@
 {
+  "上一条请求尚未收尾，请稍候或停止生成后再发送。": "La solicitud anterior aún no ha terminado. Espera o detén la generación antes de enviar otro mensaje.",
+  "停止失败，请重试。": "No se pudo detener la generación. Inténtalo de nuevo.",
   "重新加载": "Volver a cargar",
   "刷新页面": "Actualizar la página",
   "播放器加载失败": "No se pudo cargar el reproductor",

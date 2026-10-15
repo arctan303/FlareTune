@@ -4,6 +4,8 @@ import database from './database.js';
 // Chinese source copy is the stable key until every screen has migrated.
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
+  "上一条请求尚未收尾，请稍候或停止生成后再发送。": "The previous request is still finishing. Wait or stop generation before sending again.",
+  "停止失败，请重试。": "Could not stop generation. Please try again.",
   "添加源": "Add source",
   "内置": "Built-in",
   "备注": "Note",

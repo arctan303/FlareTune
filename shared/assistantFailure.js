@@ -12,6 +12,7 @@ const reasons = {
   empty_response: '模型没有返回有效回答，本次处理已停止。',
   request_cancelled: '本次处理已停止，未完成的操作结果尚未确认。',
   thread_conflict: '对话已在其他页面更新，本次处理未能保存。',
+  request_in_progress: '上一条请求尚未收尾，请稍候或停止生成后再发送。',
   upstream_failure: '模型处理失败，请稍后重试。',
 };
 

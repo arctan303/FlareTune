@@ -1,5 +1,6 @@
 import { getLocale, t } from '../i18n/index.js';
 import React from 'react';
+import { RefreshCw, ArrowRight } from 'lucide-react';
 import { listIngestDevices } from '../services/ingestDeviceApi.js';
 import Section from './SettingsSection.jsx';
 
@@ -26,9 +27,11 @@ export default function IngestDevicesPanel() {
         type="button"
         disabled={loading}
         onClick={() => void refresh()}
-        className="rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+        aria-label={t("刷新状态")}
+        title={t("刷新状态")}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-all shadow-2xs disabled:opacity-50"
       >
-        {t("刷新状态")}
+        <RefreshCw size={13} className={loading ? 'animate-spin text-[var(--accent)]' : ''} />
       </button>
     }
   >
@@ -53,8 +56,14 @@ export default function IngestDevicesPanel() {
         </p>
       </article>)}
     </div>}
-    <div className="pt-2">
-      <a href="/settings/admin/catalog/new" className="inline-flex text-xs font-semibold text-[var(--accent)] hover:underline">{t("前往歌曲入库")}</a>
+    <div className="pt-3 border-t border-[var(--line)] flex items-center justify-end">
+      <a
+        href="/settings/admin/catalog/new"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] text-xs font-semibold text-[var(--ink)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-all shadow-2xs group"
+      >
+        <span>{t("前往歌曲入库")}</span>
+        <ArrowRight size={13} className="shrink-0 text-[var(--muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-transform" />
+      </a>
     </div>
   </Section>;
 }

@@ -12,6 +12,7 @@ import UserImageEditor from './UserImageEditor.jsx';
 import SubsonicSettings from './SubsonicSettings.jsx';
 import { GoogleAccountSettings } from './GoogleLogin.jsx';
 import { setUiLanguage, t, useLocale } from '../i18n/index.js';
+import { Edit3, KeyRound, LogOut } from 'lucide-react';
 import LanguagePicker from './LanguagePicker.jsx';
 
 export default function AccountSettings() {
@@ -156,28 +157,32 @@ export default function AccountSettings() {
             </div>
           </div>
 
-          <SettingsActions className="pt-2 sm:pt-0">
+          <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0">
             <SettingsButton variant="primary"
               type="button"
               ref={profileButtonRef}
               onClick={() => { setNickname(user?.displayName || ''); setNicknameError(''); setIsProfileDialogOpen(true); }}
             >
-              {t('编辑个人信息')}
+              <Edit3 size={13} className="shrink-0" />
+              <span>{t('编辑个人信息')}</span>
             </SettingsButton>
             <SettingsButton
               type="button"
               onClick={() => { setError(''); setIsPasswordDialogOpen(true); }}
             >
-              {t('修改密码')}
+              <KeyRound size={13} className="shrink-0" />
+              <span>{t('修改密码')}</span>
             </SettingsButton>
+            <div className="h-5 w-px bg-[var(--line)] hidden sm:block mx-1" />
             <SettingsButton variant="danger"
               type="button"
               onClick={handleLogout}
               disabled={busy}
             >
-              {t(busy && errorContext === 'logout' ? '正在退出…' : '退出登录')}
+              <LogOut size={13} className="shrink-0" />
+              <span>{t(busy && errorContext === 'logout' ? '正在退出…' : '退出登录')}</span>
             </SettingsButton>
-          </SettingsActions>
+          </div>
         </div>
         {error && errorContext === 'logout' && <p role="alert" className="mt-3 text-xs text-red-600 dark:text-red-400">{t(error)}</p>}
       </SettingsSection>
@@ -185,8 +190,12 @@ export default function AccountSettings() {
       {user?.accountId && <SubsonicSettings key={user.accountId} session={authSession} />}
       {user?.accountId && <GoogleAccountSettings key={`google-${user.accountId}`} session={authSession} />}
 
-      <SettingsSection title={t('界面语言')}>
-        <LanguagePicker showLabel={false} disabled={languageBusy} onChange={saveLanguage} />
+      <SettingsSection
+        title={t('界面语言')}
+        action={
+          <LanguagePicker showLabel={false} disabled={languageBusy} onChange={saveLanguage} />
+        }
+      >
         {languageError && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{t(languageError)}</p>}
       </SettingsSection>
 
@@ -210,10 +219,10 @@ export default function AccountSettings() {
       {isProfileDialogOpen && (
         <SettingsEditDialog title={t('编辑个人信息')} onClose={closeProfileDialog} busy={nicknameBusy} size="small" closeOnBackdrop>
             {/* 头像调整 */}
-            <div className="flex items-center gap-4 p-3.5 rounded-xl bg-[var(--surface)] border border-[var(--line)]">
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)]">
               <AccountAvatar user={user} className="!h-16 !w-16 !text-2xl rounded-full border border-[var(--line)] shadow-2xs shrink-0" />
-              <div className="min-w-0 flex-1 space-y-1">
-                <span className="block text-xs font-semibold text-[var(--ink)]">{t('用户头像')}</span>
+              <div className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-[var(--ink)] mb-1">{t('用户头像')}</span>
                 <UserImageEditor
                   compact
                   purpose="avatar"

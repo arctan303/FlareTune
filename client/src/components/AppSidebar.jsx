@@ -7,10 +7,11 @@ import {
   Home,
   Library,
   Languages,
-  LogOut,
   Menu,
   MessageCircle,
   Brain,
+  PanelBottom,
+  PanelLeft,
   Plus,
   Palette,
   Search,
@@ -28,9 +29,7 @@ import TuneWordmark from './TuneWordmark.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { useSidebarNavigationMotion } from '../hooks/useSidebarNavigationMotion.js';
-import { useUIStore, showToast } from '../store/useUIStore.js';
-import { logout } from '../instance/api.js';
-import { AUTH_SESSION_INVALIDATED_EVENT } from '../authNavigation.js';
+import { useUIStore } from '../store/useUIStore.js';
 import { returnFromSidebarWorkspace } from '../utils/navigation.js';
 
 const PRIMARY_ITEMS = [
@@ -68,29 +67,11 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
   const lyricsActiveSection = activeRoute?.page === 'lyrics' ? activeRoute.section || 'current' : 'current';
   const assistantActiveSection = activeRoute?.page === 'assistant' ? activeRoute.section || 'conversation' : 'conversation';
   const isAdmin = useUIStore((state) => state.authSession?.authenticated && state.authSession?.user?.role === 'admin');
-  const authSession = useUIStore((state) => state.authSession);
-  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const setCompactPlayerPlacement = useUIStore((state) => state.setCompactPlayerPlacement);
   const sidebarRef = React.useRef(null);
   const navigationRef = useSidebarNavigationMotion(activePage);
   const closeButtonRef = React.useRef(null);
   const previousFocusRef = React.useRef(null);
-
-  const handleLogout = async () => {
-    if (isLoggingOut) return;
-    setIsLoggingOut(true);
-    try {
-      await logout(authSession?.csrfToken);
-      window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
-      showToast(t("已退出登录"));
-    } catch (err) {
-      if (err?.status === 401) {
-        window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
-      } else {
-        showToast(t("退出失败，请稍后重试"));
-        setIsLoggingOut(false);
-      }
-    }
-  };
 
   React.useEffect(() => {
     if (!isMobileOpen) return undefined;
@@ -302,8 +283,6 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
             <div className={`sidebar-mini-player__motion-slot ${isFullScreen ? 'sidebar-mini-player__motion-slot--fullscreen' : ''}`}
               aria-hidden={isFullScreen || undefined} inert={isFullScreen ? '' : undefined}>
               <SidebarMiniPlayer
-                allowLayoutSwitch={!isPageOverride}
-                onLayoutSwitch={() => setIsMobileOpen(false)}
                 isTransitioning={Boolean(transition)}
                 motionPhase={transition?.from === 'sidebar' && transition.phase === 'exit'
                   ? 'exit'
@@ -313,17 +292,26 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           )}
           <div className="app-sidebar__footer">
             <AccountMenu onNavigate={navigate} />
-            <button
-              type="button"
-              className="app-sidebar__logout-btn"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              data-tooltip={t("退出登录")}
-              title={t("退出登录")}
-              aria-label={t("退出登录")}
-            >
-              <LogOut size={18} strokeWidth={1.8} aria-hidden="true" />
-            </button>
+            {!isPageOverride && (
+              <button
+                type="button"
+                className="app-sidebar__placement-btn"
+                onClick={() => {
+                  setCompactPlayerPlacement(placement === 'sidebar' ? 'dock' : 'sidebar');
+                  setIsMobileOpen(false);
+                }}
+                disabled={Boolean(transition)}
+                data-tooltip={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
+                title={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
+                aria-label={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
+              >
+                {placement === 'sidebar' ? (
+                  <PanelBottom size={18} strokeWidth={1.8} aria-hidden="true" />
+                ) : (
+                  <PanelLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </aside>

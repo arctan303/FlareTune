@@ -4,6 +4,7 @@ import { fixture } from './localAssistant.fixture.js';
 import { createAssistantCheckpoint } from '../services/assistantCheckpoint.js';
 import { chatAI } from '../services/ai.js';
 import { handleLocalAssistantRoute } from './localAssistant.js';
+import { getLocalAssistantThread } from './localAssistant.js';
 
 const body = (revision = 0, id = 'resume-1') => ({ revision, client_message_id: id,
   message: '继续整理', enable_thinking: true, context: {} });
@@ -166,6 +167,94 @@ test('stale recovery preserves persisted crash checkpoint while active heartbeat
     assert.equal(recovered.messages.at(-1).partialContent, '已保存的正文');
     assert.equal(recovered.messages.at(-1).thought, '已保存的思考');
     assert.equal(recovered.revision, 2);
+  } finally { t.mock.timers.reset(); sqlite.close(); }
+});
+
+test('reload and competing send expose a pending turn, and stop immediately releases it with the checkpoint intact', async () => {
+  const { sqlite, route } = fixture();
+  try {
+    let started;
+    const entered = new Promise(resolve => { started = resolve; });
+    const response = await route('/api/ai/chat', 'POST', body(), 'account-A', {
+      chat: async (_m, _t, _c, _e, callbacks) => {
+        callbacks.onThoughtDelta('已收到的思考');
+        callbacks.onContentDelta('未完成正文'); started();
+        return new Promise((_, reject) => callbacks.signal.addEventListener('abort',
+          () => reject(new Error('AI_STREAM_CANCELLED')), { once: true }));
+      },
+    });
+    await entered;
+    const loaded = await thread(route);
+    assert.deepEqual(loaded.pendingTurn, { clientMessageId: 'resume-1' });
+    assert.equal((await (await route('/api/ai/thread', 'GET', undefined, 'account-B')).json()).thread.pendingTurn, null);
+    const competing = await route('/api/ai/chat', 'POST', body(loaded.revision, 'competing'));
+    assert.equal(competing.status, 409);
+    assert.equal((await competing.json()).error, 'request_in_progress');
+    const stopped = (await (await route('/api/ai/stop', 'POST', { client_message_id: 'resume-1' })).json()).thread;
+    assert.equal(stopped.pendingTurn, null);
+    assert.equal(stopped.messages.at(-1).partialContent, '未完成正文');
+    assert.equal(stopped.messages.at(-1).thought, '已收到的思考');
+    await response.text();
+    const next = await route('/api/ai/chat', 'POST', body(stopped.revision, 'after-stop'), 'account-A', {
+      chat: async () => ({ type: 'content', content: '恢复发送' }),
+    });
+    assert.equal((await events(next)).at(-1).type, 'done');
+  } finally { sqlite.close(); }
+});
+
+test('public history excludes private payloads at the database boundary while recent model context remains complete', async () => {
+  const { sqlite, db } = fixture();
+  try {
+    sqlite.exec("INSERT INTO music_chat_threads VALUES ('account-A',26,27,1,1)");
+    const insert = sqlite.prepare(`INSERT INTO music_chat_thread_messages
+      (id,account_id,sequence,role,content,extra_json,created_at) VALUES (?,'account-A',?,'assistant','正文',?,1)`);
+    for (let i = 1; i <= 26; i++) insert.run(`m-${i}`, i, JSON.stringify({ thought: '公开思考',
+      checkpoint: { private: 'x'.repeat(30000) }, savedContext: { messages: [{ role: 'assistant', content: '原生续接' }] } }));
+    const original = db.prepare.bind(db);
+    let transported;
+    db.prepare = sql => {
+      const statement = original(sql);
+      const all = statement.all.bind(statement);
+      statement.all = async () => { const result = await all(); transported = result; return result; };
+      return statement;
+    };
+    const publicThread = await getLocalAssistantThread(db, 'account-A');
+    assert.equal(publicThread.messages.length, 26);
+    assert.equal(publicThread.messages[0].thought, '公开思考');
+    assert.equal(JSON.stringify(transported).includes('原生续接'), false);
+    assert.equal(JSON.stringify(transported).includes('checkpoint'), false);
+    const privateThread = await getLocalAssistantThread(db, 'account-A', { privateContext: true });
+    assert.equal(privateThread.messages[1].savedContext, undefined);
+    assert.equal(privateThread.messages[2].savedContext.messages[0].content, '原生续接');
+    assert.equal(privateThread.messages.at(-1).savedContext.messages[0].content, '原生续接');
+    assert.equal(JSON.stringify(transported).includes('checkpoint'), false);
+  } finally { sqlite.close(); }
+});
+
+test('checkpoint heartbeat retains the snapshot without reserializing it and close flushes the latest progress once', async t => {
+  const { sqlite, db } = fixture();
+  try {
+    t.mock.timers.enable({ apis: ['Date', 'setInterval', 'setTimeout'], now: 1000000 });
+    sqlite.exec(`INSERT INTO music_chat_threads VALUES ('account-A',1,2,1,1);
+      INSERT INTO music_chat_turns (id,account_id,client_message_id,base_revision,reserved_revision,status,created_at,updated_at)
+      VALUES ('heartbeat','account-A','heartbeat',0,1,'running',1,1);
+      INSERT INTO music_chat_thread_messages (id,account_id,sequence,role,content,turn_id,created_at)
+      VALUES ('msg-heartbeat','account-A',1,'user','任务','heartbeat',1);`);
+    let serialized = 0;
+    const checkpoint = createAssistantCheckpoint(db, 'account-A', 'heartbeat', 1);
+    checkpoint.update({ thought: '第一段', marker: { toJSON() { serialized++; return 'private'; } } });
+    await checkpoint.flush();
+    const writes = serialized;
+    t.mock.timers.tick(15000);
+    await checkpoint.flush();
+    assert.equal(serialized, writes);
+    assert.equal(sqlite.prepare('SELECT updated_at FROM music_chat_turns').get().updated_at, 1015000);
+    t.mock.timers.tick(1);
+    checkpoint.update({ thought: '完整进度' });
+    const closed = checkpoint.close();
+    assert.equal(checkpoint.close(), closed);
+    await closed;
+    assert.equal(JSON.parse(sqlite.prepare('SELECT extra_json FROM music_chat_thread_messages').get().extra_json).checkpoint.thought, '完整进度');
   } finally { t.mock.timers.reset(); sqlite.close(); }
 });
 

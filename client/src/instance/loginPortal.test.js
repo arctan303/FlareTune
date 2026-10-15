@@ -132,6 +132,9 @@ test('the portal adapts to phone widths without a system animation override', ()
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*\.instance-login__identity \{[\s\S]*min-height: clamp\(220px, 33svh, 320px\)/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*env\(safe-area-inset-bottom\)/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*font-size: clamp\(30px, 9vw, 38px\)/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.instance-page--login \{[\s\S]*min-height: 100dvh/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.instance-login__access \{[\s\S]*background: transparent;[\s\S]*box-shadow: none;/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.instance-login__editorial,\s*\.instance-login__rule \{[\s\S]*display: none;/);
   assert.match(css, /@media \(max-width: 400px\)[\s\S]*grid-template-columns: 68px minmax\(0, 1fr\)/);
 
   assert.doesNotMatch(readFileSync(new URL("./instance.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);

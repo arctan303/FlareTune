@@ -4,6 +4,7 @@ import SettingsEditDialog from './SettingsEditDialog.jsx';
 import SettingsSkeleton from './SettingsSkeleton.jsx';
 import { SettingsActions, SettingsButton, SettingsToggle } from './SettingsControls.jsx';
 import { useSettingsResource } from '../hooks/useSettingsResource.js';
+import { Plus, Edit3, Trash2, Sliders, RefreshCw } from 'lucide-react';
 import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import { getAiProviders, createAiProvider, updateAiProvider, deleteAiProvider, getAiProviderModels, saveAiFeatureModel } from '../instance/adminApi.js';
@@ -87,8 +88,10 @@ function FeatureModelCard({ feature, label, data, csrfToken, refresh, onSaved })
           <SettingsButton
             disabled={!data.ready}
             onClick={openEditor}
+            className="inline-flex items-center gap-1.5"
           >
-            {t('配置方案')}
+            <Sliders size={12} className="shrink-0" />
+            <span>{t('配置方案')}</span>
           </SettingsButton>
         </div>
 
@@ -106,10 +109,18 @@ function FeatureModelCard({ feature, label, data, csrfToken, refresh, onSaved })
             </dd>
           </div>
           {(
-            <div className="col-span-2 pt-1 border-t border-[var(--line)] flex items-center justify-between text-xs">
+            <div className="col-span-2 pt-2 border-t border-[var(--line)] flex items-center justify-between text-xs">
               <dt className="text-[var(--muted)]">{t('视觉支持')}</dt>
-              <dd className="font-medium text-[var(--ink)]">
-                {draft.supportsImages ? t('支持视觉') : t('仅文本')}
+              <dd>
+                {draft.supportsImages ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    {t('支持视觉')}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--line)] text-[var(--muted)]">
+                    {t('仅文本')}
+                  </span>
+                )}
               </dd>
             </div>
           )}
@@ -149,14 +160,15 @@ function FeatureModelCard({ feature, label, data, csrfToken, refresh, onSaved })
               <>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold">{t('模型')}</span>
-                  <SettingsWriteButton
+                  <button
                     type="button"
-                    className="text-xs text-[var(--accent)] disabled:opacity-50 cursor-pointer hover:underline"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] text-xs font-semibold text-[var(--accent)] disabled:opacity-50 cursor-pointer transition-colors shadow-2xs"
                     disabled={disabled || loading || !provider?.hasKey}
                     onClick={() => void readModels()}
                   >
-                    {loading ? t('正在获取模型…') : t('获取模型')}
-                  </SettingsWriteButton>
+                    <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
+                    <span>{loading ? t('正在获取模型…') : t('获取模型')}</span>
+                  </button>
                 </div>
 
                 <div ref={modelFieldRef} className="model-input">
@@ -187,8 +199,10 @@ function FeatureModelCard({ feature, label, data, csrfToken, refresh, onSaved })
                   )}
                 </div>
 
-                <SettingsToggle label={t('此模型支持视觉')} disabled={disabled || !draft.model.trim()}
-                  checked={draft.supportsImages} onChange={(event) => setDraft({ ...draft, supportsImages: event.target.checked })} />
+                <div className="p-3 rounded-xl border border-[var(--line)] bg-[var(--surface)]">
+                  <SettingsToggle label={t('此模型支持视觉')} disabled={disabled || !draft.model.trim()}
+                    checked={draft.supportsImages} onChange={(event) => setDraft({ ...draft, supportsImages: event.target.checked })} />
+                </div>
               </>
             )}
 
@@ -255,18 +269,55 @@ export default function AiProfilesPanel({ csrfToken }) {
     </div>}
     {!data && refreshing ? <SettingsSkeleton cards={2} rows={2} /> : !data ? null : <div className="settings-content-enter space-y-6">
     <section className={sectionClass}>
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-sm font-bold text-[var(--ink)]">{t('供应商配置')}</h2><SettingsButton variant="primary" disabled={busy || !data?.ready} onClick={() => startEdit('deepseek')}>{t('添加供应商')}</SettingsButton></div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-bold text-[var(--ink)]">{t('供应商配置')}</h2>
+        <SettingsButton
+          variant="primary"
+          disabled={busy || !data?.ready}
+          onClick={() => startEdit('deepseek')}
+          className="inline-flex items-center gap-1.5"
+        >
+          <Plus size={13} className="shrink-0" />
+          <span>{t('添加供应商')}</span>
+        </SettingsButton>
+      </div>
       {data && !data.credentialReady && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">{t('请先配置实例的初始化密钥（SETUP_SECRET）。')}</p>}
       {data?.ready === false && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">{t('请先在实例设置中升级数据库。旧配置仍可继续使用。')}</p>}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {data?.providers.map(provider => <div key={provider.id} className={`${cardClass} space-y-3`}>
-          <div className="flex flex-wrap items-center justify-between gap-3"><strong className="min-w-0 break-words text-sm text-[var(--ink)]">{providerLabel(provider)}</strong>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <strong className="min-w-0 break-words text-sm font-bold text-[var(--ink)]">{providerLabel(provider)}</strong>
             <SettingsActions>
-              <SettingsButton disabled={busy || !data?.ready} onClick={() => startEdit(provider.source, provider)}>{t('编辑')}</SettingsButton>
-              <SettingsButton variant="danger" disabled={busy || !data?.ready} onClick={() => void remove(provider)}>{t('删除')}</SettingsButton>
+              <SettingsButton
+                disabled={busy || !data?.ready}
+                onClick={() => startEdit(provider.source, provider)}
+                className="inline-flex items-center gap-1"
+              >
+                <Edit3 size={11} className="shrink-0" />
+                <span>{t('编辑')}</span>
+              </SettingsButton>
+              <SettingsButton
+                variant="danger"
+                disabled={busy || !data?.ready}
+                onClick={() => void remove(provider)}
+                className="inline-flex items-center gap-1"
+              >
+                <Trash2 size={11} className="shrink-0" />
+                <span>{t('删除')}</span>
+              </SettingsButton>
             </SettingsActions>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]"><span>{provider.source === 'custom' ? t('自定义供应商') : AI_SOURCES[provider.source].name}</span><span>{provider.hasKey ? t('密钥已配置') : t('密钥需重新录入')}</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="text-[var(--muted)]">{provider.source === 'custom' ? t('自定义供应商') : AI_SOURCES[provider.source].name}</span>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+              provider.hasKey
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${provider.hasKey ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              {provider.hasKey ? t('密钥已配置') : t('密钥需重新录入')}
+            </span>
+          </div>
         </div>)}
       </div>
       {data && !data.providers.length && <p className="text-xs text-[var(--muted)]">{t('尚未添加供应商，点击“添加供应商”开始配置。')}</p>}
