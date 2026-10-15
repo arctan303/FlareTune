@@ -21,4 +21,4 @@ To contribute, see [Contributing](../CONTRIBUTING.en.md). For development setup,
 
 This directory contains public guides. The internal `docs/` directory is not included in the public repository and is not a user manual.
 
-Quick starts in other languages: [繁體中文](quickstart.zh-Hant.md) · [日本語](quickstart.ja.md) · [한국어](quickstart.ko.md) · [Español](quickstart.es.md) · [Français](quickstart.fr.md) · [Deutsch](quickstart.de.md) · [Português (Brasil)](quickstart.pt-BR.md)
+Quick starts in other languages: [繁體中文](quickstart.zh-Hant.md) · [日本語](quickstart.ja.md) · [한국어](quickstart.ko.md)

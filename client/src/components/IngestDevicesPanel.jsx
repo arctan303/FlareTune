@@ -1,10 +1,11 @@
-import { getLocale, t } from '../i18n/index.js';
+import { formatDateTime, t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import { RefreshCw, ArrowRight } from 'lucide-react';
 import { listIngestDevices } from '../services/ingestDeviceApi.js';
 import Section from './SettingsSection.jsx';
 
 export default function IngestDevicesPanel() {
+  useLocale();
   const [devices, setDevices] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -51,8 +52,8 @@ export default function IngestDevicesPanel() {
         </div>
         <p className="mt-1.5 break-all text-xs text-[var(--muted)]">{t("音乐目录：")}{device.roots?.join('、') || t("未配置")}</p>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
-          {device.lastSeenAt ? t("最后连接：{p0}", { p0: (new Date(device.lastSeenAt).toLocaleString(getLocale() === 'zh' ? 'zh-CN' : 'en')) }) : t("尚无连接记录")}
-          {device.scannedAt ? t(" · 最后扫描：{p0}", { p0: (new Date(device.scannedAt).toLocaleString(getLocale() === 'zh' ? 'zh-CN' : 'en')) }) : t(" · 尚未扫描")}
+          {device.lastSeenAt ? t("最后连接：{p0}", { p0: formatDateTime(new Date(device.lastSeenAt), { dateStyle: 'short', timeStyle: 'medium' }) }) : t("尚无连接记录")}
+          {device.scannedAt ? t(" · 最后扫描：{p0}", { p0: formatDateTime(new Date(device.scannedAt), { dateStyle: 'short', timeStyle: 'medium' }) }) : t(" · 尚未扫描")}
         </p>
       </article>)}
     </div>}

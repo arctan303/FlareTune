@@ -17,7 +17,8 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
   const [source, setSource] = React.useState('all');
   const [sources, setSources] = React.useState([]);
   const [sourceNames, setSourceNames] = React.useState({});
-  const sourceName = id => sourceNames[id] || t(SOURCES[id] || '某歌词源');
+  const sourceName = id => sourceNames[id] && sourceNames[id] !== SOURCES[id]
+    ? sourceNames[id] : t(SOURCES[id] || '某歌词源');
   const [mode, setMode] = React.useState('all');
   const [translation, setTranslation] = React.useState('all');
   const [snapshot, setSnapshot] = React.useState(null);
@@ -49,7 +50,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
         setSources(response.data.sources || []);
         setSourceNames(Object.fromEntries((response.data.details || []).map(item => [item.id, item.name])));
       }
-    }).catch(() => { if (active) setError(t('歌词源加载失败，请重试。')); });
+    }).catch(() => { if (active) setError('歌词源加载失败，请重试。'); });
     return () => {
       active = false;
       requests.current.disposed = true;
@@ -108,7 +109,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
       setCandidates(found); setWarnings(projectProviderWarnings(response.data?.warnings));
       setSelectedKey(found.length ? keyOf(found[0]) : '');
     } catch (failure) {
-      if (isCurrent()) setError(failure?.message || t('查找歌词失败'));
+      if (isCurrent()) setError(failure?.message || '查找歌词失败');
     } finally { if (isCurrent()) setSearching(false); }
   };
 
@@ -154,8 +155,9 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
         <option value="all">{t('不限译文')}</option><option value="yes">{t('有翻译')}</option><option value="no">{t('无翻译')}</option>
       </SelectControl></label>
     </div>
-    {warnings.length > 0 && <p className="lyric-studio__warning">{warnings.map(item => t(item.text)).join('；')}</p>}
-    {error && <p className="lyric-studio__error" role="alert">{error}</p>}
+    {warnings.length > 0 && <p className="lyric-studio__warning">{warnings.map(item =>
+      t('{source}：{reason}', { source: sourceName(item.source), reason: t(item.reason) })).join('; ')}</p>}
+    {error && <p className="lyric-studio__error" role="alert">{t(error)}</p>}
     {candidates.length > 0 && <div className="lyric-studio__inspection-status" role="status">
       <span>{t('已检查 {checked}/{total} 份，符合 {matched} 份', { checked: readyCount, total: candidates.length, matched: visible.length })}</span>
       {unknown.length > 0 && <span>{t('还有 {count} 份候选未检查', { count: unknown.length })}</span>}

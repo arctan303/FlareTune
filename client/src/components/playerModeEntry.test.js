@@ -11,7 +11,7 @@ test('only classic and artist-photo presentations are available', () => {
   assert.equal(PLAYER_MODE_META[PLAYER_MODES.CINEMATIC].name, '歌手写真');
 });
 
-test('desktop icon reveals its current mode on hover while mobile uses its existing more menus', () => {
+test('immersive desktop reveals current mode while classic players use more menu choices', () => {
   const entry = readSource('./PlayerSkinEntry.jsx');
   const choices = readSource('./PlayerModeChoices.jsx');
   const classic = readSource('./fullscreen/ClassicDesktopLayout.jsx');
@@ -30,10 +30,10 @@ test('desktop icon reveals its current mode on hover while mobile uses its exist
   assert.doesNotMatch(entry, /aria-haspopup|<PlayerModeChoices/);
   assert.match(choices, /AVAILABLE_PLAYER_MODES\.map/);
   assert.match(choices, /aria-checked=\{selected\}/);
-  assert.match(classic, /<PlayerSkinEntry variant="classic" \/>/);
+  assert.doesNotMatch(classic, /PlayerSkinEntry/);
   assert.doesNotMatch(mobile, /PlayerSkinEntry/);
   assert.match(panes, /<PlayerMoreMenu[\s\S]*?showPlayerModes \/>/);
-  assert.match(panes, /showPlayerModes=\{isMobile\}/);
+  assert.match(panes, /<PlayerControls[\s\S]*?showPlayerModes \/>/);
   assert.match(immersive, /modeSwitcher=\{<PlayerSkinEntry variant="immersive" \/>\}/);
   assert.match(menu, /showPlayerModes && \([\s\S]*?<PlayerModeChoices/);
   assert.doesNotMatch(menu, /nextPlayerMode|切换到：/);

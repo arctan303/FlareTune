@@ -1,6 +1,10 @@
 import { Marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { resolveAssistantLink } from './assistantMarkdownLinks.js';
+import { t } from './i18n/index.js';
+
+const escapeAttribute = value => String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
 
 const customRenderer = {
     link({ href, title, text }) {
@@ -8,8 +12,9 @@ const customRenderer = {
         if (resolved?.songId) {
             // 内部歌曲标记转换为用户点击后播放的内联胶囊。
             const cleanTitle = String(text || '').replace(/^[▶\s]+/, '').replace(/^《|》$/g, '').trim();
-            const displayTitle = cleanTitle ? (cleanTitle.startsWith('《') ? cleanTitle : `《${cleanTitle}》`) : '播放歌曲';
-            return `<span class="xiaoa-inline-song" data-song-id="${resolved.songId}" role="button" tabindex="0" title="在 FlareTune 播放${displayTitle}">${displayTitle}</span>`;
+            const displayTitle = cleanTitle ? (cleanTitle.startsWith('《') ? cleanTitle : `《${cleanTitle}》`) : t('播放歌曲');
+            const tooltip = escapeAttribute(t('在 FlareTune 播放{title}', { title: displayTitle }));
+            return `<span class="xiaoa-inline-song" data-song-id="${resolved.songId}" role="button" tabindex="0" title="${tooltip}">${displayTitle}</span>`;
         }
         if (typeof href === 'string' && (href.startsWith('http://') || href.startsWith('https://'))) {
             const titleAttr = title ? ` title="${title}"` : '';
@@ -49,6 +54,6 @@ export function renderMarkdownSafe(text) {
     if (!text) return '';
     const rawHtml = markedInstance.parse(text || '');
     return sanitizeHtml(rawHtml)
-        .replaceAll('<table>', '<div class="assistant-table-scroll" role="region" aria-label="表格，可左右滚动" tabindex="0"><table>')
+        .replaceAll('<table>', `<div class="assistant-table-scroll" role="region" aria-label="${escapeAttribute(t('表格，可左右滚动'))}" tabindex="0"><table>`)
         .replaceAll('</table>', '</table></div>');
 }

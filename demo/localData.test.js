@@ -10,6 +10,18 @@ const request = async (data, path, method = 'GET', body) => {
   const r = await data.handle(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
   return { status: r.status, ...await r.json() };
 };
+
+test('retired demo language preferences use English and are no longer selectable', async () => {
+  for (const uiLanguage of ['es', 'fr', 'de', 'pt-BR']) {
+    const disk = storage();
+    disk.setItem(DEMO_KEY, JSON.stringify({ version: 1, uiLanguage, playlists: [] }));
+    const demo = createDemoData({ storage: () => disk });
+    assert.equal(demo.read().uiLanguage, 'en');
+    const bootstrap = await request(demo, '/api/ai/bootstrap');
+    assert.match(bootstrap.assistant.welcomeMessage, /^This is a fixed demo reply/);
+    assert.equal((await request(demo, '/api/account/ui-language', 'PATCH', { uiLanguage })).status, 400);
+  }
+});
 test('licensed vocal lyrics use the real player canonical response and bounded line timing', async () => {
   const demo = createDemoData({storage:()=>storage()});
   const response = await demo.handle('/api/lyrics?songId=demo-24');

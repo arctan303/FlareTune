@@ -1,5 +1,5 @@
 import { AuthError } from './index.js';
-import { isUiLanguage } from '../../../../shared/uiLanguages.js';
+import { isUiLanguage, normalizeUiLanguage } from '../../../../shared/uiLanguages.js';
 
 const languageKey = (accountId) => `account.ui_language.${accountId}`;
 
@@ -9,7 +9,7 @@ export async function getOwnUiLanguage(db, accountId) {
   if (!row) return 'auto';
   try {
     const value = JSON.parse(row.value_json);
-    return isUiLanguage(value) ? value : 'auto';
+    return normalizeUiLanguage(value);
   } catch {
     return 'auto';
   }

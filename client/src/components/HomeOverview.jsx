@@ -185,7 +185,7 @@ export default function HomeOverview({
     return urls;
   }, [leadPlaylistSongs, leadPlaylist, resolvedTopSongs, randomSongs]);
 
-  // 构建用于无限循环跑马灯的双排封面队列（去重后至少 3 张才启用跑马灯）
+  // 构建用于静态唱片照片墙的双排封面队列（去重后至少 3 张才启用照片墙）
   const marqueeRows = React.useMemo(() => {
     if (leadPlaylistCovers.length < 3) return null;
     const pool = leadPlaylistCovers.slice(0, 10);
@@ -193,11 +193,11 @@ export default function HomeOverview({
     while (base.length < 6) {
       base = base.concat(pool);
     }
-    const r1 = shuffleList(base, 3);
-    const r2 = shuffleList(base, 7);
+    const r1 = shuffleList(base, 3).slice(0, 6);
+    const r2 = shuffleList(base, 7).slice(0, 6);
     return {
-      row1: [...r1, ...r1],
-      row2: [...r2, ...r2],
+      row1: r1,
+      row2: r2,
     };
   }, [leadPlaylistCovers]);
 

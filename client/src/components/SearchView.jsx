@@ -391,7 +391,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
 
   useEffect(() => {
     setActiveIndex(-1);
-  }, [query, songSubCategory]);
+  }, [draftQuery, query, songSubCategory]);
 
   useEffect(() => {
     if (activeIndex < 0) return;
@@ -468,7 +468,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     if (e.nativeEvent?.isComposing || composingRef.current || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (activeIndex >= 0 && filteredSongs[activeIndex]) {
+      if (draftQuery.trim() === query.trim() && activeIndex >= 0 && filteredSongs[activeIndex]) {
         const targetSong = filteredSongs[activeIndex];
         recordRecentEntity({
           type: 'song',

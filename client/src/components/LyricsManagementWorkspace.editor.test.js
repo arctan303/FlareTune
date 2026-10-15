@@ -31,17 +31,19 @@ test('inline editor inserts an empty row directly after the active lyric', () =>
 test('inline editor rejects a time outside adjacent lyric timestamps', () => {
   const rows = [row('a', '00:20.000'), row('new-1', '00:54.000'), row('b', '00:25.000')];
   const errors = validateLyricRows(rows);
-  assert.match(errors['new-1'].time, /下一行/);
-  assert.match(errors.b.time, /上一行/);
+  assert.equal(errors['new-1'].time.source, '应不晚于下一行 {p0}');
+  assert.equal(errors['new-1'].time.values.p0, '00:25.000');
+  assert.equal(errors.b.time.source, '应不早于上一行 {p0}');
+  assert.equal(errors.b.time.values.p0, '00:54.000');
   assert.deepEqual(validateLyricRows([row('a', '00:20.000'), row('new-1', '00:22.500'), row('b', '00:25.000')]), {});
 });
 
 test('inline editor requires valid times for newly inserted timed rows', () => {
   const rows = [row('a', '00:20.000'), row('new-1', '', '', ''), row('b', '00:25.000')];
   const errors = validateLyricRows(rows);
-  assert.equal(errors['new-1'].time, '请填写时间');
-  assert.equal(errors['new-1'].text, '请填写歌词');
-  assert.match(validateLyricRows([row('a', '00:20.000'), row('b', '00:99.000')]).b.time, /格式/);
+  assert.equal(errors['new-1'].time.source, '请填写时间');
+  assert.equal(errors['new-1'].text.source, '请填写歌词');
+  assert.equal(validateLyricRows([row('a', '00:20.000'), row('b', '00:99.000')]).b.time.source, '时间格式应为 mm:ss.mmm');
   assert.equal(parseLyricTime('00:22.500'), 22.5);
   assert.equal(parseLyricTime('00:99.000'), null);
 });

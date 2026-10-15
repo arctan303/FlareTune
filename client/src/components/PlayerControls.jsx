@@ -159,7 +159,7 @@ export default React.memo(function PlayerControls({
     const iconStrokeWidth = 1.75;
 
     return (
-        <div ref={layoutRef} data-player-interaction="controls" className="classic-controls w-full sm:max-w-[440px] lg:max-w-[390px] xl:max-w-[420px] 2xl:max-w-[440px] mx-auto flex flex-col mt-2 flex-shrink-0">
+        <div ref={layoutRef} data-player-interaction="controls" className="classic-controls w-full sm:max-w-[440px] lg:max-w-[var(--classic-controls-width)] mx-auto flex flex-col mt-2 flex-shrink-0">
             {!hideMetadata && (
                 <div className="classic-controls__metadata mb-3 min-w-0">
                     <div className="classic-controls__title-row flex items-center gap-3 mb-0.5">

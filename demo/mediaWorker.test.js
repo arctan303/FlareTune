@@ -30,3 +30,31 @@ test('demo rejects invalid ranges, unknown media and writes; supports revalidati
   assert.equal((await worker.fetch(request({'If-None-Match':`"${song.sha256}"`}),env)).status,304);
   assert.equal(calls.length,0);
 });
+
+test('matching cache validators precede valid and unsatisfiable ranges for GET and HEAD', async () => {
+  const etag = `"${song.sha256}"`;
+  for (const method of ['GET', 'HEAD']) {
+    for (const validator of [etag, `W/${etag}`, `"stale", W/${etag}`, '*']) {
+      for (const range of [undefined, 'bytes=0-99', 'bytes=99999999-']) {
+        calls = [];
+        const headers = { 'If-None-Match': validator, ...(range ? { Range: range } : {}) };
+        const response = await worker.fetch(request(headers, method), env);
+        assert.equal(response.status, 304, `${method} ${validator} ${range || ''}`);
+        assert.equal(response.headers.get('ETag'), etag);
+        assert.equal(response.headers.get('Content-Range'), null);
+        assert.equal(await response.text(), '');
+        assert.equal(calls.length, 0, 'cache hit must not read packaged audio');
+      }
+    }
+  }
+});
+
+test('nonmatching validators preserve ordinary full, range and HEAD responses', async () => {
+  for (const [method, range, status] of [['GET', undefined, 200], ['GET', 'bytes=100-199', 206], ['HEAD', 'bytes=100-199', 200]]) {
+    calls = [];
+    const response = await worker.fetch(request({ 'If-None-Match': 'W/"stale"', ...(range ? { Range: range } : {}) }, method), env);
+    assert.equal(response.status, status);
+    assert.equal((await response.arrayBuffer()).byteLength, method === 'HEAD' ? 0 : range ? 100 : song.bytes);
+    assert.equal(calls.length, method === 'HEAD' ? 0 : 1);
+  }
+});

@@ -1,6 +1,6 @@
 # <img src="client/public/favicon.svg" alt="" width="44" height="44"> FlareTune
 
-[简体中文](README.md) · [English](README.en.md) · [繁體中文](guide/quickstart.zh-Hant.md) · [日本語](guide/quickstart.ja.md) · [한국어](guide/quickstart.ko.md) · [Español](guide/quickstart.es.md) · [Français](guide/quickstart.fr.md) · [Deutsch](guide/quickstart.de.md) · [Português (Brasil)](guide/quickstart.pt-BR.md)
+[简体中文](README.md) · [English](README.en.md) · [繁體中文](guide/quickstart.zh-Hant.md) · [日本語](guide/quickstart.ja.md) · [한국어](guide/quickstart.ko.md)
 
 **Your music, your private library. No VPS to maintain.**
 
@@ -19,7 +19,7 @@ The demo needs no sign-in and uses music licensed for public redistribution. Pla
 - **Personal collections**: account favorites and playlists are stored by your instance and available across devices. Recent listening history stays in the current browser.
 - **Start with your files**: upload through the web, manage metadata, artwork and lyrics, or use the [ingestion device](tooling/ingest-agent/README.en.md) to scan and review a local collection before importing it.
 - **Optional music assistant**: configure your own model provider to let “Little A” help find music, answer library questions and organize playlists. The library and player work without AI.
-- **Make it comfortable**: nine interface languages, light and dark themes, background and player preferences, plus optional [Google sign-in](guide/google-login.en.md) and [Subsonic clients](guide/subsonic.en.md).
+- **Make it comfortable**: five interface languages, light and dark themes, background and player preferences, plus optional [Google sign-in](guide/google-login.en.md) and [Subsonic clients](guide/subsonic.en.md).
 
 ## Why deploy this way?
 

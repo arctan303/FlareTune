@@ -21,4 +21,4 @@
 
 本目录只收录面向使用者和实例管理员的指南。内部 `docs/` 不进入公开仓库，也不作为用户手册使用。
 
-其他语言快速入门：[繁體中文](quickstart.zh-Hant.md) · [日本語](quickstart.ja.md) · [한국어](quickstart.ko.md) · [Español](quickstart.es.md) · [Français](quickstart.fr.md) · [Deutsch](quickstart.de.md) · [Português (Brasil)](quickstart.pt-BR.md)
+其他语言快速入门：[繁體中文](quickstart.zh-Hant.md) · [日本語](quickstart.ja.md) · [한국어](quickstart.ko.md)

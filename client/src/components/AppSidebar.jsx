@@ -10,8 +10,8 @@ import {
   Menu,
   MessageCircle,
   Brain,
-  PanelBottom,
-  PanelLeft,
+  PictureInPicture,
+  PictureInPicture2,
   Plus,
   Palette,
   Search,
@@ -278,42 +278,51 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           </>}
         </nav>
 
-        <div className="app-sidebar__secondary" aria-label={t("辅助功能")}>
-          {placement === 'sidebar' && (
-            <div className={`sidebar-mini-player__motion-slot ${isFullScreen ? 'sidebar-mini-player__motion-slot--fullscreen' : ''}`}
-              aria-hidden={isFullScreen || undefined} inert={isFullScreen ? '' : undefined}>
-              <SidebarMiniPlayer
-                isTransitioning={Boolean(transition)}
-                motionPhase={transition?.from === 'sidebar' && transition.phase === 'exit'
-                  ? 'exit'
-                  : transition?.to === 'sidebar' && transition.phase === 'enter' ? 'enter' : null}
-              />
-            </div>
-          )}
-          <div className="app-sidebar__footer">
-            <AccountMenu onNavigate={navigate} />
-            {!isPageOverride && (
-              <button
-                type="button"
-                className="app-sidebar__placement-btn"
-                onClick={() => {
-                  setCompactPlayerPlacement(placement === 'sidebar' ? 'dock' : 'sidebar');
-                  setIsMobileOpen(false);
-                }}
-                disabled={Boolean(transition)}
-                data-tooltip={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
-                title={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
-                aria-label={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
-              >
-                {placement === 'sidebar' ? (
-                  <PanelBottom size={18} strokeWidth={1.8} aria-hidden="true" />
-                ) : (
-                  <PanelLeft size={18} strokeWidth={1.8} aria-hidden="true" />
+        {(() => {
+          const isTransitioningToSidebar = transition?.to === 'sidebar';
+          const isTransitioningFromSidebar = transition?.from === 'sidebar';
+          const shouldRenderSidebarPlayer = placement === 'sidebar' || isTransitioningToSidebar || (isTransitioningFromSidebar && transition?.phase === 'exit');
+          const isSlotOpen = placement === 'sidebar' && !(isTransitioningFromSidebar && transition?.phase === 'exit');
+
+          return (
+            <div className="app-sidebar__secondary" aria-label={t("辅助功能")}>
+              {shouldRenderSidebarPlayer && (
+                <div className={`sidebar-mini-player__motion-slot ${isSlotOpen ? 'is-open' : ''} ${isFullScreen ? 'sidebar-mini-player__motion-slot--fullscreen' : ''}`}
+                  aria-hidden={isFullScreen || !isSlotOpen || undefined} inert={isFullScreen || !isSlotOpen ? '' : undefined}>
+                  <SidebarMiniPlayer
+                    isTransitioning={Boolean(transition)}
+                    motionPhase={transition?.from === 'sidebar' && transition.phase === 'exit'
+                      ? 'exit'
+                      : transition?.to === 'sidebar' && transition.phase === 'enter' ? 'enter' : null}
+                  />
+                </div>
+              )}
+              <div className="app-sidebar__footer">
+                <AccountMenu onNavigate={navigate} />
+                {!isPageOverride && (
+                  <button
+                    type="button"
+                    className="app-sidebar__placement-btn"
+                    onClick={() => {
+                      setCompactPlayerPlacement(placement === 'sidebar' ? 'dock' : 'sidebar');
+                      setIsMobileOpen(false);
+                    }}
+                    disabled={Boolean(transition)}
+                    data-tooltip={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
+                    title={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
+                    aria-label={placement === 'sidebar' ? t("切换到底部播放器") : t("切换到侧边播放器")}
+                  >
+                    {placement === 'sidebar' ? (
+                      <PictureInPicture size={18} strokeWidth={1.8} aria-hidden="true" />
+                    ) : (
+                      <PictureInPicture2 size={18} strokeWidth={1.8} aria-hidden="true" />
+                    )}
+                  </button>
                 )}
-              </button>
-            )}
-          </div>
-        </div>
+              </div>
+            </div>
+          );
+        })()}
       </aside>
     </>
   );

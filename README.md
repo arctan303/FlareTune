@@ -1,6 +1,6 @@
 # <img src="client/public/favicon.svg" alt="" width="44" height="44"> FlareTune
 
-[简体中文](README.md) · [English](README.en.md) · [繁體中文](guide/quickstart.zh-Hant.md) · [日本語](guide/quickstart.ja.md) · [한국어](guide/quickstart.ko.md) · [Español](guide/quickstart.es.md) · [Français](guide/quickstart.fr.md) · [Deutsch](guide/quickstart.de.md) · [Português (Brasil)](guide/quickstart.pt-BR.md)
+[简体中文](README.md) · [English](README.en.md) · [繁體中文](guide/quickstart.zh-Hant.md) · [日本語](guide/quickstart.ja.md) · [한국어](guide/quickstart.ko.md)
 
 **不用买 VPS，把自己的音乐放进随时可听的私人曲库。**
 
@@ -19,7 +19,7 @@ Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、
 - **每个人自己的收藏**：账号收藏和歌单由实例保存，可在不同设备使用；最近播放记录保存在当前浏览器，不承诺跨设备同步。
 - **从已有文件开始**：网页上传、曲目信息、封面和歌词管理；大量本地文件可通过[入库设备](tooling/ingest-agent/README.md)扫描、预览、核对重复后导入。
 - **可选的音乐助手**：配置自己的模型供应商后，让「小A」帮忙找歌、回答曲库问题和整理歌单。不配置 AI 也能正常听歌。
-- **按自己的习惯使用**：九种界面语言、浅色/深色主题、背景与播放器偏好；可选 [Google 登录](guide/google-login.md)和 [Subsonic 客户端](guide/subsonic.md)。
+- **按自己的习惯使用**：五种界面语言、浅色/深色主题、背景与播放器偏好；可选 [Google 登录](guide/google-login.md)和 [Subsonic 客户端](guide/subsonic.md)。
 
 ## 为什么选择这种部署方式
 

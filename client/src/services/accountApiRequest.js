@@ -1,5 +1,6 @@
 import { authenticatedFetch } from './authenticatedFetch.js';
 import { useUIStore } from '../store/useUIStore.js';
+import { requestErrorSource } from '../i18n/requestErrors.js';
 
 export async function requestAccountJson({
   fetchImpl,
@@ -29,7 +30,7 @@ export async function requestAccountJson({
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.ok !== true) {
     throw new ErrorType(
-      payload?.message || `${errorLabel}（${response.status}）`,
+      requestErrorSource(payload, errorLabel, response.status),
       { status: response.status, code: payload?.error, data: payload?.data },
     );
   }

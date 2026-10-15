@@ -1,4 +1,4 @@
-import { localizeUnknownArtist, t } from '../../i18n/index.js';
+import { localizeUnknownArtist, localizeUnknownTitle, t } from '../../i18n/index.js';
 import React from 'react';
 import { Star } from 'lucide-react';
 import LazyImage from '../LazyImage.jsx';
@@ -48,7 +48,7 @@ export function MobileLyricsPane({
         </button>
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <div className="flex items-center justify-between gap-2">
-            <div onClick={onExit} className="truncate font-bold text-white text-base sm:text-lg tracking-tight cursor-pointer" title={t("点击返回大封面视图")}>{currentSong?.title || t("未知歌曲")}</div>
+            <div onClick={onExit} className="truncate font-bold text-white text-base sm:text-lg tracking-tight cursor-pointer" title={t("点击返回大封面视图")}>{localizeUnknownTitle(currentSong?.title)}</div>
             <div className="flex items-center gap-2 shrink-0 relative">
               <button
                 type="button"
@@ -156,11 +156,11 @@ export function MobileSongPane({
           </div>
         )}
       </div>
-      <div className="w-full pb-1 sm:pb-1.5 shrink-0"><PlayerControls {...playerControlsProps} hideMetadata={false} showPlayerModes={isMobile} /></div>
+      <div className="classic-player__controls-slot w-full pb-1 sm:pb-1.5 shrink-0 flex flex-col items-center"><PlayerControls {...playerControlsProps} hideMetadata={false} showPlayerModes /></div>
     </>
   );
 }
 
 export function DesktopLyricsPane({ lyricsScrollerProps, controlsBottomOffset, surfaceVisible = true }) {
-  return <div className="classic-player__lyrics-column hidden lg:flex flex-1 lg:w-[52%] xl:w-[54%] min-h-0 h-full lg:pl-6 xl:pl-8 lg:pr-16 xl:pr-24 2xl:pr-28"><LyricsScroller {...lyricsScrollerProps} controlsBottomOffset={controlsBottomOffset} surfaceVisible={surfaceVisible} /></div>;
+  return <div className="classic-player__lyrics-column hidden lg:flex flex-1 lg:w-1/2 lg:px-0 min-h-0 h-full"><LyricsScroller {...lyricsScrollerProps} controlsBottomOffset={controlsBottomOffset} surfaceVisible={surfaceVisible} /></div>;
 }

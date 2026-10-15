@@ -85,7 +85,7 @@ export default function ImmersiveChrome({
                         onReveal();
                     }}
                     className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md transition focus:outline-none ${ambientEnabled ? 'bg-white/18 text-white' : 'bg-black/30 text-white/75 hover:bg-white/15 hover:text-white'}`}
-                    title={ambientTitle}
+                    title={t(ambientTitle)}
                     aria-pressed={ambientEnabled}
                 >
                     <Activity size={18} className={ambientEnabled && ambientIntensity !== 'subtle' ? 'scale-110' : ''} />

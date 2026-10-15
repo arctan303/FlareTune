@@ -249,7 +249,7 @@ export default function AiProfilesPanel({ csrfToken }) {
     finally { setBusy(false); }
   }
   async function remove(provider) {
-    if (!window.confirm(`${t('删除供应商')}“${provider.name}”？`)) return;
+    if (!window.confirm(t('删除供应商“{name}”？', { name: provider.name }))) return;
     setBusy(true); setMessage('');
     try {
       await deleteAiProvider(provider.id, provider.revision, csrfToken);

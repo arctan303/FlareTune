@@ -781,7 +781,8 @@ export default function AdminSongCreatePage() {
                   </span>
                 </div>
                 {(entry.status === 'error' || entry.status === 'uploading') &&
-                  <p role="status" className="mt-2 text-xs text-[var(--muted)]">{t(entry.message, entry.messageValues)}</p>}
+                  <p role="status" className="mt-2 text-xs text-[var(--muted)]">{t(entry.message, entry.messageValues?.reason
+                    ? { ...entry.messageValues, reason: t(entry.messageValues.reason) } : entry.messageValues)}</p>}
                 {entry.agent && entry.coverFile && !entry.coverPreviewUrl && entry.status !== 'saved' &&
                   <button type="button" disabled={loadingCoverId === entry.key || saving}
                     onClick={() => void loadDeviceCover(entry)}

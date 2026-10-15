@@ -158,9 +158,15 @@ test('UI language belongs to the active account and defaults to browser selectio
     assert.equal(await getOwnUiLanguage(f.db, otherId), 'auto');
     await updateOwnUiLanguage(f.db, otherId, 'en', now);
     assert.equal(await getOwnUiLanguage(f.db, otherId), 'en');
-    for (const language of ['zh-Hant','ja','ko','es','fr','de','pt-BR']) {
+    for (const language of ['zh-Hant','ja','ko']) {
       assert.deepEqual(await updateOwnUiLanguage(f.db, accountId, language, now), { uiLanguage: language });
       assert.equal(await getOwnUiLanguage(f.db, accountId), language);
+    }
+    for (const language of ['es','fr','de','pt-BR']) {
+      f.sqlite.prepare('UPDATE instance_settings SET value_json = ? WHERE key = ?')
+        .run(JSON.stringify(language), `account.ui_language.${accountId}`);
+      assert.equal(await getOwnUiLanguage(f.db, accountId), 'en');
+      await assert.rejects(updateOwnUiLanguage(f.db, accountId, language, now), { code: 'invalid_ui_language' });
     }
     await assert.rejects(updateOwnUiLanguage(f.db, accountId, 'xx', now), { code: 'invalid_ui_language' });
     f.sqlite.prepare("UPDATE accounts SET status = 'disabled' WHERE account_id = ?").run(otherId);

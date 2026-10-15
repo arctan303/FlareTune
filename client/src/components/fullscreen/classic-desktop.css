@@ -1,123 +1,147 @@
-/* Scale dimensions together, rather than widening the stage around fixed content.
-   The desktop stage is absent on mobile; short ultrawide windows are height-bound. */
+/* ==========================================================================
+   经典全屏播放器 - 桌面大屏等比与流式缩放系统
+   左右等大小对称布局，维持比例间距，受控元素保护
+   ========================================================================== */
+
 .paper-classic-player .classic-player__stage {
-  --classic-unit: 1px;
-  --classic-cover-size: 392px;
-  --classic-controls-width: 390px;
-  max-width: calc(1440 * var(--classic-unit));
+  /* 基础间隙与边界比例 */
+  --classic-gap: clamp(28px, 3.5vw, 68px);
+  --classic-stage-padding: clamp(24px, 3.5vw, 80px);
+
+  /* 封面与控制条尺寸：双向自适应约束 */
+  /* 高度保护：视口高度减去 230px（控制条+间距+边距），确保纵向绝不溢出 */
+  --classic-cover-size: clamp(340px, min(calc(44vw - var(--classic-gap)), calc(100dvh - 230px)), 560px);
+  --classic-controls-width: var(--classic-cover-size);
+
+  /* 全局/歌词缩放系数：随封面实际尺寸流式响应，提升歌词大屏沉浸感 */
+  --classic-scale: clamp(1, calc(var(--classic-cover-size) / 400px), 1.45);
+  --classic-unit: calc(var(--classic-scale) * 1px);
+
+  /* 控制区独立缓和缩放系数：保持适度微放大，但比封面/歌词更加克制精致，杜绝笨重与过渡感 */
+  --classic-ctrl-scale: clamp(1, calc(1 + (var(--classic-cover-size) - 400px) / 1200px), 1.15);
+  --classic-ctrl-unit: calc(var(--classic-ctrl-scale) * 1px);
+
+  /* 舞台最大宽度：两栏宽度 + 中间间距 + 两侧对称留白 */
+  width: 100%;
+  max-width: min(calc(100vw - 48px), calc(var(--classic-cover-size) * 2 + var(--classic-gap) + var(--classic-stage-padding) * 2 + 60px), 1920px);
+  margin-inline: auto;
 }
 
-.classic-player__stage .classic-player__cover {
-  max-width: min(var(--classic-cover-size), max(160px, calc(100dvh - 240 * var(--classic-unit))));
-}
+@media (min-width: 1024px) {
+  .paper-classic-player .classic-player__stage {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: var(--classic-gap);
+  }
 
-.classic-player__stage .classic-player__artwork-slot {
-  margin-bottom: calc(24 * var(--classic-unit));
-}
+  /* 左栏：唱片封面与控制区（统一中轴居中，确保封面与控制条左、右绝对对齐） */
+  .classic-player__stage .classic-player__record-column {
+    flex: 1 1 0;
+    width: 50%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-left: var(--classic-stage-padding);
+    padding-right: calc(var(--classic-gap) / 2);
+  }
 
-.classic-player__stage .classic-controls {
-  max-width: var(--classic-controls-width);
-  margin-top: calc(8 * var(--classic-unit));
+  .classic-player__stage .classic-player__artwork-slot {
+    width: var(--classic-cover-size);
+    max-width: var(--classic-cover-size);
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: clamp(12px, calc(16 * var(--classic-ctrl-unit)), 22px);
+  }
+
+  .classic-player__stage .classic-player__cover {
+    width: var(--classic-cover-size);
+    max-width: 100%;
+    margin-inline: auto;
+  }
+
+  .classic-player__stage .classic-player__controls-slot {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .classic-player__stage .classic-controls {
+    width: var(--classic-controls-width);
+    max-width: var(--classic-cover-size) !important;
+    margin-inline: auto !important;
+    margin-top: clamp(4px, calc(6 * var(--classic-ctrl-unit)), 8px);
+  }
+
+  /* 右栏：歌词视口（占 50% 宽度，与左栏对称间隔） */
+  .classic-player__stage .classic-player__lyrics-column {
+    flex: 1 1 0;
+    width: 50%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-left: calc(var(--classic-gap) / 2);
+    padding-right: var(--classic-stage-padding);
+  }
+
+  .classic-player__stage .classic-player__lyrics-column .classic-lyrics {
+    width: 100%;
+    max-width: calc(var(--classic-cover-size) * 1.15);
+    padding-top: clamp(24px, 4vh, 48px);
+  }
 }
 
 .classic-player__stage .classic-controls__metadata {
-  margin-bottom: calc(12 * var(--classic-unit));
+  margin-bottom: calc(10 * var(--classic-ctrl-unit));
 }
 
 .classic-player__stage .classic-controls__title-row {
-  gap: calc(12 * var(--classic-unit));
-  margin-bottom: calc(2 * var(--classic-unit));
+  gap: calc(10 * var(--classic-ctrl-unit));
+  margin-bottom: calc(2 * var(--classic-ctrl-unit));
 }
 
 .classic-player__stage .classic-controls__title {
-  font-size: calc(24 * var(--classic-unit));
+  font-size: calc(23 * var(--classic-ctrl-unit));
   line-height: 1.333333;
 }
 
 .classic-player__stage .classic-controls__artist {
-  font-size: calc(14 * var(--classic-unit));
+  font-size: calc(14 * var(--classic-ctrl-unit));
   line-height: 1.428571;
 }
 
-.classic-player__stage .classic-controls__metadata-actions {
-  gap: calc(8 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-controls__metadata-actions button[aria-busy] {
-  width: calc(24 * var(--classic-unit));
-  height: calc(24 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-controls__metadata-actions button[aria-busy] > svg {
-  width: calc(22 * var(--classic-unit));
-  height: calc(22 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-controls__metadata-actions button[aria-haspopup='menu'] {
-  width: calc(28 * var(--classic-unit));
-  height: calc(24 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-controls__metadata-actions button[aria-haspopup='menu'] > svg {
-  width: calc(20 * var(--classic-unit));
-  height: calc(20 * var(--classic-unit));
-}
-
-.classic-player__stage .quality-badge {
-  padding: var(--classic-unit) calc(4 * var(--classic-unit));
-  margin-left: calc(8 * var(--classic-unit));
-  font-size: calc(9 * var(--classic-unit));
-}
-
 .classic-player__stage .classic-controls__time {
-  width: calc(40 * var(--classic-unit));
+  width: auto !important;
+  min-width: 0 !important;
   flex-shrink: 0;
-  font-size: calc(12 * var(--classic-unit));
+  font-size: clamp(11.5px, calc(12 * var(--classic-ctrl-unit)), 13px);
   line-height: 1.333333;
+  font-variant-numeric: tabular-nums;
 }
 
 .classic-player__stage .classic-controls__timeline {
-  gap: calc(12 * var(--classic-unit));
-  margin-bottom: calc(16 * var(--classic-unit));
+  gap: clamp(8px, calc(10 * var(--classic-ctrl-unit)), 14px);
+  margin-bottom: calc(14 * var(--classic-ctrl-unit));
 }
 
 .classic-player__stage .classic-controls__progress {
-  height: calc(16 * var(--classic-unit));
-}
-
-.paper-classic-player .classic-player__stage .classic-controls__track {
-  height: calc(3.5 * var(--classic-unit));
-}
-
-.paper-classic-player .classic-player__stage .classic-controls__progress:hover .classic-controls__track {
-  height: calc(5 * var(--classic-unit));
+  height: 16px;
 }
 
 .classic-player__stage .classic-controls__transport {
-  padding-inline: calc(8 * var(--classic-unit));
+  padding-inline: 0 !important;
 }
 
 .classic-player__stage .classic-controls__playback-buttons {
-  gap: calc(32 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-controls__icon > svg {
-  width: calc(22 * var(--classic-unit));
-  height: calc(22 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-controls__skip > svg {
-  width: calc(30 * var(--classic-unit));
-  height: calc(30 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-controls__play > svg {
-  width: calc(38 * var(--classic-unit));
-  height: calc(38 * var(--classic-unit));
-}
-
-.classic-player__stage .classic-lyrics {
-  padding-top: calc(48 * var(--classic-unit));
+  gap: clamp(24px, calc(28 * var(--classic-ctrl-unit)), 34px);
 }
 
 .classic-player__stage .classic-lyrics__line + .classic-lyrics__line {
@@ -141,52 +165,134 @@
   line-height: calc(28 * var(--classic-unit));
 }
 
+/* =========================================================================
+   严格保护：不可/限制缩放的功能型元素
+   ========================================================================= */
+
+/* 1. 进度条轨道粗细保持流线型，不可放大成粗条 */
+.paper-classic-player .classic-player__stage .classic-controls__track {
+  height: 3.5px !important;
+}
+
+.paper-classic-player .classic-player__stage .classic-controls__progress:hover .classic-controls__track {
+  height: 5px !important;
+}
+
+/* 2. 音质角标保持紧凑精致 */
+.classic-player__stage .quality-badge {
+  padding: 1px 4px !important;
+  margin-left: 8px !important;
+  font-size: 9px !important;
+}
+
+/* 3. 收藏与菜单触发按钮：缓和微幅缩放，严防影响下拉菜单弹出层 */
+.classic-player__stage .classic-controls__metadata-actions {
+  gap: calc(8 * var(--classic-ctrl-unit));
+}
+
+/* 仅针对直接子级收藏按钮 */
+.classic-player__stage .classic-controls__metadata-actions > button {
+  width: calc(26 * var(--classic-ctrl-unit));
+  height: calc(26 * var(--classic-ctrl-unit));
+}
+
+.classic-player__stage .classic-controls__metadata-actions > button svg {
+  width: calc(21 * var(--classic-ctrl-unit));
+  height: calc(21 * var(--classic-ctrl-unit));
+}
+
+/* 仅针对更多操作触发按钮（排除弹出层内部菜单项） */
+.classic-player__stage .classic-controls__metadata-actions > div > button[aria-haspopup='menu'] {
+  width: calc(30 * var(--classic-ctrl-unit));
+  height: calc(26 * var(--classic-ctrl-unit));
+}
+
+.classic-player__stage .classic-controls__metadata-actions > div > button[aria-haspopup='menu'] svg {
+  width: calc(20 * var(--classic-ctrl-unit));
+  height: calc(20 * var(--classic-ctrl-unit));
+}
+
+/* 弹出菜单隔离保护：菜单项始终维持正常行高、水平弹性排版与标准文字图标尺寸 */
+.classic-player__stage .classic-controls__menu button,
+.classic-player__stage .classic-controls__menu .classic-controls__menu-item {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 2.25rem !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+}
+
+.classic-player__stage .classic-controls__menu .classic-controls__menu-icon svg,
+.classic-player__stage .classic-controls__menu .classic-controls__menu-item svg {
+  width: 17px !important;
+  height: 17px !important;
+  flex-shrink: 0 !important;
+}
+
+.classic-player__stage .classic-controls__menu button span {
+  white-space: nowrap !important;
+}
+
+/* 4. 底部播放控制图标：缓和微幅放大，保持精致紧凑 */
+.classic-player__stage .classic-controls__icon svg {
+  width: calc(21 * var(--classic-ctrl-unit));
+  height: calc(21 * var(--classic-ctrl-unit));
+}
+
+.classic-player__stage .classic-controls__skip svg {
+  width: calc(28 * var(--classic-ctrl-unit));
+  height: calc(28 * var(--classic-ctrl-unit));
+}
+
+.classic-player__stage .classic-controls__play svg {
+  width: calc(38 * var(--classic-ctrl-unit));
+  height: calc(38 * var(--classic-ctrl-unit));
+}
+
+/* 5. 歌词工具栏（译、音量）保持标准工具图标与文本尺寸 */
 .classic-player__stage .classic-lyrics__tools {
-  gap: calc(12 * var(--classic-unit));
+  gap: 12px;
 }
 
 .classic-player__stage .classic-lyrics__tool {
-  padding: calc(4 * var(--classic-unit));
+  padding: 4px;
 }
 
 .classic-player__stage .classic-lyrics__tool--text {
-  height: calc(24 * var(--classic-unit));
-  padding-inline: calc(8 * var(--classic-unit));
-  font-size: calc(11 * var(--classic-unit));
+  height: 24px;
+  padding-inline: 8px;
+  font-size: 11px;
 }
 
 .classic-player__stage .classic-lyrics__tool > svg {
-  width: calc(20 * var(--classic-unit));
-  height: calc(20 * var(--classic-unit));
+  width: 20px;
+  height: 20px;
 }
 
 .classic-player__stage .classic-interlude-dot {
-  width: calc(18 * var(--classic-unit));
-  height: calc(18 * var(--classic-unit));
+  width: 18px;
+  height: 18px;
 }
 
-@media (min-width: 1280px) {
+/* 2K 超大屏自适应扩展 */
+@media (min-width: 2000px) {
   .paper-classic-player .classic-player__stage {
-    --classic-cover-size: 430px;
-    --classic-controls-width: 420px;
+    --classic-cover-size: clamp(460px, min(42vw, calc(100dvh - 260px)), 720px);
+    --classic-scale: clamp(1.15, calc(var(--classic-cover-size) / 400px), 1.8);
+    --classic-ctrl-scale: clamp(1.05, calc(1 + (var(--classic-cover-size) - 400px) / 1200px), 1.25);
+    max-width: min(calc(100vw - 64px), calc(var(--classic-cover-size) * 2 + var(--classic-gap) + var(--classic-stage-padding) * 2 + 100px), 2560px);
   }
 }
 
-@media (min-width: 1536px) {
+/* 4K 巨屏自适应扩展 */
+@media (min-width: 3200px) {
   .paper-classic-player .classic-player__stage {
-    --classic-unit: clamp(1px, min(0.0625vw, 0.111111vh), 2.4px);
-    --classic-cover-size: calc(470 * var(--classic-unit));
-    --classic-controls-width: calc(440 * var(--classic-unit));
-  }
-
-  .classic-player__stage .classic-player__record-column {
-    padding-left: calc(80 * var(--classic-unit));
-    padding-right: calc(20 * var(--classic-unit));
-  }
-
-  .classic-player__stage .classic-player__lyrics-column {
-    padding-left: calc(32 * var(--classic-unit));
-    padding-right: calc(112 * var(--classic-unit));
+    --classic-cover-size: clamp(560px, min(40vw, calc(100dvh - 320px)), 960px);
+    --classic-scale: clamp(1.4, calc(var(--classic-cover-size) / 400px), 2.4);
+    --classic-ctrl-scale: clamp(1.1, calc(1 + (var(--classic-cover-size) - 400px) / 1200px), 1.38);
+    max-width: min(calc(100vw - 80px), calc(var(--classic-cover-size) * 2 + var(--classic-gap) + var(--classic-stage-padding) * 2 + 160px), 3840px);
   }
 }
 

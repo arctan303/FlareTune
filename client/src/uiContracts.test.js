@@ -512,9 +512,10 @@ test('desktop mode icon shows current state and mobile more menu holds explicit 
   assert.doesNotMatch(entry, /aria-haspopup|<PlayerModeChoices/);
   assert.match(entry, /type="button"/);
 
-  assert.match(classic, /<PlayerSkinEntry variant="classic" \/>/);
+  assert.doesNotMatch(classic, /PlayerSkinEntry/);
   assert.doesNotMatch(mobile, /PlayerSkinEntry/);
   assert.match(panes, /<PlayerMoreMenu[\s\S]*?showPlayerModes \/>/);
+  assert.match(panes, /<PlayerControls[\s\S]*?showPlayerModes \/>/);
   assert.match(immersive, /modeSwitcher=\{<PlayerSkinEntry variant="immersive" \/>\}/);
   assert.match(chrome, /modeSwitcher = null/);
   assert.match(chrome, /stopPropagation\(\)/);

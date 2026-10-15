@@ -52,5 +52,7 @@ test('candidate quality ordering and safe warnings stay available', () => {
     'custom_krc:a': { state: 'ready', syncMode: 'line' },
     'lrclib:b': { state: 'ready', syncMode: 'word' },
   })[0].providerLyricId, 'b');
-  assert.equal(projectProviderWarnings([{ source: 'custom_krc', code: 'timeout' }])[0].text, '自定义逐字源请求超时');
+  assert.deepEqual(projectProviderWarnings([{ source: 'custom_krc', code: 'timeout' }])[0], {
+    key: 'provider-warning-0', source: 'custom_krc', reason: '请求超时',
+  });
 });

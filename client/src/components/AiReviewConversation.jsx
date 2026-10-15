@@ -1,10 +1,11 @@
-import { getLocale, t } from '../i18n/index.js';
+import { getLocale, t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { MarkdownContent } from './AssistantMarkdown.jsx';
 import PrivateCoverImage from './PrivateCoverImage.jsx';
 import { getAssistantProcessStatus, getAssistantProcessTimeline, getAssistantProcessOverview } from '../../../shared/assistantProcessTrace.js';
 import { resolveAssistantMessageTime } from '../utils/assistantMessageTime.js';
+import { formatAssistantToolEntry } from '../assistantToolText.js';
 
 const resolveMessageTime = (createdAt) => resolveAssistantMessageTime(createdAt, { locale: getLocale() });
 
@@ -23,6 +24,7 @@ export default function AiReviewConversation({
     welcomeReady,
     welcomeText,
 }) {
+    useLocale();
     const showGreeting = phase === 'ready' && welcomeReady && messages.length === 0;
 
     return (
@@ -121,7 +123,7 @@ export default function AiReviewConversation({
                                                                 <>
                                                                     <Wrench size={15} aria-hidden="true" />
                                                                     <span className="min-w-0 break-words">
-                                                                        {`${entry.ok === false ? t("未完成：") : ''}${t(entry.summary || entry.progress || '已调用')}`}
+                                                                        {`${entry.ok === false ? t("未完成：") : ''}${formatAssistantToolEntry(entry)}`}
                                                                     </span>
                                                                 </>
                                                             ) : entry.text}

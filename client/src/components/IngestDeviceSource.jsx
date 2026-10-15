@@ -1,5 +1,5 @@
 import SelectControl from './SelectControl.jsx';
-import { getLocale, t } from '../i18n/index.js';
+import { formatDateTime, t } from '../i18n/index.js';
 import React from 'react';
 import { Disc } from 'lucide-react';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
@@ -135,7 +135,7 @@ export default function IngestDeviceSource({ disabled, onAdd, sessionGuardRef, q
     </div>
     {current && <p className="text-xs text-[var(--muted)]">
       {current.online ? t("设备在线") : t("设备离线")}{' '}{t("· 配置目录：")}{current.roots.join('、')}
-      {current.scannedAt ? t(" · 上次扫描 {p0}", { p0: (new Date(current.scannedAt).toLocaleString(getLocale() === 'zh' ? 'zh-CN' : 'en')) }) : ''}
+      {current.scannedAt ? t(" · 上次扫描 {p0}", { p0: formatDateTime(new Date(current.scannedAt), { dateStyle: 'short', timeStyle: 'medium' }) }) : ''}
     </p>}
     {(message || !deviceId) && <p role="status" className="text-sm text-[var(--muted)]">{message || t("在运行 Node 程序的设备执行 npm run ingest:configure，然后 npm run ingest。")}</p>}
     {checkError && <p role="alert" className="text-sm text-rose-600">{t('查重未完成，暂时不能选择新增。')}{' '}{t(checkError)}</p>}

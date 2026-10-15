@@ -10,7 +10,7 @@ Try the real player and library interface without signing in, using music licens
 | Seeking | Audio supports 206 byte-range responses for playback position changes |
 | Search, language browsing, daily picks and roaming | Browser queries against the static catalog; unavailable languages show an empty state |
 | Favorites, playlists, history and frequent songs | Stored in this browser; personal collections start empty, the sample playlist is labeled |
-| Appearance and nine interface languages | Stored locally; switch and restore preferences |
+| Appearance and five interface languages | Stored locally; switch and restore preferences |
 | Assistant conversation | Send, restore and clear messages locally; responses are explicitly labeled fixed examples, without model calls; retain the latest 30 turns in this browser |
 | Administration, ingestion, accounts and connections | A simulated administrator sees the actual pages and complete configuration dialogs with public example data; no uploads, server configuration changes or server accounts |
 

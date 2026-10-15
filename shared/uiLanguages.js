@@ -5,12 +5,11 @@ export const UI_LANGUAGES = Object.freeze([
   { id: 'zh-Hant', name: '繁體中文', tag: 'zh-Hant' },
   { id: 'ja', name: '日本語', tag: 'ja' },
   { id: 'ko', name: '한국어', tag: 'ko' },
-  { id: 'es', name: 'Español', tag: 'es' },
-  { id: 'fr', name: 'Français', tag: 'fr' },
-  { id: 'de', name: 'Deutsch', tag: 'de' },
-  { id: 'pt-BR', name: 'Português (Brasil)', tag: 'pt-BR' },
 ]);
 export const isUiLanguage = (value) => value === 'auto' || UI_LANGUAGES.some(item => item.id === value);
+// Preserve an explicit choice when retiring a language, using the English fallback.
+export const normalizeUiLanguage = (value) => isUiLanguage(value) ? value
+  : ['es', 'fr', 'de', 'pt-BR'].includes(value) ? 'en' : 'auto';
 export const languageTag = (value) => UI_LANGUAGES.find(item => item.id === value)?.tag || 'en';
 export function matchUiLanguage(value) {
   if (typeof value !== 'string') return null;
@@ -20,6 +19,5 @@ export function matchUiLanguage(value) {
     if (parts.includes('hans')) return 'zh';
     return parts.some(part => ['tw', 'hk', 'mo'].includes(part)) ? 'zh-Hant' : 'zh';
   }
-  if (parts[0] === 'pt') return 'pt-BR';
   return UI_LANGUAGES.find(item => item.id === parts[0])?.id || null;
 }

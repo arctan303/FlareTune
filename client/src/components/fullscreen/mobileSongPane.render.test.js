@@ -13,7 +13,7 @@ let renderedLyricLines = 0;
 const empty = () => null;
 const dependencies = {
   react: React,
-  '../../i18n/index.js': { t: (text) => text, localizeUnknownArtist: (text) => text },
+  '../../i18n/index.js': { t: (text) => text, localizeUnknownArtist: (text) => text, localizeUnknownTitle: (text) => text },
   'lucide-react': { Star: empty },
   '../LazyImage.jsx': empty,
   '../LyricsScroller.jsx': empty,

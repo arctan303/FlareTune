@@ -42,7 +42,7 @@ test('MobileClassicPlayer renders full screen blurred artist photo backdrop in m
     assert.match(src, /bg-gradient-to-b from-black\/40/);
 });
 
-test('PlayerMoreMenu offers explicit mode choices only when requested by the mobile player', () => {
+test('PlayerMoreMenu offers explicit mode choices when requested by the classic player', () => {
     const src = readMoreMenu();
     assert.match(src, /歌词工作台/);
     assert.match(src, /showPlayerModes = false/);
@@ -50,7 +50,7 @@ test('PlayerMoreMenu offers explicit mode choices only when requested by the mob
     assert.match(src, /<PlayerModeChoices/);
     assert.doesNotMatch(src, /playerModeAction|nextPlayerMode|切换到：/);
     assert.match(readClassicPanes(), /<PlayerMoreMenu[\s\S]*?showPlayerModes \/>/);
-    assert.match(readClassicPanes(), /showPlayerModes=\{isMobile\}/);
+    assert.match(readClassicPanes(), /<PlayerControls[\s\S]*?showPlayerModes \/>/);
 });
 
 test('MobileClassicPlayer isolates lyric translation and volume tool interactions from auto-hide wake', () => {

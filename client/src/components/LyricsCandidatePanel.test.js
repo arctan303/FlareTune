@@ -10,11 +10,11 @@ const candidate = (index, source = 'custom_krc') => ({ source, providerLyricId: 
 const ready = (item, mode = 'line', translated = false) => ({ ...item, state: 'ready', syncMode: mode,
   translationAvailable: translated, lyrics: { lines: [{ time: 1, text: 'Hello' }] } });
 const translate = (value, values) => value.replace(/\{(\w+)\}/g, (_, key) => String(values?.[key] ?? `{${key}}`));
-function setup(api, songValue = song) {
+function setup(api, songValue = song, translator = translate) {
   const imports = [];
   const component = hookComponent({ file: fileURLToPath(new URL('./LyricsCandidatePanel.jsx', import.meta.url)),
     modules: { 'lucide-react': { Loader2: 'Loader2', Search: 'Search' },
-      '../i18n/index.js': { t: translate }, './SelectControl.jsx': 'SelectControl',
+      '../i18n/index.js': { t: translator }, './SelectControl.jsx': 'SelectControl',
       '../services/localLyricsWorkspaceApi.js': { lyricsWorkspaceApi: { getSources: async () => ({data:{sources:['custom_krc','custom_lrc','lrclib']}}), ...api } },
       './LyricsManagementWorkspace.state.js': state }, globals: { AbortController } });
   const props = { song: songValue, authenticated: true, isAdmin: true, saving: false, active: true,
@@ -39,6 +39,34 @@ test('configured source names distinguish same-protocol candidates and filters w
   assert.ok(text(cards(tree)[0]).includes(name));
   const select=nodes(tree).find(node=>node.type==='SelectControl'&&node.props['aria-label']==='歌词来源');
   assert.ok(text(select).includes(name));
+  s.component.unmount();
+});
+
+test('source warnings localize default names and reasons while preserving a named source', async () => {
+  const id = 'lyric_' + '2'.repeat(32), customName = '自定义逐字源';
+  const dictionary = { '自定义逐字源': 'Custom word source', '自定义逐行源': 'Custom line source',
+    '请求超时': 'Request timed out', '网络异常': 'Network error', '{source}：{reason}': '{source}: {reason}' };
+  const translator = (key, values) => translate(dictionary[key] || key, values);
+  const s = setup({ getSources: async () => ({ data: { sources: ['custom_lrc', id],
+    details: [{ id: 'custom_lrc', name: '自定义逐行源' }, { id, name: customName }] } }),
+    getLyricsCandidates: async () => ({ data: { candidates: [], warnings: [
+      { source: 'custom_lrc', code: 'timeout' }, { source: id, code: 'network' },
+      { source: 'custom_lrc', code: 'timeout' },
+    ] } }) }, song, translator);
+  const tree = await search(s);
+  const warning = nodes(tree).find(node => node.props.className === 'lyric-studio__warning');
+  assert.equal(text(warning), 'Custom line source: Request timed out; 自定义逐字源: Network error');
+  const select = nodes(tree).find(node => node.type === 'SelectControl' && node.props['aria-label'] === '歌词来源');
+  assert.equal(text(select).includes('Custom line source'), true);
+  assert.equal(text(select).includes(customName), true, 'user names stay unchanged even when they resemble a system label');
+  s.component.unmount();
+});
+
+test('candidate search displays localized server errors', async () => {
+  const s = setup({ getLyricsCandidates: async () => { throw Error('查找歌词失败'); } }, song,
+    key => key === '查找歌词失败' ? 'Could not find lyrics' : key);
+  const tree = await search(s);
+  assert.equal(text(nodes(tree).find(node => node.props.role === 'alert')), 'Could not find lyrics');
   s.component.unmount();
 });
 

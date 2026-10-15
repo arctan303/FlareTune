@@ -361,10 +361,9 @@ test('search shortcut, keyboard navigation, touch targets and lyrics containment
   assert.match(searchView, /inputRef\.current\?\.select\(\)/);
   assert.match(searchView, /<kbd[\s\S]*onClick=\{[\s\S]*inputRef\.current\?\.focus/);
 
-  // 2. 方向键视口跟随与回车即播契约
+  // 2. 方向键视口跟随与行标识；查询编辑/回车/IME由实际浏览器行为检查覆盖。
   assert.match(searchView, /data-search-nav-index/);
   assert.match(searchView, /scrollIntoView\(\{ block: 'nearest'/);
-  assert.match(searchView, /if \(activeIndex >= 0 && filteredSongs\[activeIndex\]\) \{/);
   assert.match(searchRow, /data-search-nav-index=\{navIndex\}/);
 
   // 3. 迷你播放器 44px 触控目标契约

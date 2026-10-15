@@ -27,3 +27,34 @@ export function localizeLibraryPlaylist(playlist, info) {
             description: t('全库共收录 {p0} 首{p1}歌曲 · 支持新旧排序与单曲收听', { p0: playlist.pagination?.total ?? 0, p1: label }) },
     };
 }
+
+/**
+ * 根据用户当前 UI 语言推导匹配的专属漫游语种 (若无对应专属分类则返回 null)
+ */
+export function getMatchingRoamLanguageKey(locale) {
+    if (!locale || typeof locale !== 'string') return null;
+    const base = locale.toLowerCase().split('-')[0];
+    if (base === 'zh') return 'zh';
+    if (base === 'en') return 'en';
+    if (base === 'ja') return 'ja';
+    if (base === 'ko') return 'ko';
+    return null;
+}
+
+export function getRoamShortcutLabel(roamKey) {
+    if (!roamKey) return null;
+    if (roamKey === 'zh') return t('仅中文');
+    if (roamKey === 'en') return t('仅英语');
+    if (roamKey === 'ja') return t('仅日语');
+    if (roamKey === 'ko') return t('仅韩语');
+    return t('仅{p0}', { p0: getLanguageLabel(roamKey) });
+}
+
+export function getRoamShortcutToast(roamKey) {
+    if (!roamKey) return t('已更新漫游语种偏好');
+    if (roamKey === 'zh') return t('已切换为仅中文漫游');
+    if (roamKey === 'en') return t('已切换为仅英语漫游');
+    if (roamKey === 'ja') return t('已切换为仅日语漫游');
+    if (roamKey === 'ko') return t('已切换为仅韩语漫游');
+    return t('已切换为仅{p0}漫游', { p0: getLanguageLabel(roamKey) });
+}

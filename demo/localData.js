@@ -1,5 +1,5 @@
 import catalog from './catalog.json' with { type: 'json' };
-import { isUiLanguage, matchUiLanguage } from '../shared/uiLanguages.js';
+import { isUiLanguage, matchUiLanguage, normalizeUiLanguage } from '../shared/uiLanguages.js';
 import { demoUser, settingsFixture, fixedAssistantReply } from './settingsFixtures.js';
 export const DEMO_KEY = 'flaretune-demo:v1';
 export const DEMO_ACCOUNT = 'browser-demo';
@@ -37,7 +37,7 @@ export function createDemoData({ storage = () => globalThis.localStorage, random
         const ids = new Set(playlists.map(p => p.id));
         const shelfIds = [...new Set((Array.isArray(value.shelf?.items) ? value.shelf.items : []).map(p => p?.id))].filter(id => ids.has(id));
         for (const id of ids) if (!shelfIds.includes(id)) shelfIds.push(id);
-        memory = { ...initial(), ...value, uiLanguage: isUiLanguage(value.uiLanguage) ? value.uiLanguage : 'auto',
+        memory = { ...initial(), ...value, uiLanguage: normalizeUiLanguage(value.uiLanguage),
           memoryEnabled: value.memoryEnabled === true,
           thread: { revision: Number.isSafeInteger(value.thread?.revision) && value.thread.revision >= 0 ? value.thread.revision : 0,
             messages: (Array.isArray(value.thread?.messages) ? value.thread.messages : []).filter(message => message

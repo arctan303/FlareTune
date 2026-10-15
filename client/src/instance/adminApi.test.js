@@ -78,9 +78,10 @@ test('additional origins accept exact HTTPS only', () => {
 
 test('admin UI removes Admin Key flow and provides conflict feedback', () => {
   const source = readFileSync(new URL('../components/AdminView.jsx', import.meta.url), 'utf8');
+  const accountSource = readFileSync(new URL('../components/AdminAccountRow.jsx', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /manageApi|AdminAuthPanel|setAdminKey|ADMIN_API_KEY/);
   assert.match(source, /系统管理/);
   assert.match(source, /AiProfilesPanel/);
-  assert.match(source, /expectedUpdatedAt/);
+  assert.match(accountSource, /expectedUpdatedAt/);
   assert.match(adminErrorMessage({ status: 409 }), /刷新/);
 });

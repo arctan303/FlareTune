@@ -7,7 +7,12 @@ import {
 import { usePlayerStore } from '../store/usePlayerStore';
 import { showToast } from '../store/useUIStore';
 import { EXPLORE_CATEGORIES } from '../constants/explore';
-import { ROAM_LANGUAGES } from '../constants/roamLanguages.js';
+import {
+    ROAM_LANGUAGES,
+    getMatchingRoamLanguageKey,
+    getRoamShortcutLabel,
+    getRoamShortcutToast,
+} from '../constants/roamLanguages.js';
 
 export { ROAM_LANGUAGES } from '../constants/roamLanguages.js';
 
@@ -59,16 +64,22 @@ export default function RoamOverview({
         showToast(t("已更新漫游语种偏好"));
     }, [selectedKeys, setRandomRoamLanguage]);
 
+    // 当前语种文案摘要与根据界面语言匹配的漫游专属语种
+    const locale = useLocale();
+    const matchedRoamKey = useMemo(() => getMatchingRoamLanguageKey(locale), [locale]);
+
     const handleSelectAll = useCallback(() => {
         if (isAllSelected) {
-            // 如果已经是全选，切换为仅华语
-            setRandomRoamLanguage('zh');
-            showToast(t("已切换为仅中文漫游"));
+            // 如果全选且存在匹配的专属语种，切换为该语种
+            if (matchedRoamKey) {
+                setRandomRoamLanguage(matchedRoamKey);
+                showToast(getRoamShortcutToast(matchedRoamKey));
+            }
         } else {
             setRandomRoamLanguage('all');
             showToast(t("已选择全部语种漫游"));
         }
-    }, [isAllSelected, setRandomRoamLanguage]);
+    }, [isAllSelected, matchedRoamKey, setRandomRoamLanguage]);
 
     const handleSelectOnlyZh = useCallback(() => {
         setRandomRoamLanguage('zh');
@@ -80,8 +91,6 @@ export default function RoamOverview({
         showToast(t("已设置每次补充 {p0} 首歌曲", { p0: (size) }));
     }, [setRandomRoamBatchSize]);
 
-    // 当前语种文案摘要
-    const locale = useLocale();
     const languageSummary = useMemo(() => {
         if (isAllSelected) return t('全曲库');
         if (selectedKeys.length === 1) {
@@ -171,13 +180,15 @@ export default function RoamOverview({
                                         );
                                     })}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handleSelectAll}
-                                    className="roam-radio__language-shortcut text-[11px] underline opacity-75 hover:opacity-100 cursor-pointer"
-                                >
-                                    {isAllSelected ? t("仅中文") : t("全选")}
-                                </button>
+                                {(!isAllSelected || matchedRoamKey) && (
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectAll}
+                                        className="roam-radio__language-shortcut text-[11px] underline opacity-75 hover:opacity-100 cursor-pointer"
+                                    >
+                                        {isAllSelected ? getRoamShortcutLabel(matchedRoamKey) : t("全选")}
+                                    </button>
+                                )}
                             </div>
 
                             {/* 数量与去重：单次补充数量精炼为“数量：”，已去重曲目精炼为“已去重：” */}

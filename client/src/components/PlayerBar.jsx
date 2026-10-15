@@ -1,4 +1,4 @@
-import { localizeUnknownArtist, t } from '../i18n/index.js';
+import { localizeUnknownArtist, localizeUnknownTitle, t } from '../i18n/index.js';
 import React from 'react';
 import { Play, Pause, Menu, Star } from 'lucide-react';
 import { SolidRoundedSkipBack, SolidRoundedSkipForward } from './icons/SolidSkipIcons';
@@ -180,12 +180,12 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
     
     if (!currentSong) return null;
 
-    let pillLine1 = currentSong?.title || t('听你想听');
+    let pillLine1 = currentSong?.title ? localizeUnknownTitle(currentSong.title) : t('听你想听');
     let pillLine2 = localizeUnknownArtist(currentSong?.artist);
 
     if (showBuffering) {
         pillLine1 = t('正在缓冲...');
-        pillLine2 = currentSong.title;
+        pillLine2 = localizeUnknownTitle(currentSong.title);
     }
 
     const coverUrl = currentSong?.cover_url || '/placeholder-album.svg';
@@ -215,8 +215,8 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                 data-player-interaction={isExpanded ? 'controls' : undefined}
                 aria-hidden={isHidden || !immersiveControlsShown ? true : undefined}
                 inert={isHidden || !immersiveControlsShown ? '' : undefined}
-                className={`player-dock ${isExpanded ? 'player-dock--immersive' : ''} fixed left-1/2 z-[60] flex -translate-x-1/2 justify-center transition-[transform,width,max-width] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
-                    (isHidden || !immersiveControlsShown) ? 'translate-y-[180px] pointer-events-none' : 'translate-y-0'
+                className={`player-dock ${isExpanded ? 'player-dock--immersive' : ''} fixed left-1/2 z-[60] flex -translate-x-1/2 justify-center transition-[transform,width,max-width,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                    (isHidden || !immersiveControlsShown) ? 'translate-y-12 opacity-0 scale-[0.96] pointer-events-none' : 'translate-y-0 opacity-100 scale-100'
                 } ${isExpanded ? 'w-[92%] md:w-[88%] lg:w-[80%] max-w-[960px]' : 'w-[95%] md:w-[70%] max-w-3xl'}`}
                 style={{
                     contain: 'layout style',
@@ -338,7 +338,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 </button>
                             )}
                             <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-                                {translationStatusMessage}
+                                {t(translationStatusMessage)}
                             </span>
                             <PlayModeToggle isExpanded={true} />
                             <VolumeControl isExpanded={true} />

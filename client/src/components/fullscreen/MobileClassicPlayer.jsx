@@ -387,7 +387,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
             onTransitionEnd={handleStageTransitionEnd}
         >
             <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-                {translationStatusMessage}
+                {t(translationStatusMessage)}
             </span>
             <div className={`classic-player__buffering absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-black/60 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 text-sm text-white/90 shadow-lg pointer-events-none transition-all duration-300 ${isBuffering && isPlaying ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
                 <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />

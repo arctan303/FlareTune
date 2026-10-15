@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import english from './en.js';
-import { isUiLanguage, languageTag, matchUiLanguage } from '../../../shared/uiLanguages.js';
+import { decodeRequestError } from './requestErrors.js';
+import { languageTag, matchUiLanguage, normalizeUiLanguage } from '../../../shared/uiLanguages.js';
 
 const listeners = new Set();
 let preference = 'auto', currentLocale = 'en', generation = 0;
@@ -9,9 +10,7 @@ const pending = new Map();
 let loadState = { loading: false, error: null, requested: 'en' };
 const loaders = {
   'zh-Hant': () => import('./locales/zh-Hant.js'), ja: () => import('./locales/ja.js'),
-  ko: () => import('./locales/ko.js'), es: () => import('./locales/es.js'),
-  fr: () => import('./locales/fr.js'), de: () => import('./locales/de.js'),
-  'pt-BR': () => import('./locales/pt-BR.js'),
+  ko: () => import('./locales/ko.js'),
 };
 const notify = () => { for (const listener of listeners) listener(); };
 const subscribe = (listener) => { listeners.add(listener); return () => listeners.delete(listener); };
@@ -22,7 +21,8 @@ export function browserLocale(navigatorLike = globalThis.navigator) {
 }
 
 export function resolveLocale(uiLanguage, navigatorLike = globalThis.navigator) {
-  return uiLanguage !== 'auto' && isUiLanguage(uiLanguage) ? uiLanguage : browserLocale(navigatorLike);
+  const normalized = normalizeUiLanguage(uiLanguage);
+  return normalized !== 'auto' ? normalized : browserLocale(navigatorLike);
 }
 
 function updateDocumentLanguage() {
@@ -37,7 +37,7 @@ function updateDocumentLanguage() {
 }
 
 export async function setUiLanguage(uiLanguage, { load = (locale) => loaders[locale]() } = {}) {
-  preference = isUiLanguage(uiLanguage) ? uiLanguage : 'auto';
+  preference = normalizeUiLanguage(uiLanguage);
   const next = resolveLocale(preference), token = ++generation;
   if (!dictionaries.has(next)) {
     loadState = { loading: true, error: null, requested: next }; notify();
@@ -49,6 +49,8 @@ export async function setUiLanguage(uiLanguage, { load = (locale) => loaders[loc
     } catch {
       pending.delete(next);
       if (token === generation) {
+        currentLocale = 'en';
+        updateDocumentLanguage();
         loadState = { loading: false, error: '语言资源加载失败，请重试。', requested: next }; notify();
       }
       return false;
@@ -69,6 +71,10 @@ export function useLocale() {
 export function useLanguageLoadState() { return useSyncExternalStore(subscribe, () => loadState, () => loadState); }
 
 export function t(source, values) {
+  const requestError = decodeRequestError(source);
+  if (requestError) return t(requestError.source, {
+    label: t(requestError.label), status: requestError.status, detail: requestError.detail,
+  });
   let pattern = currentLocale === 'zh' ? source : dictionaries.get(currentLocale)?.[source] || english[source] || source;
   if (pattern && typeof pattern === 'object') {
     pattern = pattern[new Intl.PluralRules(languageTag(currentLocale)).select(Number(values?.count ?? values?.p0 ?? 0))] || pattern.other;
@@ -80,6 +86,14 @@ export function t(source, values) {
 
 export function localizeUnknownArtist(artist) {
   return artist && artist !== '未知艺术家' ? artist : t('未知艺术家');
+}
+
+export function localizeUnknownTitle(title) {
+  return title && !['未知歌曲', '未知曲目'].includes(title) ? title : t('未知歌曲');
+}
+
+export function formatPlayCount(count) {
+  return t('{number} 次播放', { count, number: formatNumber(count) });
 }
 
 export const formatNumber = (number, options) => new Intl.NumberFormat(languageTag(currentLocale), options).format(number);

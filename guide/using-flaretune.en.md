@@ -37,7 +37,7 @@ Memory is off by default. When enabled, the assistant can save lasting informati
 
 ## Appearance and personal settings
 
-In Settings, follow the system appearance or choose light or dark mode, a background, and a player style. Personal settings show account details and password controls. Recent listening history stays in the current browser. You can set the interface language for your account to Follow browser or any of nine languages (Chinese in both scripts, English, Japanese, Korean, Spanish, French, German and Brazilian Portuguese); the choice follows your account across devices. Before sign-in, pages follow the browser language, with English as the fallback for unsupported languages. Administrators also see library, accounts, AI, and instance settings; members do not see these admin areas.
+In Settings, follow the system appearance or choose light or dark mode, a background, and a player style. Personal settings show account details and password controls. Recent listening history stays in the current browser. You can set the interface language for your account to Follow browser or any of five languages (Chinese in both scripts, English, Japanese and Korean); the choice follows your account across devices. Before sign-in, pages follow the browser language, with English as the fallback for unsupported languages. Administrators also see library, accounts, AI, and instance settings; members do not see these admin areas.
 
 ## Lyrics and translation
 

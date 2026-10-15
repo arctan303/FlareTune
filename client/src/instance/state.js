@@ -1,4 +1,4 @@
-import { isUiLanguage } from '../../../shared/uiLanguages.js';
+import { normalizeUiLanguage } from '../../../shared/uiLanguages.js';
 export const INSTANCE_STATES = new Set(['setup_required', 'ready', 'maintenance', 'recovery_required']);
 
 export function normalizeInstanceStatus(value) {
@@ -26,7 +26,7 @@ export function normalizeSession(value) {
       username: user.username,
       displayName: typeof user.displayName === 'string' ? user.displayName : user.username,
       role: user.role === 'admin' ? 'admin' : 'member',
-      uiLanguage: isUiLanguage(user.uiLanguage) ? user.uiLanguage : 'auto',
+      uiLanguage: normalizeUiLanguage(user.uiLanguage),
       ...(user.avatar ? { avatar: user.avatar } : {}),
     },
     csrfToken: typeof value.csrfToken === 'string' && value.csrfToken.length > 0 ? value.csrfToken : null,

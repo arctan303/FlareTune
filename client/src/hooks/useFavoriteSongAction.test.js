@@ -40,6 +40,8 @@ test('favorite feedback follows the active language and preserves song titles', 
     await setUiLanguage('en');
     assert.equal(getFavoriteActionSuccessMessage(song), '"日本語 · A song" has been added to my collection');
     await setUiLanguage('fr');
-    assert.equal(getFavoriteActionSuccessMessage(song), '« 日本語 · A song » ajouté aux favoris');
+    assert.equal(getFavoriteActionSuccessMessage(song), '"日本語 · A song" has been added to my collection');
+    await setUiLanguage('ja');
+    assert.equal(getFavoriteActionSuccessMessage(song), '「日本語 · A song」をお気に入りに追加しました');
   } finally { await setUiLanguage('zh'); }
 });

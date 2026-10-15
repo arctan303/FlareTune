@@ -10,7 +10,7 @@
 - 验证不同操作系统、浏览器和音乐文件格式下的入库体验。
 - 若使用旧手动本地网页工具，可帮助验证它的 R2 直传、分片上传和目标 bucket 核对；现行入库设备只使用管理员媒体接口，不支持 R2 直传。
 - 研究 [Subsonic／OpenSubsonic API](https://opensubsonic.netlify.app/docs/) 的基础接口，并用音流等客户端做互通测试；FlareTune 已提供该兼容接口，支持范围见[第三方客户端指南](guide/subsonic.md)。
-- 校对九种语言的界面及公开文档，整理术语、翻译和遗漏；歌曲语言分类与界面国际化是两项不同工作。
+- 校对五种语言的界面及公开文档，整理术语、翻译和遗漏；歌曲语言分类与界面国际化是两项不同工作。
 - 改进播放器、歌词、助手、无障碍和中文使用文档。
 
 Node.js 工具的安装、首次配置和后台操作见[本地入库设备使用指南](tooling/ingest-agent/README.md)（Windows PowerShell 使用 `npm.cmd`）。参与代码开发可阅读[本地开发指南](guide/local-development.md)；验证新功能时建议先使用自己的隔离实例与少量可重建的样本。
@@ -27,7 +27,7 @@ Git 分支不会自动创建或绑定 Cloudflare D1/R2。开发 Worker 必须使
 
 ## 界面翻译
 
-界面支持简体中文、English、繁體中文、日本語、한국어、Español、Français、Deutsch 和 Português (Brasil)。英文回退目录位于 `client/src/i18n/en.js`，其余语言位于 `client/src/i18n/locales/`。新增文案时同步所有目录，保留 `{p0}` 等插值占位符；有复数形式的语言使用 `one` / `other`。运行 `npm run verify:i18n`，并检查窄屏、加载失败重试与实际上下文。欢迎母语使用者校对。
+界面支持简体中文、English、繁體中文、日本語和 한국어。英文回退目录位于 `client/src/i18n/en.js`，其余语言位于 `client/src/i18n/locales/`。新增文案时同步所有目录，保留 `{p0}` 等插值占位符；有复数形式的语言使用 `one` / `other`。运行 `npm run verify:i18n`，并检查窄屏、加载失败重试与实际上下文。欢迎母语使用者校对。
 
 ## 版本与验证
 

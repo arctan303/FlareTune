@@ -1,6 +1,12 @@
 import catalog from './catalog.json' with { type: 'json' };
 
 const media = new Map(catalog.map(song => [song.audio_url, song]));
+function matchesIfNoneMatch(header, etag) {
+  if (!header) return false;
+  if (header.trim() === '*') return true;
+  return header.split(',').some(value => value.trim().replace(/^W\//, '') === etag);
+}
+
 function rangeOf(header, size) {
   const match = /^bytes=(\d*)-(\d*)$/iu.exec(header);
   if (!match || (!match[1] && !match[2])) return null;
@@ -24,6 +30,10 @@ export default {
     const headers = new Headers({ 'Content-Type': 'audio/mpeg', 'Accept-Ranges': 'bytes',
       'ETag': etag, 'Cache-Control': 'public, max-age=0, must-revalidate, no-transform',
       'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' });
+    // GET/HEAD cache preconditions take precedence over Range, including 416.
+    if (matchesIfNoneMatch(request.headers.get('If-None-Match'), etag)) {
+      return new Response(null, { status: 304, headers });
+    }
     const rangeHeader = request.headers.get('Range');
     const ifRange = request.headers.get('If-Range');
     const useRange = request.method === 'GET' && rangeHeader && (!ifRange || ifRange === etag);
@@ -32,7 +42,6 @@ export default {
       headers.set('Content-Range', `bytes */${song.bytes}`);
       return new Response(null, { status: 416, headers });
     }
-    if (!useRange && request.headers.get('If-None-Match') === etag) return new Response(null, { status: 304, headers });
     const [first, last] = range;
     headers.set('Content-Length', String(last - first + 1));
     if (useRange) headers.set('Content-Range', `bytes ${first}-${last}/${song.bytes}`);
