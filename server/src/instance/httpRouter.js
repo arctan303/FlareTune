@@ -15,6 +15,7 @@ import { listAiProfiles, listAiModels, createAiProfile, updateAiProfile, deleteA
 import { listAiProviders, createAiProvider, updateAiProvider, deleteAiProvider, listAiProviderModels,
   saveAiFeatureModel } from '../instanceAdmin/aiProviders.js';
 import { validateSetting } from '../instanceAdmin/settings.js';
+import { testLyricSource } from '../instanceAdmin/lyricSourceTest.js';
 import { handleLocalMusicReadRoute } from '../routes/localMusicRead.js';
 import { handleLocalAccountMusicRoute } from '../routes/localAccountMusic.js';
 import { handleLocalMusicDiscoveryRoute } from '../routes/localMusicDiscovery.js';
@@ -292,6 +293,9 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     if (path === '/api/admin/settings' && request.method === 'GET') {
       return json(await getAdminSettings(env.DB, actorAccountId,
         { aiApiKeyConfigured: Boolean(env.OPENAI_API_KEY || env.GEMINI_API_KEY || env.DEEPSEEK_API_KEY) }));
+    }
+    if (path === '/api/admin/lyrics/source-test' && request.method === 'POST') {
+      return json(await testLyricSource(env.DB, actorAccountId, await readBoundedJson(request), { signal: request.signal }));
     }
     if (path === '/api/admin/ai/providers' && request.method === 'GET') {
       return json(await listAiProviders(env.DB, actorAccountId, env));

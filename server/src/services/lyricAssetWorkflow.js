@@ -10,6 +10,7 @@ import { resolveSongTranslationNeed, isValidSongLanguage } from '../utils/songLa
 import { scheduleLyricAssetUpgrade } from './lyricAssetUpgrade.js';
 import { lyricSourceLoaderForDb } from './lyricSourcesConfig.js';
 import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId } from '../../../shared/lyricSources.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/u;
 export const LYRIC_AI_PENDING_FRESH_MS = 30_000;
@@ -174,6 +175,7 @@ export async function readOrCreateLyricArtifact({
   executionContext,
   store,
   fetchDocument = fetchSourceLyricsDocument,
+  requestBudget = createLyricRequestBudget(),
   songStillExists,
   now = Date.now,
 }) {
@@ -206,7 +208,7 @@ export async function readOrCreateLyricArtifact({
   const current = ensureReadable(await artifactStore.get(song.id));
   if (isTerminalArtifact(current)) {
     scheduleLyricAssetUpgrade({ store: artifactStore, song, read: current, executionContext,
-      buildArtifact: buildReadyLyricArtifact, songStillExists, now, enabledSources,
+      buildArtifact: buildReadyLyricArtifact, songStillExists, now, enabledSources, requestBudget,
       ...(upgradeFetcher !== fetchSourceLyricsDocument ? { fetchDocument: upgradeFetcher } : {}),
     });
     return current;
@@ -220,7 +222,7 @@ export async function readOrCreateLyricArtifact({
       'auto',
       song,
       fetchDocument,
-      { signal: sharedSignal, executionContext, enabledSources },
+      { signal: sharedSignal, executionContext, enabledSources, requestBudget },
     );
     const built = document
       ? await buildReadyLyricArtifact(song, document, { now: now() })

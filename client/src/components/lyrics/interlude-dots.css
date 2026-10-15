@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Apple Music 优雅原生间奏指示器（三圆整体心跳呼吸律动）
+   经典播放器精致微光呼吸间奏指示器（静雅三圆环 + 柔和光晕充盈与呼吸感）
    ========================================================================== */
 
 .classic-lyrics__interlude-dots {
@@ -8,40 +8,6 @@
   justify-content: flex-start;
   gap: 8px;
   user-select: none;
-  transform-origin: center center;
-  animation: apple-interlude-heartbeat 4.8s ease-in-out infinite;
-  animation-play-state: paused;
-}
-
-.classic-lyrics__interlude-dots[data-motion-running='true'] {
-  animation-play-state: running;
-}
-
-/* 冲刺阶段（结束前 1.5 秒）：心跳加速至 0.85s 急促律动，提示人声即将接入 */
-.classic-lyrics__interlude-dots[data-motion-running='true'][data-ending='true'] {
-  animation: apple-interlude-heartbeat-rush 0.85s cubic-bezier(0.25, 1, 0.5, 1) infinite;
-}
-
-@keyframes apple-interlude-heartbeat {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.90;
-  }
-  50% {
-    transform: scale(1.16);
-    opacity: 1;
-  }
-}
-
-@keyframes apple-interlude-heartbeat-rush {
-  0%, 100% {
-    transform: scale(1.05);
-    opacity: 0.95;
-  }
-  50% {
-    transform: scale(1.30);
-    opacity: 1;
-  }
 }
 
 .classic-interlude-button {
@@ -56,47 +22,96 @@
 }
 
 .classic-interlude-button:hover .classic-interlude-dot {
-  transform: scale(1.15);
+  transform: scale(1.12);
 }
 
+/* 经典外圆环：通透磨砂玻璃微光圆环，尺寸稳定绝对不跳动 */
 .classic-interlude-dot {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #ffffff;
-  /* Apple 经典透明度渐变：未激活 0.28，随进度平滑充盈至 1.0 */
-  opacity: calc(0.28 + 0.72 * var(--interlude-dot-progress, calc(var(--interlude-dot-fill, 0%) / 100)));
-  transform-origin: center center;
-  transition: opacity 160ms ease-out, transform 200ms ease-out, box-shadow 240ms ease;
-  box-shadow: 0 0 calc(8px * var(--interlude-dot-progress, 0)) rgba(255, 255, 255, calc(0.4 * var(--interlude-dot-progress, 0)));
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.10);
+  overflow: hidden;
+  transition: border-color 280ms ease, box-shadow 280ms ease, background 280ms ease, opacity 280ms ease;
 }
 
 @media (min-width: 768px) {
   .classic-interlude-dot {
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
   }
 }
 
+/* 内部充盈核心：平滑优雅自中心向外展开，告别生硬机械缩放 */
+.classic-interlude-dot__fill {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 50%;
+  background: #ffffff;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+/* 未开始状态 (pending)：纯净空灵圆环静待激活，低对比度，柔和克制 */
 .classic-interlude-dot[data-fill-state='pending'] {
-  opacity: 0.28;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
   box-shadow: none;
 }
 
+.classic-interlude-dot[data-fill-state='pending'] .classic-interlude-dot__fill {
+  opacity: 0;
+  transform: scale(0.35);
+}
+
+/* 正在进行状态 (filling)：
+   1. 整体光影以 2.0s 舒缓周期进行柔和温润的明暗呼吸（无位移跳动）
+   2. 内部白核随真实进度由柔和微光自然充盈至满圆
+*/
 .classic-interlude-dot[data-fill-state='filling'] {
-  opacity: calc(0.32 + 0.68 * var(--interlude-dot-progress, 0));
-  box-shadow: 0 0 8px rgba(255, 255, 255, calc(0.35 * var(--interlude-dot-progress, 0)));
+  border-color: rgba(255, 255, 255, 0.65);
+  animation: classic-interlude-glow-breathe 2.0s ease-in-out infinite;
+  animation-play-state: paused;
 }
 
+.classic-lyrics__interlude-dots[data-motion-running='true'] .classic-interlude-dot[data-fill-state='filling'] {
+  animation-play-state: running;
+}
+
+.classic-interlude-dot[data-fill-state='filling'] .classic-interlude-dot__fill {
+  opacity: calc(0.25 + 0.75 * var(--interlude-dot-progress, 0));
+  transform: scale(calc(0.45 + 0.55 * var(--interlude-dot-progress, 0)));
+  transition: opacity 100ms linear, transform 100ms linear;
+}
+
+/* 纯净光晕呼吸：仅在边框与环境光影上舒缓升降，保持宁静沉浸 */
+@keyframes classic-interlude-glow-breathe {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.45);
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.15), inset 0 0 4px rgba(255, 255, 255, 0.10);
+  }
+  50% {
+    border-color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.50), inset 0 0 6px rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* 完成状态 (complete)：饱满纯白微光圆，停止呼吸，温润稳定 */
 .classic-interlude-dot[data-fill-state='complete'] {
-  opacity: 1;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+  animation: none !important;
 }
 
-.classic-interlude-dot__fill {
-  display: none;
+.classic-interlude-dot[data-fill-state='complete'] .classic-interlude-dot__fill {
+  opacity: 1;
+  transform: scale(1);
+  animation: none !important;
 }

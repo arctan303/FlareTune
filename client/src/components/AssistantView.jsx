@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore';
@@ -23,14 +23,15 @@ import { resolveAssistantImagePreview } from '../services/assistantImagePreview.
 import { AiReviewComposer } from './AiReviewChrome.jsx';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { appendThoughtProcessEntry, appendToolProcessEntry, finishToolProcessEntry } from '../../../shared/assistantProcessTrace.js';
+import { DEFAULT_ASSISTANT_NAME, resolveAssistantWelcome } from '../utils/assistantWelcome.js';
 
-const FALLBACK_WELCOME = '你好，我是小A。想听什么？';
 const toUiMessages = (list) => (Array.isArray(list) ? list : []).map((message) => ({
     ...message,
     createdAt: Number(message?.createdAt) > 0 ? Number(message.createdAt) : undefined,
 }));
 
 export default function AssistantView({ section = 'conversation' }) {
+    useLocale();
     const {
         authSession,
         setAuthSession,
@@ -69,9 +70,9 @@ export default function AssistantView({ section = 'conversation' }) {
     const isProcessing = isLoading || Boolean(pendingTurn);
     const [processClock, setProcessClock] = React.useState(() => Date.now());
     const [showScrollBottom, setShowScrollBottom] = React.useState(false);
-    const [welcomeConfig, setWelcomeConfig] = React.useState({ accountId: null, text: FALLBACK_WELCOME, ready: false });
+    const [welcomeConfig, setWelcomeConfig] = React.useState({ accountId: null, name: DEFAULT_ASSISTANT_NAME, ready: false });
     const welcomeReady = welcomeConfig.ready && welcomeConfig.accountId === accountId;
-    const welcomeText = welcomeConfig.text === FALLBACK_WELCOME ? t(FALLBACK_WELCOME) : welcomeConfig.text;
+    const welcomeText = resolveAssistantWelcome(welcomeConfig.accountId === accountId ? welcomeConfig : null);
     const [phase, setPhase] = React.useState('skeleton');
     const [expandedDetails, setExpandedDetails] = React.useState({});
     const [playlistConfirmations, setPlaylistConfirmations] = React.useState({});
@@ -130,7 +131,7 @@ export default function AssistantView({ section = 'conversation' }) {
     }, [accountId]);
 
     React.useEffect(() => {
-        setWelcomeConfig({ accountId, text: FALLBACK_WELCOME, ready: !isAuthed });
+        setWelcomeConfig({ accountId, name: DEFAULT_ASSISTANT_NAME, ready: !isAuthed });
         if (!isAuthed) return undefined;
         const controller = new AbortController();
         authenticatedFetch(`${getApiBaseUrl()}/api/ai/bootstrap`, { credentials: 'include', signal: controller.signal })
@@ -139,11 +140,13 @@ export default function AssistantView({ section = 'conversation' }) {
                 if (controller.signal.aborted) return;
                 const assistant = data?.assistant;
                 setImageInput(data?.imageInput?.enabled === true);
-                setWelcomeConfig({ accountId, text: typeof assistant?.welcomeMessage === 'string' && assistant.welcomeMessage.trim()
-                    ? assistant.welcomeMessage.trim() : FALLBACK_WELCOME, ready: true });
+                const name = typeof assistant?.name === 'string' && assistant.name.trim()
+                    ? assistant.name.trim()
+                    : DEFAULT_ASSISTANT_NAME;
+                setWelcomeConfig({ accountId, name, welcomeMessage: assistant?.welcomeMessage, ready: true });
             })
             .catch(() => {
-                if (!controller.signal.aborted) setWelcomeConfig({ accountId, text: FALLBACK_WELCOME, ready: true });
+                if (!controller.signal.aborted) setWelcomeConfig({ accountId, name: DEFAULT_ASSISTANT_NAME, ready: true });
             });
         return () => controller.abort();
     }, [isAuthed, accountId]);

@@ -18,6 +18,7 @@ import {
   createSingleFlightDocumentFetcherCore,
 } from './lyricSourceCache.js';
 import { LyricSourceError } from './lyricSourceError.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 import { searchCustomLrcSelections, loadCustomLrcSelection } from './customLrcLyricLoader.js';
 import { parseLyricsfile } from './lyricPlainParsers.js';
 import { DEFAULT_LYRIC_SOURCES, normalizeLyricSources, isLyricSourceId } from '../../../shared/lyricSources.js';
@@ -266,6 +267,7 @@ const optionsKey = ({ providerLyricId = '', cacheScope = '', cacheEpoch = '' } =
 );
 
 export async function fetchLyricsDocumentWithFallback(source, song, fetchSourceDocument, options = {}) {
+  options = { ...options, requestBudget: options.requestBudget || createLyricRequestBudget() };
   const order = resolveLyricSourceOrder(source, options.enabledSources);
   const resolver = fetchSourceDocument || fetchSourceDocumentCached;
   const errors = [];
@@ -315,6 +317,7 @@ export async function fetchLyricsDocumentWithFallback(source, song, fetchSourceD
 }
 
 export async function fetchLyricsAuditEvidenceWithFallback(source, song, fetchSourceEvidence, options = {}) {
+  options = { ...options, requestBudget: options.requestBudget || createLyricRequestBudget() };
   const order = resolveLyricSourceOrder(source, options.enabledSources);
   const resolver = fetchSourceEvidence || defaultLoader.fetchSourceAuditEvidence;
   let bestFallback = null;
@@ -403,7 +406,8 @@ export const createLyricSourceLoader = ({
       const sourceError = error instanceof LyricSourceError
         ? error
         : new LyricSourceError('invalid', provider, 'adapter', `${provider} adapter failed`, { cause: error });
-      const shouldTrip = ['network', 'timeout', 'rate_limited', 'upstream'].includes(sourceError.kind);
+      const shouldTrip = sourceError.stage !== 'budget'
+        && ['network', 'timeout', 'rate_limited', 'upstream'].includes(sourceError.kind);
       if (shouldTrip) {
         const currentState = circuits.get(provider) || { failures: 0, openUntil: 0 };
         const failures = currentState.failures + 1;
@@ -428,7 +432,7 @@ export const createLyricSourceLoader = ({
     return duration;
   };
 
-  const searchCustomKrcSelections = async (song, signal) => {
+  const searchCustomKrcSelections = async (song, signal, requestBudget) => {
     const duration = requireSearchableSong('custom_krc', song, 'search');
     const rankingOptions = {
       titleKeys: ['song', 'songname'], artistKeys: ['singer', 'singername'],
@@ -444,8 +448,11 @@ export const createLyricSourceLoader = ({
           const searchData = await fetchLimitedJson(
             fetchImpl,
             endpoint('custom_krc', 'searchUrl', searchParams),
-            { provider: 'custom_krc', stage: 'search', timeoutMs, signal },
+            { provider: 'custom_krc', stage: 'search', timeoutMs, signal, requestBudget },
           );
+          if (!Array.isArray(searchData?.candidates)) {
+            throw new LyricSourceError('invalid', 'custom_krc', 'search', 'Search response omitted candidates');
+          }
           const selections = rankLyricCandidates(searchData?.candidates, song, rankingOptions)
             .filter((selection) => (
               selection.candidate?.id !== undefined
@@ -468,7 +475,7 @@ export const createLyricSourceLoader = ({
     return [];
   };
 
-  const loadCustomKrcSelection = async (selection, signal) => {
+  const loadCustomKrcSelection = async (selection, signal, requestBudget) => {
     const providerMeta = createProviderMeta('custom_krc', selection.candidate, selection);
     const download = async (format) => {
       const params = new URLSearchParams({
@@ -478,7 +485,7 @@ export const createLyricSourceLoader = ({
       return fetchLimitedJson(
         fetchImpl,
         endpoint('custom_krc', 'downloadUrl', params),
-        { provider: 'custom_krc', stage: `download-${format}`, timeoutMs, signal },
+        { provider: 'custom_krc', stage: `download-${format}`, timeoutMs, signal, requestBudget },
       );
     };
 
@@ -490,7 +497,7 @@ export const createLyricSourceLoader = ({
       if (documentQuality(krcDocument) > 0) return createLyricDocument({ ...krcDocument, providerMeta: { ...krcDocument.providerMeta, translationLanguage: config.custom_krc.translationLanguage } });
     } catch (error) {
       krcError = asSourceError(error, 'custom_krc', 'krc');
-      if (krcError.kind === 'aborted') throw krcError;
+      if (krcError.kind === 'aborted' || krcError.stage === 'budget') throw krcError;
     }
 
     try {
@@ -506,8 +513,9 @@ export const createLyricSourceLoader = ({
     }
   };
 
-  const getCustomKrcDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('custom_krc', async () => {
-    const selections = await searchCustomKrcSelections(song, signal);
+  const getCustomKrcDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate,
+    requestBudget = createLyricRequestBudget() } = {}) => withCircuit('custom_krc', async () => {
+    const selections = await searchCustomKrcSelections(song, signal, requestBudget);
     if (providerLyricId !== null && providerLyricId !== undefined) {
       const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
       if (!selection) {
@@ -518,19 +526,20 @@ export const createLyricSourceLoader = ({
           'The selected CustomKrc candidate is no longer reliable',
         );
       }
-      return loadCustomKrcSelection(selection, signal);
+      return loadCustomKrcSelection(selection, signal, requestBudget);
     }
     if (selections.length === 0) {
       throw new LyricSourceError('unavailable', 'custom_krc', 'match', 'CustomKrc has no reliable candidate');
     }
     return loadBestAutomaticSelection(selections,
-      (selection) => loadCustomKrcSelection(selection, signal), 'custom_krc',
+      (selection) => loadCustomKrcSelection(selection, signal, requestBudget), 'custom_krc',
       automaticProgressReporter(onAutomaticCandidate, signal));
   });
 
   const searchLrclibSelections = async (song, signal, {
     preferExact = false,
     includeSearchWithExact = false,
+    requestBudget,
   } = {}) => {
     const duration = requireSearchableSong('lrclib', song, 'get');
     const exactParams = new URLSearchParams({
@@ -545,7 +554,7 @@ export const createLyricSourceLoader = ({
         const exact = await fetchLimitedJson(
           fetchImpl,
           endpoint('lrclib', 'baseUrl', exactParams, '/get'),
-          { provider: 'lrclib', stage: 'get', timeoutMs, signal },
+          { provider: 'lrclib', stage: 'get', timeoutMs, signal, requestBudget },
         );
         candidates = exact ? [exact] : [];
       } catch (error) {
@@ -580,7 +589,7 @@ export const createLyricSourceLoader = ({
       const search = await fetchLimitedJson(
         fetchImpl,
         endpoint('lrclib', 'baseUrl', searchParams, '/search'),
-        { provider: 'lrclib', stage: 'search', timeoutMs, signal },
+        { provider: 'lrclib', stage: 'search', timeoutMs, signal, requestBudget },
       );
       const seen = new Set(candidates.map((candidate) => String(candidate?.id ?? '')).filter(Boolean));
       for (const candidate of Array.isArray(search) ? search : []) {
@@ -645,6 +654,10 @@ export const createLyricSourceLoader = ({
       } catch (error) {
         const sourceError = asSourceError(error, provider, 'lyrics');
         if (sourceError.kind === 'aborted') throw sourceError;
+        if (sourceError.stage === 'budget') {
+          if (best) return best;
+          throw sourceError;
+        }
         errors.push(sourceError);
       }
     }
@@ -662,11 +675,12 @@ export const createLyricSourceLoader = ({
     throw new LyricSourceError('unavailable', provider, 'lyrics', `${provider} candidates have no usable lyrics`);
   };
 
-  const getLrclibDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('lrclib', async () => {
+  const getLrclibDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate,
+    requestBudget = createLyricRequestBudget() } = {}) => withCircuit('lrclib', async () => {
     const automatic = providerLyricId === null || providerLyricId === undefined;
     if (automatic) {
       const reportCandidate = automaticProgressReporter(onAutomaticCandidate, signal);
-      const exact = await searchLrclibSelections(song, signal, { preferExact: true });
+      const exact = await searchLrclibSelections(song, signal, { preferExact: true, requestBudget });
       let exactDocument = null;
       let exactError = null;
       if (exact.selections.length) {
@@ -685,7 +699,7 @@ export const createLyricSourceLoader = ({
       }
       try {
         const searchedSelections = exact.exactSelection
-          ? (await searchLrclibSelections(song, signal)).selections
+          ? (await searchLrclibSelections(song, signal, { requestBudget })).selections
           : exact.selections;
         const bestSearch = await loadBestAutomaticSelection(searchedSelections, loadLrclibSelection, 'lrclib', reportCandidate);
         return preferredAutomaticDocument(bestSearch, exactDocument) ? bestSearch : exactDocument;
@@ -696,7 +710,7 @@ export const createLyricSourceLoader = ({
         throw error;
       }
     }
-    const { selections } = await searchLrclibSelections(song, signal);
+    const { selections } = await searchLrclibSelections(song, signal, { requestBudget });
     const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
     if (!selection) {
       throw new LyricSourceError(
@@ -711,11 +725,13 @@ export const createLyricSourceLoader = ({
     return document;
   });
 
-  const getCustomLrcDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate } = {}) => withCircuit('custom_lrc', async () => {
-    const selections = await searchCustomLrcSelections(song, signal, lrcOptions);
+  const getCustomLrcDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate,
+    requestBudget = createLyricRequestBudget() } = {}) => withCircuit('custom_lrc', async () => {
+    const options = { ...lrcOptions, requestBudget };
+    const selections = await searchCustomLrcSelections(song, signal, options);
     if (providerLyricId === null || providerLyricId === undefined) {
       return loadBestAutomaticSelection(selections,
-        (selection) => loadCustomLrcSelection(selection, signal, lrcOptions), 'custom_lrc',
+        (selection) => loadCustomLrcSelection(selection, signal, options), 'custom_lrc',
         automaticProgressReporter(onAutomaticCandidate, signal));
     }
     const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
@@ -727,10 +743,10 @@ export const createLyricSourceLoader = ({
         'The selected CustomLrc candidate is no longer reliable',
       );
     }
-    return loadCustomLrcSelection(selection, signal, lrcOptions);
+    return loadCustomLrcSelection(selection, signal, options);
   });
 
-  const fetchSourceAuditEvidence = (source, song, { signal } = {}) => {
+  const fetchSourceAuditEvidence = (source, song, { signal, requestBudget = createLyricRequestBudget() } = {}) => {
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'audit-evidence', 'Invalid lyric source'));
     }
@@ -739,15 +755,16 @@ export const createLyricSourceLoader = ({
       let selections;
       let selection;
       if (source === 'custom_krc') {
-        selections = await searchCustomKrcSelections(song, signal);
+        selections = await searchCustomKrcSelections(song, signal, requestBudget);
         [selection] = selections;
       } else if (source === 'custom_lrc') {
-        selections = await searchCustomLrcSelections(song, signal, lrcOptions);
+        selections = await searchCustomLrcSelections(song, signal, { ...lrcOptions, requestBudget });
         [selection] = selections;
       } else {
         const snapshot = await searchLrclibSelections(song, signal, {
           preferExact: true,
           includeSearchWithExact: true,
+          requestBudget,
         });
         selections = snapshot.selections;
         const exactId = String(snapshot.exactSelection?.candidate?.id ?? '');
@@ -759,9 +776,9 @@ export const createLyricSourceLoader = ({
         throw new LyricSourceError('unavailable', source, 'match', `${source} has no reliable candidate`);
       }
       const document = source === 'custom_krc'
-        ? await loadCustomKrcSelection(selection, signal)
+        ? await loadCustomKrcSelection(selection, signal, requestBudget)
         : (source === 'custom_lrc'
-          ? await loadCustomLrcSelection(selection, signal, lrcOptions)
+          ? await loadCustomLrcSelection(selection, signal, { ...lrcOptions, requestBudget })
           : loadLrclibSelection(selection));
       if (!document) {
         throw new LyricSourceError('unavailable', source, 'lyrics', `${source} candidate has no usable lyrics`);
@@ -774,7 +791,7 @@ export const createLyricSourceLoader = ({
     });
   };
 
-  const listSourceCandidates = (source, song, { signal } = {}) => {
+  const listSourceCandidates = (source, song, { signal, requestBudget = createLyricRequestBudget() } = {}) => {
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'search', 'Invalid lyric source'));
     }
@@ -782,17 +799,17 @@ export const createLyricSourceLoader = ({
     return withCircuit(source, async () => {
       let selections;
       if (source === 'custom_krc') {
-        selections = await searchCustomKrcSelections(song, signal);
+        selections = await searchCustomKrcSelections(song, signal, requestBudget);
       } else if (source === 'custom_lrc') {
-        selections = await searchCustomLrcSelections(song, signal, lrcOptions);
+        selections = await searchCustomLrcSelections(song, signal, { ...lrcOptions, requestBudget });
       } else {
-        selections = (await searchLrclibSelections(song, signal, { preferExact: false })).selections;
+        selections = (await searchLrclibSelections(song, signal, { preferExact: false, requestBudget })).selections;
       }
       return selections.map((selection) => createSafeCandidateDto(source, selection)).filter(Boolean);
     });
   };
 
-  const createCandidateInspectionSnapshot = (source, song, { signal } = {}) => {
+  const createCandidateInspectionSnapshot = (source, song, { signal, requestBudget = createLyricRequestBudget() } = {}) => {
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'search', 'Invalid lyric source'));
     }
@@ -800,11 +817,11 @@ export const createLyricSourceLoader = ({
     return withCircuit(source, async () => {
       let selections;
       if (source === 'custom_krc') {
-        selections = await searchCustomKrcSelections(song, signal);
+        selections = await searchCustomKrcSelections(song, signal, requestBudget);
       } else if (source === 'custom_lrc') {
-        selections = await searchCustomLrcSelections(song, signal, lrcOptions);
+        selections = await searchCustomLrcSelections(song, signal, { ...lrcOptions, requestBudget });
       } else {
-        selections = (await searchLrclibSelections(song, signal, { preferExact: false })).selections;
+        selections = (await searchLrclibSelections(song, signal, { preferExact: false, requestBudget })).selections;
       }
       const byId = new Map(selections.map((selection) => [String(selection.candidate.id), selection]));
       return {
@@ -813,9 +830,9 @@ export const createLyricSourceLoader = ({
           const selection = byId.get(String(providerLyricId));
           if (!selection) throw new LyricSourceError('unavailable', source, 'preview', 'Candidate is not in the fresh snapshot');
           const document = source === 'custom_krc'
-            ? await loadCustomKrcSelection(selection, downloadSignal)
+            ? await loadCustomKrcSelection(selection, downloadSignal, requestBudget)
             : (source === 'custom_lrc'
-              ? await loadCustomLrcSelection(selection, downloadSignal, lrcOptions)
+              ? await loadCustomLrcSelection(selection, downloadSignal, { ...lrcOptions, requestBudget })
               : loadLrclibSelection(selection));
           if (!document) throw new LyricSourceError('unavailable', source, 'preview', 'Candidate has no usable lyrics');
           return document;

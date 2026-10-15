@@ -1,5 +1,6 @@
 import { createLyricDocument } from '../utils/lyricDocument.js';
 import { isLyricSourceId } from '../../../shared/lyricSources.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 import {
   invalidateSourceLyricsDocumentCache,
   listSourceLyricCandidates,
@@ -101,6 +102,7 @@ export async function listLyricsResolutionCandidates(song, {
   source: selectedSource = 'all',
   listCandidates = listSourceLyricCandidates,
   enabledSources,
+  requestBudget = createLyricRequestBudget(),
 } = {}) {
   if (selectedSource !== 'all' && !isLyricSourceId(selectedSource)) {
     throw new RangeError('invalid lyric source filter');
@@ -109,7 +111,7 @@ export async function listLyricsResolutionCandidates(song, {
   const warnings = [];
   for (const source of (selectedSource === 'all' ? (enabledSources || ['custom_krc', 'custom_lrc', 'lrclib']) : [selectedSource]).filter(id => !enabledSources || enabledSources.includes(id))) {
     try {
-      const providerCandidates = await listCandidates(source, song, { signal });
+      const providerCandidates = await listCandidates(source, song, { signal, requestBudget });
       if (!Array.isArray(providerCandidates)) throw new TypeError('provider candidates must be an array');
       providerCandidateGroups.push(providerCandidates);
     } catch (error) {

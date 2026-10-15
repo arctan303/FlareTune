@@ -124,6 +124,7 @@ export async function searchCustomLrcSelections(song, signal, {
   fetchImpl = (url, init) => fetch(url, init),
   timeoutMs = DEFAULT_TIMEOUT_MS,
   config,
+  requestBudget,
 } = {}) {
   if (!config?.enabled) throw new LyricSourceError('unavailable', 'custom_lrc', 'config', 'Lyric source is disabled');
   const title = String(song?.title || song?.name || '').trim();
@@ -142,7 +143,7 @@ export async function searchCustomLrcSelections(song, signal, {
       let lastEndpointError = null;
       for (const url of urls) {
         try {
-          const data = await fetchCustomLrcJson(fetchImpl, url, { stage: 'search', timeoutMs, signal });
+          const data = await fetchCustomLrcJson(fetchImpl, url, { stage: 'search', timeoutMs, signal, requestBudget });
           if (data?.code === 200) {
             searchData = data;
             break;
@@ -209,6 +210,7 @@ export async function loadCustomLrcSelection(selection, signal, {
   fetchImpl = (url, init) => fetch(url, init),
   timeoutMs = DEFAULT_TIMEOUT_MS,
   config,
+  requestBudget,
 } = {}) {
   if (!config?.enabled) throw new LyricSourceError('unavailable', 'custom_lrc', 'config', 'Lyric source is disabled');
   const candidateId = selection?.candidate?.id;
@@ -219,7 +221,7 @@ export async function loadCustomLrcSelection(selection, signal, {
   const providerMeta = createProviderMeta('custom_lrc', selection.candidate, selection);
   const url = new URL(config.downloadUrl);
   url.search = new URLSearchParams({ id: String(candidateId), lv: '1', kv: '1', tv: '1' });
-  const lyricData = await fetchCustomLrcJson(fetchImpl, url.href, { stage: 'download-lyric', timeoutMs, signal });
+  const lyricData = await fetchCustomLrcJson(fetchImpl, url.href, { stage: 'download-lyric', timeoutMs, signal, requestBudget });
 
   if (lyricData?.code !== undefined && lyricData.code !== 200) {
     if (lyricData.code === 404) {

@@ -155,7 +155,11 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
     setMessage('');
     try {
       const { revision, ...patch } = assistantDraft;
-      const result = await putAssistant({ ...patch, temperature: Number(patch.temperature) }, revision, csrfToken);
+      const result = await putAssistant({
+        ...patch,
+        welcome_message: patch.welcome_message || '你好，我是小A。想听什么？',
+        temperature: Number(patch.temperature),
+      }, revision, csrfToken);
       refreshRequest.current += 1;
       setLoading(false);
       setAssistantDraft(result);

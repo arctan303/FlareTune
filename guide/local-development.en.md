@@ -74,7 +74,7 @@ npm.cmd run verify:worker
 npm.cmd run verify:worker:preview
 ```
 
-Choose checks appropriate to the change. `npm test` runs Node tests; use `node --test <test-file>` for focused tests and add `--test-concurrency=1` when serial execution is needed. `build` builds the client and verifies Worker assets. `verify:i18n` checks catalogs and public documentation links; `verify:dist-css` checks CSS in an existing build.
+Choose checks appropriate to the change. `npm test` runs Node tests in `client/server/shared/demo/tooling/tests` with four concurrent processes, excluding historical snapshots in `output`, build artifacts and dependencies. Use `node --experimental-sqlite --test <test-file>` for focused tests and add `--test-concurrency=1` when serial execution is needed. `build` builds the client and verifies Worker assets. `verify:i18n` checks catalogs and public documentation links; `verify:dist-css` checks CSS in an existing build.
 
 `verify:worker` builds first and performs a dry run with the standard configuration, without deploying online. `verify:worker:preview` builds and runs an isolated local Worker HTTP smoke test, then cleans up that run's temporary state. `preview:worker` starts a local full-site preview. `verify:worker-http` checks an already running preview Worker at `http://127.0.0.1:8790` by default; pass another local address with `npm.cmd run verify:worker-http -- http://127.0.0.1:PORT`. It does not start a Worker. See [diagnostic tool boundaries](../tooling/diagnostics/README.md) for diagnostics and the old local web tool. Local D1 results do not replace installation verification in a new Cloudflare account.
 

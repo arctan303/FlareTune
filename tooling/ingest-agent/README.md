@@ -6,11 +6,22 @@
 
 ## 准备
 
-- 在存放音乐的设备上安装 Node.js 22.12.0 或更新版本，并取得与播放器实例兼容的 FlareTune 项目代码。设备入库接口从 FlareTune 1.1.0 开始提供。
+- 在存放音乐的设备上安装 Node.js 22.18+（22.x）或 24.11+。设备入库接口从 FlareTune 1.1.0 开始提供。
 - 准备该实例的管理员账号，以及设备上可读取的一个或多个音乐目录。设备需要能主动访问实例地址；网页操作端只需要能访问播放器后台。
 - 在仓库根目录安装依赖。首次使用建议运行 `npm ci`；Windows PowerShell 可将下文的 `npm` 写作 `npm.cmd`。
 
-## 首次配置
+## npm 使用方式（首次正式包发布后可用）
+
+独立包 `flaretune-ingest` 的打包与自动发布已接入本地候选，尚未真实发布正式包。正式包发布后，无需下载项目代码或安装整个项目依赖：
+
+```sh
+npx flaretune-ingest@latest configure
+npx flaretune-ingest@latest start
+```
+
+`--help` 查看命令，`--version` 查看工具版本。升级时先按 `Ctrl+C` 停止旧进程，再运行 `@latest start`；已有设备配置和 SQLite 记录继续使用。运行中的进程不会自行升级。`next` 用于初始化/预发布，日常使用 `latest`。正式包可用前使用下方源码步骤。
+
+## 从源码首次配置
 
 ```sh
 npm ci

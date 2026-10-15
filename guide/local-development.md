@@ -74,7 +74,7 @@ npm.cmd run verify:worker
 npm.cmd run verify:worker:preview
 ```
 
-按改动范围选验证：`npm test` 是 Node 测试；定向运行可用 `node --test <测试文件>`，需要串行时加 `--test-concurrency=1`。`build` 构建前端并检查 Worker 静态资产；`verify:i18n` 检查语言目录和公开文档链接，`verify:dist-css` 检查已有构建的 CSS。
+按改动范围选验证：`npm test` 以四个并发进程运行 `client/server/shared/demo/tooling/tests` 中的 Node 测试，不扫描 `output`、构建产物或依赖中的历史快照。定向运行可用 `node --experimental-sqlite --test <测试文件>`，需要串行时加 `--test-concurrency=1`。`build` 构建前端并检查 Worker 静态资产；`verify:i18n` 检查语言目录和公开文档链接，`verify:dist-css` 检查已有构建的 CSS。
 
 `verify:worker` 会先构建，再用标准配置做 dry run，不执行线上发布；`verify:worker:preview` 会先构建，再运行隔离的本地 Worker HTTP 冒烟并清理该次临时状态。`preview:worker` 启动本地整站预览。`verify:worker-http` 检查已运行的预览 Worker，默认 `http://127.0.0.1:8790`；其他本地地址使用 `npm.cmd run verify:worker-http -- http://127.0.0.1:端口`，该命令不会启动 Worker。诊断工具及旧本地网页的边界见[诊断说明](../tooling/diagnostics/README.md)。开发脚本和本地 D1 结果不替代全新 Cloudflare 实例的安装验收。
 

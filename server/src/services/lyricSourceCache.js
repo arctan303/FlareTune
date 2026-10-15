@@ -2,14 +2,15 @@ import { createRequestSingleFlight } from '../utils/sharedRequestTask.js';
 
 export function createSingleFlightDocumentFetcherCore(fetcher, { optionsKey, createAbortError }) {
   const flight = createRequestSingleFlight();
-  return (provider, song, { signal, providerLyricId, cacheScope, cacheEpoch, executionContext } = {}) => {
+  return (provider, song, { signal, providerLyricId, cacheScope, cacheEpoch, executionContext, requestBudget } = {}) => {
     if (signal?.aborted) return Promise.reject(createAbortError(provider, 'singleflight'));
     const key = [
       provider, song?.id, song?.title, song?.artist, song?.album, song?.duration,
       optionsKey({ providerLyricId, cacheScope, cacheEpoch }),
     ].join('\u0000');
     return flight(key, ({ signal: sharedSignal }) => fetcher(provider, song, {
-      signal: sharedSignal, providerLyricId, cacheScope, cacheEpoch,
+      // Only the I/O-owning caller spends its budget; joined callers make no fetch.
+      signal: sharedSignal, providerLyricId, cacheScope, cacheEpoch, requestBudget,
     }), { signal, executionContext, abortError: () => createAbortError(provider, 'singleflight') });
   };
 }

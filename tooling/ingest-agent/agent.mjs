@@ -38,7 +38,7 @@ async function writeConfig(path, value) {
   await writeFile(temp, JSON.stringify(value, null, 2), { mode: 0o600 });
   await rename(temp, path);
 }
-export async function configureAgent({ path = defaultAgentPath(), ask, print = console.log } = {}) {
+export async function configureAgent({ path = defaultAgentPath(), ask, print = console.log, startCommand = 'npm run ingest' } = {}) {
   let input;
   if (!ask) {
     input = createInterface({ input: process.stdin, output: process.stdout });
@@ -63,7 +63,7 @@ export async function configureAgent({ path = defaultAgentPath(), ask, print = c
     const config = { deviceId: old?.deviceId || randomBytes(16).toString('hex'), name,
       baseUrl, username, password, roots: [...new Set(resolvedRoots)] };
     await writeConfig(path, config);
-    print(`Configured ${name} · ${baseUrl} · ${config.roots.length} folders. Run npm run ingest to start.`);
+    print(`Configured ${name} · ${baseUrl} · ${config.roots.length} folders. Run ${startCommand} to start.`);
     return config;
   } finally { input?.close(); }
 }

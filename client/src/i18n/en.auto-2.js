@@ -374,7 +374,7 @@ export default Object.freeze({
   "确定要清空与小A的全部对话记录吗？": "Are you sure you want to clear all conversation records with Xiao A?",
   "由你修改": "modified by you",
   "根据收听推测": "Guess based on listening",
-  "你好，我是小A。想听什么？": "Hello, I am Xiao A. What do you want to hear?",
+  "你好，我是{name}。想听什么？": "Hi, I’m {name}. What would you like to hear?",
   "助手暂时无法回应 ({p0})": "The assistant is temporarily unable to respond ({p0})",
   "删除失败，请重试。": "Deletion failed, please try again.",
   "清空失败，请重试。": "Clearing failed, please try again.",

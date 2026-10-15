@@ -1,4 +1,5 @@
 import { createLyricDocument } from '../utils/lyricDocument.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 
 export const LYRIC_CANDIDATE_INSPECTION_LIMITS = Object.freeze({
   maxCandidates: 12,
@@ -206,6 +207,7 @@ export async function inspectLyricCandidates(song, candidates, {
   upstreamTimeoutMs = LYRIC_CANDIDATE_INSPECTION_LIMITS.upstreamTimeoutMs,
   batchTimeoutMs = LYRIC_CANDIDATE_INSPECTION_LIMITS.batchTimeoutMs,
   maxResponseBytes = LYRIC_CANDIDATE_INSPECTION_LIMITS.maxResponseBytes,
+  requestBudget = createLyricRequestBudget(),
 } = {}) {
   const normalized = normalizeCandidates(candidates);
   if (typeof createProviderSnapshot !== 'function') {
@@ -246,7 +248,7 @@ export async function inspectLyricCandidates(song, candidates, {
       const timeoutMs = operationTimeout();
       try {
         const snapshot = await runTimed(
-          (operationSignal) => createProviderSnapshot(source, song, { signal: operationSignal }),
+          (operationSignal) => createProviderSnapshot(source, song, { signal: operationSignal, requestBudget }),
           { signal: batchController.signal, timeoutMs },
         );
         snapshots.set(source, { snapshot: normalizeSnapshot(snapshot, source) });
@@ -280,7 +282,7 @@ export async function inspectLyricCandidates(song, candidates, {
           const document = await runTimed(
             (operationSignal) => sourceSnapshot.snapshot.loadDocument(
               candidate.providerLyricId,
-              { signal: operationSignal },
+              { signal: operationSignal, requestBudget },
             ),
             { signal: batchController.signal, timeoutMs },
           );

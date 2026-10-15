@@ -53,6 +53,7 @@ export async function fetchLimitedJson(fetchImpl, url, {
   stage,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   signal: requestSignal,
+  requestBudget,
 } = {}) {
   const controller = new AbortController();
   let didTimeout = false;
@@ -67,6 +68,7 @@ export async function fetchLimitedJson(fetchImpl, url, {
     if (requestSignal?.aborted) {
       throw new LyricSourceError('aborted', provider, stage, `${provider} ${stage} aborted`);
     }
+    requestBudget?.consume(provider);
     const response = await fetchImpl(url, {
       // Workers supports follow/manual. Treat every non-2xx (including a
       // redirect) as failure without making a second, unconfigured request.
