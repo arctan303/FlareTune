@@ -138,8 +138,8 @@ export function useManagedLyricsAsset({ songId, enabled }) {
                     if (!isPending) {
                         stopPolling();
                         refreshPlayback(songId);
-                        showToast(hasTranslation || next.lyrics?.translationState === 'ready'
-                            ? 'AI 补全已完成' : 'AI 歌曲语言识别已完成');
+                        showToast(t(hasTranslation || next.lyrics?.translationState === 'ready'
+                            ? 'AI 补全已完成' : 'AI 歌曲语言识别已完成'));
                         return;
                     }
 
@@ -189,13 +189,13 @@ export function useManagedLyricsAsset({ songId, enabled }) {
             if (refreshPlayer) refreshPlayback(songId);
             await load({ quiet: true });
             if (response?.data?.languageUpdateFailed) showToast(t("歌词已保存，但歌曲语言更新失败；可稍后重新运行 AI 补全"));
-            else if (successMessage) showToast(successMessage);
+            else if (successMessage) showToast(t(successMessage));
             return true;
         } catch (error) {
             const message = errorMessage(error, '更新歌词文件失败');
             if (error?.status === 409) await load({ quiet: true });
             setState((current) => ({ ...current, error: message }));
-            showToast(message);
+            showToast(t(message));
             return error?.status === 409 ? conflictResult : false;
         } finally {
             setState((current) => ({ ...current, saving: false }));
@@ -204,7 +204,7 @@ export function useManagedLyricsAsset({ songId, enabled }) {
 
     const updateOffset = React.useCallback((offsetMs) => runMutation(
         () => lyricsWorkspaceApi.updateLyricsOffset(songId, { offsetMs, etag: state.etag }),
-        `歌词偏移已设为 ${offsetMs}ms`,
+        t("歌词偏移已设为 {p0}ms", { p0: (offsetMs) }),
     ), [runMutation, songId, state.etag]);
 
     const shiftTimeline = React.useCallback((deltaMs) => runMutation(
@@ -212,8 +212,8 @@ export function useManagedLyricsAsset({ songId, enabled }) {
         '已将位移写入当前歌词时间轴',
     ), [runMutation, songId, state.etag]);
 
-    const saveDocument = React.useCallback((lines, baselineEtag = state.etag, aiReceipt = null) => runMutation(
-        () => lyricsWorkspaceApi.saveLyricsDocument(songId, { lines, etag: baselineEtag, aiReceipt }),
+    const saveDocument = React.useCallback((lines, baselineEtag = state.etag, aiReceipt = null, translationLanguage = null) => runMutation(
+        () => lyricsWorkspaceApi.saveLyricsDocument(songId, { lines, etag: baselineEtag, aiReceipt, translationLanguage }),
         '共享歌词已更新',
         { conflictResult: 'conflict' },
     ), [runMutation, songId, state.etag]);

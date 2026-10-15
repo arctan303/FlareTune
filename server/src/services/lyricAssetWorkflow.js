@@ -6,8 +6,11 @@ import {
 import { applyLyricOffset } from './lyricResolution.js';
 import { createLyricDocument, projectCanonicalLrc } from '../utils/lyricDocument.js';
 import { analyzeLrcLanguage, computeHash } from '../utils/lyricsParsing.js';
-import { resolveSongTranslationNeed } from '../utils/songLanguage.js';
+import { resolveSongTranslationNeed, isValidSongLanguage } from '../utils/songLanguage.js';
 import { scheduleLyricAssetUpgrade } from './lyricAssetUpgrade.js';
+import { lyricSourceLoaderForDb } from './lyricSourcesConfig.js';
+import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId } from '../../../shared/lyricSources.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/u;
 export const LYRIC_AI_PENDING_FRESH_MS = 30_000;
@@ -87,9 +90,11 @@ export async function buildReadyLyricArtifact(song, document, {
   const textHash = await computeHash(lyricTextForHash(lines));
   const providerTranslationLines = canonical.lines.map((line) => String(line.tlyric || '').trim());
   const hasProviderTranslation = (
-    (canonical.source === 'kugou' && canonical.format === 'krc')
-    || (canonical.source === 'netease' && canonical.format === 'lrc')
+    (canonical.source === 'custom_krc' && canonical.format === 'krc')
+    || (canonical.source === 'custom_lrc' && canonical.format === 'lrc')
+    || (isCustomLyricSourceId(canonical.source) && !['custom_krc', 'custom_lrc'].includes(canonical.source))
     || canonical.source === 'manual'
+    || Object.hasOwn(LEGACY_LYRIC_SOURCES, canonical.source)
   ) && providerTranslationLines.some(Boolean);
   const updatedAt = nowIso(now);
   const translation = hasProviderTranslation
@@ -97,7 +102,8 @@ export async function buildReadyLyricArtifact(song, document, {
         source: canonical.source,
         originalTextHash: textHash,
         lines: providerTranslationLines,
-        ...(canonical.source === 'manual' && targetLanguage ? { language: targetLanguage } : {}),
+        ...(canonical.source === 'manual' && targetLanguage ? { language: targetLanguage }
+          : canonical.providerMeta?.translationLanguage ? { language: canonical.providerMeta.translationLanguage } : {}),
         updatedAt,
       }
     : null;
@@ -117,7 +123,12 @@ export async function buildReadyLyricArtifact(song, document, {
   };
 }
 
-export async function buildEditedLyricArtifact(song, lines, { now = Date.now(), targetLanguage = 'zh' } = {}) {
+export async function buildEditedLyricArtifact(song, lines, {
+  now = Date.now(), targetLanguage = 'zh', translationLanguage = targetLanguage,
+} = {}) {
+  if (!isValidSongLanguage(translationLanguage) || ['other', 'instrumental'].includes(translationLanguage)) {
+    throw new RangeError('translation language is invalid');
+  }
   const hasWords = lines.some((line) => Array.isArray(line.words) && line.words.length > 0);
   const canonical = createLyricDocument({
     source: 'manual', format: hasWords ? 'lyricsfile' : 'lrc', lines,
@@ -138,7 +149,7 @@ export async function buildEditedLyricArtifact(song, lines, { now = Date.now(), 
     },
     translation: translations.some(Boolean) ? {
       source: 'manual', originalTextHash: textHash, lines: translations,
-      language: targetLanguage, updatedAt,
+      language: translationLanguage, updatedAt,
     } : null,
     aiCompletion: null,
     offsetMs: 0,
@@ -164,6 +175,7 @@ export async function readOrCreateLyricArtifact({
   executionContext,
   store,
   fetchDocument = fetchSourceLyricsDocument,
+  requestBudget = createLyricRequestBudget(),
   songStillExists,
   now = Date.now,
 }) {
@@ -171,6 +183,10 @@ export async function readOrCreateLyricArtifact({
     return { state: 'not_needed', artifact: null, etag: null };
   }
 
+  const loader = fetchDocument === fetchSourceLyricsDocument ? await lyricSourceLoaderForDb(env?.DB) : null;
+  const enabledSources = loader?.enabledSources;
+  const upgradeFetcher = loader?.fetchSourceDocument || fetchDocument;
+  if (loader) fetchDocument = loader.cachedDocument;
   const artifactStore = store || lyricArtifactStoreForEnv(env);
   const ensureReadable = (read) => {
     if (read.state === 'found' && read.artifact.status === 'deleting') {
@@ -192,8 +208,8 @@ export async function readOrCreateLyricArtifact({
   const current = ensureReadable(await artifactStore.get(song.id));
   if (isTerminalArtifact(current)) {
     scheduleLyricAssetUpgrade({ store: artifactStore, song, read: current, executionContext,
-      buildArtifact: buildReadyLyricArtifact, songStillExists, now,
-      ...(fetchDocument !== fetchSourceLyricsDocument ? { fetchDocument } : {}),
+      buildArtifact: buildReadyLyricArtifact, songStillExists, now, enabledSources, requestBudget,
+      ...(upgradeFetcher !== fetchSourceLyricsDocument ? { fetchDocument: upgradeFetcher } : {}),
     });
     return current;
   }
@@ -206,7 +222,7 @@ export async function readOrCreateLyricArtifact({
       'auto',
       song,
       fetchDocument,
-      { signal: sharedSignal, executionContext },
+      { signal: sharedSignal, executionContext, enabledSources, requestBudget },
     );
     const built = document
       ? await buildReadyLyricArtifact(song, document, { now: now() })

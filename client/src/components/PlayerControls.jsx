@@ -159,11 +159,11 @@ export default React.memo(function PlayerControls({
     const iconStrokeWidth = 1.75;
 
     return (
-        <div ref={layoutRef} data-player-interaction="controls" className="classic-controls w-full sm:max-w-[440px] lg:max-w-[390px] xl:max-w-[420px] 2xl:max-w-[440px] mx-auto flex flex-col mt-2 flex-shrink-0">
+        <div ref={layoutRef} data-player-interaction="controls" className="classic-controls w-full sm:max-w-[440px] lg:max-w-[var(--classic-controls-width)] mx-auto flex flex-col mt-2 flex-shrink-0">
             {!hideMetadata && (
                 <div className="classic-controls__metadata mb-3 min-w-0">
                     <div className="classic-controls__title-row flex items-center gap-3 mb-0.5">
-                        <div className="flex flex-1 min-w-0 items-center gap-2 opacity-0 animate-[fade-in_0.3s_ease_forwards]">
+                        <div className="flex flex-1 min-w-0 items-center gap-2 animate-[fade-in_0.3s_ease_forwards]">
                             <ScrollText 
                                 key={currentSong?.id + '-title'}
                                 text={currentSong?.title || t("未知歌曲")}
@@ -206,12 +206,12 @@ export default React.memo(function PlayerControls({
                                 : (currentSong?.artist ? localizeUnknownArtist(currentSong.artist) : currentSong?.album || t("未知艺术家"))
                         }
                         className="classic-controls__artist text-xs sm:text-sm text-gray-400 font-medium"
-                        containerClassName="opacity-0 animate-[fade-in_0.3s_ease_forwards]"
+                        containerClassName="animate-[fade-in_0.3s_ease_forwards]"
                     />
                 </div>
             )}
 
-            <div className="flex items-center gap-3 mb-4">
+            <div className="classic-controls__timeline flex items-center gap-3 mb-4">
                 <span className="classic-controls__time text-xs text-gray-400 font-mono w-10">{formatTime(displayProgress)}</span>
                 <div className="classic-controls__progress flex-1 h-4 bg-transparent flex items-center relative group">
                     <input 

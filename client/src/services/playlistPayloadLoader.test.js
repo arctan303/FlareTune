@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPlaylistPayloadLoader } from './playlistPayloadLoader.js';
 import { createExpiringAsyncCache } from '../utils/expiringAsyncCache.js';
+import { setUiLanguage } from '../i18n/index.js';
+await setUiLanguage('zh');
 
 const jsonResponse = (data, status = 200) => new Response(JSON.stringify({
   code: status === 200 ? 200 : status,

@@ -1,3 +1,5 @@
+import { createResilientStorage } from '../utils/browserStorage.js';
+
 export function createThrottledStorage(storage, interval = 2000) {
   let lastSaveTime = 0;
   const pendingValues = new Map();
@@ -54,4 +56,4 @@ export function createThrottledStorage(storage, interval = 2000) {
   };
 }
 
-export const throttledLocalStorage = createThrottledStorage(globalThis.localStorage);
+export const throttledLocalStorage = createThrottledStorage(createResilientStorage());

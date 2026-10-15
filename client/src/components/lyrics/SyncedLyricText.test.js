@@ -10,7 +10,7 @@ test('synced lyric text only subscribes an active visible word-timed projection'
   assert.match(source, /resolveLineWordProgress\(line, 0\)\.hasWordTiming/);
   assert.match(source, /words\.map\(\(word\) => String\(word\?\.text \|\| ''\)\)\.join\(''\) === displayText/);
   assert.match(source, /clock\.subscribe\(\(snapshot\) => applySnapshot\(snapshot\), \{/);
-  assert.match(source, /animationFrames: \(snapshot\) => !prefersReducedMotion/);
+
   assert.doesNotMatch(source, /usePlayerStore|setState|useState/);
 });
 
@@ -28,7 +28,7 @@ test('timing spans are hidden from accessibility while the wrapper names the ful
 });
 
 test('normal motion only rewrites the active word between word boundaries', () => {
-  assert.match(source, /if \(!prefersReducedMotion && !crossedBoundary && resolved\.activeWordIndex >= 0\)/);
+  assert.match(source, /if \(!crossedBoundary && resolved\.activeWordIndex >= 0\)/);
   assert.match(source, /setWordState\(resolved\.activeWordIndex, resolved\.wordProgress, 'active'\)/);
   assert.match(source, /for \(let index = 0; index < words\.length; index \+= 1\)/);
 });
@@ -49,18 +49,17 @@ test('an optional translation ref receives grapheme-weighted line progress witho
   assert.doesNotMatch(source, /requestAnimationFrame|cancelAnimationFrame|audio\.addEventListener/);
 });
 
-test('line progress follows reduced-motion word boundaries and cleans old or unmounted ref targets', () => {
-  assert.match(source, /if \(!prefersReducedMotion \|\| crossedBoundary\) \{\s*setLineProgress\(resolved\.lineProgress\);\s*\}/);
+test('line progress follows the playback clock and cleans old or unmounted ref targets', () => {
+
   assert.match(source, /if \(lineProgressTargetRef\.current !== nextTarget\) \{\s*clearLineProgressTarget\(\);/);
   assert.match(source, /removeProperty\?\.\('--synced-line-progress'\)/);
   assert.match(source, /lastLineProgressRef\.current = null;\s*clearLineProgressTarget\(\);/);
 });
 
-test('reduced motion changes words at their start without continuous local progress', () => {
-  assert.match(source, /prefers-reduced-motion: reduce/);
-  assert.match(source, /const progress = prefersReducedMotion \? 1 : resolved\.wordProgress/);
-  assert.match(source, /if \(!prefersReducedMotion && !crossedBoundary/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?data-surface='classic'[\s\S]*?animation: none !important/);
+test("words keep continuous real progress under the unified animation policy", () => {
+  assert.match(source, /const progress = resolved\.wordProgress/);
+  assert.match(source, /if \(!crossedBoundary && resolved\.activeWordIndex >= 0\)/);
+  assert.doesNotMatch(source + css, /prefers-reduced-motion/);
 });
 
 test('surface CSS preserves inline metrics and gives the player bar its own color tokens', () => {

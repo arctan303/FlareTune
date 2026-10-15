@@ -1,7 +1,6 @@
 export const VISUAL_MOTION_PROFILE = Object.freeze({
   FULL: 'full',
   COMPACT_TOUCH: 'compact-touch',
-  REDUCED: 'reduced',
 });
 
 export const VISUAL_MOTION_PHASE = Object.freeze({
@@ -13,13 +12,12 @@ export const VISUAL_MOTION_PHASE = Object.freeze({
 });
 
 export function resolveVisualMotionProfile({
-  prefersReducedMotion = false,
   coarsePointer = false,
   hoverNone = false,
   viewportWidth = 0,
   viewportHeight = 0,
 } = {}) {
-  if (prefersReducedMotion) return VISUAL_MOTION_PROFILE.REDUCED;
+
   const isTouchDevice = Boolean(coarsePointer || hoverNone);
   if (isTouchDevice) {
     const minDimension = Math.min(viewportWidth || 0, viewportHeight || 0);
@@ -48,7 +46,6 @@ export function getPlaylistVisibilityUpdate(currentValue, nextValue) {
 }
 
 export function getVisualMotionProfile(targetWindow = window) {
-  const prefersReducedMotion = targetWindow.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const coarsePointer = targetWindow.matchMedia('(pointer: coarse)').matches;
   const finePointer = targetWindow.matchMedia('(pointer: fine)').matches;
   const hoverNone = targetWindow.matchMedia('(hover: none)').matches;
@@ -64,7 +61,6 @@ export function getVisualMotionProfile(targetWindow = window) {
   const touchOnlyFallback = hasTouch && !desktopInput;
 
   return resolveVisualMotionProfile({
-    prefersReducedMotion,
     coarsePointer: coarsePointer || touchOnlyFallback,
     hoverNone,
     viewportWidth: width,

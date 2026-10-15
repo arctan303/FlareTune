@@ -51,15 +51,36 @@ export function usePlaybackPresentation(currentSong, isPlaying) {
     const nextTitle = currentSong && isPlaying
       ? `${currentSong.title} - ${localizeUnknownArtist(currentSong.artist)}`
       : DEFAULT_TITLE;
+    const syncTitle = () => { document.title = nextTitle; };
     if (document.title !== nextTitle) {
-      document.title = nextTitle;
+      syncTitle();
     }
+
+    // History traversal can restore the browser tab's saved title while the
+    // DOM title still equals nextTitle. Chromium also ignores a same-value
+    // assignment here, so force a real change within the same task before
+    // restoring the current title. Neither value comes from history state.
+    let titleTimer;
+    const restorePlaybackTitle = () => {
+      window.clearTimeout(titleTimer);
+      titleTimer = window.setTimeout(() => {
+        if (document.title === nextTitle) document.title = '';
+        syncTitle();
+      }, 0);
+    };
+    window.addEventListener('popstate', restorePlaybackTitle);
+    window.addEventListener('pageshow', restorePlaybackTitle);
 
     const nextFavicon = selectPlaybackFavicon(coverUrl, resolvedCoverUrl, Boolean(currentSong && isPlaying));
     if (lastFaviconRef.current !== nextFavicon) {
       lastFaviconRef.current = nextFavicon;
       updateFavicon(nextFavicon);
     }
+    return () => {
+      window.removeEventListener('popstate', restorePlaybackTitle);
+      window.removeEventListener('pageshow', restorePlaybackTitle);
+      window.clearTimeout(titleTimer);
+    };
   }, [currentSong, isPlaying, coverUrl, resolvedCoverUrl, locale]);
 
   React.useEffect(() => {

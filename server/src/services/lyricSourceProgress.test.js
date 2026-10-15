@@ -1,3 +1,4 @@
+import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
@@ -22,7 +23,7 @@ test('upgrade deadline retains a real decoded candidate when its next same-sourc
   const calls = [];
   let slowStarted;
   const waitingForSlow = new Promise(resolve => { slowStarted = resolve; });
-  const loader = createLyricSourceLoader({ fetchImpl: async (url, init) => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url, init) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return Response.json({ candidates: ['good', 'slow'].map(candidate) });
     const id = parsed.searchParams.get('id'); calls.push(id);
@@ -30,7 +31,7 @@ test('upgrade deadline retains a real decoded candidate when its next same-sourc
     slowStarted();
     return abortPending(init.signal);
   } });
-  const pending = fetchUpgradeDocument(SONG, (provider, song, options) => provider === 'kugou'
+  const pending = fetchUpgradeDocument(SONG, (provider, song, options) => provider === 'custom_krc'
     ? loader.fetchSourceDocument(provider, song, options) : null, { budgetMs: 100 });
   await waitingForSlow;
   t.mock.timers.tick(100);
@@ -40,18 +41,18 @@ test('upgrade deadline retains a real decoded candidate when its next same-sourc
   assert.equal(result.providerMeta.providerLyricId, 'good');
 });
 
-for (const source of ['kugou', 'netease', 'lrclib']) {
+for (const source of ['custom_krc', 'custom_lrc', 'lrclib']) {
   test(`${source} reports a usable candidate before slow remaining work while cancellation still rejects`, async () => {
     const controller = new AbortController();
     const progress = [];
     let slowStarted;
     const waitingForSlow = new Promise(resolve => { slowStarted = resolve; });
-    const loader = createLyricSourceLoader({ fetchImpl: async (url, init) => {
+    const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url, init) => {
       const parsed = new URL(url);
-      if (source === 'kugou') {
+      if (source === 'custom_krc') {
         if (parsed.pathname === '/search') return Response.json({ candidates: ['good', 'slow'].map(candidate) });
         if (parsed.searchParams.get('id') === 'good') return Response.json({ content: krc() });
-      } else if (source === 'netease') {
+      } else if (source === 'custom_lrc') {
         if (parsed.pathname.includes('search')) return Response.json({ code: 200, result: { songs: ['good', 'slow'].map(songCandidate) } });
         if (parsed.searchParams.get('id') === 'good') return Response.json({ code: 200, lrc: { lyric: '[00:01.00]Hello' } });
       } else if (parsed.pathname === '/api/get') {
@@ -76,25 +77,25 @@ for (const source of ['kugou', 'netease', 'lrclib']) {
 
 test('automatic progress excludes wrong versions, suppresses equal candidates and isolates observer errors', async () => {
   const progress = [];
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname === '/search') return Response.json({ candidates: ['wrong', 'good', 'equal'].map(candidate) });
     return Response.json({ content: krc(parsed.searchParams.get('id') === 'wrong' ? '[ti:Night Song (Live)]\n' : '') });
   } });
-  const document = await loader.getKugouDocument(SONG, { onAutomaticCandidate: candidateDocument => {
+  const document = await loader.getCustomKrcDocument(SONG, { onAutomaticCandidate: candidateDocument => {
     progress.push(candidateDocument.providerMeta.providerLyricId);
     throw new Error('observer failure');
   } });
   assert.deepEqual(progress, ['good']);
   assert.equal(document.providerMeta.providerLyricId, 'good');
-  await loader.getKugouDocument(SONG, { providerLyricId: 'good', onAutomaticCandidate: () => progress.push('manual') });
+  await loader.getCustomKrcDocument(SONG, { providerLyricId: 'good', onAutomaticCandidate: () => progress.push('manual') });
   assert.deepEqual(progress, ['good'], 'manual selection never emits upgrade progress');
 });
 
 test('LRCLIB progress remains best-so-far across exact and search and rejects cancellation inside the observer', async () => {
   const progress = [];
   const common = { trackName: SONG.title, artistName: SONG.artist, syncedLyrics: '[00:01.00]Hello' };
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => new URL(url).pathname === '/api/get'
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => new URL(url).pathname === '/api/get'
     ? Response.json({ ...common, id: 'exact', duration: 200 })
     : Response.json([{ ...common, id: 'worse-search', duration: 204 }]) });
   const document = await loader.getLrclibDocument(SONG, { onAutomaticCandidate: candidateDocument => progress.push(candidateDocument.providerMeta.providerLyricId) });

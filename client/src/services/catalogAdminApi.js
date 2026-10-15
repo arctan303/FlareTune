@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { authenticatedFetch } from './authenticatedFetch.js';
 import { requestAccountJson } from './accountApiRequest.js';
@@ -49,7 +50,7 @@ function uploadWithProgress(url, init, onProgress) {
       let payload = {};
       try { payload = JSON.parse(request.responseText); } catch { /* Handled below. */ }
       if (request.status < 200 || request.status >= 300 || payload?.ok !== true) {
-        reject(new CatalogAdminError(payload?.message || `媒体上传失败（${request.status}）`,
+        reject(new CatalogAdminError(payload?.message || t("媒体上传失败（{p0}）", { p0: (request.status) }),
           { status: request.status, code: payload?.error }));
         return;
       }
@@ -91,7 +92,7 @@ export async function uploadCatalogMedia(kind, file, fetchImpl, onProgress, sign
   const response = await authenticatedFetch(url, init, fetchImpl);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.ok !== true) {
-    throw new CatalogAdminError(payload?.message || `媒体上传失败（${response.status}）`,
+    throw new CatalogAdminError(payload?.message || t("媒体上传失败（{p0}）", { p0: (response.status) }),
       { status: response.status, code: payload?.error });
   }
   return payload.data;

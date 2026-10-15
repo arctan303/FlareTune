@@ -1,3 +1,4 @@
+import { runtimeFetch } from '../services/runtimeFetch.js';
 import { normalizeInstanceStatus, normalizeSession } from './state.js';
 
 export class InstanceApiError extends Error {
@@ -10,7 +11,7 @@ export class InstanceApiError extends Error {
 }
 
 export async function instanceRequest(path, { method = 'GET', body, csrfToken, expectedAccountId,
-  fetchImpl = globalThis.fetch } = {}) {
+  fetchImpl = runtimeFetch } = {}) {
   const headers = { Accept: 'application/json' };
   if (method !== 'GET') {
     headers['Content-Type'] = 'application/json';

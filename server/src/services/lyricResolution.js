@@ -1,4 +1,6 @@
 import { createLyricDocument } from '../utils/lyricDocument.js';
+import { isLyricSourceId } from '../../../shared/lyricSources.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 import {
   invalidateSourceLyricsDocumentCache,
   listSourceLyricCandidates,
@@ -9,7 +11,7 @@ const hasTimeline = (value) => value !== undefined && value !== null && Number.i
 const shiftedTime = (value, offsetSeconds) => Math.max(0,
   Math.round((Number(value) + offsetSeconds) * 1000) / 1000);
 
-const SOURCE_RANK = Object.freeze({ kugou: 0, netease: 1, lrclib: 2 });
+const SOURCE_RANK = Object.freeze({ custom_krc: 0, custom_lrc: 1, lrclib: 2 });
 
 const finiteOr = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -38,6 +40,7 @@ const compareResolutionCandidates = (left, right) => (
   || finiteOr(SOURCE_RANK[left?.source], Number.POSITIVE_INFINITY)
     - finiteOr(SOURCE_RANK[right?.source], Number.POSITIVE_INFINITY)
   || compareText(left?.providerLyricId, right?.providerLyricId)
+  || compareText(left?.source, right?.source)
   || compareText(left?.matchedTitle, right?.matchedTitle)
   || compareText(left?.matchedArtist, right?.matchedArtist)
   || compareText(left?.matchedAlbum, right?.matchedAlbum)
@@ -98,15 +101,17 @@ export async function listLyricsResolutionCandidates(song, {
   signal,
   source: selectedSource = 'all',
   listCandidates = listSourceLyricCandidates,
+  enabledSources,
+  requestBudget = createLyricRequestBudget(),
 } = {}) {
-  if (!['all', 'kugou', 'netease', 'lrclib'].includes(selectedSource)) {
+  if (selectedSource !== 'all' && !isLyricSourceId(selectedSource)) {
     throw new RangeError('invalid lyric source filter');
   }
   const providerCandidateGroups = [];
   const warnings = [];
-  for (const source of selectedSource === 'all' ? ['kugou', 'netease', 'lrclib'] : [selectedSource]) {
+  for (const source of (selectedSource === 'all' ? (enabledSources || ['custom_krc', 'custom_lrc', 'lrclib']) : [selectedSource]).filter(id => !enabledSources || enabledSources.includes(id))) {
     try {
-      const providerCandidates = await listCandidates(source, song, { signal });
+      const providerCandidates = await listCandidates(source, song, { signal, requestBudget });
       if (!Array.isArray(providerCandidates)) throw new TypeError('provider candidates must be an array');
       providerCandidateGroups.push(providerCandidates);
     } catch (error) {

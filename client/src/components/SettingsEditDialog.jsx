@@ -13,7 +13,6 @@ export default function SettingsEditDialog({ title, onClose, children, message, 
   const [closing, setClosing] = React.useState(false);
   const requestClose = () => {
     if (busy || closeTimer.current !== null) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { onCloseRef.current(); return; }
     setClosing(true);
     closeTimer.current = setTimeout(() => {
       closeTimer.current = null;
@@ -47,8 +46,8 @@ export default function SettingsEditDialog({ title, onClose, children, message, 
       }}
       className="settings-edit-dialog fixed inset-0 m-auto max-h-[85dvh] rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
       <div className="shrink-0 sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface-raised)] px-5 py-4">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <SettingsButton onClick={requestClose} disabled={busy || closing} variant="quiet" aria-label={t('关闭编辑')}>{t('关闭')}</SettingsButton>
+        <h2 className="min-w-0 break-words text-lg font-semibold">{title}</h2>
+        <SettingsButton className="shrink-0" onClick={requestClose} disabled={busy || closing} variant="quiet" aria-label={t('关闭编辑')}>{t('关闭')}</SettingsButton>
       </div>
       <div className="settings-edit-dialog__body overflow-y-auto p-5 sm:p-6">
         {message && <div role={messageTone === 'error' ? 'alert' : 'status'} className={`mb-4 rounded-xl p-3 text-sm ${messageTone === 'error' ? 'bg-rose-500/10 text-rose-600' : 'bg-[var(--surface)] text-[var(--muted)]'}`}>{t(message)}</div>}

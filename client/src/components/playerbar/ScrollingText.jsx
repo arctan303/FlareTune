@@ -1,11 +1,9 @@
 import React from 'react';
-import { useMediaQuery } from '../fullscreen/useMediaQuery.js';
 
 export default function ScrollingText({ children, className = '', align = 'center' }) {
     const containerRef = React.useRef(null);
     const textRef = React.useRef(null);
     const [scrollDist, setScrollDist] = React.useState(0);
-    const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)', false);
     const isLeft = align === 'left' || className.includes('text-left');
 
     React.useEffect(() => {
@@ -38,7 +36,7 @@ export default function ScrollingText({ children, className = '', align = 'cente
                 ref={textRef}
                 className={`inline-flex items-center gap-1 ${scrollDist > 0 ? '' : (isLeft ? 'justify-start w-full' : 'justify-center w-full')}`}
                 style={{
-                    animation: scrollDist > 0 && !prefersReducedMotion ? 'text-scroll 6s ease-in-out infinite alternate' : 'none',
+                    animation: scrollDist > 0 ? 'text-scroll 6s ease-in-out infinite alternate' : 'none',
                     '--scroll-dist': `-${scrollDist + 15}px`,
                 }}
             >

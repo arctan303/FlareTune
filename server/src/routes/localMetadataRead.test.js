@@ -86,7 +86,7 @@ test('lyrics GET reuses ready assets and automatically searches a missing song',
     ('instrumental', 'No vocals', 'Artist', 'instrumental')`);
   const store = r2();
   const ready = await buildReadyLyricArtifact({ id: 'song-1' }, {
-    source: 'netease', format: 'lrc', lines: [{ time: 1, text: 'Hello', tlyric: '你好' }],
+    source: 'custom_lrc', format: 'lrc', lines: [{ time: 1, text: 'Hello', tlyric: '你好' }],
   });
   store.objects.set('media/lyrics/song-1.json', JSON.stringify(ready.artifact));
   const success = await call(db, '/api/lyrics?songId=song-1', { bucket: store.bucket });
@@ -165,7 +165,7 @@ test('a provider Chinese translation is usable without starting automatic AI', a
   const db = baseline();
   db.sqlite.exec("INSERT INTO Songs (id, title, artist, language) VALUES ('song-1', 'One', 'Artist', 'en')");
   const store = createMemoryLyricStore(makeReadyArtifact({ translation: {
-    source: 'kugou', originalTextHash: 'a'.repeat(64), lines: ['你好'],
+    source: 'custom_krc', originalTextHash: 'a'.repeat(64), lines: ['你好'],
     updatedAt: '2026-09-10T00:00:00.000Z',
   } }));
   let starts = 0;

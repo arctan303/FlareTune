@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { suggestSongLanguage } from './songLanguageSuggestion.js';
 
 const FOLDER_CODES = Object.freeze({
@@ -16,12 +17,12 @@ export function resolveDeviceLanguage(file, mappings = {}) {
   const folder = deviceFolder(file.path);
   const choice = mappings[folder] || 'folder';
   if (choice !== 'folder' && choice !== 'auto') {
-    return { code: choice, source: 'folder', reason: `目录 ${folder} 人工映射` };
+    return { code: choice, source: 'folder', reason: t("目录 {p0} 人工映射", { p0: (folder) }) };
   }
   if (choice === 'folder') {
     const parts = folder.toLocaleLowerCase().split('/');
     const code = FOLDER_CODES[parts.at(-1)] || FOLDER_CODES[parts[0]];
-    if (code) return { code, source: 'folder', reason: `目录 ${folder} 自动映射` };
+    if (code) return { code, source: 'folder', reason: t("目录 {p0} 自动映射", { p0: (folder) }) };
   }
   return suggestSongLanguage(file.common || {});
 }

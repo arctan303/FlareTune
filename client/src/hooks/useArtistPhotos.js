@@ -25,7 +25,6 @@ export function useArtistPhotos({
     isPlaying = true,
     isBuffering = false,
     suspendEffects = false,
-    prefersReducedMotion = false,
 }) {
     const pageVisible = usePageVisibility();
     const authenticated = useUIStore((state) => Boolean(state.authSession?.authenticated));
@@ -59,22 +58,10 @@ export function useArtistPhotos({
 
     const showPhoto = React.useCallback((url, index = 0) => {
         if (!url) return;
-        if (shownPhotoRef.current?.url === url && shownPhotoRef.current.reduced === prefersReducedMotion) return;
-        shownPhotoRef.current = { url, reduced: prefersReducedMotion };
+        if (shownPhotoRef.current?.url === url) return;
+        shownPhotoRef.current = { url };
         clearPhotoTransition();
         const id = ++layerIdRef.current;
-
-        if (prefersReducedMotion) {
-            setPhotoLayers([{
-                id,
-                url,
-                opacity: 1,
-                transform: 'scale(1) translate3d(0, 0, 0)',
-                filter: 'blur(0px)',
-                index,
-            }]);
-            return;
-        }
 
         const isEven = index % 2 === 0;
         const initialTransform = isEven
@@ -129,7 +116,7 @@ export function useArtistPhotos({
             crossFadeTimerRef.current = null;
             setPhotoLayers((prev) => prev.filter((layer) => layer.id === id));
         }, 1600);
-    }, [clearPhotoTransition, prefersReducedMotion]);
+    }, [clearPhotoTransition]);
 
     const preloadNextPhoto = React.useCallback((photos, index, isCurrent) => {
         if (!isCurrent() || photos.length <= 1) return;
@@ -232,7 +219,7 @@ export function useArtistPhotos({
 
     // 歌手写真多图自动轮播：严格在后台完全下载与完全解码位图后再触发 showPhoto 动画
     React.useEffect(() => {
-        if (!canLoadPhotos || !pageVisible || readyArtist !== artistName.trim() || artistPhotos.length <= 1 || !isPlaying || isBuffering || suspendEffects || prefersReducedMotion) {
+        if (!canLoadPhotos || !pageVisible || readyArtist !== artistName.trim() || artistPhotos.length <= 1 || !isPlaying || isBuffering || suspendEffects) {
             if (rotationTimerRef.current) clearInterval(rotationTimerRef.current);
             return;
         }
@@ -269,7 +256,7 @@ export function useArtistPhotos({
             isCancelled = true;
             if (rotationTimerRef.current) clearInterval(rotationTimerRef.current);
         };
-    }, [canLoadPhotos, artistName, artistPhotos, isPlaying, isBuffering, suspendEffects, prefersReducedMotion, showPhoto, preloadNextPhoto, pageVisible, readyArtist]);
+    }, [canLoadPhotos, artistName, artistPhotos, isPlaying, isBuffering, suspendEffects, showPhoto, preloadNextPhoto, pageVisible, readyArtist]);
 
     return {
         artistPhotos,

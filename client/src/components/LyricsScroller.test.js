@@ -10,51 +10,38 @@ test('translation/line-wrap layout changes re-center the whole active row on the
   assert.match(source, /activeEl\.offsetHeight \/ 2/);
   assert.match(
     source,
-    /\[displayedLyricIndex, isFullScreen, currentSong\?\.id, isUserScrolling, lyrics, prefersReducedMotion, surfaceVisible, translationEnabled\]/,
+    /\[displayedLyricIndex, isFullScreen, currentSong\?\.id, isUserScrolling, lyrics, surfaceVisible, translationEnabled\]/,
   );
   assert.match(source, /new ResizeObserver/);
   assert.match(source, /window\.cancelAnimationFrame/);
 });
 
-test('reduced motion cancels smooth lyric scrolling and positions every layout trigger directly', () => {
-  assert.match(source, /useMediaQuery\('\(prefers-reduced-motion: reduce\)', false\)/);
+test('lyric scrolling positions first entry directly and schedules subsequent layouts', () => {
+
   assert.match(source, /if \(scrollAnimRef\.current\) \{\s*window\.cancelAnimationFrame\(scrollAnimRef\.current\);\s*scrollAnimRef\.current = null;/);
   assert.match(source, /if \(scrollLayoutFrameRef\.current\) \{\s*window\.cancelAnimationFrame\(scrollLayoutFrameRef\.current\);\s*scrollLayoutFrameRef\.current = null;/);
-  assert.match(source, /if \(prefersReducedMotion \|\| !hasPositionedOnEnterRef\.current\)[\s\S]*?container\.scrollTop = targetTop;[\s\S]*?return;/);
-  assert.match(source, /const scheduleScrollToActive = \(\) => \{[\s\S]*?if \(prefersReducedMotion\) \{\s*scrollToActive\(\);\s*return;\s*\}[\s\S]*?scrollLayoutFrameRef\.current = window\.requestAnimationFrame/);
+
+  assert.match(source, /if \(!hasPositionedOnEnterRef\.current\)[\s\S]*?container\.scrollTop = targetTop;/);
+  assert.match(source, /const scheduleScrollToActive = \(\) => \{[\s\S]*?window\.requestAnimationFrame/);
   assert.equal(source.match(/scheduleScrollToActive\(\)/g)?.length, 3);
+  assert.doesNotMatch(readFileSync(new URL("./fullscreen/classic-player.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
-test('reduced motion removes classic line transforms and filters without disabling synced word colors', () => {
+test('classic lyric styles follow the unified application animation policy', () => {
   const classicCss = readFileSync(new URL('./fullscreen/classic-player.css', import.meta.url), 'utf8');
   const mobileCss = readFileSync(new URL('./fullscreen/classic-mobile.css', import.meta.url), 'utf8');
-  const reducedMotionStart = classicCss.indexOf('@media (prefers-reduced-motion: reduce)');
-  const reducedMotionEnd = classicCss.indexOf('/* =========================================================================', reducedMotionStart);
-  const reducedMotionBlock = classicCss.slice(reducedMotionStart, reducedMotionEnd);
-  const mobileReducedMotionBlock = mobileCss.slice(mobileCss.indexOf('@media (prefers-reduced-motion: reduce)'));
 
-  assert.ok(reducedMotionStart >= 0, 'classic CSS should define a reduced-motion media query');
-  assert.match(reducedMotionBlock, /\.paper-classic-player \.classic-lyrics__line/);
-  assert.match(mobileReducedMotionBlock, /\.paper-classic-player \.paper-mobile-lyric-preview__row/);
-  assert.match(reducedMotionBlock, /transform: none !important;/);
-  assert.match(reducedMotionBlock, /filter: none !important;/);
-  assert.match(reducedMotionBlock, /transition: none !important;/);
-  assert.doesNotMatch(reducedMotionBlock, /synced-lyric-text|synced-word-progress/);
+  assert.doesNotMatch(readFileSync(new URL("./fullscreen/classic-player.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
-test('classic loading indicators keep normal animation but stop spinner and shimmer in reduced motion', () => {
+test('classic loading indicators retain their spinner and shimmer', () => {
   const classicCss = readFileSync(new URL('./fullscreen/classic-player.css', import.meta.url), 'utf8');
-  const reducedMotionStart = classicCss.indexOf('@media (prefers-reduced-motion: reduce)');
-  const reducedMotionEnd = classicCss.indexOf('/* =========================================================================', reducedMotionStart);
-  const reducedMotionBlock = classicCss.slice(reducedMotionStart, reducedMotionEnd);
 
   assert.match(source, /classic-lyrics__spinner[^"\n]*animate-spin/);
   assert.equal(source.match(/classic-lyrics__loading-shimmer/g)?.length, 2);
   assert.equal(source.match(/animate-\[shimmer_1\.5s_infinite\]/g)?.length, 2);
-  assert.match(
-    reducedMotionBlock,
-    /\.paper-classic-player \.classic-lyrics__spinner,\s*\.paper-classic-player \.classic-lyrics__loading-shimmer \{\s*animation: none !important;/,
-  );
+
+  assert.doesNotMatch(readFileSync(new URL("./fullscreen/classic-player.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
 test('classic lyrics keep the stable depth baseline without dynamic appearance buckets', () => {
@@ -134,7 +121,6 @@ test('classic translation action exposes the shared five-state waiting contract'
 
   const classicCss = readFileSync(new URL('./fullscreen/classic-player.css', import.meta.url), 'utf8');
   assert.match(classicCss, /lyrics-translation-action\[data-translation-state='pending'\][\s\S]*lyrics-translation-breathe/);
-  const reducedMotionStart = classicCss.indexOf('@media (prefers-reduced-motion: reduce)');
-  const reducedMotionBlock = classicCss.slice(reducedMotionStart, classicCss.indexOf('/* =========================================================================', reducedMotionStart));
-  assert.match(reducedMotionBlock, /lyrics-translation-action\[data-translation-state='pending'\][\s\S]*animation: none !important/);
+
+  assert.doesNotMatch(readFileSync(new URL("./fullscreen/classic-player.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });

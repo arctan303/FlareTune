@@ -1,4 +1,4 @@
-const RANDOM_SONGS_LIMIT = 20;
+export const RANDOM_SONGS_LIMIT = 20;
 const RANDOM_EXCLUDE_ID_MAX_LENGTH = 80;
 
 export const normalizeRandomExcludeIds = (values, limit = RANDOM_SONGS_LIMIT) => {

@@ -1,6 +1,5 @@
 import { t } from '../../i18n/index.js';
 import React from 'react';
-import PlayerSkinEntry from '../PlayerSkinEntry';
 import { DesktopLyricsPane, MobileSongPane } from './MobileClassicPanes.jsx';
 import ClassicCloseChevron from './ClassicCloseChevron.jsx';
 
@@ -27,7 +26,6 @@ export default function ClassicDesktopLayout({
           >
             <ClassicCloseChevron size={22} />
           </button>
-          <PlayerSkinEntry variant="classic" />
         </div>
       </div>
       <div
@@ -36,10 +34,10 @@ export default function ClassicDesktopLayout({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchCancel}
       >
-        <div className="flex flex-col lg:flex-row w-full h-full min-h-0 flex-1 max-w-[1440px] mx-auto">
+        <div className="classic-player__stage flex flex-col lg:flex-row w-full h-full min-h-0 flex-1 mx-auto">
           <div
             ref={recordColumnRef}
-            className="classic-player__record-column relative w-full lg:w-[48%] xl:w-[46%] flex-shrink-0 flex flex-col min-h-0 h-full lg:pl-10 xl:pl-16 2xl:pl-20 lg:pr-3 xl:pr-5 pt-12 sm:pt-14 pb-5 sm:pb-6 lg:py-0 lg:justify-center px-6 sm:px-10"
+            className="classic-player__record-column relative w-full lg:w-1/2 flex-shrink-0 flex flex-col min-h-0 h-full pt-12 sm:pt-14 pb-5 sm:pb-6 lg:py-0 lg:px-0 lg:justify-center px-6 sm:px-10"
           >
             <MobileSongPane {...songPaneProps} isMobile={false} surfaceVisible={false} />
           </div>

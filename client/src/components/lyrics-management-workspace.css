@@ -468,7 +468,5 @@ html.dark .lyric-studio__field-error { color: #ff8993; }
 @media (hover: none) {
   .lyric-studio__delete-line { opacity: 1; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .lyric-studio *, .lyric-studio *::before, .lyric-studio *::after { scroll-behavior: auto !important; transition: none !important; }
-}
+
 .lyric-studio .lyric-studio__candidate-content[hidden] { display: none; }

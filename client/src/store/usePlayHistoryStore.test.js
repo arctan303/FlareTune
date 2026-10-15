@@ -18,10 +18,10 @@ test('formatRelativeTime returns accurate human-readable intervals', () => {
   assert.equal(formatRelativeTime(now - 10 * 1000), '刚刚');
   assert.equal(formatRelativeTime(now - 5 * 60 * 1000), '5分钟前');
   assert.equal(formatRelativeTime(now - 2 * 3600 * 1000), '2小时前');
-  assert.equal(formatRelativeTime(now - 24 * 3600 * 1000), '1天前');
+  assert.equal(formatRelativeTime(now - 24 * 3600 * 1000), '昨天');
   setUiLanguage('en');
   assert.equal(formatRelativeTime(now - 10 * 1000), 'just now');
-  assert.equal(formatRelativeTime(now - 5 * 60 * 1000), '5 min ago');
+  assert.equal(formatRelativeTime(now - 5 * 60 * 1000), '5 minutes ago');
 });
 
 test('usePlayHistoryStore: adds song to history with dedup and top unshift', () => {

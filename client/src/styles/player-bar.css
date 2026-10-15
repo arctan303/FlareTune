@@ -176,37 +176,6 @@ html.dark .player-console__lyric {
   );
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* Keep the roller's final translateY position, but make line changes
-     immediate and remove the inactive-to-active scale transition. */
-  .player-console__lyric-roller,
-  .player-console__lyric-row {
-    transition: none !important;
-  }
-
-  .player-console__lyric-row {
-    transform: none !important;
-  }
-
-  .player-console__lyric-content {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-    filter: none !important;
-  }
-
-  .player-dock .lyrics-translation-action[data-translation-state='pending']::after {
-    animation: none !important;
-    opacity: 0.65;
-    box-shadow: 0 0 6px rgba(96, 165, 250, 0.2);
-  }
-
-  .player-console__lyric-row:has(.synced-lyric-text[data-surface='playerbar'][data-synced='word']) {
-    mask-image: none !important;
-    -webkit-mask-image: none !important;
-  }
-}
-
 .player-console__icon {
   width: 36px;
   height: 36px;

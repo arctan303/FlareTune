@@ -10,10 +10,11 @@ test('artist drawer motion collapses progressively during ordinary scrolling', (
   assert.ok(end.avatarScale < start.avatarScale);
 });
 
-test('artist drawer uses one compact static state when reduced motion is requested', () => {
-  const start = getArtistDrawerMotion(0, true);
-  const scrolled = getArtistDrawerMotion(500, true);
-  assert.deepEqual(scrolled, start);
-  assert.equal(start.headerHeight, ARTIST_HEADER_MIN_HEIGHT);
-  assert.equal(start.photoTransform, 'none');
+test("artist header preserves pull-down expansion and scroll-driven collapse", () => {
+  const start = getArtistDrawerMotion(-30);
+  const compact = getArtistDrawerMotion(500);
+  assert.ok(start.headerHeight > compact.headerHeight);
+  assert.equal(compact.headerHeight, ARTIST_HEADER_MIN_HEIGHT);
+  assert.match(start.photoTransform, /scale/);
+  assert.notEqual(start.photoTransform, compact.photoTransform);
 });

@@ -11,7 +11,6 @@ import ImmersiveLyrics from './ImmersiveLyrics';
 import ImmersiveAudioAura from './ImmersiveAudioAura';
 import PlayerSkinEntry from '../PlayerSkinEntry';
 import LyricsWorkspaceEntry from '../LyricsWorkspaceEntry';
-import { useMediaQuery } from './useMediaQuery';
 import { useShallow } from 'zustand/react/shallow';
 import { VISUAL_MOTION_PHASE } from '../../utils/motionPerformance';
 import { useFullscreenTransition } from '../../hooks/useFullscreenTransition.js';
@@ -80,7 +79,6 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
         immersiveAmbientIntensity: state.immersiveAmbientIntensity,
         setImmersiveAmbientIntensity: state.setImmersiveAmbientIntensity,
     })));
-    const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)', false);
     const [hasCurrentSongPlayed, setHasCurrentSongPlayed] = React.useState(false);
     const [isVisualResetPending, setIsVisualResetPending] = React.useState(false);
     const stageRef = React.useRef(null);
@@ -237,7 +235,7 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
             className={`fixed inset-0 z-50 overflow-hidden bg-black text-white ${(hasMounted && isFullScreen && !isClosing) ? 'translate-y-0' : 'translate-y-full'} ${instantEnter ? 'player-mode-fade-in' : ''}`}
             style={{
                 transitionProperty: hasMounted ? 'transform' : 'none',
-                transitionDuration: prefersReducedMotion ? '150ms' : '620ms',
+                transitionDuration: '620ms',
                 transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
                 contain: 'layout style',
             }}
@@ -249,7 +247,6 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
                 theme={activeTheme}
                 artistName={currentSong?.artist || ''}
                 coverUrl={resolveCoverUrl(currentSong?.cover_url || '')}
-                prefersReducedMotion={prefersReducedMotion}
                 isPlaying={isPlaying}
                 isBuffering={isBuffering}
                 mediaEnabled={hasEntered}
@@ -261,14 +258,13 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
                 audioRef={audioRef}
                 isPlaying={isPlaying}
                 isBuffering={isBuffering}
-                enabled={hasEntered && immersiveAmbientEnabled && !prefersReducedMotion}
+                enabled={hasEntered && immersiveAmbientEnabled}
                 suspended={suspendPlayerEffects || !hasEntered}
                 intensity={immersiveAmbientIntensity}
                 containerRef={stageRef}
                 visualMode={showNoLyricsVisual
                     ? (noLyricsVisualActive ? 'no-lyrics' : 'no-lyrics-idle')
                     : 'ambient'}
-                prefersReducedMotion={prefersReducedMotion}
                 presentationReady={hasEntered}
                 onModeCollapsed={handleVisualModeCollapsed}
             />}
@@ -307,7 +303,6 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
                     lyricIntro={lyricIntro}
                     isPlaying={isPlaying}
                     isBuffering={isBuffering}
-                    prefersReducedMotion={prefersReducedMotion}
                     surfaceVisible={Boolean(isFullScreen && hasEntered && !isClosing)}
                     motionEnabled={!suspendPlayerEffects && motionProfile === 'full'}
                 />

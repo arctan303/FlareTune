@@ -4,9 +4,9 @@ import { createLyricDraftReceipt } from './lyricDraftReceipt.js';
 
 /** Run the configured lyric AI against an isolated draft. No R2 asset or song
  * metadata is changed; the caller still has to save its edited document. */
-export async function completeLyricDraft({ env, db, song, lines, actorAccountId, etag, deps = {} }) {
+export async function completeLyricDraft({ env, db, song, lines, translationLanguage, actorAccountId, etag, deps = {} }) {
   const now = deps.now || Date.now;
-  const draft = await buildEditedLyricArtifact(song, lines, { now: now() });
+  const draft = await buildEditedLyricArtifact(song, lines, { now: now(), translationLanguage });
   const startedAt = new Date(now()).toISOString();
   let artifact = {
     ...draft,
@@ -45,6 +45,7 @@ export async function completeLyricDraft({ env, db, song, lines, actorAccountId,
       ...(translations[index] ? { tlyric: translations[index] } : {}),
     })),
     inferredLanguage,
+    translationLanguage: artifact.translation?.language || null,
     receipt,
   };
 }

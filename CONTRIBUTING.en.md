@@ -10,7 +10,7 @@ Thanks for helping improve FlareTune. A usable Node.js ingest device is availabl
 - Verify the ingest experience with different operating systems, browsers, and music file formats.
 - If you use the old manually started local web tool, help verify its R2 direct upload, multipart upload, and target bucket checks. The current ingest device uses the administrator media API and does not support R2 direct upload.
 - Research the basic [Subsonic/OpenSubsonic API](https://opensubsonic.netlify.app/docs/) and test interoperability with compatible clients. FlareTune provides this API; see the [third-party client guide](guide/subsonic.en.md) for supported features.
-- Review Simplified Chinese and English interface copy and public documentation. Song language classification and interface localization are separate features.
+- Review interface copy in all five languages and public documentation. Song language classification and interface localization are separate features.
 - Improve the player, lyrics, assistant, accessibility, and user guides.
 
 For installation, first configuration, and operation of the Node.js tool, see the [local ingest device guide](tooling/ingest-agent/README.en.md) (use `npm.cmd` instead of `npm` in Windows PowerShell). For code contributions, see [Local development](guide/local-development.en.md). Verify new features first with your own isolated instance and a small, replaceable sample collection.
@@ -25,10 +25,10 @@ A Git branch does not create or bind Cloudflare D1/R2 resources. A development W
 
 The root `/docs/` directory contains Git-ignored internal work records. Do not force-add it or remove its `.gitignore` exclusion. Write user-facing guides in `guide/`.
 
-## Releasing a version
+## Interface translations
 
-1. On `dev`, synchronize the version in `package.json`, the lockfile top level and root package, and add the same version and date at the top of both changelogs. Complete tests, builds, artifact smoke checks and applicable reviews, then confirm the development Worker build succeeds.
-2. Merge `dev` into `main` through a pull request. Confirm the production build, health, protocol version, anonymous access boundaries and frontend artifacts. Administrators still explicitly apply database upgrades; releases do not migrate production data automatically.
-3. Create and push an annotated `X.Y.Z` tag (without `v`) on the accepted `main` release commit. Never rewrite existing tags.
+The interface supports Simplified Chinese, English, Traditional Chinese, Japanese and Korean. The English fallback catalog is `client/src/i18n/en.js`; other catalogs are in `client/src/i18n/locales/`. Update every catalog when adding copy and preserve interpolation tokens such as `{p0}`. Languages with plural forms use `one` / `other`. Run `npm run verify:i18n` and check narrow screens, loading failures, retry and context. Native-speaker corrections are welcome.
 
-Pull requests targeting `main` first run read-only release validation. Pushing a version tag triggers [Publish release](.github/workflows/release.yml). It checks the remote annotated tag's main ancestry, matching versions and complete bilingual notes, then runs tests, builds and an isolated Worker smoke check before creating a stable GitHub Release. The body contains both changelog entries, with GitHub's automatic source ZIP/TAR archives. Internal documents, logs, credentials and `dist` are not uploaded. Resolve failures before retrying. If the workflow needs a fix, merge it into `main`, then use Run workflow with the original tag; recovery still validates and builds the original tagged commit. Existing Releases and tags are preserved. GitHub Releases and Cloudflare branch deployments are separate processes.
+## Versions and validation
+
+Pull requests targeting `main` run read-only validation. Published versions are available in [Releases](https://github.com/arctan303/FlareTune/releases). Maintainer release operations are kept outside this contributor guide.

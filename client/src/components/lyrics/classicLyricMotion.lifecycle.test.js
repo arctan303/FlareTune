@@ -37,7 +37,7 @@ function element() {
     return { values, dataset: {}, style: { setProperty: (key, value) => { values[key] = value; }, removeProperty: key => { delete values[key]; } } };
 }
 
-test('completed characters stay level while only the current character rises, including backward seeks', () => {
+test('characters maintain a stable flat baseline with zero lift while filling, including backward seeks', () => {
     const s = subject('./SyncedLyricText.jsx', 1.25);
     const props = { active: true, visible: true, surface: 'classic', syncMode: 'word', clock: s.clock,
         line: { time: 0, text: 'ABCD', words: [{ text: 'AB', startTime: 0, endTime: 2 }, { text: 'CD', startTime: 2, endTime: 4 }] } };
@@ -47,11 +47,12 @@ test('completed characters stay level while only the current character rises, in
     tree.props.ref.current = root;
     nodes(tree).filter(node => node.props.className === 'synced-lyric-text__word').forEach((node, index) => node.props.ref(words[index]));
     nodes(tree).filter(node => node.props.className === 'synced-lyric-text__char').forEach((node, index) => node.props.ref(characters[index]));
-    // This harness attaches refs after effects; reapply the initial snapshot with them attached.
-    s.motionListeners.forEach(fn => fn({ matches: false }));
+    // Re-enter after attaching harness refs; real React attaches them before layout effects.
+    s.harness.render({ ...props, active: false });
+    s.harness.render(props);
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[1].values['--synced-char-lift'], '-0.281px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[1].values['--synced-word-progress'], '25%');
     assert.equal(characters[2].values['--synced-char-lift'], '0.000px');
     assert.equal(nodes(tree).filter(node => node.props.className === 'synced-lyric-text__base').length, 0);
@@ -61,19 +62,19 @@ test('completed characters stay level while only the current character rises, in
     assert.equal(root.dataset.motionRunning, 'true');
     s.audio.currentTime = 1.5;
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[1].values['--synced-char-lift'], '-0.900px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     s.audio.currentTime = 2.25;
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[1].values['--synced-char-lift'], '-1.800px');
-    assert.equal(characters[2].values['--synced-char-lift'], '-0.281px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
+    assert.equal(characters[2].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[3].values['--synced-char-lift'], '0.000px');
     assert.equal(words[0].values['--synced-word-progress'], '100%');
     assert.equal(words[1].values['--synced-word-progress'], '12.5%');
     s.audio.currentTime = 0.5;
     s.clock.sample('seeked');
-    assert.equal(characters[0].values['--synced-char-lift'], '-0.900px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[2].dataset.charState, 'pending');
     s.audio.paused = true;
@@ -98,12 +99,12 @@ test('a combined letter and emoji remain individual visible characters within on
     assert.deepEqual(characterNodes.map(node => node.props.children[0]), ['e\u0301', '🙂']);
     characterNodes.forEach((node, index) => node.props.ref(characters[index]));
     s.clock.sample('timeupdate');
-    assert.equal(characters[0].values['--synced-char-lift'], '-0.900px');
+    assert.equal(characters[0].values['--synced-char-lift'], '0.000px');
     assert.equal(characters[1].values['--synced-char-lift'], '0.000px');
     s.harness.unmount();
 });
 
-test('actual interval dots keep continuous progress without React renders and release work on pause, hide and reduced motion', () => {
+test('actual interval dots keep continuous progress without React renders and release work on pause and hide while ignoring system preference', () => {
     const s = subject('./InterludeDots.jsx', 25);
     const props = { active: true, window: { start: 10, end: 100, duration: 90 }, clock: s.clock };
     const tree = s.harness.render(props);
@@ -133,7 +134,8 @@ test('actual interval dots keep continuous progress without React renders and re
     s.clock.sample('visibilitychange');
     assert.equal(s.frames.size, 1);
     s.motionListeners.forEach(fn => fn({ matches: true }));
-    assert.equal(s.frames.size, 0);
+    assert.equal(s.frames.size, 1);
+    assert.equal(s.motionListeners.size, 0);
     s.audio.currentTime = 45;
     s.clock.sample('timeupdate');
     assert.equal(dots[0].dataset.fillState, 'complete');

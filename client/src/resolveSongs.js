@@ -1,3 +1,5 @@
+import { t } from './i18n/index.js';
+import { runtimeFetch } from './services/runtimeFetch.js';
 import { hydratePlayableSong } from './utils.js';
 import { isValidSongLanguage } from './constants/language.js';
 import { getApiBaseUrl } from './services/apiBase.js';
@@ -15,7 +17,7 @@ const normalizeSongIds = (values) => {
 };
 
 export async function resolveSongs(songIds, {
-  fetchImpl = globalThis.fetch,
+  fetchImpl = runtimeFetch,
   apiBase,
   hydrateSong = hydratePlayableSong,
   signal,
@@ -34,7 +36,7 @@ export async function resolveSongs(songIds, {
     body: JSON.stringify({ song_ids: normalizedIds }),
     signal,
   }, fetchImpl);
-  if (!response.ok) throw new Error(`歌曲解析失败（${response.status}）`);
+  if (!response.ok) throw new Error(t("歌曲解析失败（{p0}）", { p0: (response.status) }));
   const payload = await response.json();
   if (payload?.code !== 200 || !Array.isArray(payload?.data?.songs)) throw new Error('歌曲解析数据格式无效');
 

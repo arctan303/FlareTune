@@ -1,3 +1,4 @@
+import { SettingsInput, SettingsWriteButton } from './SettingsReadOnly.jsx';
 import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
@@ -130,7 +131,7 @@ export default function AdminCatalogSection() {
   async function confirmDelete() {
     if (!itemToDelete) return;
     const item = itemToDelete;
-    const label = `歌曲「${item.title}」`;
+    const label = t("歌曲「{p0}」", { p0: (item.title) });
     setBusy(true);
     setMessage('');
     try {
@@ -158,9 +159,9 @@ export default function AdminCatalogSection() {
           [kindToUpload === 'audio' ? 'audio_url' : 'cover_url']: result.url,
         },
       }));
-      setUploadNotice(`文件上传成功！请点击底部「保存」以写入曲库。`);
+      setUploadNotice(t("文件上传成功！请点击底部「保存」以写入曲库。"));
     } catch (error) {
-      setUploadNotice(`上传失败：${error.message}`);
+      setUploadNotice(t("上传失败：{p0}", { p0: (error.message) }));
     } finally {
       setBusy(false);
     }
@@ -199,7 +200,7 @@ export default function AdminCatalogSection() {
           className="relative flex-1 max-w-xs"
         >
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none" />
-          <input
+          <SettingsInput allowInReadOnly
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -249,14 +250,14 @@ export default function AdminCatalogSection() {
               onClick={() => setItemToDelete(null)}
               className="px-3 py-1.5 rounded-xl border border-[var(--line)] text-xs text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer bg-[var(--surface)]"
             >{t("取消")}</button>
-            <button
+            <SettingsWriteButton
               type="button"
               disabled={busy}
               onClick={confirmDelete}
               className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500 cursor-pointer shadow-xs"
             >
               {busy ? t("正在删除…") : t("确认删除")}
-            </button>
+            </SettingsWriteButton>
           </div>
         </div>
       )}
@@ -323,7 +324,7 @@ export default function AdminCatalogSection() {
                     >
                       <Edit3 size={15} />
                     </button>
-                    <button
+                    <SettingsWriteButton
                       type="button"
                       disabled={busy}
                       onClick={() => setItemToDelete(item)}
@@ -332,7 +333,7 @@ export default function AdminCatalogSection() {
                       aria-label={t("删除")}
                     >
                       <Trash2 size={15} />
-                    </button>
+                    </SettingsWriteButton>
                   </div>
                 </div>
               );
@@ -409,7 +410,7 @@ export default function AdminCatalogSection() {
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲标题")}<span className="text-rose-500 ml-1">*</span>
                     </label>
-                    <input
+                    <SettingsInput
                       type="text"
                       required
                       value={editor.draft.title || ''}
@@ -422,7 +423,7 @@ export default function AdminCatalogSection() {
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
                       <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌手")}</label>
-                      <input
+                      <SettingsInput
                         type="text"
                         value={editor.draft.artist || ''}
                         onChange={(e) => setDraft('artist', e.target.value)}
@@ -432,7 +433,7 @@ export default function AdminCatalogSection() {
                     </div>
                     <div className="space-y-1.5">
                       <label className="block text-xs font-semibold text-[var(--ink)]">{t("专辑")}</label>
-                      <input
+                      <SettingsInput
                         type="text"
                         value={editor.draft.album || ''}
                         onChange={(e) => setDraft('album', e.target.value)}
@@ -445,7 +446,7 @@ export default function AdminCatalogSection() {
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
                       <label className="block text-xs font-semibold text-[var(--ink)]">{t("时长（秒）")}</label>
-                      <input
+                      <SettingsInput
                         type="number"
                         min="0"
                         value={editor.draft.duration || ''}
@@ -491,7 +492,7 @@ export default function AdminCatalogSection() {
                     <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-colors">
                       <Upload size={13} />
                       <span>{editor.draft.cover_url ? t("替换封面") : t("上传封面")}</span>
-                      <input
+                      <SettingsInput
                         type="file"
                         accept=".jpg,.jpeg,.png,.webp"
                         disabled={busy}
@@ -522,13 +523,13 @@ export default function AdminCatalogSection() {
                   disabled={busy}
                   className="px-4 py-2 rounded-xl border border-[var(--line)] text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
                 >{t("取消")}</button>
-                <button
+                <SettingsWriteButton
                   type="submit"
                   disabled={busy}
                   className="primary-button px-5 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
                 >
                   {busy ? t("正在处理…") : t("保存到曲库")}
-                </button>
+                </SettingsWriteButton>
               </div>
             </form>
           </section>

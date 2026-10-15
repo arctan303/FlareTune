@@ -2,6 +2,7 @@ import React from 'react';
 import { renderMarkdownSafe } from '../assistantMarkdownRenderer.js';
 import { insertInlineCursorHtml } from '../aiResponseTypewriter.js';
 import { activateInlineAssistantSong } from '../services/assistantInlinePlayback.js';
+import { useLocale } from '../i18n/index.js';
 
 export { renderMarkdownSafe };
 
@@ -9,12 +10,14 @@ export { renderMarkdownSafe };
  * 完整 GitHub Flavored Markdown 渲染组件
  */
 export function AssistantMarkdown({ content, showCursor = false }) {
-    if (!content && !showCursor) return null;
+    const locale = useLocale();
 
     const html = React.useMemo(() => {
         const rendered = renderMarkdownSafe(content || '');
         return showCursor ? insertInlineCursorHtml(rendered) : rendered;
-    }, [content, showCursor]);
+    }, [content, showCursor, locale]);
+
+    if (!content && !showCursor) return null;
 
     const handleClick = (e) => activateInlineAssistantSong(e);
     const handleKeyDown = (e) => activateInlineAssistantSong(e, { keyboard: true });

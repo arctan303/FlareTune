@@ -1,4 +1,4 @@
-import { localizeUnknownArtist, t } from '../i18n/index.js';
+import { formatPlayCount, localizeUnknownArtist, localizeUnknownTitle, t, useLocale } from '../i18n/index.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal, Loader2 } from 'lucide-react';
 import LazyImage from './LazyImage';
@@ -41,6 +41,7 @@ export default function TrackRow({
     onRemove,
     onAddToPlaylist,
 }) {
+    useLocale();
     const isDetail = variant === 'detail';
     const active = usePageActivity();
     const isCurrent = currentSong?.id === song.id;
@@ -77,7 +78,7 @@ export default function TrackRow({
                 type="button"
                 className="track-row__main-action"
                 onClick={() => playSong(song, songs)}
-                aria-label={t("播放 {p0} - {p1}", { p0: (song.title), p1: (song.artist) })}
+                aria-label={t("播放 {p0} - {p1}", { p0: localizeUnknownTitle(song.title), p1: localizeUnknownArtist(song.artist) })}
             />
             <div className="track-row__state" aria-hidden="true"></div>
             {isDetail && <span className="track-row__number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>}
@@ -98,10 +99,10 @@ export default function TrackRow({
                 ) : null}
             </div>
             <div className="flex-1 min-w-0">
-                <h4 className="track-row__title truncate text-sm font-semibold">{song.title}</h4>
+                <h4 className="track-row__title truncate text-sm font-semibold">{localizeUnknownTitle(song.title)}</h4>
                 {isDetail ? (
                     <div className="track-row__meta flex items-center truncate text-sm">
-                        <span className="truncate max-w-[50%]">{song.artist}</span>
+                        <span className="truncate max-w-[50%]">{localizeUnknownArtist(song.artist)}</span>
                         {song.album && (
                             <>
                                 <span className="mx-2 opacity-50 text-[10px]">•</span>
@@ -112,16 +113,16 @@ export default function TrackRow({
                             <>
                                 <span className="mx-2 opacity-50 text-[10px]">•</span>
                                 <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
-                                    {song.play_count}{t("次")}</span>
+                                    {formatPlayCount(song.play_count)}</span>
                             </>
                         )}
                     </div>
                 ) : (
                     <div className="flex items-center gap-1.5 mt-1 truncate">
-                        <p className="track-row__meta truncate text-xs">{song.artist}</p>
+                        <p className="track-row__meta truncate text-xs">{localizeUnknownArtist(song.artist)}</p>
                         {showPlayCount && song.play_count != null && song.play_count > 0 && (
                             <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
-                                {song.play_count}{t("次")}</span>
+                                {formatPlayCount(song.play_count)}</span>
                         )}
                     </div>
                 )}
@@ -139,7 +140,7 @@ export default function TrackRow({
                         aria-expanded={isMoreOpen}
                         className={`track-row__action opacity-40 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isMoreOpen ? 'text-[var(--accent-strong)] !opacity-100' : ''}`}
                         title={t("歌曲选项")}
-                        aria-label={t("歌曲选项：{p0}", { p0: (song.title) })}
+                        aria-label={t("歌曲选项：{p0}", { p0: localizeUnknownTitle(song.title) })}
                     >
                         <MoreHorizontal size={18} />
                     </button>

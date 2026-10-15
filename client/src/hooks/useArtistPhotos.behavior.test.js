@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createArtistPhotoHarness, flushBackgroundAsync } from '../test/fullscreenBackgroundHarness.js';
 
-const staticProps = artistName => ({ artistName, prefersReducedMotion: true });
+const staticProps = artistName => ({ artistName });
 const top = result => result.photoLayers.at(-1)?.url;
 
 test('cached first-photo decode cannot overwrite a newer artist', async () => {

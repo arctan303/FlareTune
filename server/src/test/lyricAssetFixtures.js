@@ -29,7 +29,7 @@ export function makeSongDb(songs = [makeSong()]) {
 export function makeLyricDocument(overrides = {}) {
   return {
     version: 2,
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     syncMode: 'word',
     lrc: '[00:01.000]Hello',
@@ -56,7 +56,7 @@ export function makeReadyArtifact(overrides = {}) {
     songId: 'song-1',
     status: 'ready',
     original: {
-      source: 'kugou',
+      source: 'custom_krc',
       format: 'krc',
       syncMode: 'word',
       lines: [{

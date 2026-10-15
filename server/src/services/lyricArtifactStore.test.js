@@ -16,7 +16,7 @@ const NOW = '2026-09-10T12:00:00.000Z';
 const legacyLyricPayload = (overrides = {}) => ({
   success: true,
   data: {
-    source: 'Netease',
+    source: 'CustomLrc',
     type: 'synced',
     lyrics: '[00:01.00]Legacy lyric',
     translated_lyrics: '[00:01.00]旧译文',
@@ -29,7 +29,7 @@ const readyArtifact = (overrides = {}) => ({
   songId: 'song-1',
   status: 'ready',
   original: {
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     syncMode: 'word',
     lines: [{
@@ -40,7 +40,7 @@ const readyArtifact = (overrides = {}) => ({
     }],
   },
   translation: {
-    source: 'kugou',
+    source: 'custom_krc',
     originalTextHash: HASH_A,
     lines: ['你好'],
     updatedAt: NOW,

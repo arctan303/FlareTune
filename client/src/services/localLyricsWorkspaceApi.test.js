@@ -27,9 +27,9 @@ test('administrator lyrics requests use only the local workspace endpoint family
   try {
     await lyricsWorkspaceApi.getLyrics('song / 1');
     await lyricsWorkspaceApi.getLyricsCandidates('song / 1');
-    await lyricsWorkspaceApi.inspectLyricsCandidates('song / 1', [{ source: 'kugou', providerLyricId: 'candidate-7' }]);
+    await lyricsWorkspaceApi.inspectLyricsCandidates('song / 1', [{ source: 'custom_krc', providerLyricId: 'candidate-7' }]);
     await lyricsWorkspaceApi.updateLyrics('song / 1', {
-      source: 'kugou', providerLyricId: 'candidate-7', etag: 'etag-1',
+      source: 'custom_krc', providerLyricId: 'candidate-7', etag: 'etag-1',
       ignored: 'must not leave the browser',
     });
     await lyricsWorkspaceApi.updateLyricsOffset('song / 1', { offsetMs: -150, etag: 'etag-2' });
@@ -44,10 +44,10 @@ test('administrator lyrics requests use only the local workspace endpoint family
   assert.match(calls[1].url, /\/candidates$/);
   assert.match(calls[2].url, /\/candidates\/inspect$/);
   assert.deepEqual(JSON.parse(calls[2].init.body), {
-    candidates: [{ source: 'kugou', providerLyricId: 'candidate-7' }],
+    candidates: [{ source: 'custom_krc', providerLyricId: 'candidate-7' }],
   });
   assert.deepEqual(JSON.parse(calls[3].init.body), {
-    source: 'kugou', providerLyricId: 'candidate-7', etag: 'etag-1',
+    source: 'custom_krc', providerLyricId: 'candidate-7', etag: 'etag-1',
   });
   assert.deepEqual(JSON.parse(calls[4].init.body), { offsetMs: -150, etag: 'etag-2' });
   assert.deepEqual(JSON.parse(calls[5].init.body), { etag: 'etag-3' });
@@ -76,7 +76,7 @@ test('member may inspect candidates and trigger AI, but cannot edit shared lyric
   try {
     await lyricsWorkspaceApi.getLyrics('s1');
     await lyricsWorkspaceApi.getLyricsCandidates('s1', { title: 'Custom Title', artist: 'Custom Artist' });
-    await lyricsWorkspaceApi.inspectLyricsCandidates('s1', [{ source: 'kugou', providerLyricId: 'k1' }], {
+    await lyricsWorkspaceApi.inspectLyricsCandidates('s1', [{ source: 'custom_krc', providerLyricId: 'k1' }], {
       title: 'Custom Title', artist: 'Custom Artist',
     });
     await lyricsWorkspaceApi.completeLyricsTranslation('s1');
@@ -92,7 +92,7 @@ test('member may inspect candidates and trigger AI, but cannot edit shared lyric
   assert.equal(calls.length, 4);
   assert.match(calls[1].url, /\/candidates\?title=Custom\+Title&artist=Custom\+Artist$/);
   assert.deepEqual(JSON.parse(calls[2].init.body), {
-    candidates: [{ source: 'kugou', providerLyricId: 'k1' }],
+    candidates: [{ source: 'custom_krc', providerLyricId: 'k1' }],
     searchTitle: 'Custom Title', searchArtist: 'Custom Artist',
   });
   assert.deepEqual(JSON.parse(calls[3].init.body), {});
@@ -136,10 +136,10 @@ test('candidate source selection is forwarded to discovery with cancellation sig
   const calls = [];
   globalThis.fetch = async (url, init) => { calls.push({ url: String(url), init }); return okResponse(); };
   try {
-    await lyricsWorkspaceApi.getLyricsCandidates('s1', { title: 'Song', artist: 'Singer', source: 'netease', signal: controller.signal });
+    await lyricsWorkspaceApi.getLyricsCandidates('s1', { title: 'Song', artist: 'Singer', source: 'custom_lrc', signal: controller.signal });
     await lyricsWorkspaceApi.getLyricsCandidates('s1', { source: 'all' });
   } finally { globalThis.fetch = originalFetch; }
-  assert.equal(new URL(calls[0].url, 'https://test.invalid').searchParams.get('source'), 'netease');
+  assert.equal(new URL(calls[0].url, 'https://test.invalid').searchParams.get('source'), 'custom_lrc');
   assert.equal(calls[0].init.signal, controller.signal);
   assert.equal(new URL(calls[1].url, 'https://test.invalid').searchParams.has('source'), false);
 });

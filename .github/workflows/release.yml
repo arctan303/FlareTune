@@ -28,6 +28,7 @@ jobs:
     outputs:
       commit: ${{ steps.release.outputs.commit }}
       tag: ${{ steps.release.outputs.tag }}
+      npm_supported: ${{ steps.ingest-package.outputs.supported }}
     steps:
       - name: Validate recovery input
         if: github.event_name == 'workflow_dispatch'
@@ -66,12 +67,56 @@ jobs:
       - run: npm run build
       - run: npm run verify:dist-css
       - run: npm run verify:i18n
+      - name: Identify npm package support
+        id: ingest-package
+        run: |
+          node --input-type=module -e 'import {readFileSync} from "node:fs"; const [major,minor]=JSON.parse(readFileSync("package.json","utf8")).version.split(".").map(Number); console.log("supported="+(major>1 || (major===1 && minor>=2)));' >> "$GITHUB_OUTPUT"
+      - run: npm run ingest:pack
+        if: steps.ingest-package.outputs.supported == 'true'
+      - run: npm run ingest:verify-package
+        if: steps.ingest-package.outputs.supported == 'true'
       - name: Smoke test isolated Worker
         run: node tooling/dev/preview-worker.mjs --smoke
 
-  publish:
+  publish-npm:
     needs: validate
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag')
+    if: needs.validate.outputs.npm_supported == 'true' && github.repository == 'arctan303/FlareTune' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run ingest:pack
+      - run: npm run ingest:verify-package
+      - name: Confirm immutable tag before npm publication
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main "refs/tags/$RELEASE_TAG:refs/release-candidate"
+          test "$(git cat-file -t refs/release-candidate)" = tag
+          test "$(git rev-parse 'refs/release-candidate^{}')" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor HEAD origin/main
+          node tooling/release/prepare-notes.mjs --tag "$RELEASE_TAG" --output "$RUNNER_TEMP/release-notes.md"
+      - name: Publish ingest package with npm trusted publishing
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: node tooling/release/publish-ingest.mjs
+
+  publish:
+    needs: [validate, publish-npm]
+    if: always() && !cancelled() && needs.validate.result == 'success' && (needs.publish-npm.result == 'success' || (needs.publish-npm.result == 'skipped' && needs.validate.outputs.npm_supported == 'false')) && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

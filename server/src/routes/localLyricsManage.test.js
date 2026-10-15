@@ -7,6 +7,8 @@ import { runLyricAssetAiCompletion } from '../services/lyricAssetTranslation.js'
 import { buildEditedLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { createLyricDraftReceipt } from '../services/lyricDraftReceipt.js';
 import { LyricSourceError } from '../services/lyricSourceLoader.js';
+import { structuredLyrics } from '../subsonic/lyrics.js';
+import { resolveLyricTranslationState } from '../services/lyricAssetWorkflow.js';
 import {
   createMemoryLyricStore,
   createMemoryR2Bucket,
@@ -29,6 +31,66 @@ const route = (req, { session = admin, db = makeSongDb(), store = createMemoryLy
   req, new URL(req.url), db, {}, session, env, { store, ...deps },
 );
 
+test('candidate inspection, draft save and later edits preserve a non-target source translation language', async () => {
+  const store = createMemoryLyricStore();
+  const document = makeLyricDocument({ source: 'custom_lrc', format: 'lrc',
+    lines: [{ time: 1, text: 'こんにちは', tlyric: 'English translation' }],
+    providerMeta: { providerLyricId: 'one', translationLanguage: 'en' },
+  });
+  const inspected = await route(request(path('/candidates/inspect'), 'POST', {
+    candidates: [{ source: 'custom_lrc', providerLyricId: 'one' }],
+  }), { store, deps: { createProviderSnapshot: async () => ({
+    providerLyricIds: ['one'], loadDocument: async () => document,
+  }) } });
+  const candidate = (await inspected.json()).data.results[0];
+  assert.equal(candidate.translation.language, 'en');
+  const lines = candidate.lyrics.lines.map((line, i) => ({ ...line, tlyric: candidate.translation.lines[i] }));
+  const saved = await route(request(path('/document'), 'PUT', {
+    etag: null, lines, translationLanguage: candidate.translation.language,
+  }), { store });
+  assert.equal(saved.status, 200);
+  assert.equal(store.current().translation.language, 'en');
+  assert.equal(resolveLyricTranslationState(store.current(), makeSong({ language: 'ja' }), Date.now(), 'zh'), 'missing');
+  assert.equal(structuredLyrics(store.current(), makeSong({ language: 'ja' }), true).lyricsList.structuredLyrics[1].lang, 'en');
+  const read = await store.get();
+  const edited = await route(request(path('/document'), 'PUT', { etag: read.etag,
+    lines: [{ ...lines[0], tlyric: 'Edited English translation' }],
+  }), { store });
+  assert.equal(edited.status, 200);
+  assert.equal(store.current().translation.language, 'en');
+  assert.equal(store.current().translation.lines[0], 'Edited English translation');
+  const invalid = await route(request(path('/document'), 'PUT', { etag: (await store.get()).etag,
+    lines, translationLanguage: 'instrumental',
+  }), { store });
+  assert.equal(invalid.status, 400);
+});
+
+test('editing or sending legacy unlabelled provider and AI translations to draft AI retains Chinese under an English target', async () => {
+  const songs = makeSongDb();
+  const db = { prepare(sql) {
+    if (sql.includes('instance_settings')) return { first: async () => ({ value_json: JSON.stringify({
+      provider: 'deepseek', model: 'test', temperature: 0.2, styleRules: '', targetLanguage: 'en',
+      cleanDirtyLyrics: true, translateLyrics: true, detectLanguage: true, referenceExistingTranslation: false,
+    }) }) };
+    return songs.prepare(sql);
+  } };
+  for (const source of ['kugou', 'netease', 'ai']) {
+    const artifact = makeReadyArtifact();
+    artifact.translation = { source, originalTextHash: artifact.textHash, lines: ['你好'], updatedAt: artifact.updatedAt };
+    const store = createMemoryLyricStore(artifact);
+    const lines = [{ time: 1, text: 'Hello', tlyric: '你好' }];
+    let draftLanguage;
+    const draft = await route(request(path('/draft-ai'), 'POST', { etag: 'etag-1', lines }), {
+      db, store, deps: { completeDraft: async options => {
+        draftLanguage = options.translationLanguage; return { status: 'ready', lines, translationLanguage: draftLanguage };
+      } },
+    });
+    assert.equal(draft.status, 200); assert.equal(draftLanguage, 'zh', source);
+    const saved = await route(request(path('/document'), 'PUT', { etag: 'etag-1', lines }), { db, store });
+    assert.equal(saved.status, 200); assert.equal(store.current().translation.language, 'zh', source);
+  }
+});
+
 test('manual search source filter limits provider calls and preserves match warnings', async () => {
   const calls = [];
   const deps = { listSourceCandidates: async source => {
@@ -36,16 +98,16 @@ test('manual search source filter limits provider calls and preserves match warn
     return [{ source, providerLyricId: 'one', matchedTitle: 'Night Song (Live)',
       matchedArtist: 'Singer', versionMismatch: true, durationDelta: 20 }];
   } };
-  const response = await route(request(path('/candidates?source=netease')), { deps });
+  const response = await route(request(path('/candidates?source=custom_lrc')), { deps });
   const payload = await response.json();
   assert.equal(response.status, 200);
-  assert.deepEqual(calls, ['netease']);
+  assert.deepEqual(calls, ['custom_lrc']);
   assert.equal(payload.data.candidates[0].versionMismatch, true);
   assert.equal(payload.data.candidates[0].durationDelta, 20);
   for (const source of ['auto', 'invalid']) {
     assert.equal((await route(request(path(`/candidates?source=${source}`)), { deps })).status, 400);
   }
-  assert.deepEqual(calls, ['netease']);
+  assert.deepEqual(calls, ['custom_lrc']);
 });
 
 test('only new workspace path is dispatched and a verified normal local account is mandatory', async () => {
@@ -505,7 +567,7 @@ test('candidate lookup and inspection filter provider-only fields and enforce re
   const listed = await route(request(`${path('/candidates')}?title=Deep%20End&artist=Artist`), {
     store, deps: { listCandidates: async (song) => {
       lookupSong = song;
-      return { candidates: [{ source: 'kugou', providerLyricId: 'kg-2', score: 12,
+      return { candidates: [{ source: 'custom_krc', providerLyricId: 'kg-2', score: 12,
         content: 'private content', accesskey: 'private key' }], warnings: [] };
     } },
   });
@@ -517,10 +579,10 @@ test('candidate lookup and inspection filter provider-only fields and enforce re
 
   let inspected;
   const inspection = await route(request(path('/candidates/inspect'), 'POST', {
-    candidates: [{ source: 'kugou', providerLyricId: 'kg-2' }], searchTitle: 'Deep End',
+    candidates: [{ source: 'custom_krc', providerLyricId: 'kg-2' }], searchTitle: 'Deep End',
   }), { store, deps: { inspectCandidates: async (song, candidates, options) => {
     inspected = { song, candidates, maxBytes: options.maxResponseBytes };
-    return { items: [{ source: 'kugou', providerLyricId: 'kg-2', state: 'ready',
+    return { items: [{ source: 'custom_krc', providerLyricId: 'kg-2', state: 'ready',
       lyrics: { lines: [{ text: 'Hello' }] } }], truncated: false };
   } } });
   assert.equal(inspection.status, 200);
@@ -539,12 +601,12 @@ test('administrator replaces a selected candidate with R2 conditional ETag and s
   const store = createLyricArtifactStore({ MEDIA_BUCKET: bucket });
   let fetched = 0;
   const stale = await route(request(path(), 'PUT', {
-    source: 'kugou', providerLyricId: 'kg-2', etag: 'wrong',
+    source: 'custom_krc', providerLyricId: 'kg-2', etag: 'wrong',
   }), { store, deps: { fetchDocument: async () => { fetched += 1; return makeLyricDocument(); } } });
   assert.equal(stale.status, 409);
   assert.equal(fetched, 0);
   const updated = await route(request(path(), 'PUT', {
-    source: 'kugou', providerLyricId: 'kg-2', etag: 'etag-0',
+    source: 'custom_krc', providerLyricId: 'kg-2', etag: 'etag-0',
   }), { store, deps: { fetchDocument: async (_source, _song, options) => {
     fetched += 1;
     return makeLyricDocument({ providerMeta: {
@@ -561,9 +623,9 @@ test('administrator replaces a selected candidate with R2 conditional ETag and s
 test('vanished candidate and concurrent R2 update cannot replace the selected lyric', async () => {
   const store = createMemoryLyricStore(makeReadyArtifact());
   const vanished = await route(request(path(), 'PUT', {
-    source: 'kugou', providerLyricId: 'not-there', etag: 'etag-1',
+    source: 'custom_krc', providerLyricId: 'not-there', etag: 'etag-1',
   }), { store, deps: { fetchDocument: async () => {
-    throw new LyricSourceError('not_found', 'kugou', 'selected-candidate', 'gone');
+    throw new LyricSourceError('not_found', 'custom_krc', 'selected-candidate', 'gone');
   } } });
   assert.equal(vanished.status, 422);
   assert.equal(store.calls.put, 0);
@@ -576,7 +638,7 @@ test('vanished candidate and concurrent R2 update cannot replace the selected ly
     return originalPut(songId, artifact, etag);
   };
   const conflict = await route(request(path(), 'PUT', {
-    source: 'kugou', providerLyricId: 'kg-2', etag: 'etag-1',
+    source: 'custom_krc', providerLyricId: 'kg-2', etag: 'etag-1',
   }), { store, deps: { fetchDocument: async () => makeLyricDocument() } });
   assert.equal(conflict.status, 409);
   assert.equal(store.current().offsetMs, 350);
@@ -584,7 +646,7 @@ test('vanished candidate and concurrent R2 update cannot replace the selected ly
 
 test('offset, translation clear, reset, and completion are separate ETag-safe operations', async () => {
   const store = createMemoryLyricStore(makeReadyArtifact({ translation: {
-    source: 'kugou', originalTextHash: 'a'.repeat(64), lines: ['你好'],
+    source: 'custom_krc', originalTextHash: 'a'.repeat(64), lines: ['你好'],
     updatedAt: '2026-09-10T00:00:00.000Z',
   } }));
   const stale = await route(request(path('/offset'), 'PATCH', { offsetMs: 150, etag: 'stale' }), { store });

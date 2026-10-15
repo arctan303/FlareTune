@@ -2,6 +2,8 @@
 
 [简体中文](administration.md) · [English](administration.en.md)
 
+Explore full pages and configuration dialogs in the [demo administration settings](https://flaretune.arcinks.com/settings/admin/assistant). The demo simulates an administrator with configuration available for viewing; make real changes in your own installation. See [demo details](demo.en.md).
+
 ## Admin entry points
 
 After signing in, administrators can open Library management, Song ingest, AI and assistant, Account management, and Instance settings from the Settings sidebar. Instance settings brings together the instance name, allowed origins, ingest devices, runtime status, and database upgrades. Members cannot access these areas. Administrators import their own music files. The Worker reads media from private R2 and checks session access.
@@ -15,6 +17,10 @@ Under Provider configuration, select Add provider, choose a DeepSeek, OpenAI, An
 For a third-party gateway, add a Custom provider with a name, one of the four protocols, an HTTPS base URL including the version prefix but not the final request path, and an API key. Only custom providers expose protocol and address controls. Use trusted public endpoints; local and private-network addresses are unsupported.
 
 Under Feature configuration, select a provider separately for the music assistant and lyrics AI. Fetch models for direct selection or enter a model ID, declare This model supports vision based on its actual capabilities, and save. Features may share a provider while using different models. Changing provider/model requires reconfirming vision; discovery does not verify capabilities. Changing a custom protocol/address requires entering the key again and clears the affected features' vision declaration and generation options. Historical protocols and destinations are retained; old proxy connections appear as custom, and old keys are not merged. Keys remain encrypted and are never returned to the browser.
+
+## Lyric sources
+
+Configure lyric sources under AI and assistant. Only LRCLIB is enabled by default; administrators can enable optional custom word-timed and line-timed endpoints. See [Lyric sources](lyric-sources.en.md) for generic request and response examples. Disabling a source retains saved lyrics.
 
 ## Add and remove music
 

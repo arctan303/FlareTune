@@ -40,9 +40,10 @@ export function validateLyricRows(rows) {
   const errors = {};
   const times = rows.map((row) => row.time.trim() ? parseLyricTime(row.time) : undefined);
   const hasTimedRows = times.some((time) => typeof time === 'number');
-  const mark = (key, field, message) => {
+  const mark = (key, field, source, values) => {
     errors[key] ??= {};
-    errors[key][field] ??= message;
+    // Keep validation data independent of the language selected at validation time.
+    errors[key][field] ??= { source, values };
   };
 
   rows.forEach((row, index) => {
@@ -57,8 +58,8 @@ export function validateLyricRows(rows) {
   rows.forEach((row, index) => {
     if (typeof times[index] !== 'number') return;
     if (previousIndex >= 0 && times[index] < times[previousIndex]) {
-      mark(rows[previousIndex].key, 'time', `应不晚于下一行 ${rows[index].time}`);
-      mark(row.key, 'time', `应不早于上一行 ${rows[previousIndex].time}`);
+      mark(rows[previousIndex].key, 'time', '应不晚于下一行 {p0}', { p0: rows[index].time });
+      mark(row.key, 'time', '应不早于上一行 {p0}', { p0: rows[previousIndex].time });
     }
     previousIndex = index;
   });

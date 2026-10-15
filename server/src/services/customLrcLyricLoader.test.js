@@ -1,14 +1,15 @@
+import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LyricSourceError } from './lyricSourceError.js';
 import {
   alignTranslationToLines,
-  buildNeteaseSearchKeywords,
-  loadNeteaseSelection,
+  buildCustomLrcSearchKeywords,
+  loadCustomLrcSelection,
   parseLrcTimestampEntries,
-  parseNeteaseLyricDocument,
-  searchNeteaseSelections,
-} from './neteaseLyricLoader.js';
+  parseCustomLrcLyricDocument,
+  searchCustomLrcSelections,
+} from './customLrcLyricLoader.js';
 import { createLyricSourceLoader } from './lyricSourceLoader.js';
 
 const mockResponse = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -16,14 +17,14 @@ const mockResponse = (data, status = 200) => new Response(JSON.stringify(data), 
   headers: { 'content-type': 'application/json' },
 });
 
-test('buildNeteaseSearchKeywords generates ordered search variants', () => {
-  assert.deepEqual(buildNeteaseSearchKeywords({}), []);
-  assert.deepEqual(buildNeteaseSearchKeywords({ title: 'COME BABY', artist: 'Elisa Rosselli, Dale Arden' }), [
+test('buildCustomLrcSearchKeywords generates ordered search variants', () => {
+  assert.deepEqual(buildCustomLrcSearchKeywords({}), []);
+  assert.deepEqual(buildCustomLrcSearchKeywords({ title: 'COME BABY', artist: 'Elisa Rosselli, Dale Arden' }), [
     'COME BABY Elisa Rosselli, Dale Arden',
     'COME BABY Elisa Rosselli',
     'COME BABY',
   ]);
-  assert.deepEqual(buildNeteaseSearchKeywords({ title: '晴天 (Live版)', artist: '周杰伦' }), [
+  assert.deepEqual(buildCustomLrcSearchKeywords({ title: '晴天 (Live版)', artist: '周杰伦' }), [
     '晴天 (Live版) 周杰伦',
     '晴天 周杰伦',
     '晴天 (Live版)',
@@ -65,7 +66,7 @@ test('alignTranslationToLines aligns translations to lines within tolerance', ()
   assert.equal(aligned[2].tlyric, undefined);
 });
 
-test('parseNeteaseLyricDocument converts raw lyric response to standard LyricDocument', () => {
+test('parseCustomLrcLyricDocument converts raw lyric response to standard LyricDocument', () => {
   const rawData = {
     code: 200,
     lrc: {
@@ -76,9 +77,9 @@ test('parseNeteaseLyricDocument converts raw lyric response to standard LyricDoc
     },
   };
   const providerMeta = { providerLyricId: '123', matchedTitle: 'COME BABY', matchedArtist: 'Elisa' };
-  const document = parseNeteaseLyricDocument(rawData, { providerMeta });
+  const document = parseCustomLrcLyricDocument(rawData, { providerMeta });
 
-  assert.equal(document.source, 'netease');
+  assert.equal(document.source, 'custom_lrc');
   assert.equal(document.format, 'lrc');
   assert.equal(document.syncMode, 'line');
   assert.equal(document.lines.length, 2);
@@ -89,7 +90,7 @@ test('parseNeteaseLyricDocument converts raw lyric response to standard LyricDoc
   assert.equal(document.providerMeta.providerLyricId, '123');
 });
 
-test('parseNeteaseLyricDocument handles untranslated lyrics or missing tlyric gracefully', () => {
+test('parseCustomLrcLyricDocument handles untranslated lyrics or missing tlyric gracefully', () => {
   const rawData = {
     code: 200,
     lrc: {
@@ -99,33 +100,33 @@ test('parseNeteaseLyricDocument handles untranslated lyrics or missing tlyric gr
       lyric: '',
     },
   };
-  const document = parseNeteaseLyricDocument(rawData);
-  assert.equal(document.source, 'netease');
+  const document = parseCustomLrcLyricDocument(rawData);
+  assert.equal(document.source, 'custom_lrc');
   assert.equal(document.format, 'lrc');
   assert.equal(document.syncMode, 'line');
   assert.equal(document.lines.length, 1);
   assert.equal(document.lines[0].tlyric, undefined);
 });
 
-test('parseNeteaseLyricDocument rejects empty, nolyric, or uncollected responses', () => {
+test('parseCustomLrcLyricDocument rejects empty, nolyric, or uncollected responses', () => {
   assert.throws(
-    () => parseNeteaseLyricDocument({ code: 200, lrc: { lyric: '' } }),
+    () => parseCustomLrcLyricDocument({ code: 200, lrc: { lyric: '' } }),
     (error) => error instanceof LyricSourceError && error.kind === 'unavailable',
   );
   assert.throws(
-    () => parseNeteaseLyricDocument({ code: 200, nolyric: true, lrc: { lyric: '[00:01.00]test' } }),
+    () => parseCustomLrcLyricDocument({ code: 200, nolyric: true, lrc: { lyric: '[00:01.00]test' } }),
     (error) => error instanceof LyricSourceError && error.kind === 'unavailable',
   );
   assert.throws(
-    () => parseNeteaseLyricDocument({ code: 200, uncollected: true }),
+    () => parseCustomLrcLyricDocument({ code: 200, uncollected: true }),
     (error) => error instanceof LyricSourceError && error.kind === 'unavailable',
   );
 });
 
-test('searchNeteaseSelections finds, normalizes and ranks song candidates', async () => {
+test('searchCustomLrcSelections finds, normalizes and ranks song candidates', async () => {
   const song = { title: 'COME BABY', artist: 'Elisa Rosselli, Dale Arden', duration: 191 };
   const mockFetch = async (url) => {
-    assert.match(url, /music\.163\.com\/api\/search\/get\/web/);
+    assert.match(url, /lrc\.example\.com\/search/);
     return mockResponse({
       code: 200,
       result: {
@@ -149,7 +150,7 @@ test('searchNeteaseSelections finds, normalizes and ranks song candidates', asyn
     });
   };
 
-  const selections = await searchNeteaseSelections(song, null, { fetchImpl: mockFetch });
+  const selections = await searchCustomLrcSelections(song, null, { config: TEST_LYRIC_SOURCES.custom_lrc, fetchImpl: mockFetch });
   assert.equal(selections.length, 1);
   const best = selections[0];
   assert.equal(best.candidate.id, 25862807);
@@ -160,31 +161,31 @@ test('searchNeteaseSelections finds, normalizes and ranks song candidates', asyn
   assert.equal(best.artistRatio, 1);
 });
 
-test('searchNeteaseSelections rejects invalid song search input', async () => {
+test('searchCustomLrcSelections rejects invalid song search input', async () => {
   await assert.rejects(
-    () => searchNeteaseSelections({ title: '' }),
+    () => searchCustomLrcSelections({ title: '' }, null, { config: TEST_LYRIC_SOURCES.custom_lrc }),
     (error) => error instanceof LyricSourceError && error.kind === 'invalid',
   );
   await assert.rejects(
-    () => searchNeteaseSelections({ title: 'Song', artist: '' }),
+    () => searchCustomLrcSelections({ title: 'Song', artist: '' }, null, { config: TEST_LYRIC_SOURCES.custom_lrc }),
     (error) => error instanceof LyricSourceError && error.kind === 'invalid',
   );
 });
 
-test('searchNeteaseSelections handles search 404 or empty results', async () => {
+test('searchCustomLrcSelections handles search 404 or empty results', async () => {
   const song = { title: 'Nonexistent Song', artist: 'Unknown Singer' };
   const mockFetch = async () => mockResponse({ code: 404 });
   await assert.rejects(
-    () => searchNeteaseSelections(song, null, { fetchImpl: mockFetch }),
+    () => searchCustomLrcSelections(song, null, { config: TEST_LYRIC_SOURCES.custom_lrc, fetchImpl: mockFetch }),
     (error) => error instanceof LyricSourceError && error.kind === 'unavailable',
   );
 
   const emptyFetch = async () => mockResponse({ code: 200, result: { songs: [] } });
-  const emptySelections = await searchNeteaseSelections(song, null, { fetchImpl: emptyFetch });
+  const emptySelections = await searchCustomLrcSelections(song, null, { config: TEST_LYRIC_SOURCES.custom_lrc, fetchImpl: emptyFetch });
   assert.deepEqual(emptySelections, []);
 });
 
-test('loadNeteaseSelection fetches lyric and parses with provider metadata', async () => {
+test('loadCustomLrcSelection fetches lyric and parses with provider metadata', async () => {
   const selection = {
     candidate: {
       id: 25862807,
@@ -197,7 +198,7 @@ test('loadNeteaseSelection fetches lyric and parses with provider metadata', asy
     score: 170,
   };
   const mockFetch = async (url) => {
-    assert.match(url, /music\.163\.com\/api\/song\/lyric\?id=25862807/);
+    assert.match(url, /lrc\.example\.com\/download\?id=25862807/);
     return mockResponse({
       code: 200,
       lrc: { lyric: '[00:01.000]Lyric line' },
@@ -205,18 +206,18 @@ test('loadNeteaseSelection fetches lyric and parses with provider metadata', asy
     });
   };
 
-  const document = await loadNeteaseSelection(selection, null, { fetchImpl: mockFetch });
-  assert.equal(document.source, 'netease');
+  const document = await loadCustomLrcSelection(selection, null, { config: TEST_LYRIC_SOURCES.custom_lrc, fetchImpl: mockFetch });
+  assert.equal(document.source, 'custom_lrc');
   assert.equal(document.format, 'lrc');
   assert.equal(document.lines[0].text, 'Lyric line');
   assert.equal(document.lines[0].tlyric, '歌词行');
   assert.equal(document.providerMeta.providerLyricId, '25862807');
 });
 
-test('createLyricSourceLoader integrates netease discovery, preview, and audit evidence', async () => {
+test('createLyricSourceLoader integrates custom_lrc discovery, preview, and audit evidence', async () => {
   const song = { title: 'COME BABY', artist: 'Elisa Rosselli', duration: 191 };
   const mockFetch = async (url) => {
-    if (url.includes('/api/search/get/web')) {
+    if (url.includes('/search')) {
       return mockResponse({
         code: 200,
         result: {
@@ -230,7 +231,7 @@ test('createLyricSourceLoader integrates netease discovery, preview, and audit e
         },
       });
     }
-    if (url.includes('/api/song/lyric')) {
+    if (url.includes('/download')) {
       return mockResponse({
         code: 200,
         lrc: { lyric: '[00:01.000]Line 1\n[00:05.000]Line 2' },
@@ -240,54 +241,54 @@ test('createLyricSourceLoader integrates netease discovery, preview, and audit e
     throw new Error(`Unexpected url: ${url}`);
   };
 
-  const loader = createLyricSourceLoader({ fetchImpl: mockFetch });
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: mockFetch });
 
   // Test candidate listing
-  const candidates = await loader.listSourceCandidates('netease', song);
+  const candidates = await loader.listSourceCandidates('custom_lrc', song);
   assert.equal(candidates.length, 1);
-  assert.equal(candidates[0].source, 'netease');
+  assert.equal(candidates[0].source, 'custom_lrc');
   assert.equal(candidates[0].providerLyricId, '12345');
   assert.equal(candidates[0].matchedTitle, 'COME BABY');
 
   // Test candidate inspection snapshot
-  const snapshot = await loader.createCandidateInspectionSnapshot('netease', song);
+  const snapshot = await loader.createCandidateInspectionSnapshot('custom_lrc', song);
   assert.deepEqual(snapshot.providerLyricIds, ['12345']);
   const previewDoc = await snapshot.loadDocument('12345');
-  assert.equal(previewDoc.source, 'netease');
+  assert.equal(previewDoc.source, 'custom_lrc');
   assert.equal(previewDoc.lines[0].tlyric, '第一行');
 
   // Test audit evidence
-  const evidence = await loader.fetchSourceAuditEvidence('netease', song);
-  assert.equal(evidence.document.source, 'netease');
+  const evidence = await loader.fetchSourceAuditEvidence('custom_lrc', song);
+  assert.equal(evidence.document.source, 'custom_lrc');
   assert.equal(evidence.selectedProviderLyricId, '12345');
-  assert.equal(evidence.candidates[0].source, 'netease');
+  assert.equal(evidence.candidates[0].source, 'custom_lrc');
 
   // Test fetchSourceDocument
-  const doc = await loader.fetchSourceDocument('netease', song);
-  assert.equal(doc.source, 'netease');
+  const doc = await loader.fetchSourceDocument('custom_lrc', song);
+  assert.equal(doc.source, 'custom_lrc');
   assert.equal(doc.syncMode, 'line');
 
   // Test fetchSourceLyrics text
-  const lrcText = await loader.fetchSourceLyrics('netease', 'COME BABY', 'Elisa Rosselli', 191);
+  const lrcText = await loader.fetchSourceLyrics('custom_lrc', 'COME BABY', 'Elisa Rosselli', 191);
   assert.match(lrcText, /\[00:01\.000\]Line 1/);
 });
 
-test('Netease automatic resolution skips an empty top lyric and reads the next candidate', async () => {
+test('CustomLrc automatic resolution skips an empty top lyric and reads the next candidate', async () => {
   const song = { title: 'COME BABY', artist: 'Elisa Rosselli', duration: 191 };
   const requestedIds = [];
-  const loader = createLyricSourceLoader({ fetchImpl: async (url) => {
-    if (url.includes('/api/search/get/web')) return mockResponse({ code: 200, result: { songs: [
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async (url) => {
+    if (url.includes('/search')) return mockResponse({ code: 200, result: { songs: [
       { id: 12345, name: song.title, artists: [{ name: song.artist }], duration: 191000 },
       { id: 12346, name: song.title, artists: [{ name: song.artist }], duration: 191000 },
     ] } });
-    if (url.includes('/api/song/lyric')) {
+    if (url.includes('/download')) {
       const id = new URL(url).searchParams.get('id');
       requestedIds.push(id);
       return mockResponse({ code: 200, lrc: { lyric: id === '12346' ? '[00:01.000]usable lyric' : '' } });
     }
     throw new Error(`Unexpected url: ${url}`);
   } });
-  const document = await loader.getNeteaseDocument(song);
+  const document = await loader.getCustomLrcDocument(song);
   assert.equal(document.providerMeta.providerLyricId, '12346');
   assert.equal(document.lines[0].text, 'usable lyric');
   assert.deepEqual(requestedIds, ['12345', '12346']);

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { t } from '../i18n/index.js';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { createResilientStorage } from '../utils/browserStorage.js';
 import {
   VISUAL_MOTION_PHASE,
   getDrawerVisibilityUpdate,
@@ -41,9 +43,7 @@ export const useUIStore = create(
         if (value !== 'dock' && value !== 'sidebar') return;
         const from = get().compactPlayerPlacement;
         if (value === from || get().compactPlayerTransition) return;
-        const reducedMotion = typeof window === 'undefined'
-          || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-        if (reducedMotion) {
+        if (typeof window === 'undefined') {
           set({ compactPlayerPlacement: value, compactPlayerTransition: null });
           return;
         }
@@ -285,6 +285,7 @@ export const useUIStore = create(
     }),
     {
       name: 'musicPlayer_ui',
+      storage: createJSONStorage(() => createResilientStorage()),
       version: 1,
       migrate: () => undefined,
       partialize: (state) => ({
@@ -302,7 +303,7 @@ export const useUIStore = create(
 
 let toastTimer = null;
 export const showToast = (msg, duration = 3000) => {
-    useUIStore.getState().setToastMessage(msg);
+    useUIStore.getState().setToastMessage(t(msg));
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
         useUIStore.getState().setToastMessage('');

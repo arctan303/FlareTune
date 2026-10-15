@@ -1,3 +1,4 @@
+import { runtimeFetch } from './services/runtimeFetch.js';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import { getApiBaseUrl } from './services/apiBase.js';
@@ -60,7 +61,7 @@ const retainCurrentDetails = (details, playlists) => {
   return Object.fromEntries(Object.entries(details || {}).filter(([playlistId]) => currentIds.has(playlistId)));
 };
 
-export function createAccountPlaylistStore({ fetchImpl = globalThis.fetch, apiBase } = {}) {
+export function createAccountPlaylistStore({ fetchImpl = runtimeFetch, apiBase } = {}) {
   const base = typeof apiBase === 'string' ? apiBase.replace(/\/$/, '') : getAccountPlaylistApiBase();
   const jsonRequest = (path, init) => requestAccountJson({
     fetchImpl,

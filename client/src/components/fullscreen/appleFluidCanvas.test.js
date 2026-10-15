@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAppleFluidHarness, createBackgroundModuleHarness } from '../../test/fullscreenBackgroundHarness.js';
 
-test('classic background forwards suspension and reduced-motion to the fluid renderer', () => {
+test('classic background forwards lifecycle suspension to the fluid renderer', () => {
   const marker = () => null;
   const component = createBackgroundModuleHarness({
     file: new URL('./MobileClassicBackground.jsx', import.meta.url),
@@ -14,24 +14,21 @@ test('classic background forwards suspension and reduced-motion to the fluid ren
   });
   assert.equal(node.type, marker);
   assert.equal(node.props.suspended, true);
-  assert.equal(node.props.prefersReducedMotion, true);
+  assert.equal(Object.hasOwn(node.props, 'prefersReducedMotion'), false);
 });
 
-test('reduced motion renders a static first frame and updates a new cover without a crossfade loop', () => {
+test("playing fluid background keeps its cover crossfade and releases work on unmount", () => {
   const fixture = createAppleFluidHarness();
-  fixture.render({ coverUrl: 'first.jpg', isPlaying: true, prefersReducedMotion: true });
-  fixture.frame();
-  assert.equal(fixture.draws.length, 1);
-  assert.equal(fixture.draws[0].u_time, 0);
-  assert.equal(fixture.scheduler.frames.size, 0);
+  fixture.render({ coverUrl: 'first.jpg', isPlaying: true });
+  fixture.frame(); fixture.frame();
+  assert.ok(fixture.draws.at(-1).u_time > 0);
   fixture.images.get('first.jpg?_c=1').onload(); fixture.frame();
-  assert.equal(fixture.draws.at(-1).u_crossfade, 1);
-  fixture.render({ coverUrl: 'second.jpg', isPlaying: true, prefersReducedMotion: true });
+  fixture.render({ coverUrl: 'second.jpg', isPlaying: true });
   fixture.images.get('second.jpg?_c=1').onload(); fixture.frame();
-  assert.equal(fixture.draws.length, 3);
-  assert.equal(fixture.draws.at(-1).u_time, 0);
-  assert.equal(fixture.scheduler.frames.size, 0);
+  assert.ok(fixture.draws.at(-1).u_crossfade < 1);
+  assert.equal(fixture.scheduler.frames.size, 1);
   fixture.unmount();
+  assert.equal(fixture.scheduler.frames.size, 0);
 });
 
 test('live suspension stops drawing and resumes the unchanged animation speed', () => {
@@ -51,15 +48,17 @@ test('live suspension stops drawing and resumes the unchanged animation speed', 
   assert.equal(fixture.scheduler.frames.size, 0);
 });
 
-test('switching reduced-motion on while playing settles after one static frame and can resume', () => {
+test("pausing the fluid background holds time and resuming preserves its speed", () => {
   const fixture = createAppleFluidHarness();
-  fixture.render({ isPlaying: true }); fixture.frame();
-  fixture.render({ isPlaying: true, prefersReducedMotion: true }); fixture.frame();
-  assert.equal(fixture.draws.at(-1).u_time, 0);
+  fixture.render({ isPlaying: true }); fixture.frame(); fixture.frame();
+  const previous = fixture.draws.at(-1).u_time;
+  fixture.render({ isPlaying: false }); fixture.frame();
+  assert.equal(fixture.draws.at(-1).u_time, previous);
   assert.equal(fixture.scheduler.frames.size, 0);
-  fixture.render({ isPlaying: true, prefersReducedMotion: false }); fixture.frame();
-  assert.equal(fixture.draws.at(-1).u_time, 0);
-  assert.equal(fixture.scheduler.frames.size, 1);
+  fixture.render({ isPlaying: true }); fixture.frame();
+  assert.equal(fixture.draws.at(-1).u_time, previous);
+  fixture.frame();
+  assert.ok(fixture.draws.at(-1).u_time > previous);
   fixture.unmount();
 });
 

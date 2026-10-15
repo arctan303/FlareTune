@@ -42,7 +42,7 @@ test('ArtistDrawer implements collapsible hero banner compressing smoothly to co
   assert.match(drawer, /avatarRef/);
   assert.match(drawer, /photoBgRef/);
   assert.match(drawer, /sticky/);
-  assert.match(drawer, /prefers-reduced-motion: reduce/);
+
   assert.match(drawer, /getArtistDrawerMotion/);
 });
 

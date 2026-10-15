@@ -15,7 +15,7 @@ import {
 } from './useLyricsFetcher.js';
 
 const canonicalPayload = ({
-  source = 'kugou',
+  source = 'custom_krc',
   translation = ['现在 我们脱下鞋子', '走向海边'],
   translationState = translation ? 'ready' : 'missing',
   translationStartedAt = null,
@@ -25,8 +25,8 @@ const canonicalPayload = ({
   data: {
     version: 2,
     source,
-    format: source === 'kugou' ? 'krc' : 'lrc',
-    syncMode: source === 'kugou' ? 'word' : 'line',
+    format: source === 'custom_krc' ? 'krc' : 'lrc',
+    syncMode: source === 'custom_krc' ? 'word' : 'line',
     lines: [
       {
         time: 1,
@@ -40,7 +40,7 @@ const canonicalPayload = ({
       { time: 2, endTime: 3, text: '海へ歩く' },
     ],
     translation: translation ? {
-      source: 'kugou',
+      source: 'custom_krc',
       originalTextHash: 'hash-1',
       lines: translation,
     } : null,
@@ -177,13 +177,13 @@ const seedHarnessDocument = (harness, result, lyrics = cloneLyrics(result.lyrics
 
 test('request identity is one song asset and ignores old viewer/source dimensions', () => {
   const song = { id: 'same / song' };
-  assert.equal(getLyricsRequestKey(song, 'kugou', 'auth:a'), 'v3|same%20%2F%20song');
+  assert.equal(getLyricsRequestKey(song, 'custom_krc', 'auth:a'), 'v3|same%20%2F%20song');
   assert.equal(getLyricsRequestKey(song, 'lrclib', 'anon'), 'v3|same%20%2F%20song');
 });
 
 test('one response attaches static translations without changing original word timing', () => {
   const result = createLyricsResultFromResponse(canonicalPayload());
-  assert.equal(result.source, 'kugou');
+  assert.equal(result.source, 'custom_krc');
   assert.equal(result.syncMode, 'word');
   assert.equal(result.translationAvailable, true);
   assert.equal(result.lyrics[0].translation, '现在 我们脱下鞋子');
@@ -193,6 +193,23 @@ test('one response attaches static translations without changing original word t
   ]);
   assert.equal(result.offsetMs, 50);
   assert.deepEqual(result.provenance, { matchedTitle: '歌', matchedArtist: '歌手' });
+});
+
+test('named source documents reach the player with source identity, words and translation intact', async () => {
+  const source='lyric_'+'1'.repeat(32), song={id:'named-player',language:'ja'};
+  const payload=canonicalPayload({source,songId:song.id});
+  payload.data.format='krc'; payload.data.syncMode='word'; payload.data.translation.source=source;
+  const result=createLyricsResultFromResponse(payload);
+  assert.equal(normalizeLyricsResult(result).source,source);
+  const harness=createPlayerHarness(song);
+  await loadLyricsDocumentIntoStore({currentSong:song,resolvedHasLyrics:true,getPlayerState:harness.getPlayerState,
+    fetchLyrics:async()=>result});
+  assert.equal(harness.state.lyricsStatus,'ready');
+  assert.equal(harness.state.resolvedLyricSource,source);
+  assert.equal(harness.state.lyricSyncMode,'word');
+  assert.deepEqual(harness.state.lyrics[0].words,payload.data.lines[0].words);
+  assert.equal(harness.state.lyrics[0].translation,payload.data.translation.lines[0]);
+  assert.throws(()=>createLyricsResultFromResponse({...payload,data:{...payload.data,source:'lyric_invalid'}}),/Invalid canonical/);
 });
 
 test('translation button availability follows actual returned content', () => {
@@ -259,7 +276,7 @@ test('normal playback performs a fresh songId-only GET on each later visit', asy
   };
   try {
     const first = await fetchLyricsAsset(song, 'lrclib', 'auth:user');
-    const second = await fetchLyricsAsset(song, 'kugou', 'anon');
+    const second = await fetchLyricsAsset(song, 'custom_krc', 'anon');
     assert.equal(first.translationAvailable, true);
     assert.equal(second.translationAvailable, true);
   } finally {
@@ -361,7 +378,7 @@ test('store loader publishes original and translation availability atomically', 
     fetchLyrics: async () => createLyricsResultFromResponse(canonicalPayload()),
   });
   assert.equal(harness.state.lyricsStatus, 'ready');
-  assert.equal(harness.state.resolvedLyricSource, 'kugou');
+  assert.equal(harness.state.resolvedLyricSource, 'custom_krc');
   assert.equal(harness.state.lyricSyncMode, 'word');
   assert.equal(harness.state.translationAvailable, true);
   assert.equal(harness.state.translationState, 'ready');
@@ -425,7 +442,7 @@ test('ready refresh injects translation without replacing original lyric timing'
   assert.equal(harness.state.lyrics[0].words, words);
   assert.notEqual(harness.state.lyrics[0], originalLine);
   assert.equal('translation' in harness.state.lyrics[1], false, 'ready response clears an explicitly empty stale line');
-  assert.equal(harness.state.resolvedLyricSource, 'kugou');
+  assert.equal(harness.state.resolvedLyricSource, 'custom_krc');
   assert.equal(harness.state.lyricSyncMode, 'word');
   assert.equal(harness.state.translationState, 'ready');
   assert.equal(harness.state.currentLyricIndex, 4);
@@ -435,7 +452,7 @@ test('ready refresh injects translation without replacing original lyric timing'
 test('background precision upgrades wait for the next playback instead of replacing a polling timeline', async () => {
   const song = { id: 'upgrading', title: 'Song', language: 'ja' };
   const harness = createPlayerHarness(song);
-  const baseline = createLyricsResultFromResponse(canonicalPayload({ source: 'netease', translation: null,
+  const baseline = createLyricsResultFromResponse(canonicalPayload({ source: 'custom_lrc', translation: null,
     translationState: 'pending', translationStartedAt: '2026-09-11T00:00:00Z' }));
   seedHarnessDocument(harness, baseline, baseline.lyrics);
   const previous = harness.state.lyrics;
@@ -882,7 +899,7 @@ test('a confirmed lyric miss does not retry', async () => {
 
 test('the normal lyric hook stays source-agnostic while polling only an explicit pending state', () => {
   const source = readFileSync(new URL('./useLyricsFetcher.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /lyricSource|translationStatus|requestAiTranslation|\/api\/lyrics\/translation|source=/);
+  assert.doesNotMatch(source, /\blyricSource\b|translationStatus|requestAiTranslation|\/api\/lyrics\/translation|source=/);
   assert.match(source, /\/api\/lyrics\?songId=/);
   assert.match(source, /state\.translationState === 'pending'/);
   assert.match(source, /preserveExisting: true/);

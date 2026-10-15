@@ -42,19 +42,19 @@ const snapshotFactory = ({ idsBySource, load } = {}) => async (source) => ({
 test('inspection accepts only twelve source/id pairs and rejects bodies or duplicates', async () => {
   const createProviderSnapshot = snapshotFactory({ idsBySource: {}, load: async () => null });
   await assert.rejects(
-    inspectLyricCandidates(song, Array.from({ length: 13 }, (_, index) => candidate('kugou', `id-${index}`)), {
+    inspectLyricCandidates(song, Array.from({ length: 13 }, (_, index) => candidate('custom_krc', `id-${index}`)), {
       createProviderSnapshot,
     }),
     (error) => error instanceof LyricCandidateInspectionError && error.code === 'too_many_candidates',
   );
   await assert.rejects(
-    inspectLyricCandidates(song, [{ ...candidate('kugou', 'id-1'), lyrics: 'private body' }], {
+    inspectLyricCandidates(song, [{ ...candidate('custom_krc', 'id-1'), lyrics: 'private body' }], {
       createProviderSnapshot,
     }),
     (error) => error.code === 'invalid_candidate',
   );
   await assert.rejects(
-    inspectLyricCandidates(song, [candidate('kugou', 'id-1'), candidate('kugou', 'id-1')], {
+    inspectLyricCandidates(song, [candidate('custom_krc', 'id-1'), candidate('custom_krc', 'id-1')], {
       createProviderSnapshot,
     }),
     (error) => error.code === 'duplicate_candidate',
@@ -66,16 +66,16 @@ test('inspection searches each provider once, revalidates ids, and limits downlo
   let active = 0;
   let peak = 0;
   const inputs = [
-    candidate('kugou', 'kg-1'),
+    candidate('custom_krc', 'kg-1'),
     candidate('lrclib', 'lr-1'),
-    candidate('kugou', 'kg-2'),
+    candidate('custom_krc', 'kg-2'),
     candidate('lrclib', 'forged'),
   ];
   const result = await inspectLyricCandidates(song, inputs, {
     createProviderSnapshot: async (source) => {
       searches.push(source);
       return {
-        providerLyricIds: source === 'kugou' ? ['kg-1', 'kg-2'] : ['lr-1'],
+        providerLyricIds: source === 'custom_krc' ? ['kg-1', 'kg-2'] : ['lr-1'],
         loadDocument: async (providerLyricId) => {
           active += 1;
           peak = Math.max(peak, active);
@@ -87,7 +87,7 @@ test('inspection searches each provider once, revalidates ids, and limits downlo
     },
   });
 
-  assert.deepEqual(searches.sort(), ['kugou', 'lrclib']);
+  assert.deepEqual(searches.sort(), ['custom_krc', 'lrclib']);
   assert.equal(peak, 2);
   assert.deepEqual(result.items.map(({ state }) => state), ['ready', 'ready', 'ready', 'error']);
   assert.equal(result.items[3].error.code, 'candidate_not_found');
@@ -95,14 +95,14 @@ test('inspection searches each provider once, revalidates ids, and limits downlo
 
 test('safe projection separates original and static translation and strips provider metadata', async () => {
   const createProviderSnapshot = snapshotFactory({
-    idsBySource: { kugou: ['kg-1'], lrclib: ['lr-1'] },
+    idsBySource: { custom_krc: ['kg-1'], lrclib: ['lr-1'] },
     load: async (source, providerLyricId) => documentFor(source, providerLyricId, {
-      syncMode: source === 'kugou' ? 'word' : 'line',
-      translation: source === 'kugou',
+      syncMode: source === 'custom_krc' ? 'word' : 'line',
+      translation: source === 'custom_krc',
     }),
   });
   const result = await inspectLyricCandidates(song, [
-    candidate('kugou', 'kg-1'), candidate('lrclib', 'lr-1'),
+    candidate('custom_krc', 'kg-1'), candidate('lrclib', 'lr-1'),
   ], { createProviderSnapshot });
 
   assert.equal(result.truncated, false);
@@ -116,14 +116,14 @@ test('safe projection separates original and static translation and strips provi
 });
 
 test('candidate/document identity mismatch is isolated as a safe item error', async () => {
-  const result = await inspectLyricCandidates(song, [candidate('kugou', 'kg-1')], {
+  const result = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-1')], {
     createProviderSnapshot: snapshotFactory({
-      idsBySource: { kugou: ['kg-1'] },
-      load: async () => documentFor('kugou', 'another-id'),
+      idsBySource: { custom_krc: ['kg-1'] },
+      load: async () => documentFor('custom_krc', 'another-id'),
     }),
   });
   assert.deepEqual(result.items[0], {
-    source: 'kugou',
+    source: 'custom_krc',
     providerLyricId: 'kg-1',
     state: 'error',
     error: { code: 'download_failed' },
@@ -133,10 +133,10 @@ test('candidate/document identity mismatch is isolated as a safe item error', as
 test('provider and candidate failures stay partial and never expose upstream messages', async () => {
   const secret = 'https://lyrics.example/download?accesskey=do-not-leak';
   const result = await inspectLyricCandidates(song, [
-    candidate('kugou', 'kg-1'), candidate('lrclib', 'lr-1'), candidate('lrclib', 'lr-2'),
+    candidate('custom_krc', 'kg-1'), candidate('lrclib', 'lr-1'), candidate('lrclib', 'lr-2'),
   ], {
     createProviderSnapshot: async (source) => {
-      if (source === 'kugou') {
+      if (source === 'custom_krc') {
         const error = new Error(secret);
         error.kind = 'network';
         throw error;
@@ -159,14 +159,14 @@ test('provider and candidate failures stay partial and never expose upstream mes
 
 test('single-upstream and whole-batch deadlines return safe per-item failures', async () => {
   const never = () => new Promise(() => {});
-  const upstream = await inspectLyricCandidates(song, [candidate('kugou', 'kg-1')], {
+  const upstream = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-1')], {
     createProviderSnapshot: never,
     upstreamTimeoutMs: 10,
     batchTimeoutMs: 100,
   });
   assert.equal(upstream.items[0].error.code, 'search_timeout');
 
-  const batch = await inspectLyricCandidates(song, [candidate('kugou', 'kg-1')], {
+  const batch = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-1')], {
     createProviderSnapshot: async () => ({ providerLyricIds: ['kg-1'], loadDocument: never }),
     upstreamTimeoutMs: 100,
     batchTimeoutMs: 10,
@@ -176,7 +176,7 @@ test('single-upstream and whole-batch deadlines return safe per-item failures', 
 
 test('caller abort stops inspection even when an injected upstream ignores its signal', async () => {
   const controller = new AbortController();
-  const pending = inspectLyricCandidates(song, [candidate('kugou', 'kg-1')], {
+  const pending = inspectLyricCandidates(song, [candidate('custom_krc', 'kg-1')], {
     createProviderSnapshot: () => new Promise(() => {}),
     signal: controller.signal,
     upstreamTimeoutMs: 1_000,
@@ -191,10 +191,10 @@ test('caller abort stops inspection even when an injected upstream ignores its s
 
 test('oversized previews degrade to compact item errors below the response cap', async () => {
   const hugeText = 'A'.repeat(2_000);
-  const result = await inspectLyricCandidates(song, [candidate('kugou', 'kg-1')], {
+  const result = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-1')], {
     createProviderSnapshot: snapshotFactory({
-      idsBySource: { kugou: ['kg-1'] },
-      load: async () => documentFor('kugou', 'kg-1', {
+      idsBySource: { custom_krc: ['kg-1'] },
+      load: async () => documentFor('custom_krc', 'kg-1', {
         text: hugeText,
         syncMode: 'line',
         translation: false,
@@ -210,13 +210,13 @@ test('oversized previews degrade to compact item errors below the response cap',
 test('response budgeting accounts for the extra byte in the final false truncated flag', async () => {
   const options = {
     createProviderSnapshot: snapshotFactory({
-      idsBySource: { kugou: ['kg-1'] },
-      load: async () => documentFor('kugou', 'kg-1', { translation: false }),
+      idsBySource: { custom_krc: ['kg-1'] },
+      load: async () => documentFor('custom_krc', 'kg-1', { translation: false }),
     }),
   };
-  const full = await inspectLyricCandidates(song, [candidate('kugou', 'kg-1')], options);
+  const full = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-1')], options);
   const oneByteBelowFull = new TextEncoder().encode(JSON.stringify({ ...full, truncated: true })).byteLength;
-  const bounded = await inspectLyricCandidates(song, [candidate('kugou', 'kg-1')], {
+  const bounded = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-1')], {
     ...options,
     maxResponseBytes: oneByteBelowFull,
   });
@@ -237,7 +237,7 @@ test('published limits preserve the Phase 73 safety budget', () => {
 });
 
 test('callers may tighten but cannot relax concurrency, timeout, or response limits', async () => {
-  const inputs = [candidate('kugou', 'kg-1')];
+  const inputs = [candidate('custom_krc', 'kg-1')];
   const createProviderSnapshot = snapshotFactory({ idsBySource: {}, load: async () => null });
   for (const options of [
     { downloadConcurrency: 3 },
@@ -255,7 +255,7 @@ test('callers may tighten but cannot relax concurrency, timeout, or response lim
 
 test('candidate projection treats translation as binary available/absent and never emits partial_translation', async () => {
   const lyricsWithUntranslatedMetadata = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     providerMeta: {
       providerLyricId: 'kg-meta',
@@ -270,9 +270,9 @@ test('candidate projection treats translation as binary available/absent and nev
     ],
   });
 
-  const result = await inspectLyricCandidates(song, [candidate('kugou', 'kg-meta')], {
+  const result = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-meta')], {
     createProviderSnapshot: snapshotFactory({
-      idsBySource: { kugou: ['kg-meta'] },
+      idsBySource: { custom_krc: ['kg-meta'] },
       load: async () => lyricsWithUntranslatedMetadata,
     }),
   });
@@ -285,7 +285,7 @@ test('candidate projection treats translation as binary available/absent and nev
 
 test('inspection emits version_mismatch warning when candidate document has version mismatch', async () => {
   const mismatchedDoc = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     providerMeta: {
       providerLyricId: 'kg-mismatch',
@@ -298,9 +298,9 @@ test('inspection emits version_mismatch warning when candidate document has vers
     ],
   });
 
-  const result = await inspectLyricCandidates(song, [candidate('kugou', 'kg-mismatch')], {
+  const result = await inspectLyricCandidates(song, [candidate('custom_krc', 'kg-mismatch')], {
     createProviderSnapshot: snapshotFactory({
-      idsBySource: { kugou: ['kg-mismatch'] },
+      idsBySource: { custom_krc: ['kg-mismatch'] },
       load: async () => mismatchedDoc,
     }),
   });

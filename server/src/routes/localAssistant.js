@@ -66,7 +66,7 @@ const changes = (result) => Number(result?.meta?.changes ?? result?.changes ?? 0
 const rows = (result) => result?.results || [];
 const fail = (error, headers) => json({ error }, error === 'invalid_input' ? 400 : 503, headers);
 
-const messageDto = (row) => {
+const messageDto = (row, { privateContext = false } = {}) => {
   let extra = null;
   try { extra = row.extra_json ? JSON.parse(row.extra_json) : null; } catch {}
   return {
@@ -83,6 +83,7 @@ const messageDto = (row) => {
     ...(extra?.isError === true ? { isError: true, errorCode: extra.errorCode } : {}),
     ...(typeof extra?.partialContent === 'string' ? { partialContent: extra.partialContent } : {}),
     ...(Array.isArray(extra?.imageIds) ? { images: attachmentDto(extra.imageIds) } : {}),
+    ...(privateContext && extra?.savedContext ? { savedContext: extra.savedContext } : {}),
     createdAt: Number(row.created_at),
   };
 };
@@ -95,21 +96,33 @@ async function ensureThread(db, accountId, now = Date.now()) {
 
 export async function getLocalAssistantThread(db, accountId, { privateContext = false } = {}) {
   await ensureThread(db, accountId);
-  const thread = await db.prepare(`SELECT revision, created_at, updated_at FROM music_chat_threads
+  const thread = await db.prepare(`SELECT revision, next_sequence, created_at, updated_at,
+    (SELECT client_message_id FROM music_chat_turns active
+      WHERE active.account_id = music_chat_threads.account_id AND active.status = 'running'
+      ORDER BY created_at DESC LIMIT 1) AS pending_client_message_id FROM music_chat_threads
     WHERE account_id = ?`).bind(accountId).first();
+  // D1 must discard private payloads before transferring/decoding public history.
+  // Only the model's context window needs native continuation blocks. In-flight
+  // checkpoints are read separately by recovery and never belong in history DTOs.
+  const safeExtra = "CASE WHEN json_valid(extra_json) THEN extra_json ELSE '{}' END";
+  const publicExtra = `json_remove(${safeExtra}, '$.checkpoint', '$.savedContext')`;
+  const historyExtra = privateContext
+    ? `CASE WHEN sequence >= ? THEN json_remove(${safeExtra}, '$.checkpoint') ELSE ${publicExtra} END`
+    : publicExtra;
   const messages = rows(await db.prepare(`SELECT * FROM (
-    SELECT id, sequence, role, content, extra_json, client_message_id, turn_id, created_at
+    SELECT id, sequence, role, content, ${historyExtra} AS extra_json, client_message_id, turn_id, created_at
     FROM music_chat_thread_messages WHERE account_id = ?
     ORDER BY sequence DESC LIMIT ?
-  ) latest ORDER BY sequence ASC`).bind(accountId, MAX_THREAD_MESSAGES).all());
+  ) latest ORDER BY sequence ASC`).bind(
+    ...(privateContext ? [Number(thread.next_sequence) - MAX_CONTEXT_MESSAGES] : []),
+    accountId, MAX_THREAD_MESSAGES).all());
   return {
     id: `thread_${accountId}`,
     revision: Number(thread?.revision || 0),
     createdAt: Number(thread?.created_at || 0),
     updatedAt: Number(thread?.updated_at || 0),
-    messages: messages.map(row => ({ ...messageDto(row), ...(privateContext ? (() => {
-      try { const extra = JSON.parse(row.extra_json || '{}'); return { savedContext: extra.savedContext }; } catch { return {}; }
-    })() : {}) })),
+    pendingTurn: thread?.pending_client_message_id ? { clientMessageId: thread.pending_client_message_id } : null,
+    messages: messages.map(row => messageDto(row, { privateContext })),
   };
 }
 
@@ -279,8 +292,10 @@ async function parseBody(request) {
 }
 
 function threadConflict(thread, headers, duplicate = false) {
-  return json({ error: duplicate ? 'duplicate_message' : 'thread_conflict',
-    message: duplicate ? '这条消息已经提交，请刷新查看结果。' : '对话已在其他页面更新，请刷新后重试。',
+  const inProgress = !duplicate && Boolean(thread.pendingTurn);
+  return json({ error: duplicate ? 'duplicate_message' : inProgress ? 'request_in_progress' : 'thread_conflict',
+    message: duplicate ? '这条消息已经提交，请刷新查看结果。' : inProgress
+      ? assistantFailureReason('request_in_progress') : '对话已在其他页面更新，请刷新后重试。',
     thread, revision: thread.revision }, 409, headers);
 }
 

@@ -59,7 +59,7 @@ test('classic fullscreen maintains responsive player layout baseline and styles'
   assert.match(classicPlayer, /layoutRef: controlsRef/);
   assert.match(classicPlayer, /absolute top-6 left-6 z-30 hidden lg:flex/);
   assert.match(classicPlayer, /classic-player__toolbar/);
-  assert.match(classicPlayer, /<PlayerSkinEntry variant="classic" \/>/);
+  assert.doesNotMatch(classicPlayer, /PlayerSkinEntry/);
   assert.match(app, /<PlayerBar motionProfile=\{motionProfile\}/);
   assert.match(playerBar, /isImmersiveMode = playerMode === 'cinematic'/);
   assert.doesNotMatch(playerBar, /portrait/);

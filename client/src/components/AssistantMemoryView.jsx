@@ -16,7 +16,7 @@ function MemoryTime({ value, label, formatter }) {
 
 export default function AssistantMemoryView() {
   const locale = useLocale();
-  const dateFormatter = React.useMemo(() => new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en', {
+  const dateFormatter = React.useMemo(() => new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : locale, {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }), [locale]);
   const session = useUIStore((state) => state.authSession);

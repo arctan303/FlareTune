@@ -1,4 +1,5 @@
 import { t } from '../i18n/index.js';
+import { createDailyRecommendationPlaylist } from '../services/dailyRecommendations.js';
 import React from 'react';
 import { ArrowRight, Pause, Play } from 'lucide-react';
 import LazyImage from './LazyImage.jsx';
@@ -10,6 +11,7 @@ import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import HorizontalScrollButtons from './catalog/HorizontalScrollButtons.jsx';
 import { horizontalScrollState, moveHorizontalScroll } from './catalog/horizontalScroll.js';
 import { hasPreviewOverflow } from './catalog/previewVisibility.js';
+import { CONTENT_SHELF_WIDTH, CONTENT_SHELF_GAP } from './catalog/songColumnLayout.js';
 import { hydrateSong } from '../utils.js';
 import { deriveTopArtists } from '../utils/topArtists.js';
 import { getPlaylistCoverUrls } from '../utils/playlistCover.js';
@@ -58,7 +60,9 @@ function FeaturedCardShelf({ children }) {
     moveHorizontalScroll(viewport, direction, pitch);
   };
 
-  return <section className="editorial-grid" aria-label={t("精选内容")}>
+  return <section className="editorial-grid" aria-label={t("精选内容")} style={{
+    '--editorial-card-width': `${CONTENT_SHELF_WIDTH}px`, '--editorial-gap': `${CONTENT_SHELF_GAP}px`,
+  }}>
     <div ref={viewportRef} className="editorial-grid__viewport" onScroll={updateScroll}
       tabIndex={0} role="region" aria-label={t("精选内容，横向滚动查看更多")}>
       {children}
@@ -74,6 +78,10 @@ export default function HomeOverview({
   favoriteDetail,
   likedSongs = [],
   randomSongs = [],
+  recommendationLoading = false,
+  recommendationRefreshing = false,
+  recommendationError = null,
+  onRetryRecommendations,
   resolvedTopSongs = [],
   currentSong,
   isPlaying,
@@ -177,7 +185,7 @@ export default function HomeOverview({
     return urls;
   }, [leadPlaylistSongs, leadPlaylist, resolvedTopSongs, randomSongs]);
 
-  // 构建用于无限循环跑马灯的双排封面队列（去重后至少 3 张才启用跑马灯）
+  // 构建用于静态唱片照片墙的双排封面队列（去重后至少 3 张才启用照片墙）
   const marqueeRows = React.useMemo(() => {
     if (leadPlaylistCovers.length < 3) return null;
     const pool = leadPlaylistCovers.slice(0, 10);
@@ -185,19 +193,18 @@ export default function HomeOverview({
     while (base.length < 6) {
       base = base.concat(pool);
     }
-    const r1 = shuffleList(base, 3);
-    const r2 = shuffleList(base, 7);
+    const r1 = shuffleList(base, 3).slice(0, 6);
+    const r2 = shuffleList(base, 7).slice(0, 6);
     return {
-      row1: [...r1, ...r1],
-      row2: [...r2, ...r2],
+      row1: r1,
+      row2: r2,
     };
   }, [leadPlaylistCovers]);
 
   // 焦点单曲推荐
   const featuredSongs = React.useMemo(() => {
-    const pool = randomSongs?.length ? randomSongs : likedSongs;
-    return pool.map(hydrateSong).filter(Boolean).slice(0, 8);
-  }, [randomSongs, likedSongs]);
+    return randomSongs.map(hydrateSong).filter(Boolean).slice(0, 8);
+  }, [randomSongs]);
   const leadSong = featuredSongs[0] || null;
 
   // 提取用于卡片 B 3D 折叠扇（Fan-out）的前 3 首封面与单曲
@@ -217,15 +224,8 @@ export default function HomeOverview({
 
   // 打开完整的今日精选歌曲界面
   const handleOpenDailyRecommend = (e) => {
-    if (!featuredSongs.length) return;
     if (typeof openPlaylist === 'function') {
-      openPlaylist({
-        id: 'daily-recommend',
-        name: '今日精选',
-        cover_url: leadSong?.cover_url,
-        preloadedSongs: featuredSongs,
-        description: `每日精选 ${featuredSongs.length} 首灵感推荐`,
-      }, e);
+      openPlaylist(createDailyRecommendationPlaylist(randomSongs), e);
     }
   };
 
@@ -343,8 +343,8 @@ export default function HomeOverview({
         <button
           type="button"
           className={`editorial-card editorial-card--song ${isLeadSongPlaying ? 'is-playing' : ''}`}
-          onClick={(event) => leadSong && handleOpenDailyRecommend(event)}
-          disabled={!leadSong}
+          onClick={handleOpenDailyRecommend}
+          aria-busy={recommendationLoading || recommendationRefreshing}
         >
           {fanoutSongs.length >= 2 ? (
             <>
@@ -387,8 +387,14 @@ export default function HomeOverview({
               ) : null}
               <span>{t("今日精选")}</span>
             </span>
-            <strong>{leadSong?.title || t("等待新的旋律")}</strong>
-            <span>{leadSong?.artist || t("探索更多曲目")}</span>
+            {recommendationLoading && !leadSong ? <>
+              <span className="catalog-skeleton__block h-7 w-3/4" aria-hidden="true" />
+              <span className="catalog-skeleton__block h-4 w-1/2" aria-hidden="true" />
+              <span className="sr-only">{t("正在加载…")}</span>
+            </> : <>
+              <strong>{leadSong?.title || t(recommendationError ? "推荐暂时不可用" : "暂无可播放歌曲")}</strong>
+              {leadSong?.artist && <span>{leadSong.artist}</span>}
+            </>}
           </span>
           {leadSong && (
             <span
@@ -422,6 +428,11 @@ export default function HomeOverview({
           <span className="editorial-card__play" aria-hidden="true"><ArrowRight size={19} strokeWidth={2.3} /></span>
         </button>
       </FeaturedCardShelf>
+
+      {recommendationError ? <div className="app-inline-notice" role="alert">
+        <span>{t(recommendationError)}</span>
+        <button type="button" className="app-section-link" onClick={onRetryRecommendations} disabled={recommendationRefreshing}>{t("重试")}</button>
+      </div> : recommendationRefreshing && !recommendationLoading ? <p className="text-sm text-[var(--muted)]" role="status">{t("正在更新推荐…")}</p> : null}
 
       {accountStatus === 'error' && (
         <div className="app-inline-notice" role="alert">

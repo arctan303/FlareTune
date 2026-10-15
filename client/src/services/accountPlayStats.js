@@ -1,3 +1,4 @@
+import { runtimeFetch } from './runtimeFetch.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { requestAccountJson } from './accountApiRequest.js';
 
@@ -15,7 +16,7 @@ export async function fetchAccountPlayStats({
   limit = 20,
   summaryOnly = false,
   expectedSubject,
-  fetchImpl = globalThis.fetch,
+  fetchImpl = runtimeFetch,
   apiBase,
 } = {}) {
   const base = typeof apiBase === 'string' ? apiBase.replace(/\/$/, '') : getApiBaseUrl();
@@ -34,7 +35,7 @@ export async function fetchAccountPlayStats({
 
 export async function submitAccountPlayStats(events, {
   expectedSubject,
-  fetchImpl = globalThis.fetch,
+  fetchImpl = runtimeFetch,
   apiBase,
   keepalive = false,
 } = {}) {

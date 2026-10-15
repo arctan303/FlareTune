@@ -36,7 +36,7 @@ const stripVersionQualifiers = (value) => {
   return stripped.replace(/[（(【\[]\s*(?:版|version)?\s*[）)】\]]/giu, ' ');
 };
 
-export function stripKugouTitleSuffixes(value) {
+export function stripCustomKrcTitleSuffixes(value) {
   let title = String(value || '').trim();
   let previous = '';
   while (title && title !== previous && TRAILING_TITLE_GROUP.test(title)) {
@@ -52,7 +52,7 @@ export function stripKugouTitleSuffixes(value) {
 
 const titleIdentityKeys = (value) => new Set([
   normalizeComparable(stripVersionQualifiers(value)),
-  normalizeComparable(stripKugouTitleSuffixes(value)),
+  normalizeComparable(stripCustomKrcTitleSuffixes(value)),
 ].filter(Boolean));
 
 export const splitArtistKeys = (value) => String(value || '')
@@ -172,12 +172,12 @@ export function rankLyricCandidates(candidates, song, options) {
     ));
 }
 
-const formatKugouKeyword = (artist, title) => (artist ? `${artist}-${title}` : title);
+const formatCustomKrcKeyword = (artist, title) => (artist ? `${artist}-${title}` : title);
 
-export function buildKugouSearchKeywords(song) {
+export function buildCustomKrcSearchKeywords(song) {
   const title = String(song?.title || song?.name || '').trim();
   if (!title) return [];
-  const simplifiedTitle = stripKugouTitleSuffixes(title) || title;
+  const simplifiedTitle = stripCustomKrcTitleSuffixes(title) || title;
   const artist = String(song?.artist || '').trim();
   const artistLabels = splitArtistLabels(artist);
   const primaryArtist = artistLabels[0] || '';
@@ -186,24 +186,24 @@ export function buildKugouSearchKeywords(song) {
   const normalizedArtists = artistLabels.join('、');
   const normalizedCombined = combinedArtists.join('、');
   const variants = [
-    formatKugouKeyword(artist, title),
-    formatKugouKeyword(artist, simplifiedTitle),
-    formatKugouKeyword(normalizedArtists, simplifiedTitle),
-    formatKugouKeyword(artistLabels[0] || '', simplifiedTitle),
+    formatCustomKrcKeyword(artist, title),
+    formatCustomKrcKeyword(artist, simplifiedTitle),
+    formatCustomKrcKeyword(normalizedArtists, simplifiedTitle),
+    formatCustomKrcKeyword(artistLabels[0] || '', simplifiedTitle),
     ...(combinedArtists.length > artistLabels.length ? [
-      formatKugouKeyword(normalizedCombined, simplifiedTitle),
-      formatKugouKeyword(combinedArtists.slice(0, 2).join('、'), simplifiedTitle),
-      ...featArtists.map((feat) => formatKugouKeyword(feat, simplifiedTitle)),
+      formatCustomKrcKeyword(normalizedCombined, simplifiedTitle),
+      formatCustomKrcKeyword(combinedArtists.slice(0, 2).join('、'), simplifiedTitle),
+      ...featArtists.map((feat) => formatCustomKrcKeyword(feat, simplifiedTitle)),
     ] : []),
   ];
   return [...new Set(variants.map((value) => value.trim()).filter(Boolean))].slice(0, 6);
 }
 
-export function buildKugouSearchKeyword(song) {
-  return buildKugouSearchKeywords(song)[0] || '';
+export function buildCustomKrcSearchKeyword(song) {
+  return buildCustomKrcSearchKeywords(song)[0] || '';
 }
 
-export function buildKugouDurationMsCandidates(duration) {
+export function buildCustomKrcDurationMsCandidates(duration) {
   const norm = normalizeDurationSeconds(duration);
   if (norm === null) return [null];
   const floorSec = Math.floor(norm);
@@ -216,10 +216,10 @@ export function buildKugouDurationMsCandidates(duration) {
 
 export const createProviderMeta = (provider, candidate, score) => ({
   providerLyricId: candidate?.id === undefined ? undefined : String(candidate.id),
-  matchedTitle: String(candidateValue(candidate, provider === 'kugou'
+  matchedTitle: String(candidateValue(candidate, provider === 'custom_krc'
     ? ['song', 'songname']
     : ['trackName', 'name'])),
-  matchedArtist: String(candidateValue(candidate, provider === 'kugou'
+  matchedArtist: String(candidateValue(candidate, provider === 'custom_krc'
     ? ['singer', 'singername']
     : ['artistName'])),
   matchedDuration: normalizeDurationSeconds(candidateValue(candidate, ['duration'])),
@@ -236,13 +236,13 @@ export const createSafeCandidateDto = (provider, selection) => {
   return {
     source: provider,
     providerLyricId,
-    matchedTitle: String(candidateValue(candidate, provider === 'kugou'
+    matchedTitle: String(candidateValue(candidate, provider === 'custom_krc'
       ? ['song', 'songname']
       : ['trackName', 'name'])),
-    matchedArtist: String(candidateValue(candidate, provider === 'kugou'
+    matchedArtist: String(candidateValue(candidate, provider === 'custom_krc'
       ? ['singer', 'singername']
       : ['artistName'])),
-    matchedAlbum: String(candidateValue(candidate, provider === 'kugou'
+    matchedAlbum: String(candidateValue(candidate, provider === 'custom_krc'
       ? ['album', 'album_name']
       : ['albumName'])),
     matchedDuration: normalizeDurationSeconds(candidateValue(candidate, ['duration'])),

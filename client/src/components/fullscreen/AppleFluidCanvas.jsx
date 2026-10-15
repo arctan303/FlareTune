@@ -74,145 +74,144 @@ export function extractAppleMusicPalette(imgElement) {
 }
 
 /* ==========================================================================
-   Apple Music 原生动态流体着色器 (带智能亮度压制与歌词区高对比度遮罩)
+   Apple Music 优雅流体背景着色器管线（正交 2D 分离高斯模糊 + 封面后置涡旋）
    ========================================================================== */
 
-const VS_SOURCE = `
-attribute vec2 a_position;
-varying vec2 v_uv;
+const APPLE_FLUID_PARAMS = {
+    rot: [0.003, -0.008, -0.006, 0.004],    // 每 30fps 归一帧自转角速度 (rad)
+    spriteW: [1.25, 0.8, 0.5, 0.25],        // 4 张精灵尺度比例
+    orbitRatio: 0.75,                       // 公转轨道角速度倍率
+    orbitRadius: 0.25,                      // 公转轨道半径 = 宽度 × 0.25
+    orbitCenterOffset: 0.05,                // 第 4 张精灵的圆心偏移 = 宽度 × 0.05
+    reducedRot: 0.001,                      // 减弱动态偏好时的自转速率
+    twistAngle: -1.75,                      // 优雅水流涡旋角（避免过度扭绞成蚊香盘）
+    blurSigma: 10.0,                        // 正交 2D 高斯模糊半径
+    saturation: 1.70,                       // 调优后的人性化饱和度（避免浅色封面过饱和刺眼）
+    brightness: 0.85,                       // 通透度
+    contrast: 1.25,                         // 柔和对比度（避免暗部死黑或亮部炸开）
+    black: 0.45,                            // 影院级暗部下沉
+    white: 0.04,                            // 5% 柔雾提亮
+};
 
+const VS_FULL = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
 void main() {
-    v_uv = (a_position + 1.0) * 0.5;
-    gl_Position = vec4(a_position, 0.0, 1.0);
+    v_uv = a_pos * 0.5 + 0.5;
+    gl_Position = vec4(a_pos, 0.0, 1.0);
 }
 `;
 
-const FS_SOURCE = `
-precision highp float;
-
+const VS_SPRITE = `
+attribute vec2 a_pos;
+uniform mat3 u_matrix;
 varying vec2 v_uv;
-
-uniform sampler2D u_tex_current;
-uniform sampler2D u_tex_prev;
-uniform float u_crossfade; // 0.0 -> 1.0
-uniform float u_time;
-uniform vec2 u_resolution;
-uniform float u_aspect;
-
-// Simplex 2D 连续流体噪声
-vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-vec3 permute(vec3 x) { return mod289(((x * 34.0) + 1.0) * x); }
-
-float snoise(vec2 v) {
-    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-    vec2 i  = floor(v + dot(v, C.yy));
-    vec2 x0 = v -   i + dot(i, C.xx);
-    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-    vec4 x12 = x0.xyxy + C.xxzz;
-    x12.xy -= i1;
-    i = mod289(i);
-    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
-    vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
-    m = m * m;
-    m = m * m;
-    vec3 x = 2.0 * fract(p * C.www) - 1.0;
-    vec3 h = abs(x) - 0.5;
-    vec3 ox = floor(x + 0.5);
-    vec3 a0 = x - ox;
-    m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
-    vec3 g;
-    g.x  = a0.x  * x0.x  + h.x  * x0.y;
-    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-    return 130.0 * dot(m, g);
+void main() {
+    vec3 p = u_matrix * vec3(a_pos, 1.0);
+    gl_Position = vec4(p.xy, 0.0, 1.0);
+    v_uv = a_pos + 0.5;
 }
+`;
 
-// 多光团有机流体渲染器 (Apple Music 经典动态光斑交织系统)
-vec3 evaluateFluid(sampler2D tex, vec2 uv, float t) {
-    vec2 aspectP = vec2((uv.x - 0.5) * u_aspect + 0.5, uv.y);
+const FS_SPRITE = `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform float u_alpha;
+varying vec2 v_uv;
+void main() {
+    vec4 c = texture2D(u_tex, clamp(v_uv, 0.0, 1.0));
+    gl_FragColor = vec4(c.rgb, c.a * u_alpha);
+}
+`;
 
-    // 1. 低频有机微扰动 (让光团边缘呈柔和液态拉伸)
-    float warp = snoise(aspectP * 1.15 + vec2(t * 0.12, -t * 0.10)) * 0.12;
-    vec2 pWarped = aspectP + vec2(warp, -warp * 0.85);
+// 独立 Pass 2: 纯涡旋扭曲（将旋转中心动态置于封面后方）
+const FS_TWIST = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_tex;
+uniform vec2 u_area;
+uniform vec2 u_offset;
+uniform float u_radius;
+uniform float u_angle;
 
-    // 2. 三个主要色彩光团的平滑游弋轨迹 (从容沉静，每秒移动约 2% 屏幕距离，方向明确)
-    vec2 centerA = vec2(0.38 + sin(t * 0.24) * 0.24, 0.46 + cos(t * 0.19) * 0.19);
-    vec2 centerB = vec2(0.66 + cos(t * 0.21 + 1.4) * 0.26, 0.38 + sin(t * 0.26 + 0.6) * 0.22);
-    vec2 centerC = vec2(0.46 + sin(t * 0.17 + 2.8) * 0.22, 0.70 + cos(t * 0.22 + 1.2) * 0.18);
+vec2 toPx(vec2 uv) { return vec2(uv.x, 1.0 - uv.y) * u_area; }
+vec2 toUv(vec2 px) { return vec2(px.x / u_area.x, 1.0 - px.y / u_area.y); }
 
-    // 3. 计算每个光斑的影响半径与柔和高斯衰减
-    float distA = length(pWarped - centerA);
-    float distB = length(pWarped - centerB);
-    float distC = length(pWarped - centerC);
-
-    float wA = smoothstep(0.92, 0.05, distA);
-    float wB = smoothstep(0.82, 0.05, distB);
-    float wC = smoothstep(0.88, 0.05, distC);
-
-    // 4. 随着光团自身游弋坐标动态取样纹理 (色彩随位置流动而连续变幻)
-    vec2 uvA = clamp(vec2(centerA.x, centerA.y) + vec2(warp * 0.5, -warp * 0.5), 0.08, 0.92);
-    vec2 uvB = clamp(vec2(centerB.x, centerB.y) + vec2(-warp * 0.5, warp * 0.5), 0.08, 0.92);
-    vec2 uvC = clamp(vec2(centerC.x, centerC.y) + vec2(warp * 0.4, warp * 0.4), 0.08, 0.92);
-
-    vec3 colA = texture2D(tex, uvA).rgb;
-    vec3 colB = texture2D(tex, uvB).rgb;
-    vec3 colC = texture2D(tex, uvC).rgb;
-    vec3 colBase = texture2D(tex, vec2(0.50, 0.50)).rgb * 0.45;
-
-    // 5. 饱和度与活力提升 (防止暗色封面变成纯黑死色)
-    float lumA = dot(colA, vec3(0.299, 0.587, 0.114));
-    float lumB = dot(colB, vec3(0.299, 0.587, 0.114));
-    float lumC = dot(colC, vec3(0.299, 0.587, 0.114));
-    if (lumA < 0.15) colA += vec3(0.18, 0.12, 0.22);
-    if (lumB < 0.15) colB += vec3(0.12, 0.18, 0.24);
-    if (lumC < 0.15) colC += vec3(0.20, 0.14, 0.16);
-
-    // 6. 加权混合光斑
-    vec3 fluid = colBase;
-    fluid = mix(fluid, colA, wA * 0.80);
-    fluid = mix(fluid, colB, wB * 0.70);
-    fluid = mix(fluid, colC, wC * 0.65);
-
-    // 7. 色彩通透度与层次润色
-    float gray = dot(fluid, vec3(0.299, 0.587, 0.114));
-    fluid = mix(vec3(gray), fluid, 1.30);
-
-    return fluid;
+vec2 twist(vec2 uv) {
+    vec2 coord = toPx(uv);
+    vec2 c = coord - u_offset;
+    float dist = length(c);
+    if (dist < u_radius) {
+        float ratioDist = (u_radius - dist) / u_radius;
+        float angleMod = ratioDist * ratioDist * u_angle;
+        float s = sin(angleMod), co = cos(angleMod);
+        c = vec2(c.x * co - c.y * s, c.x * s + c.y * co);
+    }
+    return toUv(c + u_offset);
 }
 
 void main() {
-    float t = u_time;
+    vec2 sampleUv = clamp(twist(v_uv), 0.0, 1.0);
+    gl_FragColor = texture2D(u_tex, sampleUv);
+}
+`;
 
-    vec3 cur = evaluateFluid(u_tex_current, v_uv, t);
-    vec3 color = cur;
+// 独立 Pass 3: 严格一维笛卡尔横向高斯模糊（确保 2D 正交可分性，消除旋转条纹失真）
+const FS_BLUR_H = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_tex;
+uniform float u_texel_x;
+uniform float u_sigma;
 
-    if (u_crossfade < 0.999) {
-        vec3 prev = evaluateFluid(u_tex_prev, v_uv, t);
-        float ease = smoothstep(0.0, 1.0, u_crossfade);
-        color = mix(prev, cur, ease);
+void main() {
+    vec4 sum = vec4(0.0);
+    float wsum = 0.0;
+    for (int i = -16; i <= 16; i++) {
+        float fi = float(i);
+        float w = exp(-0.5 * fi * fi / (u_sigma * u_sigma + 1e-6));
+        sum += texture2D(u_tex, clamp(v_uv + vec2(fi * u_texel_x, 0.0), 0.0, 1.0)) * w;
+        wsum += w;
     }
+    gl_FragColor = sum / wsum;
+}
+`;
 
-    // 8. 影院级自然发光源：以左侧唱片为中心向外自然漫射
-    vec2 lightOrigin = vec2(0.28, 0.46);
-    float distFromCover = length(v_uv - lightOrigin);
-    float ambientFalloff = smoothstep(1.40, 0.15, distFromCover);
-    color = mix(color * 0.40, color, ambientFalloff);
+// 独立 Pass 4: 纵向高斯模糊 + 氛围调色 + 屏幕直出
+const FS_BLUR_V = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_tex;
+uniform float u_texel_y;
+uniform float u_sigma;
+uniform float u_saturation;
+uniform float u_brightness;
+uniform float u_contrast;
+uniform float u_black;
+uniform float u_white;
+uniform float u_time;
+uniform float u_crossfade;
 
-    // 9. 智能自适应亮度控制
-    float lum = dot(color, vec3(0.299, 0.587, 0.114));
-    float targetMaxLum = 0.52;
-    if (lum > targetMaxLum) {
-        color = mix(color * (targetMaxLum / lum), color, 0.25);
+void main() {
+    vec4 sum = vec4(0.0);
+    float wsum = 0.0;
+    for (int i = -16; i <= 16; i++) {
+        float fi = float(i);
+        float w = exp(-0.5 * fi * fi / (u_sigma * u_sigma + 1e-6));
+        sum += texture2D(u_tex, clamp(v_uv + vec2(0.0, fi * u_texel_y), 0.0, 1.0)) * w;
+        wsum += w;
     }
-
-    // 10. 歌词区域渐进式暗调过度 (右侧歌词区保证高对比度与纯净背景)
-    float lyricScrim = smoothstep(0.20, 0.85, v_uv.x);
-    color = mix(color, color * 0.45, lyricScrim * 0.60);
-
-    // 11. 底部控制台暗区沉淀
-    color *= mix(1.0, 0.80, smoothstep(0.55, 1.0, v_uv.y));
-
-    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+    vec4 c = sum / wsum;
+    if (c.a > 0.0) {
+        c.rgb /= c.a;
+        // Apple 经典 ColorMatrix 公式（以0.5中灰度做对比度与饱和度外插）
+        vec3 rgb = mix(vec3(0.5), mix(vec3(dot(vec3(0.2125, 0.7154, 0.0721), c.rgb)), c.rgb, u_saturation), u_contrast);
+        c.rgb = rgb * u_brightness;
+        c.rgb *= c.a;
+    }
+    vec3 outRgb = c.rgb * (1.0 - u_black);
+    outRgb = outRgb * (1.0 - u_white) + u_white;
+    gl_FragColor = vec4(clamp(outRgb, 0.0, 1.0), 1.0);
 }
 `;
 
@@ -246,6 +245,13 @@ function createProgram(gl, vsSource, fsSource) {
     return program;
 }
 
+function parseRgb(colorStr) {
+    if (!colorStr || typeof colorStr !== 'string') return null;
+    const match = colorStr.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!match) return null;
+    return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+}
+
 function createSolidTexture(gl, r, g, b) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -260,26 +266,85 @@ function createSolidTexture(gl, r, g, b) {
     return texture;
 }
 
-function processMacroColorTexture(gl, texture, image) {
-    const canvas = document.createElement('canvas');
-    const size = 64; // 64x64，保留封面四个象限的丰富真实色彩
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
+function createPaletteFallbackTexture(gl, palette) {
+    const c1 = parseRgb(palette?.dominant) || [48, 44, 56];
+    const c2 = parseRgb(palette?.secondary) || [64, 52, 72];
+    const c3 = parseRgb(palette?.accent) || [72, 60, 80];
+    const c4 = parseRgb(palette?.deep) || [28, 24, 36];
 
-    if ('filter' in ctx) {
-        ctx.filter = 'blur(1.5px) saturate(1.4) contrast(1.08)';
-    }
-    ctx.drawImage(image, 0, 0, size, size);
+    const data = new Uint8Array([
+        c1[0], c1[1], c1[2], 255,   c2[0], c2[1], c2[2], 255,
+        c3[0], c3[1], c3[2], 255,   c4[0], c4[1], c4[2], 255,
+    ]);
 
+    const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    return texture;
+}
+
+function processMacroColorTexture(gl, texture, image) {
+    try {
+        const canvas = document.createElement('canvas');
+        const size = 40; // 官方 40x40 极低分辨率微缩图
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(image, 0, 0, size, size);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        } else {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        }
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    } catch {
+        try {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        } catch {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(
+                gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0,
+                gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([28, 24, 36, 255])
+            );
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        }
+    }
+}
+
+function modelMatrix(x, y, size, angle, W, H) {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const a = c * size;
+    const b = s * size;
+    const cc = -s * size;
+    const d = c * size;
+    return new Float32Array([
+        (2 / W) * a, (-2 / H) * b, 0,
+        (2 / W) * cc, (-2 / H) * d, 0,
+        (2 / W) * x - 1, 1 - (2 / H) * y, 1,
+    ]);
 }
 
 /**
@@ -291,7 +356,6 @@ export default function AppleFluidCanvas({
     isPlaying = true,
     isBuffering = false,
     suspended = false,
-    prefersReducedMotion = false,
     className = '',
 }) {
     const routeRevision = usePrivateMediaRouteRevision();
@@ -299,76 +363,184 @@ export default function AppleFluidCanvas({
     const [textureAuthorization, setTextureAuthorization] = useState(null);
     const canvasRef = useRef(null);
     const glRef = useRef(null);
-    const programRef = useRef(null);
-    const uniformsRef = useRef(null);
+    const programsRef = useRef(null);
+    const buffersRef = useRef(null);
+    const fbosRef = useRef({ a: null, b: null });
     const texturesRef = useRef({ current: null, prev: null });
     const crossfadeRef = useRef({ startTime: 0, progress: 1.0 });
     const timeRef = useRef(0);
+    const rotRef = useRef([0, 0, 0, 0]);
     const lastFrameTimeRef = useRef(null);
     const animFrameRef = useRef(null);
     const lastCoverUrlRef = useRef('');
     const lastRouteRevisionRef = useRef(routeRevision);
     const lastCoverWasPrivateRef = useRef(false);
 
-    // 使用 Ref 解决 React 闭包陈旧状态导致动画循环死锁的问题
     const isPlayingRef = useRef(isPlaying);
     const isBufferingRef = useRef(isBuffering);
     const suspendedRef = useRef(suspended);
-    const prefersReducedMotionRef = useRef(prefersReducedMotion);
     isPlayingRef.current = isPlaying;
     isBufferingRef.current = isBuffering;
     suspendedRef.current = suspended || !pageVisible;
-    prefersReducedMotionRef.current = prefersReducedMotion;
 
-    // 渲染循环（内部始终读取最新的 Ref 状态）
     const renderLoop = (timestamp) => {
+        animFrameRef.current = null;
         const gl = glRef.current;
-        const program = programRef.current;
         const canvas = canvasRef.current;
-        if (!gl || !program || !canvas || suspendedRef.current) {
+        const programs = programsRef.current;
+        const buffers = buffersRef.current;
+        if (!gl || !canvas || !programs || suspendedRef.current) {
             lastFrameTimeRef.current = null;
-            animFrameRef.current = null;
             return;
         }
 
-        gl.useProgram(program);
-
-        const reducedMotion = prefersReducedMotionRef.current;
-        const playing = isPlayingRef.current && !isBufferingRef.current && !reducedMotion;
+        const playing = isPlayingRef.current && !isBufferingRef.current;
         if (playing) {
             const previous = lastFrameTimeRef.current;
-            // 原 60Hz 每帧 0.008；首帧/恢复帧仅建立时间基准，长间隔不跳跃。
             const elapsed = previous === null ? 0 : Math.max(0, timestamp - previous);
             timeRef.current += elapsed <= 250 ? elapsed * 0.00048 : 0;
+            const dt = elapsed <= 250 ? elapsed / 33.333333 : 0;
+            for (let i = 0; i < 4; i++) {
+                rotRef.current[i] += APPLE_FLUID_PARAMS.rot[i] * dt;
+            }
             lastFrameTimeRef.current = timestamp;
-        } else lastFrameTimeRef.current = null;
+        } else {
+            lastFrameTimeRef.current = null;
+        }
 
-        if (reducedMotion) {
-            crossfadeRef.current.progress = 1.0;
-        } else if (crossfadeRef.current.progress < 1.0) {
+        if (crossfadeRef.current.progress < 1.0) {
             const elapsed = performance.now() - crossfadeRef.current.startTime;
             crossfadeRef.current.progress = Math.min(1.0, elapsed / 850);
         }
 
-        const { uTime, uCrossfade, uResolution, uAspect, uTexCurrent, uTexPrev } = uniformsRef.current;
+        try {
+            const cw = canvas.width || 1;
+            const ch = canvas.height || 1;
+            const { progSprite, progTwist, progBlurH, progBlurV } = programs;
+            const { a: fboA, b: fboB } = fbosRef.current;
+            const curTex = texturesRef.current.current;
+            const prevTex = texturesRef.current.prev;
+            const isCrossfading = crossfadeRef.current.progress < 1.0 && prevTex && prevTex !== curTex;
 
-        gl.uniform1f(uTime, timeRef.current);
-        gl.uniform1f(uCrossfade, crossfadeRef.current.progress);
-        gl.uniform2f(uResolution, canvas.width, canvas.height);
-        gl.uniform1f(uAspect, canvas.width / Math.max(1, canvas.height));
+            if (fboA && fboB) {
+                // Pass 1: 4 个正方形精灵以不同角速度公转与自转，绘制至 FBO A
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fboA.f);
+                gl.viewport(0, 0, cw, ch);
+                // 优雅的深邃暗曜底色（避免纯白底导致浅色封面被漂白泛脏）
+                gl.clearColor(0.06, 0.05, 0.08, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texturesRef.current.current);
-        gl.uniform1i(uTexCurrent, 0);
+                gl.useProgram(progSprite.program);
+                gl.enable(gl.BLEND);
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, texturesRef.current.prev || texturesRef.current.current);
-        gl.uniform1i(uTexPrev, 1);
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers.unitQuad);
+                gl.enableVertexAttribArray(progSprite.attribs.aPos);
+                gl.vertexAttribPointer(progSprite.attribs.aPos, 2, gl.FLOAT, false, 0, 0);
 
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+                const w = cw;
+                const h = ch;
+                const orb = w * APPLE_FLUID_PARAMS.orbitRadius;
+                const off = w * APPLE_FLUID_PARAMS.orbitCenterOffset;
+                const rot = rotRef.current;
+                const layout = [
+                    { w: w * APPLE_FLUID_PARAMS.spriteW[0], x: w / 2, y: h / 2, rot: rot[0] },
+                    { w: w * APPLE_FLUID_PARAMS.spriteW[1], x: w / 2.5, y: h / 2.5, rot: rot[1] },
+                    { w: w * APPLE_FLUID_PARAMS.spriteW[2], x: w / 2 + orb * Math.cos(rot[2] * APPLE_FLUID_PARAMS.orbitRatio), y: h / 2 + orb * Math.sin(rot[2] * APPLE_FLUID_PARAMS.orbitRatio), rot: -rot[2] },
+                    { w: w * APPLE_FLUID_PARAMS.spriteW[3], x: w / 2 + off + orb * Math.cos(rot[3] * APPLE_FLUID_PARAMS.orbitRatio), y: h / 2 + off + orb * Math.sin(rot[3] * APPLE_FLUID_PARAMS.orbitRatio), rot: -rot[3] },
+                ];
+
+                const drawSpriteSet = (tex, alpha) => {
+                    if (!tex || alpha <= 0.001) return;
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, tex);
+                    gl.uniform1i(progSprite.uniforms.uTex, 0);
+                    for (let i = 0; i < 4; i++) {
+                        const item = layout[i];
+                        gl.uniformMatrix3fv(progSprite.uniforms.uMatrix, false, modelMatrix(item.x, item.y, item.w, item.rot, w, h));
+                        gl.uniform1f(progSprite.uniforms.uAlpha, alpha);
+                        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                    }
+                };
+
+                if (isCrossfading) {
+                    drawSpriteSet(prevTex, 1.0 - crossfadeRef.current.progress);
+                    drawSpriteSet(curTex, crossfadeRef.current.progress);
+                } else {
+                    drawSpriteSet(curTex, 1.0);
+                }
+
+                // Pass 2: 纯 Twist 涡旋变换 -> FBO B
+                // 关键优化：将涡旋眼精准对齐在封面后方，避免在歌词与封面中间露出机械旋转的涡旋中心
+                const isDesktop = cw >= 220; // 对应宽屏视口
+                const vortexOffsetX = isDesktop ? cw * 0.28 : cw * 0.50;
+                const vortexOffsetY = isDesktop ? ch * 0.46 : ch * 0.35;
+
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fboB.f);
+                gl.viewport(0, 0, cw, ch);
+                gl.disable(gl.BLEND);
+                gl.useProgram(progTwist.program);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers.fullQuad);
+                gl.enableVertexAttribArray(progTwist.attribs.aPos);
+                gl.vertexAttribPointer(progTwist.attribs.aPos, 2, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, fboA.t);
+                gl.uniform1i(progTwist.uniforms.uTex, 0);
+                gl.uniform2f(progTwist.uniforms.uArea, cw, ch);
+                gl.uniform2f(progTwist.uniforms.uOffset, vortexOffsetX, vortexOffsetY);
+                gl.uniform1f(progTwist.uniforms.uRadius, Math.max(cw, ch) * 0.95);
+                gl.uniform1f(progTwist.uniforms.uAngle, APPLE_FLUID_PARAMS.twistAngle);
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+                // Pass 3: 正交横向一维高斯模糊 -> FBO A
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fboA.f);
+                gl.viewport(0, 0, cw, ch);
+                gl.useProgram(progBlurH.program);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers.fullQuad);
+                gl.enableVertexAttribArray(progBlurH.attribs.aPos);
+                gl.vertexAttribPointer(progBlurH.attribs.aPos, 2, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, fboB.t);
+                gl.uniform1i(progBlurH.uniforms.uTex, 0);
+                gl.uniform1f(progBlurH.uniforms.uTexelX, 1.0 / cw);
+                gl.uniform1f(progBlurH.uniforms.uSigma, APPLE_FLUID_PARAMS.blurSigma);
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            }
+
+            // Pass 4: 正交纵向高斯模糊 + 人性化调色矩阵 + 屏幕画布直出
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, cw, ch);
+            gl.disable(gl.BLEND);
+            gl.useProgram(progBlurV.program);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.fullQuad);
+            gl.enableVertexAttribArray(progBlurV.attribs.aPos);
+            gl.vertexAttribPointer(progBlurV.attribs.aPos, 2, gl.FLOAT, false, 0, 0);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, fboA ? fboA.t : curTex);
+            gl.uniform1i(progBlurV.uniforms.uTex, 0);
+            gl.uniform1f(progBlurV.uniforms.uTexelY, 1.0 / ch);
+            gl.uniform1f(progBlurV.uniforms.uSigma, APPLE_FLUID_PARAMS.blurSigma);
+            gl.uniform1f(progBlurV.uniforms.uSaturation, APPLE_FLUID_PARAMS.saturation);
+            gl.uniform1f(progBlurV.uniforms.uBrightness, APPLE_FLUID_PARAMS.brightness);
+            gl.uniform1f(progBlurV.uniforms.uContrast, APPLE_FLUID_PARAMS.contrast);
+            gl.uniform1f(progBlurV.uniforms.uBlack, APPLE_FLUID_PARAMS.black);
+            gl.uniform1f(progBlurV.uniforms.uWhite, APPLE_FLUID_PARAMS.white);
+            gl.uniform1f(progBlurV.uniforms.uTime, timeRef.current);
+            gl.uniform1f(progBlurV.uniforms.uCrossfade, crossfadeRef.current.progress);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        } catch (err) {
+            console.warn('AppleFluidCanvas draw error:', err);
+        }
 
         const isTransitioning = crossfadeRef.current.progress < 1.0;
-        if (playing || isTransitioning) {
+        if ((playing || isTransitioning) && !suspendedRef.current) {
             animFrameRef.current = requestAnimationFrame(renderLoop);
         } else {
             animFrameRef.current = null;
@@ -377,57 +549,108 @@ export default function AppleFluidCanvas({
     };
 
     const triggerRender = () => {
+        if (suspendedRef.current) return;
         if (!animFrameRef.current) {
             animFrameRef.current = requestAnimationFrame(renderLoop);
         }
     };
 
-    // 初始化 WebGL 上下文
+    // 初始化 WebGL 上下文与着色器程序
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const gl = canvas.getContext('webgl', { 
+        const gl = canvas.getContext('webgl', {
             alpha: false,
             antialias: false,
-            powerPreference: 'high-performance' 
+            depth: false,
+            stencil: false,
+            powerPreference: 'low-power',
         }) || canvas.getContext('experimental-webgl');
-        
+
         if (!gl) return;
         glRef.current = gl;
 
-        const program = createProgram(gl, VS_SOURCE, FS_SOURCE);
-        if (!program) return;
-        programRef.current = program;
-        uniformsRef.current = {
-            uTime: gl.getUniformLocation(program, 'u_time'),
-            uCrossfade: gl.getUniformLocation(program, 'u_crossfade'),
-            uResolution: gl.getUniformLocation(program, 'u_resolution'),
-            uAspect: gl.getUniformLocation(program, 'u_aspect'),
-            uTexCurrent: gl.getUniformLocation(program, 'u_tex_current'),
-            uTexPrev: gl.getUniformLocation(program, 'u_tex_prev'),
+        const pSprite = createProgram(gl, VS_SPRITE, FS_SPRITE);
+        const pTwist = createProgram(gl, VS_FULL, FS_TWIST);
+        const pBlurH = createProgram(gl, VS_FULL, FS_BLUR_H);
+        const pBlurV = createProgram(gl, VS_FULL, FS_BLUR_V);
+
+        if (!pSprite || !pTwist || !pBlurH || !pBlurV) return;
+
+        programsRef.current = {
+            progSprite: {
+                program: pSprite,
+                attribs: { aPos: gl.getAttribLocation(pSprite, 'a_pos') },
+                uniforms: {
+                    uMatrix: gl.getUniformLocation(pSprite, 'u_matrix'),
+                    uTex: gl.getUniformLocation(pSprite, 'u_tex'),
+                    uAlpha: gl.getUniformLocation(pSprite, 'u_alpha'),
+                },
+            },
+            progTwist: {
+                program: pTwist,
+                attribs: { aPos: gl.getAttribLocation(pTwist, 'a_pos') },
+                uniforms: {
+                    uTex: gl.getUniformLocation(pTwist, 'u_tex'),
+                    uArea: gl.getUniformLocation(pTwist, 'u_area'),
+                    uOffset: gl.getUniformLocation(pTwist, 'u_offset'),
+                    uRadius: gl.getUniformLocation(pTwist, 'u_radius'),
+                    uAngle: gl.getUniformLocation(pTwist, 'u_angle'),
+                },
+            },
+            progBlurH: {
+                program: pBlurH,
+                attribs: { aPos: gl.getAttribLocation(pBlurH, 'a_pos') },
+                uniforms: {
+                    uTex: gl.getUniformLocation(pBlurH, 'u_tex'),
+                    uTexelX: gl.getUniformLocation(pBlurH, 'u_texel_x'),
+                    uSigma: gl.getUniformLocation(pBlurH, 'u_sigma'),
+                },
+            },
+            progBlurV: {
+                program: pBlurV,
+                attribs: { aPos: gl.getAttribLocation(pBlurV, 'a_pos') },
+                uniforms: {
+                    uTex: gl.getUniformLocation(pBlurV, 'u_tex'),
+                    uTexelY: gl.getUniformLocation(pBlurV, 'u_texel_y'),
+                    uSigma: gl.getUniformLocation(pBlurV, 'u_sigma'),
+                    uSaturation: gl.getUniformLocation(pBlurV, 'u_saturation'),
+                    uBrightness: gl.getUniformLocation(pBlurV, 'u_brightness'),
+                    uContrast: gl.getUniformLocation(pBlurV, 'u_contrast'),
+                    uBlack: gl.getUniformLocation(pBlurV, 'u_black'),
+                    uWhite: gl.getUniformLocation(pBlurV, 'u_white'),
+                    uTime: gl.getUniformLocation(pBlurV, 'u_time'),
+                    uCrossfade: gl.getUniformLocation(pBlurV, 'u_crossfade'),
+                },
+            },
         };
 
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(
-            gl.ARRAY_BUFFER,
-            new Float32Array([
-                -1.0, -1.0,
-                 1.0, -1.0,
-                -1.0,  1.0,
-                -1.0,  1.0,
-                 1.0, -1.0,
-                 1.0,  1.0,
-            ]),
-            gl.STATIC_DRAW
-        );
+        const unitQuad = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, unitQuad);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5]), gl.STATIC_DRAW);
 
-        const aPosition = gl.getAttribLocation(program, 'a_position');
-        gl.enableVertexAttribArray(aPosition);
-        gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+        const fullQuad = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, fullQuad);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0]), gl.STATIC_DRAW);
 
-        // 默认初始化底色纹理 (使用优雅深色，非死黑)
+        buffersRef.current = { unitQuad, fullQuad };
+
+        const createFbo = (w, h) => {
+            const t = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, t);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            const f = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return { t, f };
+        };
+
         texturesRef.current.current = createSolidTexture(gl, 28, 24, 36);
         texturesRef.current.prev = createSolidTexture(gl, 28, 24, 36);
 
@@ -435,14 +658,22 @@ export default function AppleFluidCanvas({
             if (!canvas || !gl) return;
             const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
             const rect = canvas.getBoundingClientRect();
-            // 22% 渲染分辨率：全屏 blur(26-38px) 会掩盖低分率颗粒，视觉几乎不变但显著降低 GPU 像素量
             const w = Math.max(200, Math.floor(rect.width * 0.22 * dpr));
             const h = Math.max(140, Math.floor(rect.height * 0.22 * dpr));
             if (canvas.width !== w || canvas.height !== h) {
                 canvas.width = w;
                 canvas.height = h;
-                gl.viewport(0, 0, w, h);
-                // 改尺寸会清空缓冲；暂停状态也必须补一帧。
+
+                const { a, b } = fbosRef.current;
+                if (a) {
+                    if (a.t) gl.deleteTexture(a.t);
+                    if (a.f) gl.deleteFramebuffer(a.f);
+                }
+                if (b) {
+                    if (b.t) gl.deleteTexture(b.t);
+                    if (b.f) gl.deleteFramebuffer(b.f);
+                }
+                fbosRef.current = { a: createFbo(w, h), b: createFbo(w, h) };
                 triggerRender();
             }
         };
@@ -457,15 +688,29 @@ export default function AppleFluidCanvas({
             animFrameRef.current = null;
             if (texturesRef.current.current) gl.deleteTexture(texturesRef.current.current);
             if (texturesRef.current.prev) gl.deleteTexture(texturesRef.current.prev);
-            if (program) gl.deleteProgram(program);
-            if (positionBuffer) gl.deleteBuffer(positionBuffer);
+            const { a, b } = fbosRef.current;
+            if (a) {
+                if (a.t) gl.deleteTexture(a.t);
+                if (a.f) gl.deleteFramebuffer(a.f);
+            }
+            if (b) {
+                if (b.t) gl.deleteTexture(b.t);
+                if (b.f) gl.deleteFramebuffer(b.f);
+            }
+            if (pSprite) gl.deleteProgram(pSprite);
+            if (pTwist) gl.deleteProgram(pTwist);
+            if (pBlurH) gl.deleteProgram(pBlurH);
+            if (pBlurV) gl.deleteProgram(pBlurV);
+            if (unitQuad) gl.deleteBuffer(unitQuad);
+            if (fullQuad) gl.deleteBuffer(fullQuad);
             glRef.current = null;
-            programRef.current = null;
-            uniformsRef.current = null;
+            programsRef.current = null;
+            buffersRef.current = null;
+            fbosRef.current = { a: null, b: null };
         };
     }, []);
 
-    // 封面更新与过渡
+    // 封面更新与交叉淡入
     useEffect(() => {
         const gl = glRef.current;
         if (!gl) return;
@@ -484,25 +729,33 @@ export default function AppleFluidCanvas({
         }
         if (!coverUrl || coverUrl === lastCoverUrlRef.current) return;
         lastCoverWasPrivateRef.current = imageLoadRegistry.isPrivateMediaUrl(coverUrl);
-        if (lastCoverWasPrivateRef.current && !imageLoadRegistry.shouldLoadPrivately(coverUrl)) return;
+        const shouldLoadPrivately = imageLoadRegistry.shouldLoadPrivately(coverUrl);
+        if (lastCoverWasPrivateRef.current && !shouldLoadPrivately) {
+            if (texturesRef.current.prev) gl.deleteTexture(texturesRef.current.prev);
+            texturesRef.current.prev = texturesRef.current.current;
+            texturesRef.current.current = createPaletteFallbackTexture(gl, palette);
+            crossfadeRef.current = { startTime: performance.now(), progress: 0.0 };
+            lastCoverUrlRef.current = coverUrl;
+            triggerRender();
+            return;
+        }
 
         const img = new Image();
-        img.crossOrigin = 'Anonymous';
         let cancelled = false;
         let authorizedSource = null;
 
-        img.onload = () => {
+        if (!shouldLoadPrivately && !coverUrl.startsWith('blob:') && !coverUrl.startsWith('data:')) {
+            img.crossOrigin = 'Anonymous';
+        }
+
+        const applyNewTexture = (texture) => {
             if (cancelled || !glRef.current) return;
             const currentGl = glRef.current;
-
             if (texturesRef.current.prev) {
                 currentGl.deleteTexture(texturesRef.current.prev);
             }
             texturesRef.current.prev = texturesRef.current.current;
-
-            const newTex = currentGl.createTexture();
-            processMacroColorTexture(currentGl, newTex, img);
-            texturesRef.current.current = newTex;
+            texturesRef.current.current = texture;
 
             crossfadeRef.current = {
                 startTime: performance.now(),
@@ -512,20 +765,38 @@ export default function AppleFluidCanvas({
             if (lastCoverWasPrivateRef.current) {
                 setTextureAuthorization({ coverUrl, routeRevision, source: authorizedSource });
             }
-
             triggerRender();
         };
 
+        img.onload = () => {
+            if (cancelled || !glRef.current) return;
+            const currentGl = glRef.current;
+            let newTex = null;
+            try {
+                newTex = currentGl.createTexture();
+                processMacroColorTexture(currentGl, newTex, img);
+                applyNewTexture(newTex);
+            } catch {
+                if (newTex) {
+                    try { currentGl.deleteTexture(newTex); } catch {}
+                }
+                const fallbackTex = createPaletteFallbackTexture(currentGl, palette);
+                applyNewTexture(fallbackTex);
+            }
+        };
+
         img.onerror = () => {
-            if (cancelled) return;
-            lastCoverUrlRef.current = coverUrl;
-            triggerRender();
+            if (cancelled || !glRef.current) return;
+            const currentGl = glRef.current;
+            const fallbackTex = createPaletteFallbackTexture(currentGl, palette);
+            applyNewTexture(fallbackTex);
         };
 
         const optimizedUrl = coverUrl.includes('size=')
             ? coverUrl.replace(/size=\d+/, 'size=100')
             : coverUrl;
-        if (imageLoadRegistry.shouldLoadPrivately(coverUrl)) {
+
+        if (shouldLoadPrivately) {
             void imageLoadRegistry.load(coverUrl).then(({ url }) => {
                 if (!cancelled) {
                     authorizedSource = url;
@@ -545,11 +816,11 @@ export default function AppleFluidCanvas({
         };
     }, [coverUrl, routeRevision]);
 
-    // 恢复时先补静态帧；是否继续动画由循环读取最新偏好与播放状态决定。
+    // 恢复时先补静态帧；是否继续动画由循环读取最新偏好与播放状态决定
     useEffect(() => {
         lastFrameTimeRef.current = null;
         if (!suspended && pageVisible) triggerRender();
-    }, [suspended, isPlaying, isBuffering, prefersReducedMotion, pageVisible]);
+    }, [suspended, isPlaying, isBuffering, pageVisible, coverUrl]);
 
     const textureVisible = isTextureAuthorized(coverUrl, routeRevision, textureAuthorization, imageLoadRegistry);
 
@@ -558,10 +829,10 @@ export default function AppleFluidCanvas({
             <canvas
                 style={textureVisible ? undefined : { visibility: 'hidden' }}
                 ref={canvasRef}
-                className="w-full h-full object-cover scale-105 filter blur-[26px] md:blur-[38px] opacity-100 transition-opacity duration-1000 ease-out"
+                className="w-full h-full object-cover scale-105 filter blur-[12px] md:blur-[18px] opacity-100 transition-opacity duration-1000 ease-out"
             />
-            {/* 智能磨砂与歌词区对比度保护遮罩 (Apple Music Contrast Scrim) */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-black/20 to-black/45 pointer-events-none" />
+            {/* 歌词区高对比度保护遮罩 */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-black/20 to-black/40 pointer-events-none" />
             <div className="absolute inset-0 bg-black/10 pointer-events-none" />
         </div>
     );

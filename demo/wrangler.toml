@@ -1,0 +1,17 @@
+name = "flaretune-demo"
+main = "mediaWorker.js"
+compatibility_date = "2026-10-12"
+workers_dev = true
+preview_urls = false
+
+[[routes]]
+pattern = "flaretune.arcinks.com"
+custom_domain = true
+
+# Read-only media delivery; business state stays in the browser. No DB or secrets.
+[assets]
+directory = "../dist-demo"
+binding = "ASSETS"
+run_worker_first = ["/media/*.mp3"]
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"

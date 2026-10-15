@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+import { runtimeFetch } from './runtimeFetch.js';
 import { getApiBaseUrl } from './apiBase.js';
 import { authenticatedFetch } from './authenticatedFetch.js';
 
@@ -30,9 +32,17 @@ export function normalizeCloudThreadMessages(messages) {
   }));
 }
 
+export function pendingAssistantTurn(thread) {
+  const last = thread?.messages?.at(-1);
+  return last?.role === 'user' && typeof thread?.pendingTurn?.clientMessageId === 'string'
+    && last.clientMessageId === thread.pendingTurn.clientMessageId
+    ? { clientMessageId: thread.pendingTurn.clientMessageId } : null;
+}
+
 export function normalizeCloudThread(thread) {
   return {
     revision: Number(thread?.revision || 0),
+    pendingTurn: pendingAssistantTurn(thread),
     messages: normalizeCloudThreadMessages(thread?.messages),
   };
 }
@@ -52,7 +62,7 @@ export class AiThreadRequestError extends Error {
 }
 
 export async function fetchCloudThread({
-  fetchImpl = globalThis.fetch,
+  fetchImpl = runtimeFetch,
   apiBase = getApiBaseUrl(),
   signal,
 } = {}) {
@@ -64,7 +74,7 @@ export async function fetchCloudThread({
   }, fetchImpl);
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new AiThreadRequestError(`云端线程响应异常 (${response.status})`, {
+    throw new AiThreadRequestError(t("云端线程响应异常 ({p0})", { p0: (response.status) }), {
       status: response.status,
       data,
     });

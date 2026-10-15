@@ -1,4 +1,4 @@
-import { localizeUnknownArtist, t } from '../i18n/index.js';
+import { localizeUnknownArtist, localizeUnknownTitle, t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore.js';
@@ -9,6 +9,7 @@ import SongActionsMenu from './catalog/SongActionsMenu.jsx';
 import PageBackButton from './PageBackButton.jsx';
 
 function HistorySongRow({ song, index, isActive, isLiked, onPlay, onToggleLiked, onInsertNext, onAddToPlaylist, onRemove }) {
+  useLocale();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isPendingLiked, setIsPendingLiked] = React.useState(false);
   const moreButtonRef = React.useRef(null);
@@ -27,19 +28,19 @@ function HistorySongRow({ song, index, isActive, isLiked, onPlay, onToggleLiked,
 
   return <li className={`play-history-page__row ${isActive ? 'is-active' : ''}`}>
     <span className="play-history-page__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-    <button type="button" className="play-history-page__song" onClick={() => onPlay(song)} aria-label={t("播放 {p0}", { p0: (song.title) })}>
+    <button type="button" className="play-history-page__song" onClick={() => onPlay(song)} aria-label={t("播放 {p0}", { p0: localizeUnknownTitle(song.title) })}>
       <span className="play-history-page__cover">
         <LazyImage src={song.cover_url || '/placeholder-album.svg'} fallback="/placeholder-album.svg" alt="" />
       </span>
       <span className="play-history-page__song-copy">
-        <strong>{song.title}</strong>
+        <strong>{localizeUnknownTitle(song.title)}</strong>
         <span>{localizeUnknownArtist(song.artist)}</span>
         <span className="play-history-page__song-time">{formatRelativeTime(song.playedAt)}</span>
       </span>
     </button>
     <button type="button" ref={moreButtonRef} className="play-history-page__more"
       onClick={() => setIsMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={isMenuOpen}
-      aria-label={t("歌曲选项：{p0}", { p0: (song.title) })} title={t("歌曲选项")}>
+      aria-label={t("歌曲选项：{p0}", { p0: localizeUnknownTitle(song.title) })} title={t("歌曲选项")}>
       <MoreHorizontal size={20} aria-hidden="true" />
     </button>
     {isMenuOpen && <SongActionsMenu song={song} anchorRef={moreButtonRef} onClose={closeMenu}
@@ -60,7 +61,7 @@ export default function PlayHistoryView({ onBack, likedSongIdSet = new Set(), on
 
   const playHistorySong = (song) => {
     playSong(song, [song]);
-    showToast(t("正在播放《{p0}》", { p0: (song.title) }));
+    showToast(t("正在播放《{p0}》", { p0: localizeUnknownTitle(song.title) }));
   };
 
   React.useLayoutEffect(() => {

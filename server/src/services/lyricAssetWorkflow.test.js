@@ -20,7 +20,7 @@ import {
   makeSong,
 } from '../test/lyricAssetFixtures.js';
 
-test('ready asset strips Kugou tlyric from original and stores aligned translation once', async () => {
+test('ready asset strips CustomKrc tlyric from original and stores aligned translation once', async () => {
   const document = makeLyricDocument({
     lines: [
       { time: 1, endTime: 2, text: 'Hello', tlyric: '你好', words: [{ text: 'Hello', startTime: 1, endTime: 2 }] },
@@ -31,14 +31,14 @@ test('ready asset strips Kugou tlyric from original and stores aligned translati
     now: Date.parse('2026-09-10T00:00:00.000Z'),
   });
   assert.deepEqual(result.artifact.translation.lines, ['你好', '世界']);
-  assert.equal(result.artifact.translation.source, 'kugou');
+  assert.equal(result.artifact.translation.source, 'custom_krc');
   assert.equal(Object.hasOwn(result.artifact.original.lines[0], 'tlyric'), false);
   assert.equal(result.artifact.provenance.matchedDuration, 255);
 });
 
-test('ready asset preserves valid translation from netease source and strips tlyric from original', async () => {
+test('ready asset preserves valid translation from custom_lrc source and strips tlyric from original', async () => {
   const document = makeLyricDocument({
-    source: 'netease',
+    source: 'custom_lrc',
     format: 'lrc',
     syncMode: 'line',
     lines: [
@@ -57,7 +57,7 @@ test('ready asset preserves valid translation from netease source and strips tly
     now: Date.parse('2026-09-10T00:00:00.000Z'),
   });
   assert.ok(result.artifact.translation);
-  assert.equal(result.artifact.translation.source, 'netease');
+  assert.equal(result.artifact.translation.source, 'custom_lrc');
   assert.deepEqual(result.artifact.translation.lines, ['你好', '世界']);
   assert.equal(Object.hasOwn(result.artifact.original.lines[0], 'tlyric'), false);
   assert.equal(result.artifact.provenance.providerLyricId, 'ne-101');
@@ -74,7 +74,7 @@ test('manual LRC import keeps aligned translation in the shared asset', async ()
   assert.equal(Object.hasOwn(result.artifact.original.lines[0], 'tlyric'), false);
 });
 
-test('ready asset discards derived tlyric outside the trusted Kugou KRC path', async () => {
+test('ready asset discards derived tlyric outside the trusted CustomKrc KRC path', async () => {
   for (const document of [
     makeLyricDocument({
       source: 'lrclib',
@@ -83,7 +83,7 @@ test('ready asset discards derived tlyric outside the trusted Kugou KRC path', a
       providerMeta: { providerLyricId: 'lr-1' },
     }),
     makeLyricDocument({
-      source: 'kugou',
+      source: 'custom_krc',
       format: 'lrc',
       lines: [{ time: 1, text: 'Hello', tlyric: '你好' }],
     }),
@@ -189,7 +189,7 @@ test('known legacy object is rebuilt with its ETag instead of create-if-absent',
       [key]: {
         success: true,
         data: {
-          source: 'Netease',
+          source: 'CustomLrc',
           type: 'synced',
           lyrics: '[00:01.00]Legacy lyric',
           translated_lyrics: '[00:01.00]旧译文',

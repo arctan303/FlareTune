@@ -51,7 +51,7 @@ test('playlist navigation has immediate feedback, delayed skeleton, no hover fet
   assert.doesNotMatch(main, /homeKey|shouldCancelPlaylistNavigation/);
   assert.match(main, /const isHomeConcealed = isViewingPlaylist \|\| \['skeleton', 'error'\]\.includes\(playlistLoadState\.status\)/);
   assert.match(main, /const isHomeConcealed = isViewingPlaylist/);
-  assert.match(main, /<PlaylistDetailView[\s\S]*isViewingPlaylist=\{isViewingPlaylist && activeRoute\?\.type === 'playlist'\}/);
+  assert.match(main, /<PlaylistDetailView[\s\S]*isViewingPlaylist=\{isViewingPlaylist && activeRoute\?\.type === 'playlist'/);
   assert.match(main, /activeRoute\?\.type === 'playlist'/);
 });
 
@@ -109,7 +109,7 @@ test('touch tablets keep desktop visual quality while expensive work remains ser
 
   assert.doesNotMatch(themeHook, /getVisualMotionProfile\(window\)/);
   assert.match(themeHook, /const THEME_TRANSITION_MS = 360/);
-  assert.match(themeHook, /motionProfile = VISUAL_MOTION_PROFILE\.FULL/);
+  assert.doesNotMatch(themeHook, /VISUAL_MOTION_PROFILE/);
   assert.match(themeHook, /current === VISUAL_MOTION_PHASE\.THEME[\s\S]{0,120}VISUAL_MOTION_PHASE\.IDLE/);
   assert.doesNotMatch(themeHook, /runInPlaceThemeTransition|runLightweightThemeTransition/);
   assert.match(motionProfileHook, /visualMotionPhaseRef\.current = visualMotionPhase/);
@@ -127,9 +127,8 @@ test('touch tablets keep desktop visual quality while expensive work remains ser
 
   const coverAccentHook = readSource('./hooks/useCoverAccent.js');
   assert.match(coverAccentHook, /DEFAULT_COVER_ACCENT/);
-  assert.match(app, /const \{[\s\S]*toggleTheme[\s\S]*\} = useTheme\(isDarkMode, setIsDarkMode, motionProfile\);/);
+  assert.match(app, /const \{[\s\S]*toggleTheme[\s\S]*\} = useTheme\(isDarkMode, setIsDarkMode\);/);
   assert.match(app, /const coverAccent = useCoverAccent\(\);/);
-
 
   assert.match(desktopPlayer, /mediaEnabled=\{hasEntered\}\s+active=\{hasEntered && !isClosing\}/);
   assert.doesNotMatch(desktopPlayer, /deferMedia=/);
@@ -170,15 +169,16 @@ test('theme switching interpolates semantic colors without snapshots, clipping, 
   assert.match(themeHook, /const THEME_TRANSITION_MS = 360/);
   assert.match(themeHook, /Object\.entries\(colors\)\.forEach[\s\S]*root\.style\.setProperty\(`--\$\{name\}`, value\)/);
   assert.match(themeHook, /const nextIsDark = !document\.documentElement\.classList\.contains\('dark'\)/);
-  assert.match(themeHook, /motionProfile !== VISUAL_MOTION_PROFILE\.REDUCED[\s\S]*setVisualMotionPhase\(VISUAL_MOTION_PHASE\.THEME\)/);
+
   assert.doesNotMatch(themeHook, /startViewTransition|getEventCoordinates|clipPath|pseudoElement|nativeEvent|flushSync/);
 
   assert.match(css, /@property --page \{[\s\S]*syntax: '<color>';[\s\S]*inherits: true;/);
   assert.match(css, /:root,[\s\S]*\.music-shell \{[\s\S]*--page 360ms ease,[\s\S]*--drawer-line 360ms ease/);
   assert.match(css, /html,[\s\S]*body,[\s\S]*#root \{[\s\S]*background: var\(--page\)/);
   assert.doesNotMatch(css, /transition: background-color 360ms ease, color 360ms ease/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*:root,[\s\S]*\.music-shell \{[\s\S]*transition: none !important/);
+
   assert.doesNotMatch(css, /::view-transition|view-transition-name|--vt-|--theme-origin-|in-place-mode-glow|data-theme-to/);
+  assert.doesNotMatch(readSource("./index.css"), /prefers-reduced-motion/);
 });
 
 test('the confirmed brand name is consistent across metadata, the unique sidebar wordmark, and player titles', () => {
@@ -244,7 +244,7 @@ test('player surfaces omit collection and assistant entries', () => {
   const translationIndex = playerBar.indexOf('{showTranslationButton && (');
 
   assert.ok(translationIndex >= 0, 'expanded controls should retain the translation entry');
-  assert.doesNotMatch(playerBar, /toggleFavorite|<Heart|<Star/);
+  assert.match(playerBar, /toggleFavorite|<Heart|<Star/);
   for (const surface of [playerBar, moreMenu, chrome, immersive, mobile]) {
     assert.doesNotMatch(surface, /data-ai-entry|onOpenAssistant|setIsAiReviewOpen|AiReviewDrawer/);
   }
@@ -380,8 +380,8 @@ test('account playlists remain independent while the assistant page uses account
   assert.doesNotMatch(`${main}\n${search}\n${moreMenu}\n${readSource('./components/PlayerControls.jsx')}`, /accountPlaylistsStore\.getState\(\)\.(?:removeSong|addSongs)/);
   const homeOverview = readSource('./components/HomeOverview.jsx');
   assert.match(homeOverview, /onClick=\{\(event\) => leadPlaylist && openPlaylist\(leadPlaylist, event\)\}/);
-  assert.match(homeOverview, /onClick=\{\(event\) => leadSong && handleOpenDailyRecommend\(event\)\}/);
-  assert.match(homeOverview, /openPlaylist\(\{[\s\S]*id:\s*'daily-recommend'/);
+  assert.match(homeOverview, /onClick=\{handleOpenDailyRecommend\}/);
+  assert.match(homeOverview, /openPlaylist\(createDailyRecommendationPlaylist\(randomSongs\), e\)/);
 
   assert.match(assistant, /consumeSseJsonStream\(response\.body/);
   assert.match(eventStream, /buffer\.split\('\\n'\)/);
@@ -477,7 +477,7 @@ test('current-only frontend rejects retired shell, URL, origin, storage, and pla
   assert.doesNotMatch(randomCache, /LEGACY_RANDOM_SONGS_CACHE_KEYS|musicPlayer_xiaoa_random_songs_v1/);
   assert.doesNotMatch(playerContext, /LEGACY_STORAGE_KEY|readLegacyContext|musicPlayer_player|songId|song_id|audioKey|coverKey|current_song_id|session_id|seed_queue|updated_at/);
   assert.match(playerContext, /value\.schema !== PLAYER_CONTEXT_SCHEMA/);
-  assert.doesNotMatch(playerStore, /showTranslation|netease/);
+  assert.doesNotMatch(playerStore, /showTranslation|custom_lrc/);
   assert.match(playerStore, /name: 'musicPlayer_player',[\s\S]{0,100}version: 1,[\s\S]{0,100}migrate: \(\) => undefined/);
   assert.match(uiStore, /name: 'musicPlayer_ui',[\s\S]{0,100}version: 1,[\s\S]{0,100}migrate: \(\) => undefined/);
   assert.doesNotMatch(uiStore, /migrate:\s*\(persistedState\)/);
@@ -512,9 +512,10 @@ test('desktop mode icon shows current state and mobile more menu holds explicit 
   assert.doesNotMatch(entry, /aria-haspopup|<PlayerModeChoices/);
   assert.match(entry, /type="button"/);
 
-  assert.match(classic, /<PlayerSkinEntry variant="classic" \/>/);
+  assert.doesNotMatch(classic, /PlayerSkinEntry/);
   assert.doesNotMatch(mobile, /PlayerSkinEntry/);
   assert.match(panes, /<PlayerMoreMenu[\s\S]*?showPlayerModes \/>/);
+  assert.match(panes, /<PlayerControls[\s\S]*?showPlayerModes \/>/);
   assert.match(immersive, /modeSwitcher=\{<PlayerSkinEntry variant="immersive" \/>\}/);
   assert.match(chrome, /modeSwitcher = null/);
   assert.match(chrome, /stopPropagation\(\)/);
@@ -554,7 +555,7 @@ test('fullscreen lyric entry opens the shared workspace without a tools drawer',
   assert.match(immersive, /toolEntry=\{<LyricsWorkspaceEntry variant="immersive" \/>\}/);
 });
 
-test('random suggestions stay auth-gated and persist a single local cache key', () => {
+test('daily suggestions stay auth-gated and persist versioned scoped browser data', () => {
   const mainContent = readSource('./components/MainContent.jsx');
   const home = readSource('./components/HomeOverview.jsx');
   const hook = readSource('./hooks/useRandomSongs.js');
@@ -563,22 +564,21 @@ test('random suggestions stay auth-gated and persist a single local cache key', 
   const worker = readSource('../../server/src/instance/httpRouter.js');
   const songs = readSource('../../server/src/routes/localMusicDiscovery.js');
 
-  assert.match(cache, /RANDOM_SONGS_CACHE_KEY = 'musicPlayer_xiaoa_random_songs_v2'/);
-  assert.match(cache, /isValidRandomSongCache\(payload\?\.songs\)/);
+  assert.match(cache, /RANDOM_SONGS_CACHE_KEY = 'musicPlayer_xiaoa_random_songs_v3'/);
+  assert.match(cache, /isValidRandomSongCache\(payload\.songs\)/);
+  assert.match(cache, /encodeURIComponent\(scope\)/);
   assert.match(cache, /isValidSongLanguage\(song\.language\)/);
   assert.match(request, /\/api\/songs\/random/);
   assert.match(hook, /buildRandomSongsUrl\(apiBase, excludeIds\)/);
-  assert.match(hook, /requestSongs\(songs\.map\(\(song\) => String\(song\?\.id \|\| ''\)\)\)/);
   assert.match(songs, /CASE WHEN s\.id IN/);
   assert.match(hook, /credentials: 'include'/);
   assert.match(hook, /import \{ getApiBaseUrl \} from '\.\.\/services\/apiBase\.js'/);
   assert.match(hook, /getApiBaseUrl\(\)/);
-  assert.match(hook, /loadRandomSongs\(\)/);
-  assert.match(hook, /saveRandomSongs\(/);
-  assert.match(mainContent, /useRandomSongs\(isAuthenticated\)/);
+  assert.match(hook, /createDailyRecommendations/);
+  assert.match(mainContent, /useRandomSongs\(isAuthenticated, \{/);
   assert.match(mainContent, /handleRefreshRandomSongs/);
   assert.match(mainContent, /randomSongs=\{randomSongs\}/);
-  assert.match(home, /const pool = randomSongs\?\.length \? randomSongs : likedSongs/);
+  assert.match(home, /createDailyRecommendationPlaylist\(randomSongs\)/);
   assert.match(worker, /handleLocalMusicDiscoveryRoute\(request/);
   assert.match(worker, /decideApiAccess\(/);
   assert.match(songs, /isRandom = pathname === '\/api\/songs\/random' && request\.method === 'GET'/);
@@ -622,7 +622,7 @@ test('random roam has a home entry, queue switch, app-level continuation and loc
   assert.match(home, /onClick=\{onToggleRoam\}/);
   assert.match(main, /startRandomRoam\(randomSongs/);
   assert.match(main, /setRandomRoamEnabled/);
-  assert.match(roam, /aria-label=\{randomRoam\.enabled \? t\("暂停漫游"\) : t\("开启漫游电台"\)\}/);
+  assert.match(roam, /aria-label=\{randomRoam\.enabled \? t\("关闭漫游"\) : t\("开启漫游电台"\)\}/);
   assert.match(queue, /队尾随机续播/);
   assert.match(queue, /role="switch"/);
   assert.match(queue, /retryRandomRoam/);
@@ -825,7 +825,7 @@ test('protected pages rely on the app auth gate without shipping visitor UI bran
 
   assert.match(search, /if \(!isAuthenticated\) \{/);
   assert.match(lyrics, /enabled: Boolean\(baseSong\?\.id\) && authenticated/);
-  assert.match(main, /useRandomSongs\(isAuthenticated\)/);
+  assert.match(main, /useRandomSongs\(isAuthenticated, \{/);
 });
 
 test('Explore library section is gated for authenticated members only on client and server', () => {

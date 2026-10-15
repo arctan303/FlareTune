@@ -1,3 +1,4 @@
+import { fetchLimitedJson } from './lyricSourceHttp.js';
 import { LyricSourceError } from './lyricSourceError.js';
 import {
   createProviderMeta,
@@ -5,7 +6,7 @@ import {
   rankLyricCandidates,
   splitArtistKeys,
   splitArtistLabels,
-  stripKugouTitleSuffixes,
+  stripCustomKrcTitleSuffixes,
 } from './lyricSourceMatching.js';
 import {
   createLyricDocument,
@@ -14,91 +15,17 @@ import {
 import { isNonLyricText } from '../utils/lyricsParsing.js';
 
 const DEFAULT_TIMEOUT_MS = 5_000;
-const MAX_JSON_BYTES = 4_000_000;
 const LRC_TIMESTAMP_REGEX = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
 const LRC_METADATA_REGEX = /^\[[A-Za-z][\w-]*:/;
 
-const NETEASE_HEADERS = Object.freeze({
-  Accept: 'application/json',
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  Referer: 'https://music.163.com',
-  Cookie: 'os=pc; appver=2.9.7;',
-});
-
-const NETEASE_RANKING_OPTIONS = Object.freeze({
+const CUSTOM_LRC_RANKING_OPTIONS = Object.freeze({
   titleKeys: ['name', 'song', 'songname', 'trackName'],
   artistKeys: ['artistName', 'singer', 'singername'],
   albumKeys: ['albumName', 'album', 'album_name'],
   durationKeys: ['duration'],
 });
 
-const responseStatusKind = (response) => {
-  if (response?.status === 404) return 'unavailable';
-  if (response?.status === 408 || response?.status === 504) return 'timeout';
-  if (response?.status === 429) return 'rate_limited';
-  if (response?.status >= 500) return 'upstream';
-  return 'invalid';
-};
-
-const byteLength = (value) => new TextEncoder().encode(value).byteLength;
-
-async function fetchNeteaseJson(fetchImpl, url, {
-  stage,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
-  signal: requestSignal,
-} = {}) {
-  const controller = new AbortController();
-  let didTimeout = false;
-  const abortFromRequest = () => controller.abort(requestSignal.reason || new DOMException('Aborted', 'AbortError'));
-  if (requestSignal?.aborted) abortFromRequest();
-  else requestSignal?.addEventListener('abort', abortFromRequest, { once: true });
-  const timeoutId = setTimeout(() => {
-    didTimeout = true;
-    controller.abort(new Error('upstream timeout'));
-  }, timeoutMs);
-
-  try {
-    if (requestSignal?.aborted) {
-      throw new LyricSourceError('aborted', 'netease', stage, `netease ${stage} aborted`);
-    }
-    const response = await fetchImpl(url, {
-      signal: controller.signal,
-      headers: NETEASE_HEADERS,
-    });
-    if (!response?.ok) {
-      throw new LyricSourceError(
-        responseStatusKind(response),
-        'netease',
-        stage,
-        `netease ${stage} HTTP ${response?.status || 0}`,
-      );
-    }
-    if (typeof response.text === 'function') {
-      const text = await response.text();
-      if (byteLength(text) > MAX_JSON_BYTES) throw new RangeError('upstream response exceeds safe size');
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        throw new LyricSourceError('invalid', 'netease', stage, `netease ${stage} returned invalid JSON`, { cause: error });
-      }
-    }
-    const value = await response.json();
-    if (byteLength(JSON.stringify(value)) > MAX_JSON_BYTES) throw new RangeError('upstream JSON exceeds safe size');
-    return value;
-  } catch (error) {
-    if (error instanceof LyricSourceError) throw error;
-    if (error instanceof SyntaxError || error instanceof RangeError) {
-      throw new LyricSourceError('invalid', 'netease', stage, `netease ${stage} returned invalid JSON`, { cause: error });
-    }
-    const kind = requestSignal?.aborted
-      ? 'aborted'
-      : (didTimeout || error?.name === 'AbortError' ? 'timeout' : 'network');
-    throw new LyricSourceError(kind, 'netease', stage, `netease ${stage} ${kind}`, { cause: error });
-  } finally {
-    clearTimeout(timeoutId);
-    requestSignal?.removeEventListener('abort', abortFromRequest);
-  }
-}
+const fetchCustomLrcJson = (fetchImpl, url, options) => fetchLimitedJson(fetchImpl, url, { ...options, provider: 'custom_lrc' });
 
 const lrcFractionToSeconds = (fraction = '') => {
   if (!fraction) return 0;
@@ -148,13 +75,13 @@ export function alignTranslationToLines(lines, tlyricText) {
   });
 }
 
-export function buildNeteaseSearchKeywords(song) {
+export function buildCustomLrcSearchKeywords(song) {
   const title = String(song?.title || song?.name || '').trim();
   if (!title) return [];
   const artist = String(song?.artist || '').trim();
   const artistLabels = splitArtistLabels(artist);
   const primaryArtist = artistLabels[0] || '';
-  const cleanTitle = stripKugouTitleSuffixes(title) || title;
+  const cleanTitle = stripCustomKrcTitleSuffixes(title) || title;
 
   const variants = [
     artist ? `${title} ${artist}` : title,
@@ -167,23 +94,23 @@ export function buildNeteaseSearchKeywords(song) {
   return [...new Set(variants.map((v) => v.trim()).filter(Boolean))].slice(0, 4);
 }
 
-export function parseNeteaseLyricDocument(data, { providerMeta } = {}) {
+export function parseCustomLrcLyricDocument(data, { providerMeta } = {}) {
   const lrcText = data?.lrc?.lyric;
   if (!lrcText || typeof lrcText !== 'string' || !lrcText.trim()
     || data?.nolyric === true || data?.uncollected === true) {
-    throw new LyricSourceError('unavailable', 'netease', 'lyrics', 'Netease song has no lyrics');
+    throw new LyricSourceError('unavailable', 'custom_lrc', 'lyrics', 'CustomLrc song has no lyrics');
   }
 
-  const baseDocument = parseLrcDocument(lrcText, { source: 'netease', format: 'lrc', providerMeta });
+  const baseDocument = parseLrcDocument(lrcText, { source: 'custom_lrc', format: 'lrc', providerMeta });
   if (!baseDocument.lines || baseDocument.lines.length === 0) {
-    throw new LyricSourceError('unavailable', 'netease', 'lyrics', 'Netease lyric contains no valid lines');
+    throw new LyricSourceError('unavailable', 'custom_lrc', 'lyrics', 'CustomLrc lyric contains no valid lines');
   }
 
   const tlyricText = data?.tlyric?.lyric;
   if (typeof tlyricText === 'string' && tlyricText.trim()) {
     const linesWithTranslation = alignTranslationToLines(baseDocument.lines, tlyricText);
     return createLyricDocument({
-      source: 'netease',
+      source: 'custom_lrc',
       format: 'lrc',
       lines: linesWithTranslation,
       providerMeta,
@@ -193,37 +120,39 @@ export function parseNeteaseLyricDocument(data, { providerMeta } = {}) {
   return baseDocument;
 }
 
-export async function searchNeteaseSelections(song, signal, {
+export async function searchCustomLrcSelections(song, signal, {
   fetchImpl = (url, init) => fetch(url, init),
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  config,
+  requestBudget,
 } = {}) {
+  if (!config?.enabled) throw new LyricSourceError('unavailable', 'custom_lrc', 'config', 'Lyric source is disabled');
   const title = String(song?.title || song?.name || '').trim();
   const primaryArtist = splitArtistKeys(song?.artist)[0];
   if (!title || !primaryArtist) {
-    throw new LyricSourceError('invalid', 'netease', 'search', 'netease matching requires title and primary artist');
+    throw new LyricSourceError('invalid', 'custom_lrc', 'search', 'custom_lrc matching requires title and primary artist');
   }
 
   let firstError = null;
-  for (const keyword of buildNeteaseSearchKeywords(song)) {
+  for (const keyword of buildCustomLrcSearchKeywords(song)) {
     try {
-      const urls = [
-        `https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${encodeURIComponent(keyword)}&type=1&offset=0&total=true&limit=10`,
-        `https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(keyword)}&type=1&offset=0&limit=10`,
-      ];
+      const searchUrl = new URL(config.searchUrl);
+      searchUrl.search = new URLSearchParams({ s: keyword, type: '1', offset: '0', limit: '10' });
+      const urls = [searchUrl.href];
       let searchData = null;
       let lastEndpointError = null;
       for (const url of urls) {
         try {
-          const data = await fetchNeteaseJson(fetchImpl, url, { stage: 'search', timeoutMs, signal });
+          const data = await fetchCustomLrcJson(fetchImpl, url, { stage: 'search', timeoutMs, signal, requestBudget });
           if (data?.code === 200) {
             searchData = data;
             break;
           }
           if (data?.code === 404) {
-            lastEndpointError = new LyricSourceError('unavailable', 'netease', 'search', 'netease search returned 404');
+            lastEndpointError = new LyricSourceError('unavailable', 'custom_lrc', 'search', 'custom_lrc search returned 404');
             break;
           }
-          lastEndpointError = new LyricSourceError('upstream', 'netease', 'search', `netease search returned code ${data?.code}`);
+          lastEndpointError = new LyricSourceError('upstream', 'custom_lrc', 'search', `custom_lrc search returned code ${data?.code}`);
         } catch (error) {
           if (error instanceof LyricSourceError && error.kind === 'aborted') throw error;
           lastEndpointError = error;
@@ -256,7 +185,7 @@ export async function searchNeteaseSelections(song, signal, {
         };
       });
 
-      const selections = rankLyricCandidates(candidates, song, NETEASE_RANKING_OPTIONS)
+      const selections = rankLyricCandidates(candidates, song, CUSTOM_LRC_RANKING_OPTIONS)
         .filter((selection) => (
           selection.candidate?.id !== undefined
           && selection.candidate?.id !== null
@@ -277,25 +206,29 @@ export async function searchNeteaseSelections(song, signal, {
   return [];
 }
 
-export async function loadNeteaseSelection(selection, signal, {
+export async function loadCustomLrcSelection(selection, signal, {
   fetchImpl = (url, init) => fetch(url, init),
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  config,
+  requestBudget,
 } = {}) {
+  if (!config?.enabled) throw new LyricSourceError('unavailable', 'custom_lrc', 'config', 'Lyric source is disabled');
   const candidateId = selection?.candidate?.id;
   if (candidateId === undefined || candidateId === null || !String(candidateId)) {
-    throw new LyricSourceError('invalid', 'netease', 'load', 'selection missing candidate id');
+    throw new LyricSourceError('invalid', 'custom_lrc', 'load', 'selection missing candidate id');
   }
 
-  const providerMeta = createProviderMeta('netease', selection.candidate, selection);
-  const url = `https://music.163.com/api/song/lyric?id=${encodeURIComponent(String(candidateId))}&lv=1&kv=1&tv=1`;
-  const lyricData = await fetchNeteaseJson(fetchImpl, url, { stage: 'download-lyric', timeoutMs, signal });
+  const providerMeta = createProviderMeta('custom_lrc', selection.candidate, selection);
+  const url = new URL(config.downloadUrl);
+  url.search = new URLSearchParams({ id: String(candidateId), lv: '1', kv: '1', tv: '1' });
+  const lyricData = await fetchCustomLrcJson(fetchImpl, url.href, { stage: 'download-lyric', timeoutMs, signal, requestBudget });
 
   if (lyricData?.code !== undefined && lyricData.code !== 200) {
     if (lyricData.code === 404) {
-      throw new LyricSourceError('unavailable', 'netease', 'download-lyric', 'Netease lyric not found');
+      throw new LyricSourceError('unavailable', 'custom_lrc', 'download-lyric', 'CustomLrc lyric not found');
     }
-    throw new LyricSourceError('upstream', 'netease', 'download-lyric', `Netease lyric returned code ${lyricData.code}`);
+    throw new LyricSourceError('upstream', 'custom_lrc', 'download-lyric', `CustomLrc lyric returned code ${lyricData.code}`);
   }
 
-  return parseNeteaseLyricDocument(lyricData, { providerMeta });
+  return parseCustomLrcLyricDocument(lyricData, { providerMeta: { ...providerMeta, translationLanguage: config.translationLanguage } });
 }

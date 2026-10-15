@@ -5,6 +5,7 @@ import { songLanguageHasLyrics } from '../constants/language.js';
 import { getLyricVocalStart } from '../utils/lyricTimeline.js';
 import { lyricsWorkspaceApi } from '../services/localLyricsWorkspaceApi.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
+import { isLyricSourceId, LEGACY_LYRIC_SOURCES } from '../../../shared/lyricSources.js';
 
 const pendingLyricsRequests = new Map();
 const lyricsCacheEpochs = new Map();
@@ -16,7 +17,7 @@ const LYRICS_RETRY_DELAYS_MS = [1_500, 3_000];
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/;
 const INTRO_LYRIC_THRESHOLD_SECONDS = 3;
 const VALID_SYNC_MODES = new Set(['word', 'line', 'none']);
-const VALID_RESOLVED_SOURCES = new Set(['kugou', 'netease', 'lrclib', 'manual']);
+const validResolvedSource = source => isLyricSourceId(source) || source === 'manual' || Object.hasOwn(LEGACY_LYRIC_SOURCES, source);
 const VALID_TRANSLATION_STATES = new Set(['unavailable', 'missing', 'pending', 'ready', 'failed']);
 const TRANSLATION_POLL_INTERVAL_MS = 2_000;
 const TRANSLATION_POLL_WINDOW_MS = 30_000;
@@ -114,7 +115,7 @@ export const normalizeLyricsResult = (value) => {
         : null;
     return {
         version: LYRICS_CACHE_SCHEMA,
-        source: VALID_RESOLVED_SOURCES.has(value?.source) ? value.source : null,
+        source: validResolvedSource(value?.source) ? value.source : null,
         format: typeof value?.format === 'string' ? value.format : 'none',
         syncMode: noLyrics || !VALID_SYNC_MODES.has(value?.syncMode) ? 'none' : value.syncMode,
         lyrics,
@@ -168,7 +169,7 @@ export const createLyricsResultFromResponse = (payload, responseStatus = 200) =>
         return normalizeLyricsResult({ lyrics: EMPTY_LYRICS, status: 'unavailable' });
     }
     if (data.version !== 2
-        || !VALID_RESOLVED_SOURCES.has(data.source)
+        || !validResolvedSource(data.source)
         || !VALID_SYNC_MODES.has(data.syncMode)
         || !Array.isArray(data.lines)) {
         throw new Error('Invalid canonical lyric document');

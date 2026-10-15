@@ -1,4 +1,5 @@
 import { createLyricDocument } from '../utils/lyricDocument.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 
 export const LYRIC_CANDIDATE_INSPECTION_LIMITS = Object.freeze({
   maxCandidates: 12,
@@ -9,7 +10,7 @@ export const LYRIC_CANDIDATE_INSPECTION_LIMITS = Object.freeze({
 });
 
 const PROVIDER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
-const VALID_SOURCES = new Set(['kugou', 'netease', 'lrclib']);
+import { isLyricSourceId } from '../../../shared/lyricSources.js';
 const SAFE_UPSTREAM_KINDS = new Set([
   'circuit_open', 'invalid', 'network', 'rate_limited', 'timeout', 'unavailable', 'upstream',
 ]);
@@ -44,7 +45,7 @@ function normalizeCandidates(candidates) {
     }
     const source = candidate.source;
     const providerLyricId = candidate.providerLyricId;
-    if (!VALID_SOURCES.has(source) || typeof providerLyricId !== 'string'
+    if (!isLyricSourceId(source) || typeof providerLyricId !== 'string'
       || !PROVIDER_ID_PATTERN.test(providerLyricId)) {
       fail('invalid_candidate', 'candidate source or providerLyricId is invalid');
     }
@@ -160,7 +161,9 @@ function projectDocument(candidate, rawDocument) {
       syncMode: document.syncMode,
       lines: document.lines.map(copyOriginalLine),
     },
-    translation: translationAvailable ? { lines: translationLines } : null,
+    translation: translationAvailable ? { lines: translationLines,
+      ...(document.providerMeta?.translationLanguage ? { language: document.providerMeta.translationLanguage } : {}),
+    } : null,
   };
 }
 
@@ -204,6 +207,7 @@ export async function inspectLyricCandidates(song, candidates, {
   upstreamTimeoutMs = LYRIC_CANDIDATE_INSPECTION_LIMITS.upstreamTimeoutMs,
   batchTimeoutMs = LYRIC_CANDIDATE_INSPECTION_LIMITS.batchTimeoutMs,
   maxResponseBytes = LYRIC_CANDIDATE_INSPECTION_LIMITS.maxResponseBytes,
+  requestBudget = createLyricRequestBudget(),
 } = {}) {
   const normalized = normalizeCandidates(candidates);
   if (typeof createProviderSnapshot !== 'function') {
@@ -244,7 +248,7 @@ export async function inspectLyricCandidates(song, candidates, {
       const timeoutMs = operationTimeout();
       try {
         const snapshot = await runTimed(
-          (operationSignal) => createProviderSnapshot(source, song, { signal: operationSignal }),
+          (operationSignal) => createProviderSnapshot(source, song, { signal: operationSignal, requestBudget }),
           { signal: batchController.signal, timeoutMs },
         );
         snapshots.set(source, { snapshot: normalizeSnapshot(snapshot, source) });
@@ -278,7 +282,7 @@ export async function inspectLyricCandidates(song, candidates, {
           const document = await runTimed(
             (operationSignal) => sourceSnapshot.snapshot.loadDocument(
               candidate.providerLyricId,
-              { signal: operationSignal },
+              { signal: operationSignal, requestBudget },
             ),
             { signal: batchController.signal, timeoutMs },
           );

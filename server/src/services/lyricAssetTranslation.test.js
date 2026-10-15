@@ -15,6 +15,19 @@ import {
 const STARTED_AT = '2026-09-10T00:00:00.000Z';
 const FINISHED_AT = Date.parse('2026-09-10T00:01:00.000Z');
 
+test('a provider translation in another language does not suppress AI completion for the target', async () => {
+  const artifact = makeReadyArtifact();
+  artifact.translation = { source: 'custom_krc', language: 'en', lines: ['English translation'],
+    originalTextHash: artifact.textHash, updatedAt: STARTED_AT };
+  const store = createMemoryLyricStore(artifact);
+  const result = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong({ language: 'ja' }),
+    store, targetLanguage: 'zh', deps: successDeps() });
+  assert.equal(result.state, 'started');
+  await result.task;
+  assert.equal(store.current().translation.language, 'zh');
+  assert.equal(store.current().translation.lines[0], '你好');
+});
+
 function pendingArtifact(overrides = {}) {
   return makeReadyArtifact({
     aiCompletion: { status: 'pending', updatedAt: STARTED_AT },
@@ -55,6 +68,97 @@ function translatedBatch(messages) {
   const units = JSON.parse(messages.at(-1).content).units;
   return { translations: units.map(({ unitId }) => ({ unitId, text: `译文${unitId}` })) };
 }
+
+test('invalid JSON is reissued once without echoing upstream output and retains word timing', async () => {
+  const pending = pendingArtifact();
+  pending.original.syncMode = 'word';
+  pending.original.lines[0].words = [{ text: pending.original.lines[0].text, startTime: 0, endTime: 1 }];
+  const store = createMemoryLyricStore(pending);
+  const requests = [];
+  let reservations = 0;
+  await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+    startedAt: STARTED_AT, textHash: pending.textHash,
+    deps: successDeps({ reserveDailyQuota: async () => { reservations++; return true; },
+      askAI: async (messages, _config, _env, options) => {
+        requests.push({ messages, options });
+        return requests.length === 1 ? '{"unitId":0",private-invalid-response' : translatedBatch(messages);
+      } }),
+  });
+  assert.equal(requests.length, 2);
+  assert.equal(reservations, 1);
+  assert.match(requests[1].messages[0].content, /有效 JSON/);
+  assert.doesNotMatch(JSON.stringify(requests[1].messages), /private-invalid-response/);
+  assert.ok(requests[1].options.timeoutMs <= requests[0].options.timeoutMs);
+  assert.deepEqual(store.current().translation.lines, ['译文0']);
+  assert.deepEqual(store.current().original, pending.original);
+});
+
+test('repeated invalid JSON stops after two calls and leaves the source and prior translation intact', async () => {
+  const pending = pendingArtifact();
+  pending.translation = { source: 'custom_krc', language: 'en', originalTextHash: pending.textHash, lines: ['Existing'] };
+  const store = createMemoryLyricStore(pending);
+  let calls = 0;
+  await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+    force: true, startedAt: STARTED_AT, textHash: pending.textHash,
+    deps: successDeps({ askAI: async () => { calls++; return '{invalid'; } }),
+  });
+  assert.equal(calls, 2);
+  assert.equal(store.current().aiCompletion.errorCode, 'invalid_output');
+  assert.deepEqual(store.current().original, pending.original);
+  assert.deepEqual(store.current().translation, pending.translation);
+});
+
+test('invalid JSON cannot restart the request budget after the completion deadline is nearly spent', async () => {
+  const pending = pendingArtifact(); const store = createMemoryLyricStore(pending);
+  let elapsed = 0; let calls = 0;
+  await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+    startedAt: STARTED_AT, textHash: pending.textHash,
+    deps: successDeps({ monotonicNow: () => elapsed,
+      askAI: async () => { calls++; elapsed = 20000; return '{invalid'; } }),
+  });
+  assert.equal(calls, 1);
+  assert.equal(store.current().aiCompletion.errorCode, 'ai_timeout');
+  assert.equal(store.current().translation, null);
+});
+
+test('invalid JSON retry allowance is shared by all batches and upstream failures are not retried', async t => {
+  await t.test('across batches', async () => {
+    const pending = multiBatchPendingArtifact(121); const store = createMemoryLyricStore(pending);
+    let calls = 0;
+    await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+      startedAt: STARTED_AT, textHash: pending.textHash,
+      deps: successDeps({ askAI: async messages => ++calls === 2 ? translatedBatch(messages) : '{invalid' }),
+    });
+    assert.equal(calls, 3);
+    assert.equal(store.current().aiCompletion.errorCode, 'invalid_output');
+    assert.equal(store.current().translation, null);
+  });
+  await t.test('upstream rejection', async () => {
+    const pending = pendingArtifact(); const store = createMemoryLyricStore(pending); let calls = 0;
+    await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+      startedAt: STARTED_AT, textHash: pending.textHash,
+      deps: successDeps({ askAI: async () => { calls++; throw new Error('AI_UPSTREAM_429'); } }),
+    });
+    assert.equal(calls, 1);
+    assert.equal(store.current().aiCompletion.errorCode, 'upstream_rate_limited');
+  });
+});
+
+test('current DeepSeek models complete bounded JSON batches with context and all original line IDs', async () => {
+  const pending = multiBatchPendingArtifact(51); const store = createMemoryLyricStore(pending);
+  const batches = []; let reservations = 0;
+  await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+    startedAt: STARTED_AT, textHash: pending.textHash,
+    deps: successDeps({ getAIAssistantConfig: async()=>({provider:'deepseek',model:'deepseek-flash'}),
+      reserveDailyQuota: async()=>{reservations++;return true;},
+      askAI: async messages=>{batches.push(JSON.parse(messages.at(-1).content));return translatedBatch(messages);} }),
+  });
+  assert.deepEqual(batches.map(batch=>batch.units.length), [16,16,16,3]);
+  assert.ok(batches[1].context.before.length>0 && batches[1].context.after.length>0);
+  assert.equal(reservations,1);
+  assert.deepEqual(store.current().translation.lines, Array.from({length:51},(_,i)=>'译文'+i));
+  assert.deepEqual(store.current().original,pending.original);
+});
 
 test('asset AI completion writes aligned translation and clears pending state', async () => {
   const store = createMemoryLyricStore(pendingArtifact());
@@ -318,7 +422,7 @@ test('disabled lyric AI settles a pending request without spending quota or call
 test('manual completion replaces a provider translation instead of treating it as AI output', async () => {
   const base = pendingArtifact();
   const store = createMemoryLyricStore(pendingArtifact({
-    translation: { source: 'kugou', language: 'zh', originalTextHash: base.textHash,
+    translation: { source: 'custom_krc', language: 'zh', originalTextHash: base.textHash,
       lines: ['旧译文'] },
   }));
   let calls = 0;
@@ -553,7 +657,7 @@ test('manual recompletion retains old translation while marking a new pending ta
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const previous = {
-    source: 'kugou',
+    source: 'custom_krc',
     originalTextHash: 'a'.repeat(64),
     lines: ['旧译文'],
     updatedAt: '2026-09-09T00:00:00.000Z',

@@ -22,11 +22,10 @@ test('PlayerBar translation button consumes the source-agnostic lifecycle', () =
   assert.match(playerBar, /translationStatusMessage/);
 });
 
-test('PlayerBar pending animation is confined to its outer ring and becomes static for reduced motion', () => {
+test('PlayerBar pending animation remains confined to its outer ring', () => {
   assert.match(playerBarCss, /lyrics-translation-action::after[\s\S]*inset: -4px/);
   assert.match(playerBarCss, /lyrics-translation-action\[data-translation-state='pending'\]::after[\s\S]*animation: lyrics-translation-breathe/);
   assert.doesNotMatch(playerBarCss, /lyrics-translation-action\[data-translation-state='pending'\]\s*\{[^}]*animation:/);
-  const reducedMotionStart = playerBarCss.indexOf('@media (prefers-reduced-motion: reduce)');
-  const reducedMotionBlock = playerBarCss.slice(reducedMotionStart, playerBarCss.indexOf('}', playerBarCss.indexOf('lyrics-translation-action', reducedMotionStart)) + 1);
-  assert.match(reducedMotionBlock, /lyrics-translation-action\[data-translation-state='pending'\]::after[\s\S]*animation: none !important/);
+
+  assert.doesNotMatch(readFileSync(new URL("../styles/player-bar.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });

@@ -1,6 +1,7 @@
 import { createRequestSingleFlight } from '../utils/sharedRequestTask.js';
 import { fetchLyricsDocumentWithFallback, fetchUncachedSourceLyricsDocument, resolveLyricSourceOrder } from './lyricSourceLoader.js';
 import { preferredAutomaticDocument, reliableAutomaticMatch, documentQuality } from './lyricAutomaticSelection.js';
+import { createLyricRequestBudget } from './lyricRequestBudget.js';
 
 export const LYRIC_UPGRADE_INTERVAL_MS = 6 * 60 * 60_000;
 export const LYRIC_UPGRADE_SEARCH_BUDGET_MS = 20_000;
@@ -8,7 +9,8 @@ const flights = new WeakMap();
 
 // Reserve the rest of Workers' post-response lifetime for validation and CAS.
 // A slow provider must not discard results already returned by another one.
-export async function fetchUpgradeDocument(song, fetchDocument, { signal, budgetMs = LYRIC_UPGRADE_SEARCH_BUDGET_MS } = {}) {
+export async function fetchUpgradeDocument(song, fetchDocument, { signal, budgetMs = LYRIC_UPGRADE_SEARCH_BUDGET_MS,
+  enabledSources, requestBudget = createLyricRequestBudget() } = {}) {
   if (signal?.aborted || budgetMs <= 0) return null;
   const controller = new AbortController();
   const completed = new Map();
@@ -18,14 +20,14 @@ export async function fetchUpgradeDocument(song, fetchDocument, { signal, budget
   signal?.addEventListener('abort', onAbort, { once: true });
   const timer = setTimeout(finishDeadline, budgetMs);
   try {
-    const tasks = resolveLyricSourceOrder('auto').map(async provider => {
+    const tasks = resolveLyricSourceOrder('auto', enabledSources).map(async provider => {
       const acceptCandidate = document => {
         if (!controller.signal.aborted && document?.source === provider
           && preferredAutomaticDocument(document, completed.get(provider))) completed.set(provider, document);
       };
       try {
         const document = await fetchDocument(provider, song, {
-          signal: controller.signal, onAutomaticCandidate: acceptCandidate,
+          signal: controller.signal, onAutomaticCandidate: acceptCandidate, requestBudget,
         });
         acceptCandidate(document);
       } catch { /* Keep the existing asset on failure; no negative asset is written. */ }
@@ -33,7 +35,7 @@ export async function fetchUpgradeDocument(song, fetchDocument, { signal, budget
     await Promise.race([Promise.all(tasks), deadline]);
     controller.abort();
     if (signal?.aborted) return null;
-    return fetchLyricsDocumentWithFallback('auto', song, async provider => completed.get(provider) || null);
+    return fetchLyricsDocumentWithFallback('auto', song, async provider => completed.get(provider) || null, { enabledSources });
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', onAbort);
@@ -61,7 +63,8 @@ function originalDocument(artifact, song) {
 // Response callers retain their read snapshot. Work is owned by waitUntil and
 // an object CAS; a later human edit/deletion always wins over this old snapshot.
 export function scheduleLyricAssetUpgrade({ store, song, read, executionContext,
-  buildArtifact, songStillExists, now = Date.now, fetchDocument = fetchUncachedSourceLyricsDocument,
+  buildArtifact, songStillExists, now = Date.now, fetchDocument = fetchUncachedSourceLyricsDocument, enabledSources,
+  requestBudget = createLyricRequestBudget(),
 }) {
   if (!executionContext?.waitUntil || !canUpgrade(read, now())) return null;
   let singleflight = flights.get(store);
@@ -78,7 +81,7 @@ export function scheduleLyricAssetUpgrade({ store, song, read, executionContext,
       current.etag, { automation });
     if (claim.state !== 'updated') return { state: 'superseded' };
     const document = await fetchUpgradeDocument(song, fetchDocument, {
-      signal, budgetMs: LYRIC_UPGRADE_SEARCH_BUDGET_MS - (Date.now() - startedAt),
+      signal, budgetMs: LYRIC_UPGRADE_SEARCH_BUDGET_MS - (Date.now() - startedAt), enabledSources, requestBudget,
     });
     const previous = originalDocument(claim.artifact, song);
     if (!document || !Number.isFinite(document.providerMeta?.durationDelta)

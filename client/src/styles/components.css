@@ -67,18 +67,6 @@ input.settings-switch:focus-visible { outline: 2px solid var(--accent); outline-
 .settings-skeleton__row + .settings-skeleton__row { margin-top: 12px; }
 .settings-skeleton--compact .settings-skeleton__card { padding: 0; border: 0; background: none; }
 .settings-content-enter { animation: catalog-content-enter 180ms ease-out; }
-@media (prefers-reduced-motion: reduce) {
-  .select-control__menu { animation: none; }
-  .select-control__trigger,
-  .select-control__trigger > svg,
-  .language-choice,
-  input.settings-switch,
-  input.settings-switch::before { transition: none; }
-  .settings-button { transition: none; }
-  .settings-edit-dialog, .settings-edit-dialog::backdrop,
-  .settings-edit-dialog[data-closing], .settings-edit-dialog[data-closing]::backdrop,
-  .settings-content-enter { animation: none; }
-}
 
 .glass-panel {
   contain: content;

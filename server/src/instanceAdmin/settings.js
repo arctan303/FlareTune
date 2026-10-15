@@ -3,12 +3,14 @@ import {
 } from './common.js';
 import { DEFAULT_LYRIC_AI_CONFIG, normalizeLyricAiConfig } from '../utils/lyricAiConfig.js';
 import { DEFAULT_ASSISTANT_PERSONA, DEFAULT_ASSISTANT_RULES } from '../utils/aiPromptDefaults.js';
+import { DEFAULT_LYRIC_CHANNELS, normalizeLyricChannels } from '../../../shared/lyricSources.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   'instance.name': 'FlareTune',
   'cors.allowed_origins': [],
   'ai.compatible_api_url': '',
   'lyrics.ai': DEFAULT_LYRIC_AI_CONFIG,
+  'lyrics.sources': DEFAULT_LYRIC_CHANNELS,
   'assistant.images_enabled': false,
 });
 
@@ -36,6 +38,10 @@ function exactHttpsOrigin(value) {
 export function validateSetting(key, value) {
   if (!knownKeys.has(key)) throw new InstanceAdminError('unknown_setting', 400);
   if (key === 'assistant.images_enabled' && typeof value === 'boolean') return value;
+  if (key === 'lyrics.sources') {
+    try { return normalizeLyricChannels(value); }
+    catch { throw new InstanceAdminError('invalid_setting', 400); }
+  }
   if (key === 'lyrics.ai') {
     try { return normalizeLyricAiConfig(value); }
     catch { throw new InstanceAdminError('invalid_setting', 400); }
@@ -71,13 +77,15 @@ export function validateAssistantConfig(config) {
 export async function getAdminSettings(db, actorAccountId, { aiApiKeyConfigured = null } = {}) {
   await requireActiveAdmin(db, actorAccountId);
   const rows = await db.prepare(`SELECT key, value_json, revision FROM instance_settings
-    WHERE key IN ('instance.name', 'cors.allowed_origins', 'ai.compatible_api_url', 'lyrics.ai', 'assistant.images_enabled')`).all();
+    WHERE key IN ('instance.name', 'cors.allowed_origins', 'ai.compatible_api_url', 'lyrics.ai', 'lyrics.sources', 'assistant.images_enabled')`).all();
   const settings = {};
   for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) settings[key] = { value: fallback, revision: 0 };
   for (const row of rows?.results ?? []) {
     if (!knownKeys.has(row.key)) continue;
     try {
-      settings[row.key] = { value: validateSetting(row.key, JSON.parse(row.value_json)), revision: row.revision };
+      const parsed = JSON.parse(row.value_json);
+      settings[row.key] = { value: row.key === 'lyrics.sources' ? normalizeLyricChannels(parsed, { migrateLegacy: true })
+        : validateSetting(row.key, parsed), revision: row.revision };
     } catch {
       throw new InstanceAdminError('setting_corrupt', 503);
     }
@@ -108,6 +116,16 @@ export async function updateAdminSetting(db, actorAccountId, key, value, expecte
   const actor = await requireActiveAdmin(db, actorAccountId);
   validateRevision(expectedRevision, { allowZero: true });
   const safeValue = validateSetting(key, value);
+  if (key === 'lyrics.sources' && expectedRevision > 0) {
+    const row = await db.prepare('SELECT value_json, revision FROM instance_settings WHERE key = ?').bind(key).first();
+    if (!row || row.revision !== expectedRevision) throw new InstanceAdminError('revision_conflict', 409);
+    let previous;
+    try { previous = normalizeLyricChannels(JSON.parse(row.value_json), { migrateLegacy: true }); }
+    catch { throw new InstanceAdminError('setting_corrupt', 503); }
+    if (safeValue.sources.some(source => previous.sources.some(old => old.id === source.id && old.protocol !== source.protocol))) {
+      throw new InstanceAdminError('invalid_setting', 400);
+    }
+  }
   currentTime(now);
   const json = JSON.stringify(safeValue);
   const mutation = expectedRevision === 0

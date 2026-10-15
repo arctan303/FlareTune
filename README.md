@@ -1,68 +1,56 @@
 # <img src="client/public/favicon.svg" alt="" width="44" height="44"> FlareTune
 
-[简体中文](README.md) · [English](README.en.md)
+[简体中文](README.md) · [English](README.en.md) · [繁體中文](guide/quickstart.zh-Hant.md) · [日本語](guide/quickstart.ja.md) · [한국어](guide/quickstart.ko.md)
 
-**把自己的音乐，放进随时可听的私人曲库。**
+**不用买 VPS，把自己的音乐放进随时可听的私人曲库。**
 
-FlareTune 是一款面向个人和家庭的自建音频流媒体应用。管理员导入自己的音频文件后，成员可以在电脑或手机上找歌、播放、收藏和整理歌单。曲库数据与媒体文件分别保存在部署者自己的 Cloudflare D1 和私有 R2 中。
+FlareTune 把网页播放器、账号与曲库服务放在 Cloudflare Workers，元信息放在 D1，音频和封面放在私有 R2。无需运行一台常开的服务器，电脑和手机打开网页就能听自己的收藏，也可以给家人创建独立账号。
 
-[界面预览](#界面预览) · [功能](#功能) · [部署](#部署到-cloudflare) · [使用指南](guide/using-flaretune.md) · [参与贡献](CONTRIBUTING.md)
+**[打开在线 Demo](https://flaretune.arcinks.com)** · [部署自己的曲库](#部署自己的曲库) · [使用指南](guide/using-flaretune.md) · [更新日志](CHANGELOG.md)
 
-## 界面预览
+## 先听一会儿
 
-桌面端主页展示曲库内容、常听歌曲和播放入口。下方截图还展示歌手页、播放器、手机歌词页与外观设置。点击图片可查看原图。
+Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、收藏和个人歌单都能体验；收藏、历史及偏好只保存在当前浏览器。Demo 默认以模拟管理员展示与正式实例相同的完整页面和设置；语言、外观等本地偏好可修改，管理配置可展开查看。助手可以发送消息并接收固定示例回复，不调用真实模型。素材许可和具体边界见 [Demo 说明](guide/demo.md)。
 
-[![FlareTune 桌面端主页，展示推荐卡片、歌曲列表和底部播放器](guide/images/home-desktop.png)](guide/images/home-desktop.png)
+## 日常听歌，也方便管理
 
-| 歌手与专辑 | 外观与播放设置 |
+- **自己的曲库**：按歌曲、歌手和专辑搜索，按音乐语言漫游。每日推荐目标 20 首，首页预览最多 8 首；曲库不足时展示实际数量，可以手动换一批。
+- **认真做的播放器**：播放队列、循环和随机模式、桌面与手机全屏布局，以及逐行/逐字同步歌词。歌词效果取决于可用歌词素材；支持的音频格式取决于浏览器，不提供服务器转码。
+- **每个人自己的收藏**：账号收藏和歌单由实例保存，可在不同设备使用；最近播放记录保存在当前浏览器，不承诺跨设备同步。
+- **从已有文件开始**：网页上传、曲目信息、封面和歌词管理；大量本地文件可通过[入库设备](tooling/ingest-agent/README.md)扫描、预览、核对重复后导入。
+- **可选的音乐助手**：配置自己的模型供应商后，让「小A」帮忙找歌、回答曲库问题和整理歌单。不配置 AI 也能正常听歌。
+- **按自己的习惯使用**：五种界面语言、浅色/深色主题、背景与播放器偏好；可选 [Google 登录](guide/google-login.md)和 [Subsonic 客户端](guide/subsonic.md)。
+
+## 为什么选择这种部署方式
+
+如果你想要个人或家庭音乐库，又不想维护 VPS、容器和常驻进程，FlareTune 提供了一套围绕 Cloudflare 的选择。你持有自己的账号、D1 数据库和私有 R2 存储桶；正常实例的业务接口与媒体需要认证。
+
+核心部署不依赖额外服务器。AI、Google 登录及第三方歌词/图片来源是可选的外部服务，可能有自己的费用或可用性限制。FlareTune 面向自有音频的收听与整理，不随正式实例提供商业歌曲资源，也不替代大型影音服务器的转码能力。
+
+## 部署自己的曲库
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune)
+
+1. 准备 Cloudflare 账号并开通 R2，在向导中创建/绑定 Worker、空 D1 和私有 R2。
+2. 填写并妥善保存至少 32 字符的随机 `SETUP_SECRET`。
+3. 部署完成后打开网址，验证密钥、创建首个管理员，然后导入音乐。
+
+Cloudflare R2 Standard 每月提供 **10 GB-month 免费存储额度**，可以作为小型私人曲库的起点；Workers、D1 和存储操作也各有免费额度。能否保持零费用取决于账号总用量、请求量及可选服务，见[免费额度与费用](guide/deployment.md#免费额度与费用)。需要自行开通 Cloudflare/R2、完成初始化并导入有权使用的音频。
+
+公开模板提供部署入口，首次初始化在应用内完成，无需手工运行数据库迁移。完整步骤、手动部署、费用、备份和升级见[部署指南](guide/deployment.md)。全新 Cloudflare 账号的向导行为以平台实际提示为准。
+
+## 文档与贡献
+
+| 入口 | 内容 |
 | --- | --- |
-| [<img src="guide/images/artist-desktop.png" alt="桌面端歌手页面，展示歌曲和专辑" width="600">](guide/images/artist-desktop.png) | [<img src="guide/images/appearance-desktop.png" alt="桌面端外观设置，展示主题和播放器样式选项" width="600">](guide/images/appearance-desktop.png) |
+| [使用指南](guide/using-flaretune.md) | 播放、漫游、歌单、助手、语言与外观 |
+| [管理与维护](guide/administration.md) | 曲库、账号、实例配置与数据维护 |
+| [部署与初始化](guide/deployment.md) | 安装、免费额度、密钥、备份与升级 |
+| [Demo](guide/demo.md) | 浏览器数据、完整设置、固定助手回复与素材来源 |
+| [本地开发](guide/local-development.md) | React/Vite/Workers 开发与验证 |
+| [全部文档](guide/README.md) | 用户、管理员和客户端文档索引 |
+| [参与贡献](CONTRIBUTING.md) | 代码、翻译、设计、测试与问题反馈 |
 
-| 桌面端全屏播放器 | 手机端封面视图 | 手机端歌词视图 |
-| --- | --- | --- |
-| [<img src="guide/images/player-current-desktop.png" alt="桌面端全屏播放器，展示封面、同步歌词和播放控制" width="600">](guide/images/player-current-desktop.png) | [<img src="guide/images/player-current-mobile.png" alt="手机端全屏播放器封面视图" width="220">](guide/images/player-current-mobile.png) | [<img src="guide/images/lyrics-current-mobile.png" alt="手机端全屏播放器歌词视图" width="220">](guide/images/lyrics-current-mobile.png) |
+FlareTune 源自我的个人音乐播放器「乐境」，经过一年多的迭代后作为独立开源项目继续发展。欢迎通过 [GitHub Issues](https://github.com/arctan303/FlareTune/issues) 反馈可复现的问题，或参与代码、设计、翻译和文档贡献。
 
-## 功能
-
-- **浏览与播放**：按歌曲、歌手和专辑搜索，或通过「漫游」探索曲库；播放器支持队列、全屏封面和同步歌词。
-- **个人资料库**：每个账号管理自己的收藏、歌单和收听内容，桌面与手机共用同一套数据。
-- **曲库管理**：管理员可在网页中上传歌曲和封面、编辑曲目信息、管理成员账号；大量本地文件可使用[入库设备工具](tooling/ingest-agent/README.md)挑选并导入。
-- **可选音乐助手**：管理员配置 AI 模型后，助手「小A」可回答曲库相关问题、找歌和协助整理歌单；不配置也能正常使用曲库与播放器。
-- **外观选择**：支持跟随系统、浅色和深色主题，以及背景和播放器样式偏好。
-
-## 部署到 Cloudflare
-
-使用 Cloudflare 账号点击下方按钮，部署向导会创建并绑定 Worker、D1 数据库和私有 R2 存储桶。
-
-[![一键部署到 Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/arctan303/FlareTune)
-
-1. 在部署向导中填写至少 32 个字符的随机 `SETUP_SECRET`，并保存好该密钥。
-2. 部署完成后打开实例地址，输入 `SETUP_SECRET` 验证首次初始化。
-3. 创建首个管理员账号，然后登录并导入音乐。
-
-详细的初始化、升级和数据备份步骤见[部署与初始化指南](guide/deployment.md)。
-
-## 开发与文档
-
-项目使用 React、Vite 和 Cloudflare Workers，数据使用 D1，音频与封面使用私有 R2。本地开发需要 Node.js 22.18+（22.x）或 24.11+；完整的启动与验证步骤见[本地开发指南](guide/local-development.md)。
-
-| 文档 | 内容 |
-| --- | --- |
-| [使用指南](guide/using-flaretune.md) | 找歌、播放、歌单、助手和个人设置 |
-| [第三方客户端](guide/subsonic.md) | Subsonic 开关、连接方法、兼容范围与用户验收 |
-| [Google 登录](guide/google-login.md) | 管理员配置、已有账号绑定、免输本站密码登录 |
-| [部署与初始化](guide/deployment.md) | 首次安装、密钥、升级和数据备份 |
-| [管理与维护](guide/administration.md) | 曲库、账号、实例设置和数据维护 |
-| [本地入库设备](tooling/ingest-agent/README.md) | 批量读取本地目录并在网页中挑选歌曲 |
-| [全部文档](guide/README.md) | 面向使用者和管理员的文档索引 |
-| [更新日志](CHANGELOG.md) | 版本变化与已知限制 |
-
-## 关于项目
-
-FlareTune 源自我的个人音乐播放器「乐境」。从乐境 4.0 到 5.0，项目经历了一年多的持续迭代；随后以 FlareTune 1.0.0 作为独立开源项目的起点。
-
-我希望有更多愿意投入的开发者参与，一起把它做得更好。欢迎从代码、设计、测试或文档开始贡献，具体方式见[参与贡献](CONTRIBUTING.md)。如果使用中遇到问题，请通过 [GitHub Issues](https://github.com/arctan303/FlareTune/issues) 反馈，尽量附上运行环境、复现步骤和必要的脱敏日志。我会认真跟进并持续修复。感谢你的支持。
-
-## 许可
-
-代码与文档采用 [MIT 许可证](LICENSE)；协议 MD5 实现沿用旧 FlareTune 的 [Apache-2.0 许可证](licenses/legacy-flaretune-Apache-2.0.txt)。图片与品牌素材见[素材说明](ASSETS.md)。
+代码与原创文档采用 [MIT](LICENSE)；协议 MD5 实现保留 [Apache-2.0](licenses/legacy-flaretune-Apache-2.0.txt)。第三方歌曲、照片和品牌素材按[各自许可](ASSETS.md)使用，MIT 不覆盖这些内容。

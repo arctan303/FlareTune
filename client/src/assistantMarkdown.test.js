@@ -1,6 +1,9 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderMarkdownSafe } from './assistantMarkdownRenderer.js';
+import { setUiLanguage, t } from './i18n/index.js';
+
+before(() => setUiLanguage('zh'));
 
 test('XiaoA Markdown renders headings, lists, quotes, tables, hr, and code', () => {
     const input = `
@@ -62,4 +65,30 @@ test('XiaoA Markdown keeps external article links as ordinary safe links', () =>
     const html = renderMarkdownSafe(input);
     
     assert.match(html, /<a href="https:\/\/blog\.example\.test\/post\/21" target="_blank" rel="noopener noreferrer" class="xiaoa-markdown-link"/);
+});
+
+test('assistant song controls and table accessibility follow all five UI languages while prose stays intact', async () => {
+    const input = '原文保持中文 [《晴天》](song:song_1) [](song:song_2)\n\n| 歌名 |\n| --- |\n| 晴天 |';
+    for (const locale of ['zh', 'zh-Hant', 'en', 'ja', 'ko']) {
+        await setUiLanguage(locale);
+        const html = renderMarkdownSafe(input);
+        assert.ok(html.includes('原文保持中文'), locale);
+        assert.ok(html.includes('>《晴天》</span>'), locale);
+        assert.ok(html.includes(`title="${t('在 FlareTune 播放{title}', { title: '《晴天》' })}"`), locale);
+        assert.ok(html.includes(`>${t('播放歌曲')}</span>`), locale);
+        assert.ok(html.includes(`aria-label="${t('表格，可左右滚动')}"`), locale);
+        if (locale === 'en') {
+            assert.ok(html.includes('title="Play 《晴天》 in FlareTune"'));
+            assert.ok(html.includes('aria-label="Table, scroll horizontally"'));
+        }
+    }
+    await setUiLanguage('zh');
+});
+
+test('translated song tooltips keep title characters inside the attribute boundary', async () => {
+    await setUiLanguage('en');
+    const html = renderMarkdownSafe('[歌曲 " onmouseover="alert(1)](song:song_1)');
+    assert.ok(html.includes('&quot; onmouseover=&quot;'));
+    assert.doesNotMatch(html, /title="[^"]*" onmouseover=/);
+    await setUiLanguage('zh');
 });

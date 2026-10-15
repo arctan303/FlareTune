@@ -42,7 +42,6 @@ export default function ImmersiveAudioAura({
     intensity = 'subtle',
     containerRef,
     visualMode = 'ambient',
-    prefersReducedMotion = false,
     presentationReady = true,
     renderPaused = false,
     onModeCollapsed,
@@ -68,7 +67,7 @@ export default function ImmersiveAudioAura({
 
     const isNoLyricsMode = visualMode === 'no-lyrics';
     const isNoLyricsContext = isNoLyricsMode || visualMode === 'no-lyrics-idle';
-    const analysisEnabled = pageVisible && !prefersReducedMotion && !suspended && (enabled || isNoLyricsMode);
+    const analysisEnabled = pageVisible && !suspended && (enabled || isNoLyricsMode);
     const analyserActive = analysisEnabled && isPlaying && !isBuffering;
     analysisEnabledRef.current = analysisEnabled;
     analyserActiveRef.current = analyserActive;
@@ -255,21 +254,20 @@ export default function ImmersiveAudioAura({
             const analyser = analyserRef.current;
             const dataArray = dataArrayRef.current;
             const canSample = analysisEnabled
-                && !prefersReducedMotion
                 && isPlaying
                 && !isBuffering
                 && visualMode !== 'no-lyrics-idle'
                 && analyser
                 && dataArray;
             const baselineActivityTarget = canSample ? 1 : 0;
-            const baselineEase = prefersReducedMotion ? 1 : (baselineActivityTarget > baselineActivityRef.current ? 0.07 : 0.05);
+            const baselineEase = baselineActivityTarget > baselineActivityRef.current ? 0.07 : 0.05;
             baselineActivityRef.current += (baselineActivityTarget - baselineActivityRef.current) * baselineEase;
             if (Math.abs(baselineActivityTarget - baselineActivityRef.current) < 0.0015) {
                 baselineActivityRef.current = baselineActivityTarget;
             }
             const targetModeProgress = isNoLyricsMode && isPlaying ? 1 : 0;
             if (targetModeProgress > 0) collapseNotifiedRef.current = false;
-            const modeEase = prefersReducedMotion ? 1 : (targetModeProgress > modeProgressRef.current ? 0.0375 : 0.055);
+            const modeEase = targetModeProgress > modeProgressRef.current ? 0.0375 : 0.055;
             modeProgressRef.current += (targetModeProgress - modeProgressRef.current) * modeEase;
             if (Math.abs(targetModeProgress - modeProgressRef.current) < 0.0015) {
                 modeProgressRef.current = targetModeProgress;
@@ -318,7 +316,7 @@ export default function ImmersiveAudioAura({
             const bottomAmplitude = height * 0.085;
             const specialAmplitude = height * 0.038;
             const fillOpacity = 1 - smoothstep(0.18, 0.72, modeProgress);
-            const bufferBreath = !prefersReducedMotion && isBuffering && isPlaying && isNoLyricsMode
+            const bufferBreath = isBuffering && isPlaying && isNoLyricsMode
                 ? 0.025 + Math.sin(timestamp / 520) * 0.008
                 : 0;
             const pointCount = bands.length;
@@ -393,7 +391,7 @@ export default function ImmersiveAudioAura({
             const transitionPending = Math.abs(targetModeProgress - modeProgress) > 0.0015;
             const energyPending = peak > 0.003 || smoothLevelRef.current > 0.003;
             const baselinePending = Math.abs(baselineActivityTarget - baselineActivityRef.current) > 0.0015;
-            const bufferingVisual = !prefersReducedMotion && isNoLyricsMode && isPlaying && isBuffering;
+            const bufferingVisual = isNoLyricsMode && isPlaying && isBuffering;
             const shouldContinue = canSample || transitionPending || energyPending || baselinePending || bufferingVisual;
 
             if (shouldContinue) {
@@ -415,7 +413,7 @@ export default function ImmersiveAudioAura({
                 animationRef.current = null;
             }
         };
-    }, [analysisEnabled, analysisVersion, canvasVersion, containerRef, enabled, intensity, isBuffering, isNoLyricsContext, isNoLyricsMode, isPlaying, onModeCollapsed, prefersReducedMotion, renderPaused, suspended, pageVisible]);
+    }, [analysisEnabled, analysisVersion, canvasVersion, containerRef, enabled, intensity, isBuffering, isNoLyricsContext, isNoLyricsMode, isPlaying, onModeCollapsed, renderPaused, suspended, pageVisible]);
 
     const visible = presentationReady && !renderPaused && (enabled || isNoLyricsContext || modeProgressRef.current > 0.002);
 

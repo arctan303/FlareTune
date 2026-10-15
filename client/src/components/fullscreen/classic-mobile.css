@@ -93,26 +93,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .paper-mobile-lyric-preview__roller,
-  .paper-classic-player .paper-mobile-lyric-preview__primary,
-  .paper-classic-player .paper-mobile-lyric-preview__translation {
-    transition: none !important;
-  }
-
-  .paper-classic-player .paper-mobile-lyric-preview__row {
-    transform: none !important;
-    filter: none !important;
-    transition: none !important;
-  }
-
-  .paper-classic-player .classic-lyrics__pane-motion {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-}
-
 /* =========================================================================
    移动端单行大封面与多行小封面之间的 GPU 硬件加速共享缩放飞入与退出动画
    ========================================================================= */

@@ -1,11 +1,12 @@
+import React from 'react';
 import { localizeUnknownArtist, t } from '../i18n/index.js';
-import { Loader2, PanelBottom, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { ListMusic, Loader2, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '../store/usePlayerStore.js';
 import { useUIStore } from '../store/useUIStore.js';
 import LazyImage from './LazyImage.jsx';
 
-export default function SidebarMiniPlayer({ allowLayoutSwitch, isTransitioning = false, motionPhase = null, onLayoutSwitch }) {
+export default function SidebarMiniPlayer({ isTransitioning = false, motionPhase = null }) {
   const { currentSong, isPlaying, isBuffering, togglePlay, playPrev, playNext } = usePlayerStore(useShallow((state) => ({
     currentSong: state.currentSong,
     isPlaying: state.isPlaying,
@@ -15,7 +16,22 @@ export default function SidebarMiniPlayer({ allowLayoutSwitch, isTransitioning =
     playNext: state.playNext,
   })));
   const setIsFullScreen = useUIStore((state) => state.setIsFullScreen);
-  const setCompactPlayerPlacement = useUIStore((state) => state.setCompactPlayerPlacement);
+  const setIsPlaylistOpen = useUIStore((state) => state.setIsPlaylistOpen);
+  const [playlistBouncing, setPlaylistBouncing] = React.useState(false);
+  const bounceTimerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleBounce = () => {
+      if (bounceTimerRef.current) clearTimeout(bounceTimerRef.current);
+      setPlaylistBouncing(true);
+      bounceTimerRef.current = setTimeout(() => setPlaylistBouncing(false), 550);
+    };
+    window.addEventListener('arc-insert-next-bounced', handleBounce);
+    return () => {
+      if (bounceTimerRef.current) clearTimeout(bounceTimerRef.current);
+      window.removeEventListener('arc-insert-next-bounced', handleBounce);
+    };
+  }, []);
 
   if (!currentSong) return null;
 
@@ -44,14 +60,15 @@ export default function SidebarMiniPlayer({ allowLayoutSwitch, isTransitioning =
           <button type="button" onClick={playNext} aria-label={t("下一首")} title={t("下一首")}>
             <SkipForward size={17} />
           </button>
-          {allowLayoutSwitch && (
-            <button type="button" className="sidebar-mini-player__layout" onClick={() => {
-              setCompactPlayerPlacement('dock');
-              onLayoutSwitch?.();
-            }} disabled={isTransitioning} aria-label={t("切换到底部播放器")} title={t("切换到底部播放器")}>
-              <PanelBottom size={16} />
-            </button>
-          )}
+          <button
+            type="button"
+            className={`sidebar-mini-player__queue ${playlistBouncing ? 'animate-playlist-bounce text-[var(--accent-strong)]' : ''}`}
+            onClick={() => setIsPlaylistOpen(true)}
+            aria-label={t("打开播放列表")}
+            title={t("打开播放列表")}
+          >
+            <ListMusic size={17} />
+          </button>
         </div>
       </div>
     </section>

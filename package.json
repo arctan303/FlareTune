@@ -1,6 +1,6 @@
 {
   "name": "flaretune",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "A self-hosted personal audio streaming application for Cloudflare Workers.",
   "private": true,
   "type": "module",
@@ -11,9 +11,15 @@
     "ingest:build": "vite build --config tooling/batch-ingest/vite.config.js",
     "ingest": "node --experimental-sqlite tooling/ingest-agent/cli.mjs start",
     "ingest:configure": "node tooling/ingest-agent/cli.mjs configure",
+    "ingest:pack": "node tooling/ingest-agent/package.mjs",
+    "ingest:verify-package": "node tooling/ingest-agent/smoke-package.mjs",
     "ingest:agent": "node --experimental-sqlite tooling/ingest-agent/cli.mjs start",
     "build": "vite build --config client/vite.config.js && node tooling/verify/verify-worker-assets.mjs",
-    "test": "node --experimental-sqlite --test",
+    "demo:media": "node tooling/demo/prepare-media.mjs",
+    "demo:dev": "vite --config demo/vite.config.js",
+    "demo:build": "node tooling/demo/verify-media.mjs && vite build --config demo/vite.config.js",
+    "demo:deploy": "npm run demo:build && wrangler deploy --config demo/wrangler.toml",
+    "test": "node tooling/verify/run-source-tests.mjs",
     "preview": "npm run preview:worker",
     "preview:worker": "npm run build && node tooling/dev/preview-worker.mjs",
     "verify:worker": "npm run build && wrangler deploy --config wrangler.toml --dry-run",
@@ -49,7 +55,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
     "@aws-sdk/lib-storage": "^3.1141.0",
-    "dompurify": "^3.4.14",
+    "dompurify": "^3.4.17",
     "just-secrets": "^0.0.2",
     "lucide-react": "^0.378.0",
     "marked": "^18.0.10",
@@ -65,9 +71,9 @@
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.4.19",
     "esbuild": "^0.28.1",
-    "postcss": "^8.4.38",
+    "postcss": "^8.5.30",
     "tailwindcss": "^3.4.3",
     "vite": "^8.1.4",
-    "wrangler": "^4.136.3"
+    "wrangler": "^4.151.0"
   }
 }

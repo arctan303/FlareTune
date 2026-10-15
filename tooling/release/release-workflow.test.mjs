@@ -9,7 +9,8 @@ import YAML from 'yaml';
 const workflow = YAML.parse(readFileSync(new URL('../../.github/workflows/release.yml', import.meta.url), 'utf8'));
 const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
 const stages = [workflow.jobs.validate.steps.find((step) => step.id === 'release').run,
-  workflow.jobs.publish.steps.find((step) => step.name === 'Confirm immutable tag and prepare notes').run];
+  workflow.jobs.publish.steps.find((step) => step.name === 'Confirm immutable tag and prepare notes').run,
+  workflow.jobs['publish-npm'].steps.find((step) => step.name === 'Confirm immutable tag before npm publication').run];
 const tag = '1.1.3';
 
 function fixture(t, { lightweight = false, offMain = false } = {}) {
@@ -87,8 +88,50 @@ test('release publication rejects a moved remote tag instead of publishing the v
 test('PR validation cannot start the publication job and recovery checks out the original validated commit', () => {
   assert.equal(workflow.permissions.contents, 'read');
   assert.equal(workflow.jobs.publish.permissions.contents, 'write');
-  assert.equal(workflow.jobs.publish.if, "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag')");
   assert.equal(workflow.jobs.publish.steps[0].with.ref, '${{ needs.validate.outputs.commit }}');
   assert.equal(workflow.jobs.validate.steps[1].with.ref, '${{ inputs.tag || github.ref }}');
   assert.equal(workflow.on.workflow_dispatch.inputs.tag.required, true);
+  const npm = workflow.jobs['publish-npm'];
+  assert.equal(npm.permissions.contents, 'read');
+  assert.equal(npm.permissions['id-token'], 'write');
+  assert.equal(workflow.jobs.validate.permissions?.['id-token'], undefined);
+  assert.equal(npm.if, "needs.validate.outputs.npm_supported == 'true' && github.repository == 'arctan303/FlareTune' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag'))");
+  assert.equal(npm.steps[0].with.ref, '${{ needs.validate.outputs.commit }}');
+  assert.deepEqual(workflow.jobs.publish.needs, ['validate', 'publish-npm']);
+});
+
+test('historical 1.1 tags retain GitHub Release recovery while 1.2 and later require npm support', (t) => {
+  const candidate = fixture(t);
+  const identify = workflow.jobs.validate.steps.find((step) => step.id === 'ingest-package').run;
+  for (const [version, supported] of [['1.1.4', false], ['1.2.0', true], ['1.10.0', true], ['2.0.0', true]]) {
+    writeFileSync(join(candidate.clone, 'package.json'), JSON.stringify({ version }));
+    const result = candidate.run(identify);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(readFileSync(join(candidate.root, 'outputs'), 'utf8').trim().endsWith(`supported=${supported}`));
+  }
+  for (const command of ['npm run ingest:pack', 'npm run ingest:verify-package']) {
+    assert.equal(workflow.jobs.validate.steps.find((step) => step.run === command).if,
+      "steps.ingest-package.outputs.supported == 'true'");
+  }
+});
+
+test('publication conditions reject PRs, forks, failed npm jobs and skipped current packages while allowing legacy recovery', () => {
+  const permitted = (job, { legacy = false, npmResult = 'success', validation = 'success', cancelled = false,
+    event = 'push', repository = 'arctan303/FlareTune', refType = 'tag' } = {}) => {
+    // These workflow conditions use the common JS/GitHub expression subset. Evaluate the actual condition against job results.
+    const expression = workflow.jobs[job].if.replaceAll('needs.publish-npm', "needs['publish-npm']");
+    return Function('needs', 'github', 'always', 'cancelled', `return Boolean(${expression});`)(
+      { validate: { result: validation, outputs: { npm_supported: String(!legacy) } }, 'publish-npm': { result: npmResult } },
+      { event_name: event, repository, ref_type: refType }, () => true, () => cancelled);
+  };
+  assert.equal(permitted('publish-npm'), true);
+  for (const options of [{ event: 'pull_request' }, { refType: 'branch' }, { repository: 'another/fork' }, { legacy: true }]) {
+    assert.equal(permitted('publish-npm', options), false);
+  }
+  assert.equal(permitted('publish'), true);
+  assert.equal(permitted('publish', { legacy: true, npmResult: 'skipped', event: 'workflow_dispatch' }), true);
+  for (const options of [{ npmResult: 'failure' }, { npmResult: 'skipped' }, { validation: 'failure' },
+    { event: 'pull_request' }, { cancelled: true }, { legacy: true, npmResult: 'skipped', validation: 'failure' }]) {
+    assert.equal(permitted('publish', options), false);
+  }
 });

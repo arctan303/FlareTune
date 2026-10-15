@@ -12,7 +12,7 @@ test('RoamOverview embeds console, inline settings, and library categories witho
   assert.match(roam, /onToggleRoam/);
   assert.match(roam, /randomRoam\.enabled/);
   assert.match(roam, /开启漫游电台/);
-  assert.match(roam, /暂停漫游/);
+  assert.match(roam, /关闭漫游/);
 
   // 内嵌语种范围多选与快捷键
   assert.match(roam, /ROAM_LANGUAGES/);
@@ -29,7 +29,7 @@ test('RoamOverview embeds console, inline settings, and library categories witho
   assert.match(roam, /setRandomRoamBatchSize/);
 
   // 内嵌去重记录管理
-  assert.match(roam, /近期去重：20%/);
+  assert.match(roam, /优先避开近期歌曲/);
   assert.doesNotMatch(roam, /handleResetHistory/);
 
   // 内嵌曲库分类探索

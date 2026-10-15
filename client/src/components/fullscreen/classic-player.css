@@ -105,8 +105,8 @@
 }
 
 .paper-classic-player .classic-lyrics__tool--text[data-active='true'],
-.paper-classic-player .classic-lyrics__tool--text[data-source='kugou'],
-.paper-classic-player .classic-lyrics__tool--text[data-source='netease'],
+.paper-classic-player .classic-lyrics__tool--text[data-source='custom_krc'],
+.paper-classic-player .classic-lyrics__tool--text[data-source='custom_lrc'],
 .paper-classic-player .classic-lyrics__tool--text[data-source='lrclib'] {
   border: none !important;
   background: rgba(255, 255, 255, 0.18) !important;
@@ -185,24 +185,10 @@
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .paper-classic-player .classic-lyrics__line,
-  .paper-classic-player .classic-lyrics__text-wrap,
-  .paper-classic-player .classic-lyrics__dots-overlay {
-    transform: none !important;
-    filter: none !important;
-    transition: none !important;
-  }
-
-  .paper-classic-player .classic-lyrics__interlude-dots,
-  .paper-classic-player .classic-lyrics__spinner,
-  .paper-classic-player .classic-lyrics__loading-shimmer {
-    animation: none !important;
-  }
-
-  .paper-classic-player .lyrics-translation-action[data-translation-state='pending']::after {
-    animation: none !important;
-    opacity: 0.65;
-    box-shadow: 0 0 6px rgba(96, 165, 250, 0.2);
-  }
+/* =========================================================================
+   经典歌词滚动容器渲染层隔离与平滑滚动保障
+   ========================================================================= */
+.classic-lyrics__viewport {
+  contain: layout style;
+  transform: translateZ(0);
 }

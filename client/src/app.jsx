@@ -199,7 +199,7 @@ export default function App({ validatedSession }) {
         themePreference,
         selectTheme,
         activeShellTheme,
-    } = useTheme(isDarkMode, setIsDarkMode, motionProfile);
+    } = useTheme(isDarkMode, setIsDarkMode);
 
     const coverAccent = useCoverAccent();
     const hasWallpaper = useWallpaperStore(selectHasRenderableWallpaper);
@@ -501,8 +501,24 @@ export default function App({ validatedSession }) {
         fallbackTimer = window.setTimeout(warmPlayerCode, 2400);
         return () => window.clearTimeout(fallbackTimer);
     }, []);
-    
+
     useLyricsFetcher({ enabled: authenticated });
+
+    const handleOpenSearch = React.useCallback(() => {
+        const ui = useUIStore.getState();
+        if (ui.isFullScreen) closeFullScreenPlayer();
+        if (ui.isPlaylistOpen) ui.setIsPlaylistOpen(false);
+        if (ui.isBackgroundDrawerOpen) ui.setIsBackgroundDrawerOpen(false);
+        if (ui.isAccountPlaylistOpen) ui.setIsAccountPlaylistOpen(false);
+        if (ui.isArtistDrawerOpen) ui.setIsArtistDrawerOpen(false);
+        if (ui.isViewingPlaylist) ui.closeViewingPlaylist();
+        if (ui.isViewingAdmin) ui.setIsViewingAdmin(false);
+        handleNavigate('search');
+        window.dispatchEvent(new CustomEvent('flaretune:focus-search'));
+        requestAnimationFrame(() => {
+            window.dispatchEvent(new CustomEvent('flaretune:focus-search'));
+        });
+    }, [handleNavigate]);
 
     useGlobalKeyboardShortcuts({ 
         togglePlay, 
@@ -512,7 +528,7 @@ export default function App({ validatedSession }) {
         volume, 
         setVolume, 
         showToast,
-        onOpenSearch: () => handleNavigate('search')
+        onOpenSearch: handleOpenSearch
     });
 
     useMediaSession({ 

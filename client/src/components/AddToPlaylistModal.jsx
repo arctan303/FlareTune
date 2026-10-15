@@ -119,8 +119,8 @@ export default function AddToPlaylistModal() {
             else if (data.refreshFailed) showToast(t("歌曲已加入，列表刷新失败"));
             else if (data.outcome === 'noop') showToast(t("所选歌曲已在目标歌单中"));
             else showToast(songIds.length === 1 && songs[0]?.title
-                ? `已将《${songs[0].title}》加入 ${selectedTargetIds.length} 个歌单`
-                : `已将 ${songIds.length} 首歌曲加入 ${selectedTargetIds.length} 个歌单`);
+                ? t("已将《{p0}》加入 {p1} 个歌单", { p0: (songs[0].title), p1: (selectedTargetIds.length) })
+                : t("已将 {p0} 首歌曲加入 {p1} 个歌单", { p0: (songIds.length), p1: (selectedTargetIds.length) }));
             closeAddToPlaylist();
         } catch (error) {
             if (isAccountPlaylistStaleError(error)) return;

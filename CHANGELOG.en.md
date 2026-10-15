@@ -2,6 +2,44 @@
 
 [简体中文](CHANGELOG.md)
 
+## 1.2.0 — 2026-10-15
+
+### Public demo and project introduction
+
+- Add an independent, sign-in-free demo with 24 license-verified public tracks, real playback and queues, preset line-timed lyrics, search and roam. Favorites, personal playlists, history and preferences stay in the current browser, with tab synchronization, scoped reset and temporary operation when storage is unavailable.
+- Demo pages and its catalog use static assets, with audio served through an independent read-only media Worker. It has no accounts, D1, R2 or live AI services. A simulated administrator sees the real, complete settings and configuration dialogs; administrative writes are disabled, while the assistant accepts messages and returns a fixed example reply. Normal instance authentication and private-media permissions remain effective.
+- Rewrite both READMEs with a direct link to the [live demo](https://flaretune.arcinks.com), and add demo guides, asset credits and Traditional Chinese, Japanese and Korean quick starts. Explain Cloudflare core hosting without a VPS, conditional 10 GB-month storage and other free allowances, account-wide usage and optional-service costs.
+
+### Languages and everyday use
+
+- Keep application animations independent of the operating system's reduced-motion preference. Lyrics, interludes, artist photos and page transitions follow the same design, retaining pause, buffering, page-visibility and performance controls.
+
+- Support five interface languages: Simplified Chinese, Traditional Chinese, English, Japanese and Korean. Match the browser language before sign-in and keep manual selection in personal settings. Support account preferences, lazy loading, retry, English fallback and localized dates/plurals. Development-era Spanish, French, German and Brazilian Portuguese preferences fall back to English; song metadata and user content stay in their original language.
+- Standardize daily picks at a target of 20 tracks and up to 8 on Home, showing actual counts for smaller libraries. Update by local date and support manual refresh, cancellation and retry while retaining previous results and the playback queue.
+- Describe roam categories as song languages, with instrumentals separate. Turning roam off stops automatic queue additions. Correct empty states, notifications and account-data versus browser-history descriptions.
+- Improve Home song columns/fixed cards, large-screen classic cover/lyrics/control layout and lyric/interlude animation lifecycles while retaining existing player design decisions.
+- Rework fluid-background rendering and cover-texture fallbacks, improving background updates on track changes and resource cleanup. Refine interlude breathing and continuous progress, pausing decorative animation during pause, buffering and background operation.
+- Fix playback titles overwritten by browser history navigation and Enter playing an old selection after editing a search query. Improve mobile sign-in scrolling, touch targets, sidebar and settings layouts.
+- Fix initialization and playback-state errors when browser storage is disabled, allowing the current session to continue.
+- Keep built-in LRCLIB enabled and let administrators add named sources with notes in one list. Multiple sources can use the same protocol, with independent edit, enable and remove actions, retaining candidate matching, provider translations and manual editing. Preserve previous custom endpoint URLs and IDs; the first save upgrades settings to the named-source list. Add bilingual generic protocol guides and preserve existing shared assets. Fix completed candidates lost at upgrade deadlines and incorrect translation-language labels after editing.
+- Detect lyric precision automatically without protocol selection or display. Administrators can test an unsaved source draft with the current track or a typed title/artist, seeing candidates, timing precision, line count, translations and failure stages. Tests save neither settings nor lyrics and never call AI; Demo only displays the controls.
+- Bound outbound requests across lyric sources and reserve built-in LRCLIB fallback capacity, fixing Workers Free request-limit exhaustion when many sources are enabled. Keep completed lyrics/candidates and report rate limits for unfinished sources.
+- Use smaller lyric AI JSON batches for current DeepSeek models and retry malformed JSON at most once within the existing total deadline. Failures preserve the original lyrics and any existing translation.
+- Fix recovery and stop states for unfinished assistant turns after refresh, and reduce recovery reads of message bodies/native context while retaining account isolation and prevention of successful tool replays. Production CPU gains still require representative-load validation.
+- Preserve administrator editing and verbatim display of custom welcomes. Default welcomes follow the interface language and assistant name; the Demo empty state retains its fixed-reply explanation.
+
+### Ingest tooling and releases
+
+- Add the standalone `flaretune-ingest` npm CLI. Use `npx flaretune-ingest@latest configure` and `start` for the existing device ingest flow without downloading the repository. Scanning does not upload tracks automatically: administrators still select and save them in the web app. Configuration and scan records retain their local locations.
+- Publish a matching npm package from stable release tags, with remote annotated-tag, main-origin, artifact-integrity and clean-install checks. Recovery preserves published versions and remains compatible with historical tags.
+- Limit local `npm test` discovery to current source directories, excluding historical snapshots and generated artifacts; update bilingual development and device guides.
+- Update DOMPurify to a security-patched version and refresh compatible Wrangler/PostCSS tooling, retaining existing styling configuration and reproducible lockfiles.
+
+### Compatibility and limitations
+
+- No new database migration. Demo does not synchronize devices, call live models or allow administrative writes; its independent read-only media Worker provides byte-range responses for seeking. Preset lyric timings are approximate manual line timings, without word-level precision.
+- New languages pass catalog, interpolation, loading and browser-layout checks; native-speaker feedback is welcome. Real iOS listening and the deployment wizard on a fresh Cloudflare account still require device/platform validation.
+
 ## 1.1.4 — 2026-10-06
 
 This release applies findings from runtime, security-boundary and performance analysis to the assistant, lyrics, fullscreen player, settings and device ingest, while reducing repeated database queries and background work.

@@ -16,7 +16,6 @@ import {
   ARTIST_PHOTO_CACHE,
   preloadAndDecodeImage,
 } from '../hooks/useArtistPhotos.js';
-import { useMediaQuery } from './fullscreen/useMediaQuery.js';
 import { usePrivateMediaSource } from '../hooks/usePrivateMediaSource.js';
 import { handleKeyboardActivation } from '../utils/keyboardActivation.js';
 import {
@@ -39,7 +38,6 @@ export default function ArtistDrawer() {
   const playSong = usePlayerStore((s) => s.playSong);
 
   const { mounted, visible, onPanelTransitionEnd } = useDrawerTransition(isArtistDrawerOpen);
-  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const closeButtonRef = useRef(null);
   const previousFocusRef = useRef(null);
 
@@ -113,7 +111,7 @@ export default function ArtistDrawer() {
   }, [isArtistDrawerOpen, artistName]);
 
   const applyHeaderMotion = React.useCallback((scrollTop) => {
-    const motion = getArtistDrawerMotion(scrollTop, prefersReducedMotion);
+    const motion = getArtistDrawerMotion(scrollTop);
     if (headerRef.current) headerRef.current.style.height = `${motion.headerHeight}px`;
     if (avatarRef.current) avatarRef.current.style.transform = `scale(${motion.avatarScale})`;
     if (badgeRef.current) {
@@ -124,9 +122,9 @@ export default function ArtistDrawer() {
     if (titleRef.current) titleRef.current.style.transform = `scale(${motion.titleScale})`;
     if (metaRef.current) metaRef.current.style.transform = `translateY(${motion.metaTranslateY}px)`;
     if (photoBgRef.current) photoBgRef.current.style.transform = motion.photoTransform;
-  }, [prefersReducedMotion]);
+  }, []);
 
-  // 重置滚动位置与 Header 展开态；减少动态效果时固定为紧凑态
+  // 重置滚动位置与 Header 展开态
   useEffect(() => {
     if (isArtistDrawerOpen && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
@@ -203,7 +201,7 @@ export default function ArtistDrawer() {
         {/* 顶部伸缩 Hero 写真 Banner（初始上半部分大图，滚动时平滑压缩至吸顶条） */}
         <div
           ref={headerRef}
-          style={{ height: `${prefersReducedMotion ? ARTIST_HEADER_MIN_HEIGHT : ARTIST_HEADER_MAX_HEIGHT}px` }}
+          style={{ height: `${ARTIST_HEADER_MAX_HEIGHT}px` }}
           className="absolute top-0 left-0 right-0 z-20 overflow-hidden bg-neutral-900 select-none pointer-events-none will-change-[height]"
         >
           {/* 背景写真图片 */}
@@ -293,7 +291,7 @@ export default function ArtistDrawer() {
           className="flex-1 overflow-y-auto custom-scrollbar relative z-10"
         >
           {/* 顶部占位 Spacer，高度严格等于 MAX_HEADER_HEIGHT */}
-          <div style={{ height: `${prefersReducedMotion ? ARTIST_HEADER_MIN_HEIGHT : ARTIST_HEADER_MAX_HEIGHT}px` }} className="shrink-0 pointer-events-none" />
+          <div style={{ height: `${ARTIST_HEADER_MAX_HEIGHT}px` }} className="shrink-0 pointer-events-none" />
 
           {/* 粘性操作工具栏（吸附于 MIN_HEADER_HEIGHT 下方） */}
           <div
@@ -420,7 +418,7 @@ export default function ArtistDrawer() {
                               : 'text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/10'
                           }`}
                           title={isFavorite(song) ? t("移出我的收藏") : t("加入我的收藏")}
-                          aria-label={t("{p0}我的收藏：{p1}", { p0: (isFavorite(song) ? '移出' : '加入'), p1: (song.title) })}
+                          aria-label={`${isFavorite(song) ? t('移出我的收藏') : t('加入我的收藏')}: ${song.title}`}
                         >
                           <Star size={15} fill={isFavorite(song) ? 'currentColor' : 'none'} />
                         </button>

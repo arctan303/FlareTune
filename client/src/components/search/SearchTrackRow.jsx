@@ -7,7 +7,7 @@ import { HighlightText } from './HighlightText';
 import { getLanguageShortLabel } from '../../constants/language';
 import { resolveSongLanguage } from '../../utils/songType';
 
-const LazyItem = ({ children, height = 72 }) => {
+const LazyItem = ({ children, height = 72, navIndex }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef(null);
 
@@ -24,7 +24,7 @@ const LazyItem = ({ children, height = 72 }) => {
     return () => observer.disconnect();
   }, []);
 
-  return <div ref={ref} style={{ minHeight: height }}>{isVisible ? children : null}</div>;
+  return <div ref={ref} data-search-nav-index={navIndex} style={{ minHeight: height }}>{isVisible ? children : null}</div>;
 };
 
 export function SearchTrackRow({
@@ -34,6 +34,7 @@ export function SearchTrackRow({
   currentSong,
   isPlaying,
   isActiveNav,
+  navIndex,
   liked,
   isPendingLiked,
   isPopAnimating,
@@ -56,8 +57,9 @@ export function SearchTrackRow({
   const moreButtonRef = useRef(null);
 
   return (
-    <LazyItem height={72}>
+    <LazyItem height={72} navIndex={navIndex}>
       <div
+        data-search-nav-index={navIndex}
         className={`track-row group relative flex cursor-pointer items-center gap-4 ${isCurrent ? 'is-current' : ''} ${isMenuOpen ? 'is-menu-open z-30' : ''} ${isActiveNav ? 'is-active-nav' : ''}`}
       >
         <button

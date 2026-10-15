@@ -6,11 +6,22 @@ This tool reads audio files on the computer that stores your music and connects 
 
 ## Before you begin
 
-- Install Node.js 22.12.0 or newer on the music computer and obtain FlareTune project code compatible with your instance. Ingest device endpoints are available starting with FlareTune 1.1.0.
+- Install Node.js 22.18+ (22.x) or 24.11+ on the music computer. Ingest device endpoints are available starting with FlareTune 1.1.0.
 - Have an administrator account and one or more readable music folders on the device. The device must reach the instance URL; the browser computer only needs access to the player admin page.
 - Install dependencies from the repository root. Use `npm ci` on first setup. In Windows PowerShell, use `npm.cmd` for the commands below.
 
-## First configuration
+## npm usage (available after the first stable package is published)
+
+The local candidate now includes packaging and automated publishing for `flaretune-ingest`; no stable npm package has been published yet. After that first stable publication, you will not need the project source or its full dependencies:
+
+```sh
+npx flaretune-ingest@latest configure
+npx flaretune-ingest@latest start
+```
+
+Use `--help` for commands and `--version` for the installed tool version. To upgrade, press `Ctrl+C` to stop the old process, then run `@latest start`; existing device configuration and SQLite records are reused. Running processes do not update themselves. The `next` tag is for bootstrap/prerelease packages; use `latest` for normal operation. Until the first stable publication, use the source instructions below.
+
+## First configuration from source
 
 ```sh
 npm ci

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('./AdminView.jsx', import.meta.url), 'utf8');
+const accountSource = readFileSync(new URL('./AdminAccountRow.jsx', import.meta.url), 'utf8');
 
 test('instance management replaces the retired Admin Key console', () => {
   for (const label of ['常规', '访问', 'AI 与助手', '曲库', '账号', '系统']) assert.match(source, new RegExp(label));
@@ -17,8 +18,8 @@ test('setting, assistant and account mutations use the local session CSRF token'
   assert.match(source, /putAdminSetting\(key, value, expectedRevision, csrfToken\)/);
   assert.match(source, /putAssistant\([^;]+revision, csrfToken\)/s);
   assert.match(source, /createManagedAccount\([^;]+csrfToken\)/s);
-  assert.match(source, /patchManagedAccount\([^;]+csrfToken\)/s);
-  assert.match(source, /resetManagedPassword\([^;]+csrfToken\)/s);
+  assert.match(accountSource, /patchManagedAccount\([^;]+csrfToken\)/s);
+  assert.match(accountSource, /resetManagedPassword\([^;]+csrfToken\)/s);
   assert.match(source, /parseExactHttpsOrigins/);
 });
 

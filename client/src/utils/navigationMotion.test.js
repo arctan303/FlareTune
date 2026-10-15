@@ -33,29 +33,30 @@ test('switches animate in either direction and leave no filled final transform',
   assert.ok(calls.every((call) => call.canceled));
 });
 
-test('cleanup cancels previous animation and removes preference listener', () => {
+test('cleanup cancels previous animation without a system-preference listener', () => {
   const { element, calls, listeners } = fixture();
   const stop = startNavigationMotion(element, 1);
-  assert.equal(listeners.size, 1);
+  assert.equal(listeners.size, 0);
   stop();
   assert.equal(calls[0].canceled, true);
   assert.equal(listeners.size, 0);
 });
 
-test('reduced motion skips animation, including unavailable browser animation API', () => {
+test('system preference does not skip navigation and missing animation APIs remain safe', () => {
   const { element, calls } = fixture(true);
   startNavigationMotion(element, 1)();
-  assert.equal(calls.length, 0);
+  assert.equal(calls.length, 1);
   assert.doesNotThrow(() => startNavigationMotion(null, 1)());
   assert.doesNotThrow(() => startNavigationMotion({}, 1)());
 });
 
-test('enabling reduced motion during transition cancels it immediately', () => {
+test('changing system preference does not interrupt an application transition', () => {
   const { element, calls, preference, listeners } = fixture();
   const stop = startNavigationMotion(element, 1);
   preference.matches = true;
   for (const listener of listeners) listener();
-  assert.equal(calls[0].canceled, true);
+  assert.equal(calls[0].canceled, false);
   stop();
+  assert.equal(calls[0].canceled, true);
   assert.equal(listeners.size, 0);
 });

@@ -1,0 +1,17 @@
+{
+  "name": "flaretune-ingest",
+  "description": "Connect local music folders to your FlareTune instance for administrator-controlled ingest.",
+  "type": "module",
+  "bin": { "flaretune-ingest": "dist/cli.mjs" },
+  "files": ["dist/cli.mjs"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arctan303/FlareTune.git",
+    "directory": "tooling/ingest-agent"
+  },
+  "homepage": "https://github.com/arctan303/FlareTune/tree/main/tooling/ingest-agent",
+  "bugs": { "url": "https://github.com/arctan303/FlareTune/issues" },
+  "keywords": ["flaretune", "music", "ingest", "cli"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" }
+}

@@ -43,7 +43,7 @@ export function structuredLyrics(artifact, song, enhanced = false) {
         && translated.every(line => Number.isFinite(line.time));
       // Existing provider translations and legacy AI assets without a language
       // follow the project's Chinese convention; unknown manual layers use und.
-      const target = translation.language || (['kugou', 'netease', 'ai'].includes(translation.source) ? 'zh' : null);
+      const target = translation.language || (['custom_krc', 'custom_lrc', 'kugou', 'netease', 'ai'].includes(translation.source) ? 'zh' : null);
       result.push({ ...metadata, lang: language(target), synced: translationSynced, offset: 0, kind: 'translation',
         line: translated.map(line => ({ value: line.text,
           ...(translationSynced ? { start: milliseconds(line.time, offset) } : {}) })) });

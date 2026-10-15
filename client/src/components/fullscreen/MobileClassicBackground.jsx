@@ -5,7 +5,6 @@ export default function MobileClassicBackground({
   showPhotos,
   photoLayers,
   isLyricsView,
-  prefersReducedMotion,
   isPlaying,
   isBuffering,
   suspendPlayerEffects,
@@ -21,7 +20,6 @@ export default function MobileClassicBackground({
         isPlaying={isPlaying}
         isBuffering={isBuffering}
         suspended={suspendPlayerEffects}
-        prefersReducedMotion={prefersReducedMotion}
       />
     ) : null;
   }
@@ -36,7 +34,7 @@ export default function MobileClassicBackground({
       ))}
       {photoLayers.map((layer) => {
         const animationName = layer.index % 2 === 0 ? 'kenburnsZoomIn' : 'kenburnsZoomOut';
-        const animation = prefersReducedMotion ? 'none' : `${animationName} 20s infinite alternate ease-in-out`;
+        const animation = `${animationName} 20s infinite alternate ease-in-out`;
         return (
           <div key={`bg-main-${layer.id}`} className="absolute inset-0 transition-all duration-[1500ms]" style={{ opacity: layer.opacity, transform: layer.transform, filter: layer.filter, transitionTimingFunction: 'cubic-bezier(0.16,1,0.3,1)' }}>
             {isLyricsView ? (

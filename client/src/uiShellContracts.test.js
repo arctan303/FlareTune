@@ -22,12 +22,11 @@ test('XiaoA uses the music site API in both development and production', () => {
   assert.doesNotMatch(development, /VITE_XIAOA_API_BASE/);
   assert.doesNotMatch(production, /VITE_XIAOA_API_BASE/);
 });
-test('reduced-motion and hidden-page rules stop continuous shell animations', () => {
+test('hidden-page rules stop continuous shell animations without consulting system motion', () => {
   const css = readSource('./index.css');
 
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.playing-bars > div[\s\S]*animation: none !important/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\[style\*="text-scroll"\][\s\S]*animation: none !important/);
   assert.match(css, /html\[data-page-hidden='true'\][\s\S]*animation-play-state: paused !important/);
+  assert.doesNotMatch(readSource("./index.css"), /prefers-reduced-motion/);
 });
 
 test('application shell does not render or track the retired pointer halo', () => {
@@ -103,9 +102,9 @@ test('sidebar account entry revalidates local session and opens account settings
   const accountSettings = readSource('./components/AccountSettings.jsx');
 
   assert.match(sidebar, /<AccountMenu onNavigate=\{navigate\} \/>/);
-  assert.match(sidebar, /app-sidebar__logout-btn/);
+  assert.doesNotMatch(sidebar, /app-sidebar__logout-btn/);
   assert.match(sidebar, /onClick=\{\(\) => navigate\('settings'\)\}/);
-  assert.match(sidebar, /logout\(authSession\?\.csrfToken\)/);
+  assert.doesNotMatch(sidebar, /logout\(authSession/);
   assert.match(accountMenu, /onNavigate\?\.\('settings', 'personal'\)/);
   assert.match(accountMenu, /getSession\(\)/);
   assert.match(accountSettings, /logout\(authSession\.csrfToken\)/);
@@ -262,8 +261,8 @@ test('manual insert-next actions only show accurate feedback after a successful 
 
   assert.match(main, /import \{ insertNextWithFeedback \} from '\.\.\/services\/playerActions\.js'/);
   assert.match(playerActions, /if \(!player\.insertAndPlay\(song, null\)\) return false;/);
-  assert.match(playerActions, /已将《\$\{song\.title\}》插播为下一首/);
-  assert.match(playerActions, /已开始播放《\$\{song\.title\}》/);
+  assert.match(playerActions, /t\("已将《\{p0\}》插播为下一首"/);
+  assert.match(playerActions, /t\("已开始播放《\{p0\}》"/);
   assert.match(trackRow, /onInsertNext=\{onInsertNext\}/);
   assert.match(home, /onInsertNext=\{insertNextWithFeedback\}/);
   assert.match(main, /onInsertNext=\{insertNextWithFeedback\}/);
@@ -344,5 +343,33 @@ test('private displayed media reuses session memory while other images retain di
   assert.doesNotMatch(registry, /Image load timed out|IMAGE_LOAD_TIMEOUT_ERROR_CODE/);
   assert.match(css, /\.lazy-image__asset\.is-revealing[\s\S]*image-reveal 220ms/);
   assert.match(css, /html\[data-page-hidden='true'\] \.image-loading-placeholder::after[\s\S]*animation-play-state: paused !important/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.image-loading-placeholder::after[\s\S]*animation: none !important/);
+
+  assert.doesNotMatch(readSource("./index.css"), /prefers-reduced-motion/);
 });
+
+test('search shortcut, keyboard navigation, touch targets and lyrics containment contracts', () => {
+  const app = readSource('./app.jsx');
+  const searchView = readSource('./components/SearchView.jsx');
+  const searchRow = readSource('./components/search/SearchTrackRow.jsx');
+  const appShellCss = readSource('./styles/app-shell.css');
+  const classicPlayerCss = readSource('./components/fullscreen/classic-player.css');
+
+  // 1. 快捷键唤起与焦点广播契约
+  assert.match(app, /handleOpenSearch/);
+  assert.match(app, /flaretune:focus-search/);
+  assert.match(searchView, /flaretune:focus-search/);
+  assert.match(searchView, /inputRef\.current\?\.select\(\)/);
+  assert.match(searchView, /<kbd[\s\S]*onClick=\{[\s\S]*inputRef\.current\?\.focus/);
+
+  // 2. 方向键视口跟随与行标识；查询编辑/回车/IME由实际浏览器行为检查覆盖。
+  assert.match(searchView, /data-search-nav-index/);
+  assert.match(searchView, /scrollIntoView\(\{ block: 'nearest'/);
+  assert.match(searchRow, /data-search-nav-index=\{navIndex\}/);
+
+  // 3. 迷你播放器 44px 触控目标契约
+  assert.match(appShellCss, /\.sidebar-mini-player__actions button::after \{[\s\S]*height: 44px;/);
+
+  // 4. 歌词视口图层隔离契约
+  assert.match(classicPlayerCss, /\.classic-lyrics__viewport \{[\s\S]*contain: layout style;/);
+});
+

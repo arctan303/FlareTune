@@ -18,7 +18,7 @@ test('singable-line classification excludes credits and punctuation but keeps re
 
 test('timed credits, title metadata, separators, and punctuation do not downgrade an otherwise complete word timeline', () => {
   const document = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     providerMeta: { matchedTitle: 'Lemon', matchedArtist: '米津玄師' },
     lines: [
@@ -43,7 +43,7 @@ test('timed credits, title metadata, separators, and punctuation do not downgrad
 
 test('a meaningful lyric line without words still downgrades the whole song to line', () => {
   const document = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     lines: [
       { time: 0, text: '---' },
@@ -56,7 +56,7 @@ test('a meaningful lyric line without words still downgrades the whole song to l
 
 test('a final word up to 2ms past declared line duration is accepted and expands canonical line end', () => {
   const document = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     lines: [{
       time: 1,
@@ -75,7 +75,7 @@ test('a final word up to 2ms past declared line duration is accepted and expands
 
 test('floating-point equal line boundaries do not drop words, while a real overrun still downgrades', () => {
   const floatingEqual = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     lines: [{
       time: 0,
@@ -88,7 +88,7 @@ test('floating-point equal line boundaries do not drop words, while a real overr
   assert.equal(floatingEqual.lines[0].endTime, 0.1 + 0.2);
 
   const realOverrun = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     lines: [{
       time: 1,
@@ -104,7 +104,7 @@ test('floating-point equal line boundaries do not drop words, while a real overr
 
 test('canonical document preserves source segmentation and projects millisecond LRC timestamps', () => {
   const document = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     providerMeta: {
       providerLyricId: 42,
@@ -175,7 +175,7 @@ test('word timestamps outside the line, backwards starts, missing ends, and mixe
     ],
   ];
   for (const lines of cases) {
-    const document = createLyricDocument({ source: 'kugou', format: 'krc', lines });
+    const document = createLyricDocument({ source: 'custom_krc', format: 'krc', lines });
     assert.notEqual(document.syncMode, 'word');
   }
 });
@@ -185,7 +185,7 @@ test('canonical lines are ordered while equal-time bilingual LRC becomes one ori
     '[00:03.000]次の行',
     '[00:01.000]僕らは今靴を脱ぐ',
     '[00:01.000]现在 我们脱下鞋子',
-  ].join('\n'), { source: 'kugou' });
+  ].join('\n'), { source: 'custom_krc' });
   assert.equal(document.lines.length, 2);
   assert.equal(document.lines[0].time, 1);
   assert.equal(document.lines[0].text, '僕らは今靴を脱ぐ');
@@ -200,7 +200,7 @@ test('provider order keeps Chinese original canonical when followed by pinyin or
       '[00:01.000]月亮代表我的心',
       `[00:01.000]${translation}`,
       '[00:03.000]下一句',
-    ].join('\n'), { source: 'kugou' });
+    ].join('\n'), { source: 'custom_krc' });
     assert.equal(document.lines[0].text, '月亮代表我的心');
     assert.equal(document.lines[0].tlyric, translation);
     assert.equal(document.lrc, '[00:01.000]月亮代表我的心\n[00:03.000]下一句');
@@ -220,7 +220,7 @@ test('provider order keeps English original canonical when followed by Chinese t
 });
 
 test('same-script equal-time variants remain canonical text and do not become static translation', () => {
-  const document = parseLrcDocument('[00:01.00]第一版本\n[00:01.00]第二版本', { source: 'kugou' });
+  const document = parseLrcDocument('[00:01.00]第一版本\n[00:01.00]第二版本', { source: 'custom_krc' });
   assert.equal(document.lines.length, 1);
   assert.equal(document.lines[0].text, '第一版本\n第二版本');
   assert.equal(document.lines[0].tlyric, undefined);
@@ -232,7 +232,7 @@ test('three equal-time cross-script entries preserve the first canonical origina
     '[00:01.000]月亮代表我的心',
     '[00:01.000]yue liang dai biao wo de xin',
     '[00:01.000]The moon represents my heart',
-  ].join('\n'), { source: 'kugou' });
+  ].join('\n'), { source: 'custom_krc' });
   assert.equal(document.lines.length, 1);
   assert.equal(document.lines[0].text, '月亮代表我的心');
   assert.equal(document.lines[0].tlyric, 'yue liang dai biao wo de xin\nThe moon represents my heart');
@@ -245,7 +245,7 @@ test('a third same-script variant remains canonical after a cross-script static 
     '[00:01.000]月亮代表我的心',
     '[00:01.000]yue liang dai biao wo de xin',
     '[00:01.000]月亮代表我心',
-  ].join('\n'), { source: 'kugou' });
+  ].join('\n'), { source: 'custom_krc' });
   assert.equal(document.lines.length, 1);
   assert.equal(document.lines[0].text, '月亮代表我的心\n月亮代表我心');
   assert.equal(document.lines[0].tlyric, 'yue liang dai biao wo de xin');
@@ -261,9 +261,9 @@ test('plain text remains explicitly unsynchronized and canonical projection neve
 
 test('document validation rejects unsafe structural sizes and source/format values', () => {
   assert.equal(validateLyricDocument({ source: 'forged', format: 'lrc', lines: [] }).valid, false);
-  assert.equal(validateLyricDocument({ source: 'kugou', format: 'binary', lines: [] }).valid, false);
+  assert.equal(validateLyricDocument({ source: 'custom_krc', format: 'binary', lines: [] }).valid, false);
   const lines = Array.from({ length: 2_001 }, (_, index) => ({ time: index, text: 'x' }));
-  const result = validateLyricDocument({ source: 'kugou', format: 'lrc', lines });
+  const result = validateLyricDocument({ source: 'custom_krc', format: 'lrc', lines });
   assert.equal(result.valid, false);
   assert.match(result.errors[0], /safe line count/);
 });
@@ -293,7 +293,7 @@ test('leading provider metadata and singable line checks exempt opening title an
 
 test('timed title and artist lines with words do not downgrade syncMode', () => {
   const document = createLyricDocument({
-    source: 'kugou',
+    source: 'custom_krc',
     format: 'krc',
     providerMeta: { matchedTitle: 'Lemon', matchedArtist: '米津玄師' },
     lines: [

@@ -27,16 +27,15 @@ export default function InterludeDots({
 
     React.useLayoutEffect(() => {
         if (!active || !Number.isFinite(start) || !Number.isFinite(end)) {
-            if (rootRef.current?.dataset) rootRef.current.dataset.motionRunning = 'false';
+            if (rootRef.current?.dataset) {
+                rootRef.current.dataset.motionRunning = 'false';
+            }
             return undefined;
         }
-        const mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-        let reducedMotion = mediaQuery?.matches === true;
         const update = (snapshot) => {
             const fills = getInterludeDotProgress(snapshot.currentTime, { start, duration });
             if (rootRef.current?.dataset) {
-                rootRef.current.dataset.motionRunning = !reducedMotion
-                    && snapshot.visible !== false && !snapshot.paused
+                rootRef.current.dataset.motionRunning = snapshot.visible !== false && !snapshot.paused
                     && !snapshot.buffering && !snapshot.seeking && !snapshot.ended
                     ? 'true' : 'false';
             }
@@ -44,6 +43,7 @@ export default function InterludeDots({
                 const dot = dotRefs.current[index];
                 if (!dot) return;
                 dot.style.setProperty('--interlude-dot-fill', `${(fill * 100).toFixed(3)}%`);
+                dot.style.setProperty('--interlude-dot-progress', fill.toFixed(3));
                 dot.style.setProperty('--interlude-dot-glow', fill.toFixed(3));
                 dot.dataset.fillState = fill >= 1 ? 'complete'
                     : fills.slice(0, index).every(value => value >= 1) ? 'filling' : 'pending';
@@ -51,19 +51,11 @@ export default function InterludeDots({
         };
         update(clock.getSnapshot());
         const unsubscribe = clock.subscribe(update, {
-            animationFrames: snapshot => !reducedMotion
-                && snapshot.currentTime >= start && snapshot.currentTime < end,
+            animationFrames: snapshot => snapshot.currentTime >= start && snapshot.currentTime < end,
             getNextBoundary: snapshot => [start, end].find(time => time > snapshot.currentTime) ?? null,
         });
-        const handleMotionChange = event => {
-            reducedMotion = event.matches === true;
-            update(clock.getSnapshot());
-            clock.sample?.('motion-preference-change');
-        };
-        mediaQuery?.addEventListener?.('change', handleMotionChange);
         return () => {
             unsubscribe?.();
-            mediaQuery?.removeEventListener?.('change', handleMotionChange);
         };
     }, [active, clock, start, end, duration]);
 
@@ -101,7 +93,11 @@ export default function InterludeDots({
                         className="classic-interlude-dot"
                         aria-hidden="true"
                         data-fill-state={stage > index ? 'complete' : 'pending'}
-                        style={{ '--interlude-dot-fill': stage > index ? '100%' : '0%', '--interlude-dot-glow': stage > index ? 1 : 0 }}
+                        style={{
+                            '--interlude-dot-fill': stage > index ? '100%' : '0%',
+                            '--interlude-dot-progress': stage > index ? 1 : 0,
+                            '--interlude-dot-glow': stage > index ? 1 : 0,
+                        }}
                     >
                         <span className="classic-interlude-dot__fill" />
                     </span>

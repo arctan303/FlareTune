@@ -20,6 +20,7 @@ import { usePlayerAutoHide } from '../../hooks/usePlayerAutoHide.js';
 import { requestLyricsTranslationCompletion } from '../../hooks/useLyricsFetcher.js';
 import './classic-player.css';
 import './classic-mobile.css';
+import './classic-desktop.css';
 
 export default function MobileClassicPlayer({ instantEnter = false, mobileVisual = 'classic' }) {
     const {
@@ -94,7 +95,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         deep: 'rgb(12, 11, 10)'
     });
     const [controlsBottomOffset, setControlsBottomOffset] = React.useState(null);
-    const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)', false);
     const isMobile = useMediaQuery('(max-width: 1023px)', false);
 
     React.useLayoutEffect(() => {
@@ -161,7 +161,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         isPlaying,
         isBuffering,
         suspendEffects: suspendPlayerEffects,
-        prefersReducedMotion,
     });
     const showMobilePhotos = isMobile && showPhotos;
 
@@ -190,10 +189,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
     // 退出多行歌词视图 (补全流畅的淡出与封面展开退出动效)
     const handleExitLyricsView = React.useCallback(() => {
         if (!isMobile || fullScreenMobileView !== 'lyrics' || isExitingLyrics) return;
-        if (prefersReducedMotion) {
-            setFullScreenMobileView('song');
-            return;
-        }
+
         setIsExitingLyrics(true);
         if (exitLyricsTimerRef.current) clearTimeout(exitLyricsTimerRef.current);
         exitLyricsTimerRef.current = setTimeout(() => {
@@ -205,7 +201,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
                 setIsExpandingToSong(false);
             }, 460);
         }, 260);
-    }, [isMobile, fullScreenMobileView, isExitingLyrics, prefersReducedMotion, setFullScreenMobileView]);
+    }, [isMobile, fullScreenMobileView, isExitingLyrics, setFullScreenMobileView]);
 
     React.useEffect(() => {
         if (!isMobile) {
@@ -275,7 +271,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         const touch = event.changedTouches[0];
         const dx = touch.clientX - touchStartRef.current.x;
         const dy = touch.clientY - touchStartRef.current.y;
-        
+
         // 左右轻扫：切换 唱片 / 歌词 视图 (仅限移动端，带进退平滑动效)
         if (isMobile && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.2) {
             if (dx < 0 && fullScreenMobileView === 'song') handleEnterLyricsView();
@@ -383,7 +379,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
             style={{
                 backgroundColor: palette.deep,
                 transitionProperty: hasMounted ? 'transform, background-color' : 'none',
-                transitionDuration: prefersReducedMotion ? '150ms' : '620ms',
+                transitionDuration: '620ms',
                 transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
                 contain: 'layout style',
                 paddingBottom: 'env(safe-area-inset-bottom)'
@@ -391,7 +387,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
             onTransitionEnd={handleStageTransitionEnd}
         >
             <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-                {translationStatusMessage}
+                {t(translationStatusMessage)}
             </span>
             <div className={`classic-player__buffering absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-black/60 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 text-sm text-white/90 shadow-lg pointer-events-none transition-all duration-300 ${isBuffering && isPlaying ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
                 <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -402,7 +398,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
                 showPhotos={showMobilePhotos}
                 photoLayers={photoLayers}
                 isLyricsView={isMobile && fullScreenMobileView === 'lyrics'}
-                prefersReducedMotion={prefersReducedMotion}
                 isPlaying={isPlaying}
                 isBuffering={isBuffering}
                 suspendPlayerEffects={suspendPlayerEffects}

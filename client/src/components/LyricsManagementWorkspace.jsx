@@ -1,5 +1,7 @@
+import { lyricSourceLabel } from '../../../shared/lyricSources.js';
 import { t } from '../i18n/index.js';
 import React from 'react';
+import { SettingsInput, useSettingsReadOnly } from './SettingsReadOnly.jsx';
 import { Check, ChevronDown, ChevronUp, Download, FileUp, Languages, Loader2,
   Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore.js';
@@ -18,7 +20,6 @@ import { centeredLyricScrollTop } from './lyricPreviewScroll.js';
 import { projectTimelineShift, stepTimelineShift, timelineShiftAtY } from './lyricTimelineShift.js';
 import './lyrics-management-workspace.css';
 
-const SOURCES = { kugou: '酷狗', netease: '网易云', lrclib: 'LRCLIB', manual: '手动整理' };
 const MODES = { word: '逐字', line: '逐行', none: '无时间轴' };
 const playbackTime = (seconds) => {
   const value = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
@@ -78,8 +79,7 @@ function Preview({ value, currentTime, followsPlayback, editing = false, rows = 
       lineTop: lineRect.top,
       lineHeight: lineRect.height,
     });
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    container.scrollTo({ top: target, behavior: hasShownFirstLine.current && !reducedMotion ? 'smooth' : 'auto' });
+    container.scrollTo({ top: target, behavior: hasShownFirstLine.current ? 'smooth' : 'auto' });
     hasShownFirstLine.current = true;
   }, [active, editing]);
   if (!editing && !lines.length) return <div className="lyric-studio__empty">{t("没有可预览的歌词正文。")}</div>;
@@ -98,7 +98,7 @@ function Preview({ value, currentTime, followsPlayback, editing = false, rows = 
   return <div ref={previewRef} className={'lyric-studio__preview' + (followsPlayback && !editing ? ' is-following' : '')}
     aria-label={t("歌词全文预览")}>
     {editing && <p className="lyric-studio__edit-hint">{t("点击歌词、译文或时间直接修改；在歌词中按 Enter 插入下一行。")}</p>}
-    {editing && changedWordRows > 0 && <p className="lyric-studio__warning">{t("已修改")}{' '}{changedWordRows}{' '}{t("行逐字内容，保存后这些行会改为逐行同步。")}</p>}
+    {editing && changedWordRows > 0 && <p className="lyric-studio__warning">{t('已修改 {count} 行逐字内容，保存后这些行会改为逐行同步。', { count: changedWordRows })}</p>}
     {editing ? rows.map((row, index) => <div key={row.key}
       className={'lyric-studio__line lyric-studio__line--editable' + (errors[row.key] ? ' has-error' : '')}>
       <div className="lyric-studio__time-cell">
@@ -112,7 +112,7 @@ function Preview({ value, currentTime, followsPlayback, editing = false, rows = 
             <time>{row.time && previewShiftMs
               ? stamp(Math.max(0, (parseLyricTime(row.time) ?? 0) + previewShiftMs / 1000))
               : row.time || t("设置时间")}</time></button>}
-        {errors[row.key]?.time && <small className="lyric-studio__field-error" role="alert">{errors[row.key].time}</small>}
+        {errors[row.key]?.time && <small className="lyric-studio__field-error" role="alert">{t(errors[row.key].time.source, errors[row.key].time.values)}</small>}
       </div>
       <div className="lyric-studio__text-cell">
         {activeCell?.key === row.key && activeCell.field === 'text' ?
@@ -122,7 +122,7 @@ function Preview({ value, currentTime, followsPlayback, editing = false, rows = 
           <button type="button" className="lyric-studio__edit-trigger lyric-studio__edit-trigger--text"
             onClick={() => onActivate({ key: row.key, field: 'text' })} aria-label={t('编辑第 {line} 行歌词', { line: index + 1 })}>
             {row.text || t("点击填写歌词")}</button>}
-        {errors[row.key]?.text && <small className="lyric-studio__field-error" role="alert">{errors[row.key].text}</small>}
+        {errors[row.key]?.text && <small className="lyric-studio__field-error" role="alert">{t(errors[row.key].text.source, errors[row.key].text.values)}</small>}
         {activeCell?.key === row.key && activeCell.field === 'translation' ?
           <input autoFocus aria-label={t('第 {line} 行译文', { line: index + 1 })} value={row.translation}
             onChange={(event) => onPatch(row.key, { translation: event.target.value })}
@@ -145,6 +145,7 @@ function Preview({ value, currentTime, followsPlayback, editing = false, rows = 
   </div>;
 }
 function TimelineShiftRail({ value, onChange, onApply, saving, draft = false }) {
+  const readOnly = useSettingsReadOnly();
   const railRef = React.useRef(null);
   const trackRef = React.useRef(null);
   React.useEffect(() => {
@@ -162,8 +163,8 @@ function TimelineShiftRail({ value, onChange, onApply, saving, draft = false }) 
     const bounds = trackRef.current?.getBoundingClientRect();
     if (bounds) onChange(timelineShiftAtY(event.clientY, bounds.top, bounds.height));
   };
-  const description = value < 0 ? `提前 ${(Math.abs(value) / 1000).toFixed(2)} 秒`
-    : value > 0 ? `延后 ${(value / 1000).toFixed(2)} 秒` : '未位移';
+  const description = value < 0 ? t("提前 {p0} 秒", { p0: ((Math.abs(value) / 1000).toFixed(2)) })
+    : value > 0 ? t("延后 {p0} 秒", { p0: ((value / 1000).toFixed(2)) }) : t('未位移');
   return <div ref={railRef} className="lyric-studio__shift-rail" aria-label={t("整体调整歌词时间轴")}>
     <span className="lyric-studio__shift-label">{t("时间轴位移")}</span>
     <button type="button" aria-label={t("歌词整体提前50毫秒")} onClick={() => onChange((current) => stepTimelineShift(current, -1))}><ChevronUp size={18} /></button>
@@ -184,14 +185,15 @@ function TimelineShiftRail({ value, onChange, onApply, saving, draft = false }) 
     </div>
     <button type="button" aria-label={t("歌词整体延后50毫秒")} onClick={() => onChange((current) => stepTimelineShift(current, 1))}><ChevronDown size={18} /></button>
     <output className="lyric-studio__shift-value" aria-live="polite">{value === 0 ? '0.00s' : `${value > 0 ? '+' : '−'}${(Math.abs(value) / 1000).toFixed(2)}s`}</output>
-    {draft ? <small>{t("保存时生效")}</small> : <button type="button" className="lyric-studio__shift-apply" disabled={saving || value === 0} onClick={onApply}>{t("应用")}</button>}
+    {draft ? <small>{t("保存时生效")}</small> : <button type="button" className="lyric-studio__shift-apply" disabled={readOnly || saving || value === 0} onClick={onApply}>{t("应用")}</button>}
     <button type="button" className="lyric-studio__shift-clear" disabled={saving || value === 0} onClick={() => onChange(0)}>{t("清零")}</button>
   </div>;
 }
 export default function LyricsManagementWorkspace({ route, songFromLibrary, onNavigate }) {
+  const readOnly = useSettingsReadOnly();
   const selectedSong = useUIStore((state) => state.lyricsWorkspaceSong);
   const baseSong = String(selectedSong?.id) === String(route?.songId) ? selectedSong
-    : songFromLibrary || (route?.songId ? { id: route.songId, title: '当前歌曲' } : null);
+    : songFromLibrary || (route?.songId ? { id: route.songId, title: t('当前歌曲') } : null);
   const auth = useUIStore((state) => state.authSession);
   const authenticated = Boolean(auth?.authenticated);
   const isAdmin = authenticated && auth?.user?.role === 'admin';
@@ -211,6 +213,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
   const draftRequestRef = React.useRef(0);
   const draftEditVersionRef = React.useRef(0);
   const draftReceiptRef = React.useRef(null);
+  const draftTranslationLanguageRef = React.useRef(null);
   const fileRef = React.useRef(null);
   const backupRef = React.useRef(null);
   const initialRowsRef = React.useRef([]);
@@ -226,7 +229,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
   const rowErrors = React.useMemo(() => validateLyricRows(rows), [rows]);
   const canDiscardEdits = () => {
     const hasRowChanges = editing && JSON.stringify(rows) !== JSON.stringify(initialRowsRef.current);
-    return (!hasRowChanges && shift === 0) || window.confirm('歌词有未保存的修改或位移草稿，确定放弃吗？');
+    return (!hasRowChanges && shift === 0) || window.confirm(t('歌词有未保存的修改或位移草稿，确定放弃吗？'));
   };
   closeGuardRef.current = canDiscardEdits;
   const discardEdits = () => {
@@ -297,8 +300,9 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
   const saveRows = async () => {
     const lines = collectDraftLines();
     if (!lines) return;
-    if (changedWordRows && !window.confirm('有 ' + changedWordRows + ' 行修改了逐字内容，保存后这些行会改为逐行同步。继续吗？')) return;
-    const result = await managed.saveDocument(lines, editingEtagRef.current, draftReceiptRef.current);
+    if (changedWordRows && !window.confirm(t('有 {count} 行修改了逐字内容，保存后这些行会改为逐行同步。继续吗？', { count: changedWordRows }))) return;
+    const result = await managed.saveDocument(lines, editingEtagRef.current, draftReceiptRef.current,
+      draftTranslationLanguageRef.current);
     if (result === true) { setEditing(false); setActiveCell(null); setShift(0); }
     else if (result === 'conflict') {
       setEditing(false); setActiveCell(null);
@@ -314,7 +318,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
     setDraftAiBusy(true);
     try {
       const response = await lyricsWorkspaceApi.completeDraftLyrics(song.id,
-        { lines, etag: editingEtagRef.current });
+        { lines, etag: editingEtagRef.current, translationLanguage: draftTranslationLanguageRef.current });
       if (draftRequestRef.current !== requestId) return;
       if (draftEditVersionRef.current !== editVersion) {
         showToast(t("AI 处理期间草稿已修改，保留当前修改；需要时可重新补全"));
@@ -322,12 +326,13 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
       }
       const completed = response.data;
       draftReceiptRef.current = completed.receipt || null;
+      draftTranslationLanguageRef.current = completed.translationLanguage || null;
       setRows(makeRows({ lines: completed.lines }));
       setShift(0);
       setActiveCell(null);
       showToast(t("AI 已补全并清理草稿，检查后保存一次即可共享"));
     } catch (error) {
-      if (draftRequestRef.current === requestId) showToast(error?.message || '草稿 AI 补全失败');
+      if (draftRequestRef.current === requestId) showToast(t(error?.message || '草稿 AI 补全失败'));
     } finally {
       if (draftRequestRef.current === requestId) setDraftAiBusy(false);
     }
@@ -350,7 +355,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
     if (!file) return;
     if (!canDiscardEdits()) return;
     if (file.size > 1_900_000) return showToast(t("LRC 文件不能超过 1.9 MB"));
-    if (hasAsset && !window.confirm('导入会替换当前共享歌词。继续吗？')) return;
+    if (hasAsset && !window.confirm(t('导入会替换当前共享歌词。继续吗？'))) return;
     if (await managed.importLrc(await file.text())) { setEditing(false); setShift(0); setSection('current'); }
   };
   const restoreFile = async (event) => {
@@ -362,7 +367,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
     let asset;
     try { asset = JSON.parse(await file.text()); }
     catch { return showToast(t("备份不是有效的 JSON 文件")); }
-    if (!window.confirm('恢复备份会替换这首歌当前使用的共享歌词。继续吗？')) return;
+    if (!window.confirm(t('恢复备份会替换这首歌当前使用的共享歌词。继续吗？'))) return;
     if (await managed.restoreBackup(asset)) { setEditing(false); setShift(0); setSection('current'); }
   };
   return <div className="lyric-studio app-page" data-section={section} data-player-placement={compactPlayerPlacement}
@@ -372,8 +377,8 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
       {section !== 'candidates' && <div className="lyric-studio__heading"><span>{t("歌词工作台")}</span><h2 id="lyric-studio-title">{song.title}</h2>
         <div className="lyric-studio__heading-meta"><p>{song.artist || t("未知歌手")}</p>
           {section === 'current' && <div className="lyric-studio__formats" aria-label={t("当前歌词来源与同步方式")}>
-            <span>{editing ? t("未保存草稿") : SOURCES[managed.asset?.original?.source] || t("未建立")}</span>
-            <span>{MODES[editing ? draftMode : managed.asset?.original?.syncMode] || t("无时间轴")}</span>
+            <span>{editing ? t("未保存草稿") : managed.asset?.original?.source ? t(lyricSourceLabel(managed.asset.original.source)) : t("未建立")}</span>
+            <span>{t(MODES[editing ? draftMode : managed.asset?.original?.syncMode] || '无时间轴')}</span>
           </div>}
         </div>
       </div>}
@@ -385,20 +390,21 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
           onClick={() => void (editing ? completeDraft() : managed.completeTranslation())}>
           {draftAiBusy || managed.isAiCompleting ? t("AI 补全中…") : t("AI 补全")}</button>}
         {isAdmin && hasAsset && !editing && <button type="button" disabled={shift !== 0} title={shift ? t("请先应用或清零时间轴位移") : undefined} onClick={() => {
-          const nextRows = makeRows(managed.lyrics);
+          const nextRows = makeRows({ ...managed.lyrics, translation: managed.asset?.translation });
           initialRowsRef.current = nextRows;
           editingEtagRef.current = managed.etag;
           draftReceiptRef.current = null;
+          draftTranslationLanguageRef.current = managed.asset?.translation?.language || null;
           setRows(nextRows);
           setActiveCell(null);
           setEditing(true);
         }}>{t("编辑歌词")}</button>}
         {editing && <><button type="button" disabled={draftAiBusy} onClick={discardEdits}>{t("取消")}</button>
-          <button type="button" className="is-primary" disabled={managed.saving || draftAiBusy} onClick={() => void saveRows()}><Check size={15} />{t("保存")}</button></>}
+          <button type="button" className="is-primary" disabled={readOnly || managed.saving || draftAiBusy} onClick={() => void saveRows()}><Check size={15} />{t("保存")}</button></>}
       </div>}
       <PageBackButton className="lyric-studio__back" onClick={leaveWorkspace} />
     </header>
-    {playingSong?.id && !followsPlayback && <div className="lyric-studio__notice">{t("播放器已切换；仍在查看《")}{song.title}》。
+    {playingSong?.id && !followsPlayback && <div className="lyric-studio__notice">{t('播放器已切换；仍在查看《{title}》。', { title: song.title })}
       <button type="button" onClick={() => {
         if (discardEdits()) useUIStore.getState().openLyricsWorkspace(playingSong);
       }}>{t("切到当前歌曲")}</button></div>}
@@ -417,7 +423,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
             value={shift} onChange={editing ? changeShift : setShift} saving={managed.saving} draft={editing} onApply={async () => {
               if (await managed.shiftTimeline(shift)) setShift(0);
             }} />}</div>}
-        {managed.error && <p className="lyric-studio__error" role="alert">{managed.error}</p>}
+        {managed.error && <p className="lyric-studio__error" role="alert">{t(managed.error)}</p>}
         {followsPlayback && <div className="lyric-studio__timeline" aria-label={t("当前歌曲播放进度")}>
           <time>{playbackTime(currentTime)}</time>
           <ProgressBar />
@@ -429,12 +435,12 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
           <section className="lyric-studio__card"><div><strong>{t("文件")}</strong>
             <p>{t("LRC 可用于其他播放器；JSON 备份保留逐字时间。")}</p></div>
             <div className="lyric-studio__file-actions">
-              {isAdmin && <><input ref={fileRef} type="file" accept=".lrc,.txt,text/plain"
+              {isAdmin && <><SettingsInput ref={fileRef} type="file" accept=".lrc,.txt,text/plain"
                 className="lyric-studio__file-input" aria-label={t("导入 LRC 文件")} onChange={(event) => void importFile(event)} />
-                <button type="button" onClick={() => fileRef.current?.click()}><FileUp size={16} />{t("导入 LRC")}</button></>}
-              {isAdmin && <><input ref={backupRef} type="file" accept=".json,application/json"
+                <button type="button" disabled={readOnly} onClick={() => fileRef.current?.click()}><FileUp size={16} />{t("导入 LRC")}</button></>}
+              {isAdmin && <><SettingsInput ref={backupRef} type="file" accept=".json,application/json"
                 className="lyric-studio__file-input" aria-label={t("导入歌词备份")} onChange={(event) => void restoreFile(event)} />
-                <button type="button" onClick={() => backupRef.current?.click()}><FileUp size={16} />{t("导入备份")}</button></>}
+                <button type="button" disabled={readOnly} onClick={() => backupRef.current?.click()}><FileUp size={16} />{t("导入备份")}</button></>}
               <button type="button" disabled={!hasAsset} onClick={() => exportFile('original')}><Download size={16} />{t("导出 LRC")}</button>
               <button type="button" disabled={!managed.asset?.translation} onClick={() => exportFile('translation')}><Download size={16} />{t("导出译文")}</button>
               <button type="button" disabled={!hasAsset} onClick={() => exportFile('backup')}><Download size={16} />{t("完整备份")}</button>
@@ -442,9 +448,9 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
           {isAdmin && <section className="lyric-studio__card"><div><strong>{t("歌词管理")}</strong>
             </div>
             <div className="lyric-studio__file-actions">
-              <button type="button" disabled={!managed.asset?.translation || managed.saving}
+              <button type="button" disabled={readOnly || !managed.asset?.translation || managed.saving}
                 onClick={() => void managed.clearTranslation()}><Trash2 size={16} />{t("清除译文")}</button>
-              <button type="button" disabled={managed.saving} onClick={async () => {
+              <button type="button" disabled={readOnly || managed.saving} onClick={async () => {
                 if (!canDiscardEdits()) return;
                 if (window.confirm(t("确定重置这首歌的共享歌词？")) && await managed.reset()) setShift(0);
               }}><Trash2 size={16} />{t("重置歌词")}</button>
@@ -463,6 +469,7 @@ export default function LyricsManagementWorkspace({ route, songFromLibrary, onNa
             initialRowsRef.current = makeRows(managed.lyrics);
             editingEtagRef.current = managed.etag;
             draftReceiptRef.current = null;
+            draftTranslationLanguageRef.current = inspection.translation?.language || null;
             setRows(nextRows);
             setActiveCell(null);
             setShift(0);

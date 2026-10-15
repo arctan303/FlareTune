@@ -6,7 +6,7 @@ import {
 } from './lyricAutomaticSelection.js';
 
 const document = (syncMode, delta, translated = false) => createLyricDocument({
-  source: 'kugou', format: syncMode === 'word' ? 'krc' : 'lrc',
+  source: 'custom_krc', format: syncMode === 'word' ? 'krc' : 'lrc',
   providerMeta: { durationDelta: delta },
   lines: [{ text: 'Sing together', ...(syncMode !== 'none' ? { time: 1 } : {}),
     ...(syncMode === 'word' ? { endTime: 2, words: [{ text: 'Sing together', startTime: 1, endTime: 2 }] } : {}),

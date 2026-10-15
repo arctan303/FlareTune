@@ -2,6 +2,23 @@
 
 [简体中文](deployment.md) · [English](deployment.en.md)
 
+Try the player and full settings in the [live demo](https://flaretune.arcinks.com) before deploying your own library. The demo uses publicly licensed music; your installation needs your own audio and stores data separately from the [demo](demo.en.md).
+
+## Free allowances and costs
+
+The core uses Workers, D1 and private R2, without a VPS. These Cloudflare allowances were checked on 2026-10-12 and apply across the account, including other applications:
+
+| Service | Allowance and boundary |
+| --- | --- |
+| [R2 Standard](https://developers.cloudflare.com/r2/pricing/) | Monthly 10 GB-month, 1 million Class A and 10 million Class B operations. Direct R2 egress is free. Storage averages daily peaks; artwork and lyrics also count. Excess storage/operations cost money; these allowances exclude Infrequent Access |
+| [Workers Free](https://developers.cloudflare.com/workers/platform/pricing/) | 100,000 dynamic requests/day and 10 ms CPU/request; large imports can still hit limits |
+| [D1 Free](https://developers.cloudflare.com/d1/platform/pricing/) | 5 million rows read/day, 100,000 rows written/day, 5 GB account storage; per-database limits also apply |
+| [Static Assets](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) | Static asset requests are free; authenticated private music passes through the normal instance Worker |
+
+Starting free is conditional. R2 requires enabling its subscription and completing platform checkout; your account may need payment details. Allowances are not spending caps. Monitor usage and available alerts, and review pricing before upgrading. AI, optional domains and other external services may cost extra.
+
+The public template and isolated local initialization/access flows have been verified. End-to-end deploy-button onboarding on a brand-new Cloudflare account remains account-dependent and has not been demonstrated by deploying to an existing development account.
+
 ## Deployment method
 
 The public template's root `wrangler.toml` declares the Worker, static assets, D1, and R2. Cloudflare's deployment wizard creates and binds these resources and prompts for `SETUP_SECRET` according to `.dev.vars.example`.
@@ -22,4 +39,11 @@ In the runtime overview under Instance settings, administrators can view the bas
 
 Do not overwrite an existing instance's database and media with the new-installation flow. Before upgrading, confirm the target Cloudflare account, Worker, D1, and R2, and retain a restorable D1 backup. If legacy shared playlists contain data, an ordinary administrator upgrade stops and requests a backup. After backing up, use the setup secret on the maintenance page to confirm a migration that may remove those legacy shared playlists. The setup secret cannot repair an unknown or damaged database.
 
-If automated builds use a separate private Wrangler configuration, synchronize `assets.run_worker_first` from the root template when upgrading; otherwise new API routes may return the website. The maintainer's production build uses `node tooling/deploy/production-ci.mjs`: it restores the verified instance configuration from the encrypted build variable `FLARETUNE_PRODUCTION_CONFIG_B64`, then synchronizes backend routes from the current repository while preserving instance bindings and requiring `keep_vars = true`. This script only permits Cloudflare `main` builds for a Worker named `flaretune`; other deployers should adapt it to their own instance configuration. Standard one-click installations use the root template and do not need this maintainer script.
+## Backup and recovery
+
+1. Save the code version, bindings and `SETUP_SECRET`. Stop ingestion, editing and client writes while taking matching database and media copies.
+2. Export SQL using the [D1 instructions](https://developers.cloudflare.com/d1/best-practices/import-export-data/), for example `npx wrangler d1 export YOUR_DATABASE --remote --output=backup.sql`. Verify the target; keep private account/configuration data out of public repositories.
+3. Copy R2 objects through its [S3-compatible interface](https://developers.cloudflare.com/r2/api/s3/api/), preserving keys, contents and types, including audio, lyrics, artwork and private `users/` images. A database copy alone cannot restore audio.
+4. Rehearse with a separate empty D1 and private R2: import SQL, restore objects, and deploy the same code and original secret with the new bindings. Sign in to the restored database without initializing it again. Verify favorites, playlists, playback, lyrics and private images before arranging a real switch.
+
+FlareTune has no one-click full backup or atomic D1/R2 snapshot. A cloud recovery rehearsal with a new deployer's account remains unverified.

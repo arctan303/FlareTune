@@ -4,7 +4,6 @@ import { resolveLineWordProgress, segmentLyricGraphemes } from '../../utils/lyri
 import { computeAdaptiveWordTiming } from '../../utils/lyricAdaptiveTiming.js';
 import './synced-lyric-text.css';
 
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const WORD_TIMELINE_DURATION_MS = 1000;
 const WORD_LEAD_IN_SECONDS = 0.42;
 
@@ -49,7 +48,7 @@ export default function SyncedLyricText({
     const lineProgressTargetRef = React.useRef(null);
     const lastLineProgressRef = React.useRef(null);
 
-    const updatePlayerBarScroll = React.useCallback((resolved, prefersReducedMotion) => {
+    const updatePlayerBarScroll = React.useCallback((resolved) => {
         if (surface !== 'playerbar') return;
         const rootEl = rootRef.current;
         if (!rootEl) return;
@@ -72,7 +71,7 @@ export default function SyncedLyricText({
             if (wordEl) {
                 const wordLeft = wordEl.offsetLeft;
                 const wordWidth = wordEl.offsetWidth;
-                const progress = prefersReducedMotion ? 0 : clampProgress(resolved.wordProgress);
+                const progress = clampProgress(resolved.wordProgress);
                 focusX = wordLeft + wordWidth * progress;
             } else {
                 focusX = contentWidth * clampProgress(resolved.lineProgress);
@@ -120,11 +119,6 @@ export default function SyncedLyricText({
             return undefined;
         }
 
-        const mediaQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-            ? window.matchMedia(REDUCED_MOTION_QUERY)
-            : null;
-        let prefersReducedMotion = mediaQuery?.matches === true;
-
         const setWordState = (index, progress, state) => {
             const element = wordRefs.current[index];
             if (!element) return;
@@ -143,10 +137,9 @@ export default function SyncedLyricText({
                     const character = characterRefs.current[index]?.[characterIndex];
                     if (!character) return;
                     const progress = clampProgress(normalizedProgress * characters.length - characterIndex);
-                    // Smooth only the currently filling glyph; completed glyphs stay level.
-                    const lift = prefersReducedMotion ? 0 : -1.8 * progress * progress * (3 - 2 * progress);
+                    // Flat baseline: prevent jittery vertical hopping, keep all glyphs strictly level.
                     character.style.setProperty('--synced-word-progress', `${progress * 100}%`);
-                    character.style.setProperty('--synced-char-lift', `${lift.toFixed(3)}px`);
+                    character.style.setProperty('--synced-char-lift', '0.000px');
                     character.dataset.charState = progress >= 1 ? 'complete' : progress > 0 ? 'active' : 'pending';
                 });
             }
@@ -159,7 +152,7 @@ export default function SyncedLyricText({
         );
 
         const syncBoundary = (resolved, force = false, currentTime = 0) => {
-            const boundaryKey = `${resolved.activeWordIndex}:${resolved.hasStarted}:${resolved.isComplete}:${prefersReducedMotion}`;
+            const boundaryKey = `${resolved.activeWordIndex}:${resolved.hasStarted}:${resolved.isComplete}`;
             if (!force && boundaryKey === lastBoundaryRef.current) return false;
             lastBoundaryRef.current = boundaryKey;
 
@@ -167,13 +160,12 @@ export default function SyncedLyricText({
                 if (resolved.isComplete || index < resolved.activeWordIndex) {
                     setWordState(index, 1, 'complete');
                 } else if (index === resolved.activeWordIndex && resolved.hasStarted) {
-                    const progress = prefersReducedMotion ? 1 : resolved.wordProgress;
+                    const progress = resolved.wordProgress;
                     setWordState(index, progress, progress >= 1 ? 'complete' : 'active');
                 } else {
                     const word = words[index];
                     const leadIn = getWordLeadIn(word);
                     const isEntering = surface === 'immersive'
-                        && !prefersReducedMotion
                         && word
                         && currentTime >= (word.startTime - leadIn)
                         && currentTime < word.startTime;
@@ -185,8 +177,7 @@ export default function SyncedLyricText({
 
         const applySnapshot = (snapshot, force = false) => {
             if (surface === 'classic' && rootRef.current?.dataset) {
-                rootRef.current.dataset.motionRunning = !prefersReducedMotion
-                    && snapshot?.visible !== false && !snapshot?.paused
+                rootRef.current.dataset.motionRunning = snapshot?.visible !== false && !snapshot?.paused
                     && !snapshot?.buffering && !snapshot?.seeking && !snapshot?.ended
                     ? 'true' : 'false';
             }
@@ -202,16 +193,14 @@ export default function SyncedLyricText({
                 return;
             }
             const crossedBoundary = syncBoundary(resolved, force, currentTime);
-            if (!prefersReducedMotion || crossedBoundary) {
-                setLineProgress(resolved.lineProgress);
-            }
-            if (!prefersReducedMotion && !crossedBoundary && resolved.activeWordIndex >= 0) {
+            setLineProgress(resolved.lineProgress);
+            if (!crossedBoundary && resolved.activeWordIndex >= 0) {
                 setWordState(resolved.activeWordIndex, resolved.wordProgress, 'active');
             }
-            if (surface === 'playerbar' && (!prefersReducedMotion || crossedBoundary)) {
-                updatePlayerBarScroll(resolved, prefersReducedMotion);
+            if (surface === 'playerbar') {
+                updatePlayerBarScroll(resolved);
             }
-            if (surface === 'immersive' && !prefersReducedMotion && !crossedBoundary) {
+            if (surface === 'immersive' && !crossedBoundary) {
                 const startIndex = Math.max(0, resolved.activeWordIndex + (resolved.hasStarted ? 1 : 0));
                 for (let index = startIndex; index < words.length; index += 1) {
                     const word = words[index];
@@ -236,31 +225,22 @@ export default function SyncedLyricText({
         const frameStart = shouldSync ? words[0].startTime - (surface === 'immersive' ? getWordLeadIn(words[0]) : 0) : Infinity;
         const frameEnd = shouldSync ? words.at(-1).endTime : Infinity;
         const unsubscribe = clock.subscribe((snapshot) => applySnapshot(snapshot), {
-            animationFrames: (snapshot) => !prefersReducedMotion
-                && snapshot.currentTime >= frameStart && snapshot.currentTime < frameEnd,
+            animationFrames: (snapshot) => snapshot.currentTime >= frameStart && snapshot.currentTime < frameEnd,
             getNextBoundary: (snapshot) => {
                 const future = [frameStart, ...words.flatMap((word) => [word.startTime, word.endTime])]
                     .filter((time) => time > snapshot.currentTime);
                 return future.length ? Math.min(...future) : null;
             },
         });
-        const handleMotionChange = (event) => {
-            prefersReducedMotion = event.matches === true;
-            lastBoundaryRef.current = null;
-            applySnapshot(clock.getSnapshot(), true);
-            clock.sample?.('motion-preference-change');
-        };
         const handleResize = () => {
             if (surface === 'playerbar') {
                 applySnapshot(clock.getSnapshot(), true);
             }
         };
-        mediaQuery?.addEventListener?.('change', handleMotionChange);
         window.addEventListener('resize', handleResize);
 
         return () => {
             unsubscribe?.();
-            mediaQuery?.removeEventListener?.('change', handleMotionChange);
             window.removeEventListener('resize', handleResize);
             lastBoundaryRef.current = null;
             lastLineProgressRef.current = null;

@@ -69,10 +69,6 @@
   to { opacity: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .catalog-skeleton__block, .catalog-results { animation: none; }
-}
-
 .all-playlists-content .record-shelf--bounded {
   width: 100%;
   gap: 32px 28px;

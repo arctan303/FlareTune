@@ -1,3 +1,4 @@
+import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
@@ -7,8 +8,8 @@ import {
   createCachedSourceDocumentFetcher,
   createLyricSourceLoader,
   createSingleFlightDocumentFetcher,
-  buildKugouSearchKeyword,
-  buildKugouSearchKeywords,
+  buildCustomKrcSearchKeyword,
+  buildCustomKrcSearchKeywords,
   decodeKrcContent,
   fetchLyricsAuditEvidenceWithFallback,
   fetchLyricsDocumentWithFallback,
@@ -44,7 +45,7 @@ const lineDocument = (source, text = 'line') => createLyricDocument({
 
 const wordDocument = (source, text = 'word') => createLyricDocument({
   source,
-  format: source === 'kugou' ? 'krc' : 'lyricsfile',
+  format: source === 'custom_krc' ? 'krc' : 'lyricsfile',
   lines: [{
     time: 1,
     endTime: 2,
@@ -139,11 +140,11 @@ test('damaged, misaligned, or type=0-only KRC language blocks never discard orig
   }
 });
 
-test('Kugou adapter uses HTTPS duration-aware search and fmt=krc without exposing accesskey', async () => {
+test('CustomKrc adapter uses HTTPS duration-aware search and fmt=krc without exposing accesskey', async () => {
   const urls = [];
   const inits = [];
   const content = encodeKrc('[1000,1200]<0,400,0>Hello <400,800,0>world');
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url, init) => {
       urls.push(url);
       inits.push(init);
@@ -154,7 +155,7 @@ test('Kugou adapter uses HTTPS duration-aware search and fmt=krc without exposin
     },
   });
 
-  const document = await loader.getKugouDocument(SONG);
+  const document = await loader.getCustomKrcDocument(SONG);
   assert.equal(document.syncMode, 'word');
   assert.equal(document.providerMeta.providerLyricId, 'lyric-id');
   assert.equal(JSON.stringify(document).includes('secret'), false);
@@ -172,7 +173,7 @@ test('Kugou adapter uses HTTPS duration-aware search and fmt=krc without exposin
 test('candidate inspection snapshot searches once and retains private download credentials only in its closure', async () => {
   const urls = [];
   const content = encodeKrc('[1000,900]<0,900,0>Night');
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       urls.push(url);
       if (new URL(url).pathname === '/search') return jsonResponse({ candidates: [
@@ -182,7 +183,7 @@ test('candidate inspection snapshot searches once and retains private download c
       return jsonResponse({ content });
     },
   });
-  const snapshot = await loader.createCandidateInspectionSnapshot('kugou', SONG);
+  const snapshot = await loader.createCandidateInspectionSnapshot('custom_krc', SONG);
   assert.deepEqual(snapshot.providerLyricIds, ['lyric-a', 'lyric-b']);
   assert.equal(JSON.stringify(snapshot).includes('private-'), false);
   assert.equal((await snapshot.loadDocument('lyric-a')).providerMeta.providerLyricId, 'lyric-a');
@@ -191,16 +192,16 @@ test('candidate inspection snapshot searches once and retains private download c
   assert.equal(urls.filter((url) => new URL(url).pathname === '/download').length, 2);
 });
 
-test('buildKugouSearchKeyword prefers artist-title for high recall without space tokenization failure', () => {
-  assert.equal(buildKugouSearchKeyword({ title: '搁浅', artist: '周杰伦' }), '周杰伦-搁浅');
-  assert.equal(buildKugouSearchKeyword({ title: '夜航', artist: '歌手甲、歌手乙' }), '歌手甲、歌手乙-夜航');
-  assert.equal(buildKugouSearchKeyword({ title: '纯音乐' }), '纯音乐');
-  assert.equal(buildKugouSearchKeyword({ title: '纯音乐', artist: '' }), '纯音乐');
-  assert.equal(buildKugouSearchKeyword({}), '');
+test('buildCustomKrcSearchKeyword prefers artist-title for high recall without space tokenization failure', () => {
+  assert.equal(buildCustomKrcSearchKeyword({ title: '搁浅', artist: '周杰伦' }), '周杰伦-搁浅');
+  assert.equal(buildCustomKrcSearchKeyword({ title: '夜航', artist: '歌手甲、歌手乙' }), '歌手甲、歌手乙-夜航');
+  assert.equal(buildCustomKrcSearchKeyword({ title: '纯音乐' }), '纯音乐');
+  assert.equal(buildCustomKrcSearchKeyword({ title: '纯音乐', artist: '' }), '纯音乐');
+  assert.equal(buildCustomKrcSearchKeyword({}), '');
 });
 
-test('Kugou query variants remove translated/version suffixes and normalize multiple artists', () => {
-  assert.deepEqual(buildKugouSearchKeywords({
+test('CustomKrc query variants remove translated/version suffixes and normalize multiple artists', () => {
+  assert.deepEqual(buildCustomKrcSearchKeywords({
     title: 'Под луной (月下) [Live]',
     artist: 'Miyagi & Andy Panda',
   }), [
@@ -211,10 +212,10 @@ test('Kugou query variants remove translated/version suffixes and normalize mult
   ]);
 });
 
-test('manual Kugou selection retries a simplified query and keeps a large duration mismatch as a warning', async () => {
+test('manual CustomKrc selection retries a simplified query and keeps a large duration mismatch as a warning', async () => {
   const urls = [];
   const content = encodeKrc('[1000,1000]<0,1000,0>Я вижу луну');
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       urls.push(url);
       const parsed = new URL(url);
@@ -230,7 +231,7 @@ test('manual Kugou selection retries a simplified query and keeps a large durati
       return jsonResponse({ content });
     },
   });
-  const document = await loader.getKugouDocument({
+  const document = await loader.getCustomKrcDocument({
     title: 'Под луной (月下)', artist: 'Miyagi & Andy Panda', duration: 255,
   }, { providerLyricId: 'short-duration' });
   assert.equal(urls.length, 3);
@@ -240,10 +241,10 @@ test('manual Kugou selection retries a simplified query and keeps a large durati
   assert.equal(document.providerMeta.matchedDuration, 43);
 });
 
-test('candidate discovery exposes only safe ranked metadata and a requested Kugou id is re-searched before download', async () => {
+test('candidate discovery exposes only safe ranked metadata and a requested CustomKrc id is re-searched before download', async () => {
   const urls = [];
   const content = encodeKrc('[1000,1000]<0,1000,0>chosen');
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       urls.push(url);
       if (new URL(url).pathname === '/search') return jsonResponse({ candidates: [
@@ -254,10 +255,10 @@ test('candidate discovery exposes only safe ranked metadata and a requested Kugo
       return jsonResponse({ content });
     },
   });
-  const candidates = await loader.listSourceCandidates('kugou', SONG);
+  const candidates = await loader.listSourceCandidates('custom_krc', SONG);
   assert.deepEqual(candidates.map(({ providerLyricId }) => providerLyricId), ['best', 'chosen']);
   assert.deepEqual(candidates[1], {
-    source: 'kugou',
+    source: 'custom_krc',
     providerLyricId: 'chosen',
     matchedTitle: '夜航',
     matchedArtist: '歌手甲、歌手乙',
@@ -270,22 +271,22 @@ test('candidate discovery exposes only safe ranked metadata and a requested Kugo
   assert.equal(JSON.stringify(candidates).includes('secret'), false);
 
   urls.length = 0;
-  const document = await loader.getKugouDocument(SONG, { providerLyricId: 'chosen' });
+  const document = await loader.getCustomKrcDocument(SONG, { providerLyricId: 'chosen' });
   assert.equal(document.providerMeta.providerLyricId, 'chosen');
   assert.equal(new URL(urls[1]).searchParams.get('id'), 'chosen');
   assert.equal(new URL(urls[1]).searchParams.get('accesskey'), 'chosen-secret');
-  await assert.rejects(() => loader.getKugouDocument(SONG, { providerLyricId: 'gone' }), {
+  await assert.rejects(() => loader.getCustomKrcDocument(SONG, { providerLyricId: 'gone' }), {
     name: 'LyricSourceError', kind: 'unavailable', stage: 'override-candidate',
   });
-  await assert.rejects(() => loader.getKugouDocument(SONG, { providerLyricId: 'wrong-artist' }), {
+  await assert.rejects(() => loader.getCustomKrcDocument(SONG, { providerLyricId: 'wrong-artist' }), {
     name: 'LyricSourceError', kind: 'unavailable', stage: 'override-candidate',
   });
 });
 
-test('Kugou audit evidence downloads the top candidate from its one ranked search snapshot', async () => {
+test('CustomKrc audit evidence downloads the top candidate from its one ranked search snapshot', async () => {
   const urls = [];
   const content = encodeKrc('[1000,1000]<0,1000,0>selected');
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       urls.push(url);
       if (new URL(url).pathname === '/search') return jsonResponse({ candidates: [
@@ -296,7 +297,7 @@ test('Kugou audit evidence downloads the top candidate from its one ranked searc
     },
   });
 
-  const evidence = await loader.fetchSourceAuditEvidence('kugou', SONG);
+  const evidence = await loader.fetchSourceAuditEvidence('custom_krc', SONG);
   assert.equal(urls.length, 2);
   assert.equal(new URL(urls[0]).pathname, '/search');
   assert.equal(new URL(urls[1]).pathname, '/download');
@@ -312,9 +313,9 @@ test('Kugou audit evidence downloads the top candidate from its one ranked searc
   assert.equal(JSON.stringify(evidence.candidates).includes('selected-secret'), false);
 });
 
-test('Kugou invalid KRC falls back to the selected candidate LRC', async () => {
+test('CustomKrc invalid KRC falls back to the selected candidate LRC', async () => {
   const urls = [];
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       urls.push(url);
       if (urls.length === 1) return jsonResponse({ candidates: [
@@ -324,15 +325,15 @@ test('Kugou invalid KRC falls back to the selected candidate LRC', async () => {
       return jsonResponse({ content: Buffer.from('[00:01.00]line fallback', 'utf8').toString('base64') });
     },
   });
-  const document = await loader.getKugouDocument(SONG);
+  const document = await loader.getCustomKrcDocument(SONG);
   assert.equal(document.syncMode, 'line');
   assert.equal(document.lines[0].text, 'line fallback');
   assert.equal(new URL(urls[2]).searchParams.get('fmt'), 'lrc');
 });
 
-test('Kugou preserves an actionable KRC error when its LRC backup is unavailable', async () => {
+test('CustomKrc preserves an actionable KRC error when its LRC backup is unavailable', async () => {
   let calls = 0;
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async () => {
       calls += 1;
       if (calls === 1) return jsonResponse({ candidates: [
@@ -342,7 +343,7 @@ test('Kugou preserves an actionable KRC error when its LRC backup is unavailable
       return jsonResponse({}, 404);
     },
   });
-  await assert.rejects(() => loader.getKugouDocument(SONG), {
+  await assert.rejects(() => loader.getCustomKrcDocument(SONG), {
     name: 'LyricSourceError', kind: 'invalid', stage: 'decode-krc',
   });
   assert.equal(calls, 3);
@@ -408,7 +409,7 @@ lines:
 
 test('LRCLIB retains exact get Lyricsfile when search adds no better lyrics and sends client identity', async () => {
   const seen = [];
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url, init) => {
       seen.push({ url, init });
       return jsonResponse({
@@ -430,12 +431,12 @@ test('LRCLIB retains exact get Lyricsfile when search adds no better lyrics and 
   assert.equal(url.searchParams.get('album_name'), '夜航集');
   assert.equal(url.searchParams.get('duration'), '200');
   assert.equal(seen[0].init.headers['Lrclib-Client'], 'FlareTune');
-  assert.equal(seen[0].init.headers['User-Agent'], 'FlareTune/1.0.0');
+  assert.equal(seen[0].init.headers['User-Agent'], 'FlareTune/1.2.0');
 });
 
 test('LRCLIB 404 uses scored search rather than taking the first result', async () => {
   let calls = 0;
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async () => {
       calls += 1;
       if (calls === 1) return jsonResponse({}, 404);
@@ -452,7 +453,7 @@ test('LRCLIB 404 uses scored search rather than taking the first result', async 
 });
 
 test('LRCLIB automatic resolution tries the next reliable candidate when the top result has no lyrics', async () => {
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => new URL(url).pathname === '/api/get'
       ? jsonResponse({}, 404)
       : jsonResponse([
@@ -468,7 +469,7 @@ test('LRCLIB automatic resolution tries the next reliable candidate when the top
 
 test('LRCLIB automatic resolution checks search when the exact response has a title-version difference', async () => {
   const paths = [];
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       const path = new URL(url).pathname;
       paths.push(path);
@@ -497,7 +498,7 @@ test('LRCLIB automatic resolution checks search when the exact response has a ti
 
 test('LRCLIB audit evidence merges exact and search before one selection snapshot', async () => {
   const paths = [];
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       const path = new URL(url).pathname;
       paths.push(path);
@@ -544,15 +545,15 @@ test('LRCLIB audit evidence merges exact and search before one selection snapsho
 });
 
 test('audit evidence preserves no-candidate and provider-error semantics', async (t) => {
-  await t.test('empty Kugou ranking is unavailable', async () => {
-    const loader = createLyricSourceLoader({ fetchImpl: async () => jsonResponse({ candidates: [] }) });
-    await assert.rejects(() => loader.fetchSourceAuditEvidence('kugou', SONG), {
-      name: 'LyricSourceError', kind: 'unavailable', provider: 'kugou', stage: 'match',
+  await t.test('empty CustomKrc ranking is unavailable', async () => {
+    const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async () => jsonResponse({ candidates: [] }) });
+    await assert.rejects(() => loader.fetchSourceAuditEvidence('custom_krc', SONG), {
+      name: 'LyricSourceError', kind: 'unavailable', provider: 'custom_krc', stage: 'match',
     });
   });
 
   await t.test('LRCLIB search failure is not converted to an empty ambiguity snapshot', async () => {
-    const loader = createLyricSourceLoader({
+    const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
       fetchImpl: async (url) => (new URL(url).pathname === '/api/get'
         ? jsonResponse({
           id: 'exact', trackName: '夜航', artistName: '歌手甲、歌手乙', duration: 200,
@@ -567,7 +568,7 @@ test('audit evidence preserves no-candidate and provider-error semantics', async
 });
 
 test('requested LRCLIB candidate id is selected only from a fresh scored search', async () => {
-  const loader = createLyricSourceLoader({
+  const loader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async (url) => {
       assert.equal(new URL(url).pathname, '/api/search');
       return jsonResponse([
@@ -593,12 +594,12 @@ test('LRCLIB preserves malformed Lyricsfile errors unless a legacy representatio
     duration: 200,
     lyricsfile: 'version: [broken',
   };
-  const broken = createLyricSourceLoader({ fetchImpl: async () => jsonResponse(candidate) });
+  const broken = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES, fetchImpl: async () => jsonResponse(candidate) });
   await assert.rejects(() => broken.getLrclibDocument(SONG), {
     name: 'LyricSourceError', kind: 'invalid', stage: 'parse-lyricsfile',
   });
 
-  const recovered = createLyricSourceLoader({
+  const recovered = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     fetchImpl: async () => jsonResponse({ ...candidate, syncedLyrics: '[00:01.00]legacy works' }),
   });
   const document = await recovered.getLrclibDocument(SONG);
@@ -608,24 +609,24 @@ test('LRCLIB preserves malformed Lyricsfile errors unless a legacy representatio
 
 test('auto fallback selects the best usable document, locks explicit source, and returns null for none', async () => {
   const calls = [];
-  const documents = { kugou: lineDocument('kugou', 'kg line'), lrclib: wordDocument('lrclib', 'lr word') };
+  const documents = { custom_krc: lineDocument('custom_krc', 'kg line'), lrclib: wordDocument('lrclib', 'lr word') };
   const resolver = async (provider) => {
     calls.push(provider);
     return documents[provider];
   };
   assert.equal((await fetchLyricsDocumentWithFallback('auto', SONG, resolver)).source, 'lrclib');
-  assert.deepEqual(calls, ['kugou', 'netease', 'lrclib']);
+  assert.deepEqual(calls, ['custom_krc', 'custom_lrc', 'lrclib']);
 
   calls.length = 0;
-  documents.kugou = null;
+  documents.custom_krc = null;
   documents.lrclib = lineDocument('lrclib', 'lr line');
   assert.equal((await fetchLyricsDocumentWithFallback('auto', SONG, resolver)).source, 'lrclib');
-  assert.deepEqual(calls, ['kugou', 'netease', 'lrclib']);
+  assert.deepEqual(calls, ['custom_krc', 'custom_lrc', 'lrclib']);
 
   calls.length = 0;
-  documents.kugou = lineDocument('kugou', 'kg line');
-  assert.equal((await fetchLyricsDocumentWithFallback('kugou', SONG, resolver)).source, 'kugou');
-  assert.deepEqual(calls, ['kugou']);
+  documents.custom_krc = lineDocument('custom_krc', 'kg line');
+  assert.equal((await fetchLyricsDocumentWithFallback('custom_krc', SONG, resolver)).source, 'custom_krc');
+  assert.deepEqual(calls, ['custom_krc']);
   assert.equal(await fetchLyricsDocumentWithFallback('auto', SONG, async () => null), null);
   assert.equal(await fetchLyricsDocumentWithFallback('auto', SONG, async (provider) => createLyricDocument({
     source: provider, format: 'plain', lines: [],
@@ -640,32 +641,32 @@ test('auto fallback selects the best usable document, locks explicit source, and
   await assert.rejects(() => fetchLyricsDocumentWithFallback('auto', SONG, async () => ({ source: 'forged' })), {
     name: 'LyricSourceError', kind: 'invalid',
   });
-  await assert.rejects(() => fetchLyricsDocumentWithFallback('kugou', SONG, async () => lineDocument('lrclib')), {
-    name: 'LyricSourceError', kind: 'invalid', provider: 'kugou',
+  await assert.rejects(() => fetchLyricsDocumentWithFallback('custom_krc', SONG, async () => lineDocument('lrclib')), {
+    name: 'LyricSourceError', kind: 'invalid', provider: 'custom_krc',
   });
   await assert.rejects(() => fetchLyricsDocumentWithFallback('auto', SONG, async (provider) => {
-    if (provider === 'kugou') throw new LyricSourceError('timeout', provider, 'search', 'timeout');
+    if (provider === 'custom_krc') throw new LyricSourceError('timeout', provider, 'search', 'timeout');
     return null;
   }), { name: 'LyricSourceError', kind: 'timeout', provider: 'multiple' });
   assert.equal((await fetchLyricsDocumentWithFallback('auto', SONG, async (provider) => {
     if (provider === 'lrclib') throw new LyricSourceError('timeout', provider, 'get', 'timeout');
-    return lineDocument('kugou');
-  })).source, 'kugou');
+    return lineDocument('custom_krc');
+  })).source, 'custom_krc');
 });
 
 test('automatic resolution rejects a mismatched word version before ranking lyric quality', async () => {
-  const mismatched = wordDocument('kugou', 'wrong live words');
+  const mismatched = wordDocument('custom_krc', 'wrong live words');
   mismatched.providerMeta = { versionMismatch: true, durationDelta: 24 };
   const matching = lineDocument('lrclib', 'matching studio line');
   matching.providerMeta = { durationDelta: 1 };
-  const resolve = async (provider) => ({ kugou: mismatched, lrclib: matching })[provider] || null;
+  const resolve = async (provider) => ({ custom_krc: mismatched, lrclib: matching })[provider] || null;
   const result = await fetchLyricsDocumentWithFallback('auto', SONG, resolve);
   assert.equal(result.source, 'lrclib');
   assert.equal(await fetchLyricsDocumentWithFallback('auto', SONG,
-    async (provider) => provider === 'kugou' ? mismatched : null), null);
+    async (provider) => provider === 'custom_krc' ? mismatched : null), null);
   mismatched.providerMeta = { durationDelta: 14 };
   assert.equal((await fetchLyricsDocumentWithFallback('auto', SONG, resolve)).source, 'lrclib');
-  assert.equal((await fetchLyricsDocumentWithFallback('kugou', SONG, resolve)).source, 'kugou');
+  assert.equal((await fetchLyricsDocumentWithFallback('custom_krc', SONG, resolve)).source, 'custom_krc');
 });
 
 test('audit fallback keeps the chosen document paired with its source snapshot', async () => {
@@ -674,7 +675,7 @@ test('audit fallback keeps the chosen document paired with its source snapshot',
     const providerLyricId = `${source}-selected`;
     const document = createLyricDocument({
       source,
-      format: syncMode === 'word' ? (source === 'kugou' ? 'krc' : 'lyricsfile') : 'lrc',
+      format: syncMode === 'word' ? (source === 'custom_krc' ? 'krc' : 'lyricsfile') : 'lrc',
       lines: syncMode === 'word'
         ? [{
           time: 1,
@@ -695,20 +696,20 @@ test('audit fallback keeps the chosen document paired with its source snapshot',
     calls.push(provider);
     return evidenceFor(provider, provider === 'lrclib' ? 'word' : 'line');
   });
-  assert.deepEqual(calls, ['kugou', 'netease', 'lrclib']);
+  assert.deepEqual(calls, ['custom_krc', 'custom_lrc', 'lrclib']);
   assert.equal(result.document.source, 'lrclib');
   assert.equal(result.candidates[0].source, 'lrclib');
   assert.equal(result.document.providerMeta.providerLyricId, result.selectedProviderLyricId);
   assert.equal(result.candidates[0].providerLyricId, result.selectedProviderLyricId);
 
   await assert.rejects(() => fetchLyricsAuditEvidenceWithFallback(
-    'kugou',
+    'custom_krc',
     SONG,
     async () => ({
-      ...evidenceFor('kugou', 'line'),
-      candidates: [{ source: 'kugou', providerLyricId: 'different', durationDelta: 0, score: 175 }],
+      ...evidenceFor('custom_krc', 'line'),
+      candidates: [{ source: 'custom_krc', providerLyricId: 'different', durationDelta: 0, score: 175 }],
     }),
-  ), { name: 'LyricSourceError', kind: 'invalid', provider: 'kugou', stage: 'fallback' });
+  ), { name: 'LyricSourceError', kind: 'invalid', provider: 'custom_krc', stage: 'fallback' });
   assert.equal(await fetchLyricsAuditEvidenceWithFallback('auto', SONG, async () => null), null);
 });
 
@@ -719,14 +720,14 @@ test('single-flight shares only concurrent work and bounded cache applies distin
   const singleFlight = createSingleFlightDocumentFetcher(async () => {
     calls += 1;
     await pending;
-    return wordDocument('kugou');
+    return wordDocument('custom_krc');
   });
-  const first = singleFlight('kugou', SONG);
-  const second = singleFlight('kugou', { ...SONG });
+  const first = singleFlight('custom_krc', SONG);
+  const second = singleFlight('custom_krc', { ...SONG });
   release();
   assert.equal(await first, await second);
   assert.equal(calls, 1);
-  await singleFlight('kugou', SONG);
+  await singleFlight('custom_krc', SONG);
   assert.equal(calls, 2);
 
   let now = 1_000;
@@ -737,40 +738,40 @@ test('single-flight shares only concurrent work and bounded cache applies distin
     if (mode === 'none') return null;
     return mode === 'word' ? wordDocument(provider) : lineDocument(provider);
   }, { now: () => now, wordTtlMs: 100, lineTtlMs: 50, negativeTtlMs: 10, maxEntries: 2 });
-  await cached('kugou', SONG);
-  await cached('kugou', SONG);
+  await cached('custom_krc', SONG);
+  await cached('custom_krc', SONG);
   assert.equal(cacheCalls, 1);
   now += 101;
   mode = 'line';
-  await cached('kugou', SONG);
+  await cached('custom_krc', SONG);
   now += 51;
   mode = 'none';
-  await cached('kugou', SONG);
-  await cached('kugou', SONG);
+  await cached('custom_krc', SONG);
+  await cached('custom_krc', SONG);
   assert.equal(cacheCalls, 3);
   now += 11;
-  await cached('kugou', SONG);
+  await cached('custom_krc', SONG);
   assert.equal(cacheCalls, 4);
 
   let unavailableCalls = 0;
   const negativeCached = createCachedSourceDocumentFetcher(async () => {
     unavailableCalls += 1;
-    throw new LyricSourceError('unavailable', 'kugou', 'match', 'none');
+    throw new LyricSourceError('unavailable', 'custom_krc', 'match', 'none');
   }, { now: () => now, negativeTtlMs: 10 });
-  assert.equal(await negativeCached('kugou', SONG), null);
-  assert.equal(await negativeCached('kugou', SONG), null);
+  assert.equal(await negativeCached('custom_krc', SONG), null);
+  assert.equal(await negativeCached('custom_krc', SONG), null);
   assert.equal(unavailableCalls, 1);
   now += 11;
-  assert.equal(await negativeCached('kugou', SONG), null);
+  assert.equal(await negativeCached('custom_krc', SONG), null);
   assert.equal(unavailableCalls, 2);
 
   let timeoutCalls = 0;
   const notCached = createCachedSourceDocumentFetcher(async () => {
     timeoutCalls += 1;
-    throw new LyricSourceError('timeout', 'kugou', 'search', 'timeout');
+    throw new LyricSourceError('timeout', 'custom_krc', 'search', 'timeout');
   }, { now: () => now });
-  await assert.rejects(() => notCached('kugou', SONG), { kind: 'timeout' });
-  await assert.rejects(() => notCached('kugou', SONG), { kind: 'timeout' });
+  await assert.rejects(() => notCached('custom_krc', SONG), { kind: 'timeout' });
+  await assert.rejects(() => notCached('custom_krc', SONG), { kind: 'timeout' });
   assert.equal(timeoutCalls, 2);
 });
 
@@ -785,13 +786,13 @@ test('document cache isolates override candidates and revisions and invalidates 
       lines: [{ time: 1, text: options.providerLyricId || 'best' }],
     });
   });
-  await cached('kugou', SONG, { providerLyricId: 'one', cacheScope: 'override:1' });
-  await cached('kugou', SONG, { providerLyricId: 'one', cacheScope: 'override:1' });
-  await cached('kugou', SONG, { providerLyricId: 'two', cacheScope: 'override:1' });
-  await cached('kugou', SONG, { providerLyricId: 'one', cacheScope: 'override:2' });
+  await cached('custom_krc', SONG, { providerLyricId: 'one', cacheScope: 'override:1' });
+  await cached('custom_krc', SONG, { providerLyricId: 'one', cacheScope: 'override:1' });
+  await cached('custom_krc', SONG, { providerLyricId: 'two', cacheScope: 'override:1' });
+  await cached('custom_krc', SONG, { providerLyricId: 'one', cacheScope: 'override:2' });
   assert.equal(calls, 3);
   assert.equal(cached.invalidateSong('song-1'), 3);
-  await cached('kugou', SONG, { providerLyricId: 'one', cacheScope: 'override:1' });
+  await cached('custom_krc', SONG, { providerLyricId: 'one', cacheScope: 'override:1' });
   assert.equal(calls, 4);
 });
 
@@ -806,12 +807,12 @@ test('document cache invalidation isolates new work from an older pending reques
   });
   const cached = createCachedSourceDocumentFetcher(singleFlight);
 
-  const beforeInvalidation = cached('kugou', SONG);
+  const beforeInvalidation = cached('custom_krc', SONG);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(calls, 1);
   cached.invalidateSong(SONG.id);
 
-  const afterInvalidation = cached('kugou', SONG);
+  const afterInvalidation = cached('custom_krc', SONG);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(calls, 2, 'post-invalidation work must not join the old single-flight');
 
@@ -820,7 +821,7 @@ test('document cache invalidation isolates new work from an older pending reques
   releases[0]();
   assert.equal((await beforeInvalidation).lines[0].text, 'call-1');
 
-  assert.equal((await cached('kugou', SONG)).lines[0].text, 'call-2');
+  assert.equal((await cached('custom_krc', SONG)).lines[0].text, 'call-2');
   assert.equal(calls, 2, 'the stale completion must not overwrite the new cached document');
 });
 
@@ -835,7 +836,7 @@ test('request abort reaches search and stalled response bodies as an aborted sou
   assert.equal(fallbackCalls, 0);
 
   let searchSignalAborted = false;
-  const searchLoader = createLyricSourceLoader({
+  const searchLoader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     timeoutMs: 10_000,
     fetchImpl: async (url, { signal }) => new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => {
@@ -845,13 +846,13 @@ test('request abort reaches search and stalled response bodies as an aborted sou
     }),
   });
   const searchController = new AbortController();
-  const searchRequest = searchLoader.getKugouDocument(SONG, { signal: searchController.signal });
+  const searchRequest = searchLoader.getCustomKrcDocument(SONG, { signal: searchController.signal });
   await new Promise((resolve) => setImmediate(resolve));
   searchController.abort(new Error('client left'));
   await assert.rejects(() => searchRequest, { name: 'LyricSourceError', kind: 'aborted' });
   assert.equal(searchSignalAborted, true);
 
-  const stalledLoader = createLyricSourceLoader({
+  const stalledLoader = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     timeoutMs: 10_000,
     fetchImpl: async () => ({
       ok: true,
@@ -882,8 +883,8 @@ test('single-flight cancels one waiter independently and aborts shared work only
   ));
   const firstController = new AbortController();
   const secondController = new AbortController();
-  const first = singleFlight('kugou', SONG, { signal: firstController.signal });
-  const second = singleFlight('kugou', SONG, { signal: secondController.signal });
+  const first = singleFlight('custom_krc', SONG, { signal: firstController.signal });
+  const second = singleFlight('custom_krc', SONG, { signal: secondController.signal });
   await new Promise((resolve) => setImmediate(resolve));
   firstController.abort();
   await assert.rejects(() => first, { kind: 'aborted' });
@@ -906,13 +907,13 @@ test('single-flight cancels one waiter independently and aborts shared work only
   });
   const thirdController = new AbortController();
   const fourthController = new AbortController();
-  const third = allCancel('kugou', SONG, { signal: thirdController.signal });
-  const fourth = allCancel('kugou', SONG, { signal: fourthController.signal });
+  const third = allCancel('custom_krc', SONG, { signal: thirdController.signal });
+  const fourth = allCancel('custom_krc', SONG, { signal: fourthController.signal });
   await new Promise((resolve) => setImmediate(resolve));
   thirdController.abort();
   assert.equal(allAbortCount, 0);
   fourthController.abort();
-  const fifth = allCancel('kugou', SONG);
+  const fifth = allCancel('custom_krc', SONG);
   await Promise.all([
     assert.rejects(() => third, { kind: 'aborted' }),
     assert.rejects(() => fourth, { kind: 'aborted' }),
@@ -927,7 +928,7 @@ test('circuit counts concurrent infrastructure failures and unavailable breaks t
   let releaseFailures;
   const failureGate = new Promise((resolve) => { releaseFailures = resolve; });
   let concurrentCalls = 0;
-  const concurrent = createLyricSourceLoader({
+  const concurrent = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     circuitFailureThreshold: 2,
     circuitCooldownMs: 60_000,
     fetchImpl: async () => {
@@ -945,7 +946,7 @@ test('circuit counts concurrent infrastructure failures and unavailable breaks t
   assert.equal(concurrentCalls, 2);
 
   let step = 0;
-  const reset = createLyricSourceLoader({
+  const reset = createLyricSourceLoader({ sources: TEST_LYRIC_SOURCES,
     circuitFailureThreshold: 2,
     circuitCooldownMs: 60_000,
     fetchImpl: async () => {
@@ -955,17 +956,17 @@ test('circuit counts concurrent infrastructure failures and unavailable breaks t
     },
   });
   const singleQuerySong = { ...SONG, artist: '歌手甲' };
-  await assert.rejects(() => reset.getKugouDocument(singleQuerySong), { kind: 'network' });
-  await assert.rejects(() => reset.getKugouDocument(singleQuerySong), { kind: 'unavailable' });
-  await assert.rejects(() => reset.getKugouDocument(singleQuerySong), { kind: 'network' });
-  await assert.rejects(() => reset.getKugouDocument(singleQuerySong), { kind: 'network' });
-  await assert.rejects(() => reset.getKugouDocument(singleQuerySong), { kind: 'circuit_open' });
+  await assert.rejects(() => reset.getCustomKrcDocument(singleQuerySong), { kind: 'network' });
+  await assert.rejects(() => reset.getCustomKrcDocument(singleQuerySong), { kind: 'unavailable' });
+  await assert.rejects(() => reset.getCustomKrcDocument(singleQuerySong), { kind: 'network' });
+  await assert.rejects(() => reset.getCustomKrcDocument(singleQuerySong), { kind: 'network' });
+  await assert.rejects(() => reset.getCustomKrcDocument(singleQuerySong), { kind: 'circuit_open' });
   assert.equal(step, 4);
 });
 
 test('lyric source helpers retain the current provider order', async () => {
-  assert.deepEqual(resolveLyricSourceOrder('auto'), ['kugou', 'netease', 'lrclib']);
-  assert.deepEqual(resolveLyricSourceOrder('netease'), ['netease']);
-  assert.deepEqual(resolveLyricSourceOrder('kugou'), ['kugou']);
+  assert.deepEqual(resolveLyricSourceOrder('auto'), ['custom_krc', 'custom_lrc', 'lrclib']);
+  assert.deepEqual(resolveLyricSourceOrder('custom_lrc'), ['custom_lrc']);
+  assert.deepEqual(resolveLyricSourceOrder('custom_krc'), ['custom_krc']);
   assert.ok(LyricSourceError.prototype instanceof Error);
 });

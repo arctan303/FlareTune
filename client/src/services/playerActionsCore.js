@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 export function createInsertNextWithFeedback({ getPlayerState, notify, emitBounce }) {
   return (song, event) => {
     event?.stopPropagation();
@@ -6,8 +7,8 @@ export function createInsertNextWithFeedback({ getPlayerState, notify, emitBounc
     if (!player.insertAndPlay(song, null)) return false;
 
     notify(hadCurrentSong
-      ? `已将《${song.title}》插播为下一首`
-      : `已开始播放《${song.title}》`);
+      ? t("已将《{p0}》插播为下一首", { p0: (song.title) })
+      : t("已开始播放《{p0}》", { p0: (song.title) }));
     emitBounce();
     return true;
   };

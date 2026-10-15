@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">FlareTune</title>
+  <style>
+    .ink { fill: #18212b; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #e5e7eb; }
+    }
+  </style>
+  <rect class="ink" x="22" y="37" width="12" height="22" rx="6"/>
+  <rect x="42" y="22" width="12" height="52" rx="6" fill="#1689c9"/>
+  <rect class="ink" x="62" y="32" width="12" height="32" rx="6"/>
+</svg>

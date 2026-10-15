@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   AiThreadRequestError,
   fetchCloudThread,
+  normalizeCloudThread,
   normalizeCloudThreadMessages,
   mergeAssistantProcessMessages,
   planCloudThreadSync,
@@ -68,6 +69,7 @@ test('loads and normalizes the current cloud thread through one request boundary
   });
   assert.deepEqual(result.thread, {
     revision: 7,
+    pendingTurn: null,
     messages: [{
       id: 'cloud-0',
       role: 'assistant',
@@ -77,6 +79,15 @@ test('loads and normalizes the current cloud thread through one request boundary
     }],
   });
   assert.equal(result.fingerprint, fingerprint(result.thread));
+});
+
+test('reload retains only a pending turn matching the last unanswered user message', () => {
+  const messages = [{ id: 'u1', role: 'user', clientMessageId: 'client-1', content: 'hello' }];
+  const pendingTurn = { clientMessageId: 'client-1', privateData: 'not public' };
+  assert.deepEqual(normalizeCloudThread({ messages, pendingTurn }).pendingTurn, { clientMessageId: 'client-1' });
+  assert.equal(normalizeCloudThread({ messages, pendingTurn: { clientMessageId: 'another' } }).pendingTurn, null);
+  assert.equal(normalizeCloudThread({ messages: [...messages, { role: 'assistant', content: 'saved' }], pendingTurn }).pendingTurn, null);
+  assert.equal(normalizeCloudThread({ messages }).pendingTurn, null);
 });
 
 test('preserves thread request status and response data for unified 401 handling', async () => {

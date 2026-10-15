@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useUIStore, showToast } from '../store/useUIStore';
@@ -7,7 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { createAiResponseTypewriter, reconcileAiResponseContent } from '../aiResponseTypewriter';
 import { getApiBaseUrl } from '../services/apiBase.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
-import { fetchCloudThread, mergeAssistantProcessMessages } from '../services/aiThreadSync.js';
+import { fetchCloudThread, mergeAssistantProcessMessages, pendingAssistantTurn } from '../services/aiThreadSync.js';
 import { consumeSseJsonStream } from '../services/aiEventStream.js';
 import { localAssistantMutationHeaders, optimisticAssistantUserMessage } from '../services/localAssistantRequest.js';
 import { assistantFailureMessage, withAssistantFailure } from '../services/assistantFailure.js';
@@ -23,14 +23,15 @@ import { resolveAssistantImagePreview } from '../services/assistantImagePreview.
 import { AiReviewComposer } from './AiReviewChrome.jsx';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { appendThoughtProcessEntry, appendToolProcessEntry, finishToolProcessEntry } from '../../../shared/assistantProcessTrace.js';
+import { DEFAULT_ASSISTANT_NAME, resolveAssistantWelcome } from '../utils/assistantWelcome.js';
 
-const FALLBACK_WELCOME = '你好，我是小A。想听什么？';
 const toUiMessages = (list) => (Array.isArray(list) ? list : []).map((message) => ({
     ...message,
     createdAt: Number(message?.createdAt) > 0 ? Number(message.createdAt) : undefined,
 }));
 
 export default function AssistantView({ section = 'conversation' }) {
+    useLocale();
     const {
         authSession,
         setAuthSession,
@@ -65,11 +66,13 @@ export default function AssistantView({ section = 'conversation' }) {
     const [imageInput, setImageInput] = React.useState(false);
     const [imageNotice, setImageNotice] = React.useState('');
     const [isLoading, setIsLoading] = React.useState(false);
+    const [pendingTurn, setPendingTurn] = React.useState(null);
+    const isProcessing = isLoading || Boolean(pendingTurn);
     const [processClock, setProcessClock] = React.useState(() => Date.now());
     const [showScrollBottom, setShowScrollBottom] = React.useState(false);
-    const [welcomeConfig, setWelcomeConfig] = React.useState({ accountId: null, text: FALLBACK_WELCOME, ready: false });
+    const [welcomeConfig, setWelcomeConfig] = React.useState({ accountId: null, name: DEFAULT_ASSISTANT_NAME, ready: false });
     const welcomeReady = welcomeConfig.ready && welcomeConfig.accountId === accountId;
-    const welcomeText = welcomeConfig.text === FALLBACK_WELCOME ? t(FALLBACK_WELCOME) : welcomeConfig.text;
+    const welcomeText = resolveAssistantWelcome(welcomeConfig.accountId === accountId ? welcomeConfig : null);
     const [phase, setPhase] = React.useState('skeleton');
     const [expandedDetails, setExpandedDetails] = React.useState({});
     const [playlistConfirmations, setPlaylistConfirmations] = React.useState({});
@@ -128,7 +131,7 @@ export default function AssistantView({ section = 'conversation' }) {
     }, [accountId]);
 
     React.useEffect(() => {
-        setWelcomeConfig({ accountId, text: FALLBACK_WELCOME, ready: !isAuthed });
+        setWelcomeConfig({ accountId, name: DEFAULT_ASSISTANT_NAME, ready: !isAuthed });
         if (!isAuthed) return undefined;
         const controller = new AbortController();
         authenticatedFetch(`${getApiBaseUrl()}/api/ai/bootstrap`, { credentials: 'include', signal: controller.signal })
@@ -137,11 +140,13 @@ export default function AssistantView({ section = 'conversation' }) {
                 if (controller.signal.aborted) return;
                 const assistant = data?.assistant;
                 setImageInput(data?.imageInput?.enabled === true);
-                setWelcomeConfig({ accountId, text: typeof assistant?.welcomeMessage === 'string' && assistant.welcomeMessage.trim()
-                    ? assistant.welcomeMessage.trim() : FALLBACK_WELCOME, ready: true });
+                const name = typeof assistant?.name === 'string' && assistant.name.trim()
+                    ? assistant.name.trim()
+                    : DEFAULT_ASSISTANT_NAME;
+                setWelcomeConfig({ accountId, name, welcomeMessage: assistant?.welcomeMessage, ready: true });
             })
             .catch(() => {
-                if (!controller.signal.aborted) setWelcomeConfig({ accountId, text: FALLBACK_WELCOME, ready: true });
+                if (!controller.signal.aborted) setWelcomeConfig({ accountId, name: DEFAULT_ASSISTANT_NAME, ready: true });
             });
         return () => controller.abort();
     }, [isAuthed, accountId]);
@@ -213,7 +218,10 @@ export default function AssistantView({ section = 'conversation' }) {
     const applyThread = React.useCallback((thread, expectedAccountId) => {
         if (!expectedAccountId || accountIdRef.current !== expectedAccountId) return false;
         if (!thread || !Number.isSafeInteger(thread.revision)) return false;
+        if (thread.revision < threadRevisionRef.current) return false;
         threadRevisionRef.current = thread.revision;
+        const pending = pendingAssistantTurn(thread);
+        setPendingTurn(pending ? { ...pending, accountId: expectedAccountId } : null);
         setMessages((previous) => toUiMessages(mergeAssistantProcessMessages(thread.messages, previous)));
         scheduleScrollToLatest();
         return true;
@@ -224,10 +232,32 @@ export default function AssistantView({ section = 'conversation' }) {
         if (!signal?.aborted) applyThread(thread, expectedAccountId);
     }, [applyThread]);
 
+    // A reload or lost stream can leave a live reservation without a local
+    // fetch controller. Keep the existing stop action available and observe
+    // completion/stale recovery instead of repeatedly asking for a refresh.
+    React.useEffect(() => {
+        if (isLoading || !isAuthed || !pendingTurn || pendingTurn.accountId !== accountId) return undefined;
+        const controller = new AbortController();
+        let timer;
+        const observe = async () => {
+            try { await syncThread({ signal: controller.signal, expectedAccountId: accountId }); }
+            catch (error) {
+                if (!controller.signal.aborted && accountIdRef.current === accountId && error.status === 401) {
+                    setAuthSession({ authenticated: false, user: null, initialized: true });
+                }
+            } finally {
+                if (!controller.signal.aborted) timer = window.setTimeout(observe, 15000);
+            }
+        };
+        timer = window.setTimeout(observe, 15000);
+        return () => { window.clearTimeout(timer); controller.abort(); };
+    }, [accountId, isAuthed, isLoading, pendingTurn?.clientMessageId, pendingTurn?.accountId, setAuthSession, syncThread]);
+
     React.useEffect(() => {
         abortControllerRef.current?.abort();
         abortControllerRef.current = null;
         setIsLoading(false);
+        setPendingTurn(null);
         threadRevisionRef.current = 0;
         setMessages([]);
         setPlaylistConfirmations({});
@@ -255,18 +285,24 @@ export default function AssistantView({ section = 'conversation' }) {
     }, [isAuthed, accountId, setAuthSession, syncThread]);
 
     const handleStopGeneration = React.useCallback(() => {
-        if (abortControllerRef.current) {
-            const active = activeRequestRef.current;
+            const active = activeRequestRef.current || pendingTurn;
             if (active?.accountId === accountIdRef.current) {
                 stopRequestRef.current = authenticatedFetch(`${getApiBaseUrl()}/api/ai/stop`, {
                     method: 'POST', credentials: 'include',
                     headers: { ...localAssistantMutationHeaders(authSession?.csrfToken), 'X-FlareTune-Expected-Account': active.accountId },
                     body: JSON.stringify({ client_message_id: active.clientMessageId }),
-                }).then(async response => response.ok ? response.json() : null).catch(() => null);
+                }).then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || '停止失败，请重试。');
+                    applyThread(data.thread, active.accountId);
+                    return data;
+                }).catch(error => {
+                    if (accountIdRef.current === active.accountId) showToast(t(error.message));
+                    return null;
+                });
             }
-            abortControllerRef.current.abort();
-        }
-    }, [authSession?.csrfToken]);
+            if (abortControllerRef.current) abortControllerRef.current.abort();
+    }, [applyThread, authSession?.csrfToken, pendingTurn]);
 
     const handleClearMessages = React.useCallback(async () => {
         if (!window.confirm(t('确定要清空与小A的全部对话记录吗？'))) return;
@@ -346,6 +382,7 @@ export default function AssistantView({ section = 'conversation' }) {
     const handleSend = React.useCallback(async (overrideText) => {
         const draft = (typeof overrideText === 'string' ? overrideText : inputText).trim();
         const text = draft || (canContinue && !attachments.length ? t('继续上一条未完成的任务') : '');
+        if (pendingTurn) return;
         if (!isAuthed || (!text && !attachments.length) || attachmentsBusy || isLoading || sendingRef.current || phase !== 'ready') return;
         sendingRef.current = true;
 
@@ -389,7 +426,6 @@ export default function AssistantView({ section = 'conversation' }) {
 
         try {
             typewriter = createAiResponseTypewriter({
-                prefersReducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true,
                 onDisplay: (renderedText) => {
                     if (accountIdRef.current !== requestAccountId || controller.signal.aborted) return;
                     renderedContent = renderedText;
@@ -586,7 +622,7 @@ export default function AssistantView({ section = 'conversation' }) {
             if (activeRequestRef.current?.clientMessageId === clientMessageId) activeRequestRef.current = null;
             if (accountIdRef.current === requestAccountId) scheduleScrollToLatest();
         }
-    }, [applyThread, authSession, attachments, attachmentsBusy, enableThinking, inputText, canContinue, visibleMessages, imageInput, isAuthed, isLoading, messages, phase, scheduleScrollToLatest, setAuthSession, syncThread]);
+    }, [applyThread, authSession, attachments, attachmentsBusy, enableThinking, inputText, canContinue, visibleMessages, imageInput, isAuthed, isProcessing, messages, phase, scheduleScrollToLatest, setAuthSession, syncThread]);
 
     const handleFormSubmit = React.useCallback((e) => {
         if (e && typeof e.preventDefault === 'function') e.preventDefault();
@@ -646,7 +682,7 @@ export default function AssistantView({ section = 'conversation' }) {
                         canContinue={canContinue}
                         hasAttachments={attachments.length > 0}
                         attachmentsBusy={attachmentsBusy}
-                        attachments={imageInput ? <AssistantAttachments ref={attachmentsRef} key={accountId} session={authSession} attachments={attachments} onChange={setAttachments} onBusy={setAttachmentsBusy} disabled={isLoading || phase !== 'ready'} /> : null}
+                        attachments={imageInput ? <AssistantAttachments ref={attachmentsRef} key={accountId} session={authSession} attachments={attachments} onChange={setAttachments} onBusy={setAttachmentsBusy} disabled={isProcessing || phase !== 'ready'} /> : null}
                         onAttachImage={imageInput ? () => attachmentsRef.current?.pick() : undefined}
                         onImageFiles={imageInput ? files => attachmentsRef.current?.addFiles(files) : undefined}
                         attachmentLimitReached={attachments.length >= 4}
@@ -655,7 +691,7 @@ export default function AssistantView({ section = 'conversation' }) {
                         onToggleThinking={() => setEnableThinking(!enableThinking)}
                         textareaRef={textareaRef}
                         inputText={inputText}
-                        isLoading={isLoading}
+                        isLoading={isProcessing}
                         phase={phase}
                         onInputChange={setInputText}
                         onKeyDown={handleKeyDown}

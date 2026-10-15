@@ -1,0 +1,23 @@
+{
+  "version": 2, "status": "ready", "source": "manual", "format": "lrc", "syncMode": "line",
+  "translationState": "unavailable", "offsetMs": 0,
+  "provenance": {"kind": "manual", "note": "Public-domain traditional hymn. Approximate line timing checked against local ASR; manually corrected text, no word timing.", "source": "https://en.wikisource.org/wiki/Amazing_Grace"},
+  "lines": [
+    {"time": 5.5, "text": "Amazing grace, how sweet the sound"},
+    {"time": 14.4, "text": "That saved a wretch like me"},
+    {"time": 24.6, "text": "I once was lost, but now am found"},
+    {"time": 34.6, "text": "Was blind, but now I see"},
+    {"time": 42.8, "text": "’Twas grace that taught my heart to fear"},
+    {"time": 53.4, "text": "And grace my fears relieved"},
+    {"time": 62.8, "text": "How precious did that grace appear"},
+    {"time": 72.5, "text": "The hour I first believed"},
+    {"time": 80.7, "text": "When we’ve been there ten thousand years"},
+    {"time": 91.5, "text": "Bright shining as the sun"},
+    {"time": 100.6, "text": "We’ve no less days to sing God’s praise"},
+    {"time": 110.4, "text": "Than when we first begun"},
+    {"time": 121.4, "text": "Amazing grace, how sweet the sound"},
+    {"time": 129.4, "text": "That saved a wretch like me"},
+    {"time": 138.6, "text": "I once was lost, but now am found"},
+    {"time": 157.0, "text": "Was blind, but now I see"}
+  ]
+}

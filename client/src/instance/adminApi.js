@@ -10,6 +10,12 @@ export const putAdminSetting = (key, value, expectedRevision, csrfToken, fetchIm
     method: 'PUT', body: { key, value, expectedRevision }, csrfToken, fetchImpl,
   });
 
+export const testLyricSource = (source, song, csrfToken, fetchImpl) =>
+  instanceRequest('admin/lyrics/source-test', {
+    method: 'POST', body: { source: { protocol: source.protocol, searchUrl: source.searchUrl,
+      downloadUrl: source.downloadUrl, translationLanguage: source.translationLanguage }, song }, csrfToken, fetchImpl,
+  });
+
 export const putAssistant = (patch, expectedRevision, csrfToken, fetchImpl) =>
   instanceRequest('admin/assistant', {
     method: 'PUT', body: { patch, expectedRevision }, csrfToken, fetchImpl,

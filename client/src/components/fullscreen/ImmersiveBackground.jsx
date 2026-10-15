@@ -7,7 +7,6 @@ export default function ImmersiveBackground({
     theme,
     artistName = '',
     coverUrl = '',
-    prefersReducedMotion,
     isPlaying,
     isBuffering,
     mediaEnabled = true,
@@ -20,11 +19,10 @@ export default function ImmersiveBackground({
         isPlaying,
         isBuffering,
         suspendEffects,
-        prefersReducedMotion,
     });
     const isActive = mediaEnabled && active && isPlaying && !isBuffering;
 
-    const isPhotoMotionActive = isPlaying && !isBuffering && !suspendEffects && !prefersReducedMotion;
+    const isPhotoMotionActive = isPlaying && !isBuffering && !suspendEffects;
     const resolvedCoverUrl = usePrivateMediaSource(coverUrl);
 
     const renderArtistPhotoLayer = () => (
@@ -48,7 +46,7 @@ export default function ImmersiveBackground({
                             referrerPolicy="no-referrer"
                             className="absolute inset-0 w-full h-full object-cover brightness-[0.72] will-change-transform"
                             style={{
-                                animation: prefersReducedMotion ? 'none' : `${animName} 20s infinite alternate ease-in-out`,
+                                animation: `${animName} 20s infinite alternate ease-in-out`,
                                 animationPlayState: isPhotoMotionActive ? 'running' : 'paused',
                             }}
                         />
