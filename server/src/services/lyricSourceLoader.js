@@ -1,4 +1,5 @@
 import { fetchLimitedJson } from './lyricSourceHttp.js';
+import { createLrclibRequestCoordinator } from './lrclibRequestCoordinator.js';
 import {
   LYRIC_DOCUMENT_LIMITS,
   createLyricDocument,
@@ -247,6 +248,16 @@ const isActionableSourceError = (error) => (
   error instanceof LyricSourceError && error.kind !== 'unavailable'
 );
 
+const combinedFailure = (errors, kind, stage) => {
+  const matching = errors.filter(error => error.kind === kind);
+  const retryAfterSeconds = Math.max(0, ...matching.filter(error => error.stage !== 'budget')
+    .map(error => error.retryAfterSeconds || 0));
+  return {
+    stage: kind === 'rate_limited' && matching.every(error => error.stage === 'budget') ? 'budget' : stage,
+    retryAfterSeconds: retryAfterSeconds || undefined,
+  };
+};
+
 // Upgrade callers can retain completed candidates when their total search
 // budget expires. The source request itself still rejects real cancellation.
 // This observer is deliberately limited to uncached automatic source loading.
@@ -309,8 +320,10 @@ export async function fetchLyricsDocumentWithFallback(source, song, fetchSourceD
   if (actionableErrors.length > 0) {
     const priority = ['timeout', 'rate_limited', 'network', 'upstream', 'invalid', 'circuit_open'];
     const kind = priority.find((candidate) => actionableErrors.some((error) => error.kind === candidate)) || 'upstream';
-    throw new LyricSourceError(kind, source === 'auto' ? 'multiple' : order[0], 'fallback', 'Lyric providers did not produce a reliable result', {
+    const failure = combinedFailure(actionableErrors, kind, 'fallback');
+    throw new LyricSourceError(kind, source === 'auto' ? 'multiple' : order[0], failure.stage, 'Lyric providers did not produce a reliable result', {
       cause: new AggregateError(actionableErrors, 'Lyric provider failures'),
+      retryAfterSeconds: failure.retryAfterSeconds,
     });
   }
   return null;
@@ -350,8 +363,10 @@ export async function fetchLyricsAuditEvidenceWithFallback(source, song, fetchSo
   if (actionableErrors.length > 0) {
     const priority = ['timeout', 'rate_limited', 'network', 'upstream', 'invalid', 'circuit_open'];
     const kind = priority.find((candidate) => actionableErrors.some((error) => error.kind === candidate)) || 'upstream';
-    throw new LyricSourceError(kind, source === 'auto' ? 'multiple' : order[0], 'fallback', 'Lyric providers did not produce reliable audit evidence', {
+    const failure = combinedFailure(actionableErrors, kind, 'fallback');
+    throw new LyricSourceError(kind, source === 'auto' ? 'multiple' : order[0], failure.stage, 'Lyric providers did not produce reliable audit evidence', {
       cause: new AggregateError(actionableErrors, 'Lyric provider failures'),
+      retryAfterSeconds: failure.retryAfterSeconds,
     });
   }
   return null;
@@ -391,6 +406,8 @@ export const createLyricSourceLoader = ({
   };
   const lrcOptions = { fetchImpl, timeoutMs, config: config.custom_lrc };
   const circuits = new Map();
+  const countedFailures = new WeakSet();
+  const lrclib = createLrclibRequestCoordinator({ fetchImpl, timeoutMs });
 
   const withCircuit = async (provider, task) => {
     const now = Date.now();
@@ -407,8 +424,10 @@ export const createLyricSourceLoader = ({
         ? error
         : new LyricSourceError('invalid', provider, 'adapter', `${provider} adapter failed`, { cause: error });
       const shouldTrip = sourceError.stage !== 'budget'
+        && !(provider === 'lrclib' && sourceError.kind === 'rate_limited' && sourceError.retryAfterSeconds)
         && ['network', 'timeout', 'rate_limited', 'upstream'].includes(sourceError.kind);
-      if (shouldTrip) {
+      if (shouldTrip && !countedFailures.has(sourceError)) {
+        countedFailures.add(sourceError);
         const currentState = circuits.get(provider) || { failures: 0, openUntil: 0 };
         const failures = currentState.failures + 1;
         circuits.set(provider, {
@@ -540,6 +559,7 @@ export const createLyricSourceLoader = ({
     preferExact = false,
     includeSearchWithExact = false,
     requestBudget,
+    executionContext,
   } = {}) => {
     const duration = requireSearchableSong('lrclib', song, 'get');
     const exactParams = new URLSearchParams({
@@ -551,10 +571,9 @@ export const createLyricSourceLoader = ({
     let candidates = [];
     if (preferExact) {
       try {
-        const exact = await fetchLimitedJson(
-          fetchImpl,
+        const exact = await lrclib.request(
           endpoint('lrclib', 'baseUrl', exactParams, '/get'),
-          { provider: 'lrclib', stage: 'get', timeoutMs, signal, requestBudget },
+          { stage: 'get', signal, requestBudget, executionContext },
         );
         candidates = exact ? [exact] : [];
       } catch (error) {
@@ -586,10 +605,9 @@ export const createLyricSourceLoader = ({
         track_name: String(song.title), artist_name: String(song.artist || ''),
       });
       if (song.album) searchParams.set('album_name', String(song.album));
-      const search = await fetchLimitedJson(
-        fetchImpl,
+      const search = await lrclib.request(
         endpoint('lrclib', 'baseUrl', searchParams, '/search'),
-        { provider: 'lrclib', stage: 'search', timeoutMs, signal, requestBudget },
+        { stage: 'search', signal, requestBudget, executionContext },
       );
       const seen = new Set(candidates.map((candidate) => String(candidate?.id ?? '')).filter(Boolean));
       for (const candidate of Array.isArray(search) ? search : []) {
@@ -667,20 +685,22 @@ export const createLyricSourceLoader = ({
     if (actionableErrors.length) {
       const priority = ['timeout', 'rate_limited', 'network', 'upstream', 'invalid', 'circuit_open'];
       const kind = priority.find((value) => actionableErrors.some((error) => error.kind === value)) || 'upstream';
-      throw new LyricSourceError(kind, provider, 'lyrics', `${provider} candidate downloads failed`, {
+      const failure = combinedFailure(actionableErrors, kind, 'lyrics');
+      throw new LyricSourceError(kind, provider, failure.stage, `${provider} candidate downloads failed`, {
         cause: new AggregateError(actionableErrors, 'Lyric candidate failures'),
+        retryAfterSeconds: failure.retryAfterSeconds,
       });
     }
     if (errors.length) throw errors[errors.length - 1];
     throw new LyricSourceError('unavailable', provider, 'lyrics', `${provider} candidates have no usable lyrics`);
   };
 
-  const getLrclibDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate,
+  const getLrclibDocument = (song, { signal, providerLyricId = null, onAutomaticCandidate, executionContext,
     requestBudget = createLyricRequestBudget() } = {}) => withCircuit('lrclib', async () => {
     const automatic = providerLyricId === null || providerLyricId === undefined;
     if (automatic) {
       const reportCandidate = automaticProgressReporter(onAutomaticCandidate, signal);
-      const exact = await searchLrclibSelections(song, signal, { preferExact: true, requestBudget });
+      const exact = await searchLrclibSelections(song, signal, { preferExact: true, requestBudget, executionContext });
       let exactDocument = null;
       let exactError = null;
       if (exact.selections.length) {
@@ -699,7 +719,7 @@ export const createLyricSourceLoader = ({
       }
       try {
         const searchedSelections = exact.exactSelection
-          ? (await searchLrclibSelections(song, signal, { requestBudget })).selections
+          ? (await searchLrclibSelections(song, signal, { requestBudget, executionContext })).selections
           : exact.selections;
         const bestSearch = await loadBestAutomaticSelection(searchedSelections, loadLrclibSelection, 'lrclib', reportCandidate);
         return preferredAutomaticDocument(bestSearch, exactDocument) ? bestSearch : exactDocument;
@@ -710,7 +730,7 @@ export const createLyricSourceLoader = ({
         throw error;
       }
     }
-    const { selections } = await searchLrclibSelections(song, signal, { requestBudget });
+    const { selections } = await searchLrclibSelections(song, signal, { requestBudget, executionContext });
     const selection = selections.find(({ candidate }) => String(candidate.id) === String(providerLyricId));
     if (!selection) {
       throw new LyricSourceError(
@@ -746,7 +766,7 @@ export const createLyricSourceLoader = ({
     return loadCustomLrcSelection(selection, signal, options);
   });
 
-  const fetchSourceAuditEvidence = (source, song, { signal, requestBudget = createLyricRequestBudget() } = {}) => {
+  const fetchSourceAuditEvidence = (source, song, { signal, executionContext, requestBudget = createLyricRequestBudget() } = {}) => {
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'audit-evidence', 'Invalid lyric source'));
     }
@@ -765,6 +785,7 @@ export const createLyricSourceLoader = ({
           preferExact: true,
           includeSearchWithExact: true,
           requestBudget,
+          executionContext,
         });
         selections = snapshot.selections;
         const exactId = String(snapshot.exactSelection?.candidate?.id ?? '');
@@ -791,25 +812,34 @@ export const createLyricSourceLoader = ({
     });
   };
 
-  const listSourceCandidates = (source, song, { signal, requestBudget = createLyricRequestBudget() } = {}) => {
+  const listSourceCandidates = (source, song, { signal, executionContext, requestBudget = createLyricRequestBudget() } = {}) => {
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'search', 'Invalid lyric source'));
     }
     if (!enabledSources.includes(source)) return Promise.reject(new LyricSourceError('unavailable', source, 'config', 'Lyric source is disabled'));
     return withCircuit(source, async () => {
+      if (signal?.aborted) throw abortError(source, 'search');
+      const cacheKey = source === 'lrclib' ? JSON.stringify([
+        String(song.title || ''), String(song.artist || ''), String(song.album || ''),
+        normalizeDurationSeconds(song.duration),
+      ]) : null;
+      const cached = cacheKey === null ? undefined : lrclib.getCandidates(cacheKey);
+      if (cached !== undefined) return cached;
       let selections;
       if (source === 'custom_krc') {
         selections = await searchCustomKrcSelections(song, signal, requestBudget);
       } else if (source === 'custom_lrc') {
         selections = await searchCustomLrcSelections(song, signal, { ...lrcOptions, requestBudget });
       } else {
-        selections = (await searchLrclibSelections(song, signal, { preferExact: false, requestBudget })).selections;
+        selections = (await searchLrclibSelections(song, signal, { preferExact: false, requestBudget, executionContext })).selections;
       }
-      return selections.map((selection) => createSafeCandidateDto(source, selection)).filter(Boolean);
+      const result = selections.map((selection) => createSafeCandidateDto(source, selection)).filter(Boolean);
+      if (cacheKey !== null) lrclib.setCandidates(cacheKey, result);
+      return result;
     });
   };
 
-  const createCandidateInspectionSnapshot = (source, song, { signal, requestBudget = createLyricRequestBudget() } = {}) => {
+  const createCandidateInspectionSnapshot = (source, song, { signal, executionContext, requestBudget = createLyricRequestBudget() } = {}) => {
     if (!isValidLyricSource(source)) {
       return Promise.reject(new LyricSourceError('invalid', source, 'search', 'Invalid lyric source'));
     }
@@ -821,7 +851,7 @@ export const createLyricSourceLoader = ({
       } else if (source === 'custom_lrc') {
         selections = await searchCustomLrcSelections(song, signal, { ...lrcOptions, requestBudget });
       } else {
-        selections = (await searchLrclibSelections(song, signal, { preferExact: false, requestBudget })).selections;
+        selections = (await searchLrclibSelections(song, signal, { preferExact: false, requestBudget, executionContext })).selections;
       }
       const byId = new Map(selections.map((selection) => [String(selection.candidate.id), selection]));
       return {

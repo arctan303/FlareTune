@@ -1,6 +1,7 @@
 import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import packageMetadata from '../../../package.json' with { type: 'json' };
 import { deflateSync } from 'node:zlib';
 import { createLyricDocument } from '../utils/lyricDocument.js';
 import {
@@ -431,7 +432,7 @@ test('LRCLIB retains exact get Lyricsfile when search adds no better lyrics and 
   assert.equal(url.searchParams.get('album_name'), '夜航集');
   assert.equal(url.searchParams.get('duration'), '200');
   assert.equal(seen[0].init.headers['Lrclib-Client'], 'FlareTune');
-  assert.equal(seen[0].init.headers['User-Agent'], 'FlareTune/1.2.0');
+  assert.equal(seen[0].init.headers['User-Agent'], `FlareTune/${packageMetadata.version}`);
 });
 
 test('LRCLIB 404 uses scored search rather than taking the first result', async () => {
@@ -938,7 +939,7 @@ test('circuit counts concurrent infrastructure failures and unavailable breaks t
     },
   });
   const first = concurrent.getLrclibDocument({ ...SONG, id: 'one' });
-  const second = concurrent.getLrclibDocument({ ...SONG, id: 'two' });
+  const second = concurrent.getLrclibDocument({ ...SONG, id: 'two', title: `${SONG.title} second` });
   await new Promise((resolve) => setImmediate(resolve));
   releaseFailures();
   await Promise.allSettled([first, second]);

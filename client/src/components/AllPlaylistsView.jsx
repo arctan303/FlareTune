@@ -370,7 +370,6 @@ export default function AllPlaylistsView({
 
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <p className="collection-section__index">YOUR LIBRARY</p>
                         <h2 className="all-playlists-title text-2xl sm:text-3xl font-semibold tracking-tight">{standalone ? t("资料库") : t("全部歌单")}</h2>
                         <p className="all-playlists-meta text-xs sm:text-sm text-[var(--muted)] mt-1">
                             {hasPlaylists || (!isLoading && !failed)

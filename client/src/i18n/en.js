@@ -4,6 +4,11 @@ import database from './database.js';
 // Chinese source copy is the stable key until every screen has migrated.
 // Keep the English wording here so contributors can review one language in one file.
 export default Object.freeze({
+  "上游暂时限制了请求，请稍后重试。": "The lyric service is temporarily limiting requests. Try again later.",
+  "本次检索已达到请求上限，请减少来源后重试。": "This search reached its request limit. Select fewer sources and try again.",
+  "{seconds} 秒后可重试": "Retry in {seconds}s",
+  "稍后重试": "Try again",
+  "重试 {source}": "Retry {source}",
   "上一条请求尚未收尾，请稍候或停止生成后再发送。": "The previous request is still finishing. Wait or stop generation before sending again.",
   "停止失败，请重试。": "Could not stop generation. Please try again.",
   "添加源": "Add source",

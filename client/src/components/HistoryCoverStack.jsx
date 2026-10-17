@@ -8,18 +8,17 @@ import { usePageActivity } from '../hooks/usePageActivity.js';
 
 const LANDING_DURATION_MS = 1050;
 
-function HistoryImage({ src, isStaged, onReady, onError }) {
+export function HistoryImage({ src, isStaged, onReady, onError }) {
   const visible = usePageActivity();
   const routeRevision = usePrivateMediaRouteRevision();
   const onErrorRef = React.useRef(onError);
   onErrorRef.current = onError;
-  const [source, setSource] = React.useState(() => ({
-    requested: src,
-    display: imageLoadRegistry.shouldLoadPrivately(src)
-      ? imageLoadRegistry.getReadySource(src) : src,
-  }));
+  const [source, setSource] = React.useState(() => {
+    const display = imageLoadRegistry.shouldLoadPrivately(src) ? imageLoadRegistry.getReadySource(src) : src;
+    return { requested: src, display, displayAuthorization: imageLoadRegistry.getDisplayAuthorization(src, display) };
+  });
   const display = source.requested === src
-    ? visibleImageSource(src, source.display, '/placeholder-album.svg', imageLoadRegistry, !isStaged) : null;
+    ? visibleImageSource(src, source.display, '/placeholder-album.svg', imageLoadRegistry, true, source.displayAuthorization) : null;
 
   React.useEffect(() => {
     if (!visible) return undefined;
@@ -34,14 +33,15 @@ function HistoryImage({ src, isStaged, onReady, onError }) {
     }
     const cached = imageLoadRegistry.getReadySource(src);
     if (cached) {
-      setSource({ requested: src, display: cached });
+      setSource({ requested: src, display: cached, displayAuthorization: imageLoadRegistry.getDisplayAuthorization(src, cached) });
       return undefined;
     }
     let active = true;
-    setSource((current) => !isStaged && current.requested === src && imageLoadRegistry.canRetainSource(src, current.display)
+    setSource((current) => !isStaged && current.requested === src && imageLoadRegistry.canRetainSource(src, current.display, current.displayAuthorization)
       ? current : { requested: src, display: null });
-    void imageLoadRegistry.load(src).then(({ url }) => {
-      if (active) setSource({ requested: src, display: url });
+    void imageLoadRegistry.load(src).then((result) => {
+      const { url, displayAuthorization } = imageLoadRegistry.resolveDisplaySource(src, result);
+      if (active) setSource({ requested: src, display: url, displayAuthorization });
     }).catch(() => {
       if (!active) return;
       if (isStaged) onErrorRef.current?.();
@@ -52,6 +52,11 @@ function HistoryImage({ src, isStaged, onReady, onError }) {
 
   if (!display) return null;
   const handleError = () => {
+    const recovery = imageLoadRegistry.resolveDisplaySource(src, { url: display, displayAuthorization: source.displayAuthorization });
+    if (recovery.url !== display) {
+      setSource({ requested: src, display: recovery.url, displayAuthorization: recovery.displayAuthorization });
+      return;
+    }
     if (imageLoadRegistry.shouldLoadPrivately(src)) imageLoadRegistry.markError(src);
     if (isStaged) onErrorRef.current?.();
     else if (display !== '/placeholder-album.svg') {

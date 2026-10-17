@@ -51,7 +51,7 @@ test('candidate quality ordering and safe warnings stay available', () => {
   assert.equal(sortLyricsCandidates(candidates, {
     'custom_krc:a': { state: 'ready', syncMode: 'line' },
     'lrclib:b': { state: 'ready', syncMode: 'word' },
-  })[0].providerLyricId, 'b');
+  })[0].providerLyricId, 'a');
   assert.deepEqual(projectProviderWarnings([{ source: 'custom_krc', code: 'timeout' }])[0], {
     key: 'provider-warning-0', source: 'custom_krc', reason: '请求超时',
   });

@@ -44,7 +44,7 @@ test('candidate aggregation shares one bounded budget and reports source limits 
     listCandidates: loader.listSourceCandidates });
   assert.ok(calls.length <= 32, `${calls.length} external requests`);
   assert.equal(result.candidates[0]?.source, 'lrclib');
-  assert.ok(result.warnings.some(warning => warning.code === 'rate_limited'));
+  assert.ok(result.warnings.some(warning => warning.code === 'request_budget_exceeded'));
 });
 
 test('manual candidate inspection bounds concurrent fresh searches across eight sources', async () => {
@@ -53,7 +53,7 @@ test('manual candidate inspection bounds concurrent fresh searches across eight 
     SOURCES.map(source => ({ source: source.id, providerLyricId: 'missing' })),
     { createProviderSnapshot: loader.createCandidateInspectionSnapshot });
   assert.ok(calls.length <= 32, `${calls.length} external requests`);
-  assert.ok(result.items.some(item => item.error?.code === 'search_rate_limited'));
+  assert.ok(result.items.some(item => item.error?.code === 'search_request_budget_exceeded'));
 });
 
 test('background upgrade bounds parallel source searches while retaining reliable completed LRCLIB', async () => {
@@ -80,9 +80,9 @@ test('the long-lived loader gives concurrent songs and subsequent requests separ
   const [first, second] = await Promise.all([resolve(SONG), resolve({ ...SONG, id: 'another-song' })]);
   assert.equal(first.source, 'lrclib');
   assert.equal(second.source, 'lrclib');
-  assert.equal(calls.length, 64);
+  assert.equal(calls.length, 62, 'the two concurrent operations share the same LRCLIB get/search requests');
   assert.equal((await resolve(SONG)).source, 'lrclib');
-  assert.equal(calls.length, 96, 'local allowance exhaustion never opens an upstream circuit');
+  assert.equal(calls.length, 94, 'local allowance exhaustion never opens an upstream circuit');
 });
 
 test('local budget rejection cannot mark a healthy configured source circuit as unavailable', async () => {
@@ -129,7 +129,7 @@ test('manual inspection counts searches and both download formats together, keep
     { createProviderSnapshot: loader.createCandidateInspectionSnapshot });
   assert.equal(calls, 30);
   assert.ok(result.items.some(item => item.state === 'ready'));
-  assert.ok(result.items.some(item => item.error?.code === 'download_rate_limited'));
+  assert.ok(result.items.some(item => item.error?.code === 'download_request_budget_exceeded'));
   assert.ok(result.items.filter(item => item.state === 'ready').every(item => item.lyrics.lines[0].text === 'Completed preview'));
 });
 

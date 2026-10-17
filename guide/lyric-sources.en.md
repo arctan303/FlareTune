@@ -46,6 +46,8 @@ Download GET parameters are `id`, `lv=1`, `kv=1` and `tv=1`:
 
 Source requests and tests have timeout, response-size and decoding limits. Failures retain existing lyrics. Matching still considers title, artist, version and duration; administrators can preview and import candidates in the workspace. Disabling a source does not delete saved lyrics. Older assets remain readable, while new requests use only enabled sources.
 
-Queries across sources share a bounded request budget while preserving built-in LRCLIB fallback capacity. With many sources, some may report rate limits. Completed lyrics and candidates remain available; retry later or query that source separately.
+Queries across sources share a bounded request budget while preserving built-in LRCLIB fallback capacity. Searching many sources can reach the operation's request limit; the interface distinguishes this from upstream throttling. Completed lyrics and candidates remain available. Select fewer sources and retry if the operation reaches its limit.
+
+Duplicate LRCLIB requests are coalesced, successful candidate summaries are briefly reused and outgoing calls are paced; preview inspection and import still perform fresh validation. Upstream rate limits honor Retry-After, with a 30-second cooldown when no wait is provided. Candidate search and preview failures show a reason and countdown, followed by an explicit retry. Retrying one source retains other candidates and does not start an automatic retry loop. Third-party services may still refuse requests, and the displayed wait does not guarantee recovery.
 
 [Back to administration](administration.en.md)

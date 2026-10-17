@@ -3,6 +3,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { transformSync } from 'esbuild';
+import { Component } from 'react';
 
 export const flushBackgroundAsync = () => new Promise(resolve => setImmediate(resolve));
 
@@ -48,7 +49,7 @@ export function createBackgroundScheduler() {
   };
 }
 
-export function createBackgroundModuleHarness({ file, exportName = 'default', modules, globals, nodes = {} }) {
+export function createBackgroundModuleHarness({ file, exportName = 'default', modules, globals, nodes = {}, render: renderModule }) {
   const slots = [];
   let cursor = 0, effects = [], dirty = false, lastProps;
   const changed = (previous, next) => !previous || !next
@@ -68,6 +69,7 @@ export function createBackgroundModuleHarness({ file, exportName = 'default', mo
     return slots[index].value;
   };
   const React = {
+    Component,
     createElement(type, props, ...children) {
       if (props?.ref && nodes[type]) props.ref.current = nodes[type];
       return { type, props: { ...props, children } };
@@ -86,6 +88,7 @@ export function createBackgroundModuleHarness({ file, exportName = 'default', mo
       return slots[index].value;
     },
     useEffect: effect,
+    useLayoutEffect: effect,
     useCallback: (callback, dependencies) => memo(() => callback, dependencies),
   };
   const loaded = new Map();
@@ -119,7 +122,7 @@ export function createBackgroundModuleHarness({ file, exportName = 'default', mo
       lastProps = props;
       for (let iteration = 0; iteration < 20; iteration++) {
         cursor = 0; effects = []; dirty = false;
-        const result = localModule.exports[exportName](props);
+        const result = renderModule ? renderModule(localModule.exports, props) : localModule.exports[exportName](props);
         effects.forEach(run => run());
         if (!dirty) return result;
       }
@@ -167,7 +170,7 @@ export function createArtistPhotoHarness() {
   };
 }
 
-export function createAppleFluidHarness() {
+export function createAppleFluidHarness({ registry } = {}) {
   const scheduler = createBackgroundScheduler();
   const document = createVisibilityDocument();
   document.createElement = () => ({ getContext: () => ({ drawImage() {} }) });
@@ -196,7 +199,7 @@ export function createAppleFluidHarness() {
     file: new URL('../components/fullscreen/AppleFluidCanvas.jsx', import.meta.url),
     nodes: { canvas },
     modules: {
-      '../../utils/imageLoadRegistry.js': { imageLoadRegistry: {
+      '../../utils/imageLoadRegistry.js': { imageLoadRegistry: registry || {
         isPrivateMediaUrl: () => false, shouldLoadPrivately: () => false,
       } },
       '../../hooks/usePrivateMediaRouteRevision.js': { usePrivateMediaRouteRevision: () => 0 },

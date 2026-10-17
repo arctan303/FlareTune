@@ -10,7 +10,7 @@ const flights = new WeakMap();
 // Reserve the rest of Workers' post-response lifetime for validation and CAS.
 // A slow provider must not discard results already returned by another one.
 export async function fetchUpgradeDocument(song, fetchDocument, { signal, budgetMs = LYRIC_UPGRADE_SEARCH_BUDGET_MS,
-  enabledSources, requestBudget = createLyricRequestBudget() } = {}) {
+  enabledSources, executionContext, requestBudget = createLyricRequestBudget() } = {}) {
   if (signal?.aborted || budgetMs <= 0) return null;
   const controller = new AbortController();
   const completed = new Map();
@@ -27,7 +27,7 @@ export async function fetchUpgradeDocument(song, fetchDocument, { signal, budget
       };
       try {
         const document = await fetchDocument(provider, song, {
-          signal: controller.signal, onAutomaticCandidate: acceptCandidate, requestBudget,
+          signal: controller.signal, onAutomaticCandidate: acceptCandidate, requestBudget, executionContext,
         });
         acceptCandidate(document);
       } catch { /* Keep the existing asset on failure; no negative asset is written. */ }
@@ -81,7 +81,7 @@ export function scheduleLyricAssetUpgrade({ store, song, read, executionContext,
       current.etag, { automation });
     if (claim.state !== 'updated') return { state: 'superseded' };
     const document = await fetchUpgradeDocument(song, fetchDocument, {
-      signal, budgetMs: LYRIC_UPGRADE_SEARCH_BUDGET_MS - (Date.now() - startedAt), enabledSources, requestBudget,
+      signal, budgetMs: LYRIC_UPGRADE_SEARCH_BUDGET_MS - (Date.now() - startedAt), enabledSources, requestBudget, executionContext,
     });
     const previous = originalDocument(claim.artifact, song);
     if (!document || !Number.isFinite(document.providerMeta?.durationDelta)

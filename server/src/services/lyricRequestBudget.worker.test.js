@@ -53,9 +53,9 @@ test('workerd shares lyric search budgets across adapters and fresh operations o
       assert.ok(calls.length <= 32, path + ': ' + calls.length + ' external requests');
       if (path === '/candidates') {
         assert.equal(result.candidates[0]?.source, 'lrclib');
-        assert.ok(result.warnings.some(item => item.code === 'rate_limited'));
+        assert.ok(result.warnings.some(item => item.code === 'request_budget_exceeded'));
       } else if (path === '/inspect') {
-        assert.ok(result.items.some(item => item.error?.code === 'search_rate_limited'));
+        assert.ok(result.items.some(item => item.error?.code === 'search_request_budget_exceeded'));
       } else {
         assert.equal(result.source, 'lrclib');
         assert.equal(calls.length, 32);

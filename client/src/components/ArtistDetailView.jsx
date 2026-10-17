@@ -14,7 +14,7 @@ import { usePlayerStore } from '../store/usePlayerStore.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
 import { readArtist } from '../services/catalogRead.js';
 import { useCatalogPage } from '../hooks/useCatalogPage.js';
-import { usePrivateMediaSource } from '../hooks/usePrivateMediaSource.js';
+import { usePrivateMediaImage } from '../hooks/usePrivateMediaSource.js';
 import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
 import CatalogSkeleton from './catalog/CatalogSkeleton.jsx';
@@ -165,7 +165,7 @@ export default function ArtistDetailView({
   // 视觉大片兜底：写真优先 -> 外部传入封面 -> 第一首歌曲专辑封面
   const firstSongCover = songs.length > 0 ? (songs[0].cover_url || songs[0].coverUrl) : '';
   const displayAvatar = artistPhoto || fallbackCover || firstSongCover;
-  const resolvedAvatar = usePrivateMediaSource(displayAvatar);
+  const { url: resolvedAvatar, onError: onAvatarError } = usePrivateMediaImage(displayAvatar);
 
   // 播放全部
   const handlePlayAll = () => {
@@ -339,6 +339,7 @@ export default function ArtistDetailView({
           {resolvedAvatar && (
             <img
               src={resolvedAvatar}
+              onError={onAvatarError}
               alt=""
               className="w-7 h-7 rounded-full object-cover shadow-xs border border-white/30"
             />
@@ -386,11 +387,11 @@ export default function ArtistDetailView({
             {/* 写真两侧镜像延展相邻边缘，主体保持原比例与清晰度。 */}
             <div className="artist-hero-photo-row absolute inset-0 overflow-hidden">
               <div className="artist-hero-edge" aria-hidden="true">
-                <img src={resolvedAvatar} alt="" />
+                <img src={resolvedAvatar} onError={onAvatarError} alt="" />
               </div>
-              <img src={resolvedAvatar} alt={artistName} className="artist-hero-main-photo" />
+              <img src={resolvedAvatar} onError={onAvatarError} alt={artistName} className="artist-hero-main-photo" />
               <div className="artist-hero-edge" aria-hidden="true">
-                <img src={resolvedAvatar} alt="" />
+                <img src={resolvedAvatar} onError={onAvatarError} alt="" />
               </div>
             </div>
           </div>

@@ -383,7 +383,6 @@ export default function PlaylistDetailView({
                             <section className="local-playlist-empty mt-6" aria-labelledby="playlist-empty-title">
                                 <span className="local-playlist-empty__mark" aria-hidden="true"><Disc3 size={24} /></span>
                                 <div className="local-playlist-empty__copy">
-                                    <p className="state-panel__eyebrow">ACCOUNT PLAYLIST</p>
                                     <h4 id="playlist-empty-title">{t("账号歌单还是空的")}</h4>
                                     <p>{invalidSongCount > 0 ? t("{p0} 首歌曲暂时无法播放。", { p0: (invalidSongCount) }) : t("歌单暂无歌曲")}</p>
                                 </div>
@@ -392,7 +391,6 @@ export default function PlaylistDetailView({
                             </section>
                         ) : (
                             <section className="state-panel mt-6 p-8 text-center" aria-labelledby="playlist-empty-title">
-                                <p className="state-panel__eyebrow">PLAYLIST EMPTY</p>
                                 <h4 id="playlist-empty-title" className="text-xl">{t("这个歌单还没有可播放的歌曲")}</h4>
                                 <p className="state-panel__copy mt-3">{invalidSongCount > 0 ? t("{p0} 首歌曲缺少可播放资源，歌单仍可编辑。", { p0: (invalidSongCount) }) : t("歌单暂时没有内容。")}</p>
                             </section>

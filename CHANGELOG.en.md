@@ -2,6 +2,30 @@
 
 [简体中文](CHANGELOG.md)
 
+## 1.2.1 — 2026-10-17
+
+### Added
+
+- The lyric candidate page now explains source failures and shows a cooldown countdown, with an explicit retry for that source when the wait ends. Other candidates, loaded previews and unsubmitted search input remain available. Preview failures also support retry after a cooldown, and upstream throttling is distinguished from the search request budget.
+
+### Improved
+
+- Coalesce identical in-flight LRCLIB requests, pace outgoing calls and briefly reuse successful candidate summaries. Rate limits honor Retry-After, with a 30-second cooldown when it is absent. Candidate inspection and import still perform fresh validation, with bounded queues, memory and deadlines.
+- Display, select and inspect custom lyric sources before LRCLIB, preserving quality ordering within each group. Preview failures show the localized search or download stage and a safe reason.
+- Refine the classic player's play/pause artwork scaling, fluid-cover crossfade brightness and sidebar glass appearance. Desktop artwork stays stable, with sidebar fallbacks for increased contrast and reduced transparency.
+- Remove fixed decorative English labels above page, section, drawer and loading/error titles, while retaining useful headings, counts, status and actions.
+
+### Fixed
+
+- Fix the classic fullscreen fluid background freezing and failing to follow a new cover after manually choosing a track from the queue. Also clear stale suspension state after drawer failures, rapid toggling and handoffs.
+- Fix covers, avatars and other images turning blank, or fluid textures disappearing, after a long visit or image-cache eviction. Already displayed images remain visible during a valid session; sign-out, account changes and failed session checks still clear the previous identity's images.
+- Retry a transient LRCLIB search 503 once within the original timeout and request budget. Fix concurrent searches hanging when their first caller cancels, and queued timers losing their Worker request context.
+
+### Upgrade notes and limits
+
+- The ingest CLI version is aligned to 1.2.1. Existing instances require no database migration; lyric assets and source configuration are preserved.
+- LRCLIB can still limit requests because of third-party service or shared-egress policies. This release reduces duplicate traffic and provides clear wait and manual-retry feedback; third-party success cannot be guaranteed.
+
 ## 1.2.0 — 2026-10-15
 
 ### Public demo and project introduction

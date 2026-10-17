@@ -1,7 +1,8 @@
 import { LyricSourceError } from './lyricSourceError.js';
+import packageMetadata from '../../../package.json' with { type: 'json' };
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAX_JSON_BYTES = 4_000_000;
-const LRCLIB_USER_AGENT = 'FlareTune/1.2.0';
+const LRCLIB_USER_AGENT = `FlareTune/${packageMetadata.version}`;
 const responseStatusKind = (response) => {
   if (response?.status === 404) return 'unavailable';
   if (response?.status === 408 || response?.status === 504) return 'timeout';
@@ -11,6 +12,24 @@ const responseStatusKind = (response) => {
 };
 
 const byteLength = (value) => new TextEncoder().encode(value).byteLength;
+
+export function parseLyricRetryAfter(value, now = Date.now()) {
+  if (typeof value !== 'string' || !value.trim()) return 30;
+  const normalized = value.trim();
+  const seconds = /^\d+$/u.test(normalized)
+    ? Number(normalized) : (/[A-Za-z]{3}/u.test(normalized) ? (Date.parse(normalized) - now) / 1000 : NaN);
+  return Number.isFinite(seconds) && seconds <= 2_147_483_647
+    ? Math.max(1, Math.ceil(seconds)) : 30;
+}
+
+function waitForRetry(delayMs, signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, delayMs);
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, { once: true });
+  });
+}
 
 async function readResponseTextLimited(response, maximumBytes, signal) {
   const contentLength = Number(response?.headers?.get?.('content-length'));
@@ -68,18 +87,33 @@ export async function fetchLimitedJson(fetchImpl, url, {
     if (requestSignal?.aborted) {
       throw new LyricSourceError('aborted', provider, stage, `${provider} ${stage} aborted`);
     }
-    requestBudget?.consume(provider);
-    const response = await fetchImpl(url, {
-      // Workers supports follow/manual. Treat every non-2xx (including a
-      // redirect) as failure without making a second, unconfigured request.
+    const init = {
+      // Workers supports follow/manual. Never follow a redirect to an
+      // unconfigured destination.
       redirect: 'manual',
       signal: controller.signal,
       headers: provider === 'lrclib'
         ? { Accept: 'application/json', 'User-Agent': LRCLIB_USER_AGENT, 'Lrclib-Client': 'FlareTune' }
         : { Accept: 'application/json' },
-    });
+    };
+    let response;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      requestBudget?.consume(provider);
+      response = await fetchImpl(url, init);
+      // LRCLIB intermittently answers a fresh search with 503/Retry-After.
+      // Retry once within the original timeout and shared subrequest budget.
+      const retryAfter = response?.headers?.get?.('retry-after');
+      const delayMs = retryAfter == null ? 250 : Number(retryAfter) * 1000;
+      if (attempt || provider !== 'lrclib' || stage !== 'search' || response?.status !== 503
+        || !Number.isFinite(delayMs) || delayMs < 0 || delayMs > 1000) break;
+      try { await response.body?.cancel(); } catch { /* best effort */ }
+      await waitForRetry(delayMs, controller.signal);
+    }
     if (!response?.ok) {
-      throw new LyricSourceError(responseStatusKind(response), provider, stage, `${provider} ${stage} HTTP ${response?.status || 0}`);
+      throw new LyricSourceError(responseStatusKind(response), provider, stage, `${provider} ${stage} HTTP ${response?.status || 0}`, {
+        ...(response?.status === 429 ? { retryAfterSeconds: parseLyricRetryAfter(response.headers?.get?.('retry-after')) } : {}),
+      });
     }
     if (typeof response.text === 'function') {
       const text = await readResponseTextLimited(response, MAX_JSON_BYTES, controller.signal);

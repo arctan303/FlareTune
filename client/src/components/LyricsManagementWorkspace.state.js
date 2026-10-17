@@ -2,7 +2,8 @@ const PROVIDER_WARNING_LABELS = Object.freeze({
   circuit_open: '暂时熔断',
   invalid: '返回异常',
   network: '网络异常',
-  rate_limited: '请求过快',
+  rate_limited: '上游暂时限制了请求，请稍后重试。',
+  request_budget_exceeded: '本次检索已达到请求上限，请减少来源后重试。',
   timeout: '请求超时',
   unavailable: '暂时不可用',
   upstream: '上游异常',
@@ -13,6 +14,19 @@ const CANDIDATE_WARNING_LABELS = Object.freeze({
   unsynced: '无时间轴',
   version_mismatch: '版本不符',
 });
+
+export function projectCandidateInspectionError(error) {
+  const match = /^(search|download)_(\w+)$/u.exec(error?.code || '');
+  const reason = match && Object.hasOwn(PROVIDER_WARNING_LABELS, match[2]) ? PROVIDER_WARNING_LABELS[match[2]] : null;
+  return reason ? { stage: match[1] === 'search' ? '搜索' : '下载', reason } : null;
+}
+
+export function lyricRetryAt(value, now = Date.now()) {
+  if (!/(^|_)rate_limited$/u.test(value?.code || '')) return 0;
+  const seconds = Number(value?.retryAfterSeconds);
+  return Math.min(Number.MAX_SAFE_INTEGER, now + (Number.isFinite(seconds) && seconds > 0
+    ? Math.ceil(seconds) : 30) * 1000);
+}
 
 export const LYRICS_WORKSPACE_MOBILE_QUERY = '(max-width: 639px)';
 
@@ -77,16 +91,17 @@ export function getWorkspacePaneAccessibility(isMobile, mobileView) {
   };
 }
 
-export function projectProviderWarnings(warnings) {
+export function projectProviderWarnings(warnings, now = Date.now()) {
   if (!Array.isArray(warnings)) return [];
   const seen = new Set();
-  return warnings.slice(0, 8).flatMap((warning, index) => {
+  return warnings.slice(0, 9).flatMap((warning, index) => {
     const source = warning?.source;
-    const reason = PROVIDER_WARNING_LABELS[warning?.code] || '返回未知状态';
+    const reason = Object.hasOwn(PROVIDER_WARNING_LABELS, warning?.code) ? PROVIDER_WARNING_LABELS[warning.code] : '返回未知状态';
     const identity = `${source || ''}:${reason}`;
     if (seen.has(identity)) return [];
     seen.add(identity);
-    return [{ key: `provider-warning-${index}`, source, reason }];
+    const retryAt = lyricRetryAt(warning, now);
+    return [{ key: `provider-warning-${index}`, source, reason, ...(retryAt ? { retryAt } : {}) }];
   });
 }
 
@@ -129,6 +144,9 @@ export function sortLyricsCandidates(candidates, inspections = {}) {
   const candidateKey = (c) => `${c?.source || ''}:${c?.providerLyricId || ''}`;
   const indexed = candidates.map((candidate, index) => ({ candidate, index }));
   indexed.sort((a, b) => {
+    // User-configured sources are the primary choices; built-in LRCLIB follows.
+    const sourceDifference = Number(a.candidate?.source === 'lrclib') - Number(b.candidate?.source === 'lrclib');
+    if (sourceDifference) return sourceDifference;
     const keyA = candidateKey(a.candidate);
     const keyB = candidateKey(b.candidate);
     const matchDifference = getCandidateMatchTier(b.candidate, inspections[keyB])

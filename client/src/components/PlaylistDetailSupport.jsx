@@ -73,7 +73,6 @@ export function PendingPlaylistDetail({ loadState, onClose, onRetry, headingRef 
                 <PageBackButton onClick={onClose} className="mb-6" />
                 {loadState.status === 'error' ? (
                     <section className="playlist-load-error state-panel state-panel--error" aria-labelledby="playlist-load-error-title">
-                        <p className="state-panel__eyebrow">PLAYLIST INTERRUPTED</p>
                         <h2 ref={headingRef} id="playlist-load-error-title" tabIndex={-1}>{t("歌单暂时无法打开")}</h2>
                         <p className="state-panel__copy">{t(loadState.error?.message || '请求没有完成，请稍后重试。')}</p>
                         <button type="button" className="primary-button mt-5 inline-flex min-h-11 items-center gap-2 px-5" onClick={() => onRetry(loadState.playlist)}>

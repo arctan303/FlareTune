@@ -22,7 +22,9 @@ export function createNamedLyricSourceLoader({ channels, ...options }) {
   async function sourceRequest(id, request) {
     try { return await request(); }
     catch (error) {
-      if (error instanceof LyricSourceError) throw new LyricSourceError(error.kind, id, error.stage, 'Lyric source request failed', { cause: error });
+      if (error instanceof LyricSourceError) throw new LyricSourceError(error.kind, id, error.stage, 'Lyric source request failed', {
+        cause: error, retryAfterSeconds: error.retryAfterSeconds,
+      });
       throw error;
     }
   }
