@@ -1,7 +1,8 @@
 import { LyricSourceError } from './lyricSourceError.js';
+import packageMetadata from '../../../package.json' with { type: 'json' };
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAX_JSON_BYTES = 4_000_000;
-const LRCLIB_USER_AGENT = 'FlareTune/1.2.0';
+const LRCLIB_USER_AGENT = `FlareTune/${packageMetadata.version}`;
 const responseStatusKind = (response) => {
   if (response?.status === 404) return 'unavailable';
   if (response?.status === 408 || response?.status === 504) return 'timeout';

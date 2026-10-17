@@ -45,6 +45,8 @@ The player reads lyrics saved by the instance and shows synchronized source lyri
 
 The player automatically searches when a song has no saved lyrics, preferring word timing when the recording and duration match reliably. Manual search supports source, timing and translation filters. Timing and translation require inspecting candidate contents; continue checking remaining candidates or retry failed inspections. Edited search text takes effect when you search again. Selecting a candidate creates a draft; saving applies it.
 
+Custom sources appear first in the candidate list. A rate-limited source shows a reason and countdown, with a retry for that source when the wait ends; other candidates and loaded previews remain available. Retrying uses the last submitted search, without applying unsubmitted edits or sending an automatic request when the countdown ends. See [lyric sources and request limits](lyric-sources.en.md).
+
 New automatically saved plain or line-timed lyrics can be checked for an upgrade in the background on later reads, at most once per song every six hours. A reliable higher-precision result takes effect on the next playback, keeping the current playback stable. Manually selected, imported, edited, shifted or restored lyrics are protected, as are older lyrics whose editing history cannot be established.
 
 ## Installation
