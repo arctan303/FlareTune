@@ -3,7 +3,7 @@ import { Loader2, Search } from 'lucide-react';
 import { t } from '../i18n/index.js';
 import SelectControl from './SelectControl.jsx';
 import { lyricsWorkspaceApi } from '../services/localLyricsWorkspaceApi.js';
-import { filterLyricsCandidates, sortLyricsCandidates, projectProviderWarnings, projectCandidateInspectionError } from './LyricsManagementWorkspace.state.js';
+import { filterLyricsCandidates, sortLyricsCandidates, projectProviderWarnings, projectCandidateInspectionError, lyricRetryAt } from './LyricsManagementWorkspace.state.js';
 
 const SOURCES = { custom_krc: '自定义逐字源', custom_lrc: '自定义逐行源', lrclib: 'LRCLIB' };
 const MODES = { word: '逐字', line: '逐行', none: '无时间轴' };
@@ -29,6 +29,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
   const [inspecting, setInspecting] = React.useState([]);
   const [error, setError] = React.useState('');
   const [warnings, setWarnings] = React.useState([]);
+  const [clock, setClock] = React.useState(Date.now);
   const requests = React.useRef({ generation: 0, inspectionVersion: 0, disposed: false });
   const current = React.useRef({});
   current.current = { snapshot, candidates, inspections };
@@ -41,7 +42,17 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
   const inspectionError = projectCandidateInspectionError(inspection?.error);
   const unknown = candidates.filter(item => !inspections[keyOf(item)]);
   const failed = candidates.filter(item => inspections[keyOf(item)]?.state === 'error');
+  const retryable = failed.filter(item => !(inspections[keyOf(item)]?.error?.retryAt > clock));
   const readyCount = candidates.filter(item => inspections[keyOf(item)]?.state === 'ready').length;
+  const cooling = warnings.some(item => item.retryAt > clock)
+    || Object.values(inspections).some(item => item.error?.retryAt > clock);
+  React.useEffect(() => {
+    if (!active || !cooling) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active, cooling]);
+  const retryLabel = retryAt => retryAt > clock
+    ? t('{seconds} 秒后可重试', { seconds: Math.ceil((retryAt - clock) / 1000) }) : t('稍后重试');
 
   React.useEffect(() => {
     requests.current.disposed = false;
@@ -67,7 +78,8 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
   const inspect = async (items) => {
     const query = current.current.snapshot;
     if (!query || !items.length) return;
-    const requested = items.slice(0, BATCH_SIZE);
+    const requested = items.filter(item => !(current.current.inspections[keyOf(item)]?.error?.retryAt > Date.now())).slice(0, BATCH_SIZE);
+    if (!requested.length) return;
     const state = requests.current;
     state.inspection?.abort();
     const controller = new AbortController();
@@ -82,7 +94,11 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
         requested.map(({ source: provider, providerLyricId }) => ({ source: provider, providerLyricId })),
         { ...query, signal: controller.signal });
       if (!isCurrent()) return;
-      const results = new Map((response.data?.results || []).map(item => [keyOf(item), item]));
+      const results = new Map((response.data?.results || []).map(item => {
+        const retryAt = lyricRetryAt(item.error, Date.now());
+        return [keyOf(item), retryAt ? { ...item, error: { ...item.error, retryAt } } : item];
+      }));
+      setClock(Date.now());
       setInspections(previous => ({ ...previous, ...Object.fromEntries(requested.map(item => [keyOf(item),
         results.get(keyOf(item)) || { ...item, state: 'error', error: { code: 'missing_result' } }])) }));
     } catch {
@@ -93,25 +109,39 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
     }
   };
 
-  const search = async (query = { title: title.trim(), artist: artist.trim(), source }) => {
+  const search = async (query = { title: title.trim(), artist: artist.trim(), source }, { retry = false } = {}) => {
     if (!authenticated || !song.id || !query.title) return;
     const state = requests.current;
-    const generation = ++state.generation;
-    state.search?.abort(); state.inspection?.abort();
-    state.inspectionVersion += 1;
+    const generation = retry ? state.generation : ++state.generation;
+    state.search?.abort();
+    if (!retry) { state.inspection?.abort(); state.inspectionVersion += 1; }
     const controller = new AbortController(); state.search = controller;
     const isCurrent = () => !state.disposed && !controller.signal.aborted && generation === state.generation;
-    setSearching(true); setInspecting([]); setError(''); setWarnings([]);
-    setCandidates([]); setInspections({}); setSelectedKey(''); setSnapshot(query);
+    setSearching(true); setError('');
+    if (!retry) setInspecting([]);
+    if (!retry) setWarnings([]);
+    if (!retry) { setCandidates([]); setInspections({}); setSelectedKey(''); setSnapshot(query); }
     try {
       const response = await lyricsWorkspaceApi.getLyricsCandidates(song.id, { ...query, signal: controller.signal });
       if (!isCurrent()) return;
       const found = sortLyricsCandidates(response.data?.candidates);
-      setCandidates(found); setWarnings(projectProviderWarnings(response.data?.warnings));
-      setSelectedKey(found.length ? keyOf(found[0]) : '');
+      const nextWarnings = projectProviderWarnings(response.data?.warnings, Date.now());
+      setClock(Date.now());
+      if (retry) {
+        setCandidates(previous => sortLyricsCandidates([...previous.filter(item => item.source !== query.source), ...found]));
+        setInspections(previous => Object.fromEntries(Object.entries(previous).filter(([, item]) => item.source !== query.source)));
+        setWarnings(previous => [...previous.filter(item => item.source !== query.source), ...nextWarnings]);
+      } else {
+        setCandidates(found); setWarnings(nextWarnings);
+        setSelectedKey(found.length ? keyOf(found[0]) : '');
+      }
     } catch (failure) {
       if (isCurrent()) setError(failure?.message || '查找歌词失败');
     } finally { if (isCurrent()) setSearching(false); }
+  };
+  const retrySource = item => {
+    if (!snapshot || searching || item.retryAt > Date.now()) return;
+    void search({ ...snapshot, source: item.source }, { retry: true });
   };
 
   // Only navigation, a submitted search or changed filters schedule one batch.
@@ -156,8 +186,13 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
         <option value="all">{t('不限译文')}</option><option value="yes">{t('有翻译')}</option><option value="no">{t('无翻译')}</option>
       </SelectControl></label>
     </div>
-    {warnings.length > 0 && <p className="lyric-studio__warning">{warnings.map(item =>
-      t('{source}：{reason}', { source: sourceName(item.source), reason: t(item.reason) })).join('; ')}</p>}
+    {warnings.length > 0 && <div className="lyric-studio__warning" role="status">{warnings.map(item =>
+      <div className="lyric-studio__source-warning" key={item.source + item.key}>
+        <span>{t('{source}：{reason}', { source: sourceName(item.source), reason: t(item.reason) })}</span>
+        <button type="button" disabled={searching || item.retryAt > clock}
+          aria-label={t('重试 {source}', { source: sourceName(item.source) })}
+          onClick={() => retrySource(item)}>{searching ? t('读取中') : retryLabel(item.retryAt)}</button>
+      </div>)}</div>}
     {error && <p className="lyric-studio__error" role="alert">{t(error)}</p>}
     {candidates.length > 0 && <div className="lyric-studio__inspection-status" role="status">
       <span>{t('已检查 {checked}/{total} 份，符合 {matched} 份', { checked: readyCount, total: candidates.length, matched: visible.length })}</span>
@@ -165,7 +200,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
       {failed.length > 0 && <span>{t('{count} 份检查失败', { count: failed.length })}</span>}
       {inspecting.length > 0 ? <span>{t('正在检查候选…')}</span> : <>
         {filtered && unknown.length > 0 && <button type="button" onClick={() => void inspect(unknown)}>{t('继续检查')}</button>}
-        {failed.length > 0 && <button type="button" onClick={() => void inspect(failed)}>{t('重试失败项')}</button>}
+        {failed.length > 0 && <button type="button" disabled={!retryable.length} onClick={() => void inspect(retryable)}>{t('重试失败项')}</button>}
       </>}
     </div>}
     <div className="lyric-studio__candidate-list" aria-label={t('切换候选歌词')}>
@@ -193,7 +228,8 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
           <strong>{selectedIndex + 1} / {visible.length} · {sourceName(selected.source)} · {t(MODES[inspection?.syncMode] || (inspection?.state === 'error' ? '检测失败' : '读取中'))}</strong>
           <button type="button" disabled={selectedIndex >= visible.length - 1} onClick={() => setSelectedKey(keyOf(visible[selectedIndex + 1]))} aria-label={t('下一份候选')}>›</button>
         </div>
-        {inspection?.state === 'error' && <button type="button" disabled={inspecting.length > 0} onClick={() => void inspect([selected])}>{t('重试预览')}</button>}
+        {inspection?.state === 'error' && <button type="button" disabled={inspecting.length > 0 || inspection.error?.retryAt > clock}
+          onClick={() => void inspect([selected])}>{inspection.error?.retryAt > clock ? retryLabel(inspection.error.retryAt) : t('重试预览')}</button>}
         {isAdmin && <button type="button" className="is-primary" disabled={inspection?.state !== 'ready' || saving}
           onClick={() => onImport(inspection)}>{t('导入当前歌词草稿')}</button>}
       </div>

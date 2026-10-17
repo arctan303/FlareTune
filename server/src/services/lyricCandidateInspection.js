@@ -1,5 +1,6 @@
 import { createLyricDocument } from '../utils/lyricDocument.js';
 import { createLyricRequestBudget } from './lyricRequestBudget.js';
+import { safeLyricRetryAfterSeconds } from './lyricSourceError.js';
 
 export const LYRIC_CANDIDATE_INSPECTION_LIMITS = Object.freeze({
   maxCandidates: 12,
@@ -96,15 +97,17 @@ function runTimed(task, { signal, timeoutMs }) {
 const safeErrorCode = (error, stage, batchTimedOut) => {
   if (batchTimedOut) return 'batch_timeout';
   if (error?.code === 'timeout' || error?.kind === 'timeout') return `${stage}_timeout`;
+  if (error?.stage === 'budget') return `${stage}_request_budget_exceeded`;
   const kind = SAFE_UPSTREAM_KINDS.has(error?.kind) ? error.kind : 'failed';
   return `${stage}_${kind}`;
 };
 
-const errorItem = ({ source, providerLyricId }, code) => ({
+const errorItem = ({ source, providerLyricId }, code, cause) => ({
   source,
   providerLyricId,
   state: 'error',
-  error: { code },
+  error: { code, ...(code.endsWith('_rate_limited') && safeLyricRetryAfterSeconds(cause?.retryAfterSeconds)
+    ? { retryAfterSeconds: cause.retryAfterSeconds } : {}) },
 });
 
 function normalizeSnapshot(snapshot, source) {
@@ -203,6 +206,7 @@ function enforceResponseLimit(items, maximumBytes) {
 export async function inspectLyricCandidates(song, candidates, {
   createProviderSnapshot,
   signal,
+  executionContext,
   downloadConcurrency = LYRIC_CANDIDATE_INSPECTION_LIMITS.downloadConcurrency,
   upstreamTimeoutMs = LYRIC_CANDIDATE_INSPECTION_LIMITS.upstreamTimeoutMs,
   batchTimeoutMs = LYRIC_CANDIDATE_INSPECTION_LIMITS.batchTimeoutMs,
@@ -248,7 +252,7 @@ export async function inspectLyricCandidates(song, candidates, {
       const timeoutMs = operationTimeout();
       try {
         const snapshot = await runTimed(
-          (operationSignal) => createProviderSnapshot(source, song, { signal: operationSignal, requestBudget }),
+          (operationSignal) => createProviderSnapshot(source, song, { signal: operationSignal, requestBudget, executionContext }),
           { signal: batchController.signal, timeoutMs },
         );
         snapshots.set(source, { snapshot: normalizeSnapshot(snapshot, source) });
@@ -270,6 +274,7 @@ export async function inspectLyricCandidates(song, candidates, {
           items[index] = errorItem(
             candidate,
             safeErrorCode(sourceSnapshot.error, 'search', batchTimedOut || sourceSnapshot.batchLimited),
+            sourceSnapshot.error,
           );
           continue;
         }
@@ -282,7 +287,7 @@ export async function inspectLyricCandidates(song, candidates, {
           const document = await runTimed(
             (operationSignal) => sourceSnapshot.snapshot.loadDocument(
               candidate.providerLyricId,
-              { signal: operationSignal, requestBudget },
+              { signal: operationSignal, requestBudget, executionContext },
             ),
             { signal: batchController.signal, timeoutMs },
           );
@@ -292,7 +297,7 @@ export async function inspectLyricCandidates(song, candidates, {
             error,
             'download',
             batchTimedOut || timeoutMs < upstreamTimeoutMs,
-          ));
+          ), error);
         }
       }
     };

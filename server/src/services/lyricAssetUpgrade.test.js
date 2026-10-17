@@ -86,6 +86,22 @@ test('a provider ignoring cancellation cannot hold the upgrade past its deadline
   assert.equal(result, null);
 });
 
+test('direct and scheduled upgrades forward the current operation context into provider work', async () => {
+  const ctx = context();
+  let calls = 0;
+  const fetchDocument = async (_provider, _song, options) => {
+    assert.equal(options.executionContext, ctx);
+    calls += 1;
+    return makeLyricDocument();
+  };
+  await fetchUpgradeDocument(song, fetchDocument, { enabledSources: ['custom_krc'], executionContext: ctx });
+  assert.equal(calls, 1);
+  const { store } = await fixture();
+  await readOrCreateLyricArtifact({ env: {}, song, store, executionContext: ctx, now: later, fetchDocument });
+  await ctx.finish();
+  assert.ok(calls > 1, 'the scheduled upgrade also passed its response owner context');
+});
+
 test('internal automatic ownership round-trips through R2 metadata, never JSON backups', async () => {
   const { store, bucket } = await fixture();
   const read = await store.get(song.id);

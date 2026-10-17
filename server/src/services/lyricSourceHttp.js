@@ -12,6 +12,15 @@ const responseStatusKind = (response) => {
 
 const byteLength = (value) => new TextEncoder().encode(value).byteLength;
 
+export function parseLyricRetryAfter(value, now = Date.now()) {
+  if (typeof value !== 'string' || !value.trim()) return 30;
+  const normalized = value.trim();
+  const seconds = /^\d+$/u.test(normalized)
+    ? Number(normalized) : (/[A-Za-z]{3}/u.test(normalized) ? (Date.parse(normalized) - now) / 1000 : NaN);
+  return Number.isFinite(seconds) && seconds <= 2_147_483_647
+    ? Math.max(1, Math.ceil(seconds)) : 30;
+}
+
 function waitForRetry(delayMs, signal) {
   return new Promise((resolve, reject) => {
     const abort = () => { clearTimeout(timer); reject(signal.reason); };
@@ -101,7 +110,9 @@ export async function fetchLimitedJson(fetchImpl, url, {
       await waitForRetry(delayMs, controller.signal);
     }
     if (!response?.ok) {
-      throw new LyricSourceError(responseStatusKind(response), provider, stage, `${provider} ${stage} HTTP ${response?.status || 0}`);
+      throw new LyricSourceError(responseStatusKind(response), provider, stage, `${provider} ${stage} HTTP ${response?.status || 0}`, {
+        ...(response?.status === 429 ? { retryAfterSeconds: parseLyricRetryAfter(response.headers?.get?.('retry-after')) } : {}),
+      });
     }
     if (typeof response.text === 'function') {
       const text = await readResponseTextLimited(response, MAX_JSON_BYTES, controller.signal);

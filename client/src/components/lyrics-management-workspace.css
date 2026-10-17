@@ -226,6 +226,10 @@ html.dark .lyric-studio__field-error { color: #ff8993; }
 .lyric-studio__candidate-filters .select-control { min-width: 0; }
 .lyric-studio__inspection-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 0; flex: 0 0 auto; font-size: 12px; color: var(--studio-muted); }
 .lyric-studio__inspection-status button { min-height: 36px; padding: 4px 10px; border: 1px solid var(--studio-line); border-radius: 8px; color: var(--studio-ink); background: var(--studio-raised); }
+.lyric-studio__source-warning { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.lyric-studio__source-warning + .lyric-studio__source-warning { margin-top: 8px; }
+.lyric-studio__source-warning button { flex-shrink: 0; min-height: 36px; padding: 4px 12px; border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit; font: inherit; }
+.lyric-studio__source-warning button:disabled { opacity: 1; border-color: color-mix(in srgb, currentColor 35%, transparent); cursor: default; }
 .lyric-studio__candidate-list { display: grid; gap: 6px; padding: 12px 16px; }
 .lyric-studio__candidate {
   display: grid;

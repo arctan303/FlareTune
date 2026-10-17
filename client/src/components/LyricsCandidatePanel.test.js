@@ -10,13 +10,13 @@ const candidate = (index, source = 'custom_krc') => ({ source, providerLyricId: 
 const ready = (item, mode = 'line', translated = false) => ({ ...item, state: 'ready', syncMode: mode,
   translationAvailable: translated, lyrics: { lines: [{ time: 1, text: 'Hello' }] } });
 const translate = (value, values) => value.replace(/\{(\w+)\}/g, (_, key) => String(values?.[key] ?? `{${key}}`));
-function setup(api, songValue = song, translator = translate) {
+function setup(api, songValue = song, translator = translate, globals = {}) {
   const imports = [];
   const component = hookComponent({ file: fileURLToPath(new URL('./LyricsCandidatePanel.jsx', import.meta.url)),
     modules: { 'lucide-react': { Loader2: 'Loader2', Search: 'Search' },
       '../i18n/index.js': { t: translator }, './SelectControl.jsx': 'SelectControl',
       '../services/localLyricsWorkspaceApi.js': { lyricsWorkspaceApi: { getSources: async () => ({data:{sources:['custom_krc','custom_lrc','lrclib']}}), ...api } },
-      './LyricsManagementWorkspace.state.js': state }, globals: { AbortController } });
+      './LyricsManagementWorkspace.state.js': state }, globals: { AbortController, setInterval, clearInterval, ...globals } });
   const props = { song: songValue, authenticated: true, isAdmin: true, saving: false, active: true,
     Preview: 'Preview', onImport: inspection => imports.push(inspection) };
   return { component, props, imports, render: () => component.render(props) };
@@ -24,6 +24,14 @@ function setup(api, songValue = song, translator = translate) {
 const cards = tree => nodes(tree).filter(node => node.type === 'button' && node.props.className?.startsWith('lyric-studio__candidate'));
 const filter = (tree, label, value) => nodes(tree).find(node => node.type === 'SelectControl' && node.props['aria-label'] === label)
   .props.onChange({ target: { value } });
+function retryClock() {
+  let now = 1_000_000;
+  const callbacks = new Set();
+  return { callbacks, globals: { Date: { now: () => now },
+    setInterval: callback => { callbacks.add(callback); return callback; },
+    clearInterval: callback => callbacks.delete(callback) },
+  advance(ms) { now += ms; for (const callback of [...callbacks]) callback(); } };
+}
 async function settle(subject) { subject.render(); await flushAsync(); subject.render(); await flushAsync(); return subject.render(); }
 async function search(subject) {
   nodes(subject.render()).find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
@@ -55,7 +63,8 @@ test('source warnings localize default names and reasons while preserving a name
     ] } }) }, song, translator);
   const tree = await search(s);
   const warning = nodes(tree).find(node => node.props.className === 'lyric-studio__warning');
-  assert.equal(text(warning), 'Custom line source: Request timed out; 自定义逐字源: Network error');
+  const messages = nodes(warning).filter(node => node.type === 'span').map(text);
+  assert.deepEqual(messages, ['Custom line source: Request timed out', '自定义逐字源: Network error']);
   const select = nodes(tree).find(node => node.type === 'SelectControl' && node.props['aria-label'] === '歌词来源');
   assert.equal(text(select).includes('Custom line source'), true);
   assert.equal(text(select).includes(customName), true, 'user names stay unchanged even when they resemble a system label');
@@ -232,4 +241,93 @@ test('match reliability and metadata outrank precision; unknown candidates remai
   assert.deepEqual(state.filterLyricsCandidates([exact, wrong, unknown], inspections, 'word', 'no'), [wrong]);
   assert.deepEqual(state.filterLyricsCandidates([exact, wrong, unknown], inspections, 'line', 'no'), [exact]);
   assert.deepEqual(state.filterLyricsCandidates([exact, wrong, unknown], inspections, 'all', 'yes'), []);
+});
+
+test('source cooldown enables an explicit retry without automatic requests or losing other previews', async () => {
+  const time = retryClock(), pending = deferred(), queries = [], reads = [];
+  const s = setup({ getLyricsCandidates: async (_, query) => {
+    queries.push(query);
+    return queries.length > 1 ? pending.promise : { data: { candidates: [candidate(1)], warnings: [
+      { source: 'lrclib', code: 'rate_limited', retryAfterSeconds: 2 },
+      { source: 'custom_lrc', code: 'network' },
+    ] } };
+  }, inspectLyricsCandidates: async (_, items) => {
+    reads.push(items); return { data: { results: items.map(item => ready(item)) } };
+  } }, song, translate, time.globals);
+  let tree = await search(s);
+  const retry = () => nodes(tree).find(node => node.props['aria-label'] === '重试 LRCLIB');
+  assert.equal(text(retry()), '2 秒后可重试');
+  assert.equal(retry().props.disabled, true);
+  retry().props.onClick(); await settle(s);
+  assert.equal(queries.length, 1, 'handler also blocks an early retry');
+  time.advance(2000); tree = await settle(s);
+  assert.equal(queries.length, 1, 'cooldown expiry alone sends no request');
+  assert.equal(retry().props.disabled, false);
+  nodes(tree).filter(node => node.type === 'input')[0].props.onChange({ target: { value: 'unsubmitted edit' } });
+  tree = s.render(); retry().props.onClick(); tree = await settle(s);
+  assert.equal(queries[1].source, 'lrclib');
+  assert.equal(queries[1].title, song.title);
+  assert.equal(cards(tree).length, 1);
+  assert.equal(button(tree, '导入当前歌词草稿').props.disabled, false);
+  pending.resolve({ data: { candidates: [candidate(2, 'lrclib')], warnings: [] } });
+  tree = await settle(s);
+  assert.equal(cards(tree).length, 2);
+  assert.equal(button(tree, '导入当前歌词草稿').props.disabled, false);
+  assert.equal(reads.flat().filter(item => item.source === 'custom_krc').length, 1, 'existing custom preview is retained');
+  assert.equal(text(tree).includes('网络异常'), true, 'another source warning is retained');
+  assert.equal(text(tree).includes('上游暂时限制'), false);
+  s.component.unmount();
+  assert.equal(time.callbacks.size, 0);
+});
+
+test('a failed source retry preserves candidates and remains available for another explicit attempt', async () => {
+  const time = retryClock(); let calls = 0;
+  const s = setup({ getLyricsCandidates: async () => {
+    if (++calls > 1) throw Error('查找歌词失败');
+    return { data: { candidates: [candidate(1)], warnings: [{ source: 'lrclib', code: 'network' }] } };
+  }, inspectLyricsCandidates: async (_, items) => ({ data: { results: items.map(item => ready(item)) } }) }, song, translate, time.globals);
+  let tree = await search(s);
+  nodes(tree).find(node => node.props['aria-label'] === '重试 LRCLIB').props.onClick();
+  tree = await settle(s);
+  assert.equal(calls, 2);
+  assert.equal(cards(tree).length, 1);
+  assert.equal(button(tree, '导入当前歌词草稿').props.disabled, false);
+  assert.equal(text(tree).includes('查找歌词失败'), true);
+  assert.equal(nodes(tree).find(node => node.props['aria-label'] === '重试 LRCLIB').props.disabled, false);
+  s.component.unmount();
+});
+
+test('inspection rate limits explain the wait and prevent preview and batch retries until expiry', async () => {
+  const time = retryClock(); let calls = 0;
+  const s = setup({ getLyricsCandidates: async () => ({ data: { candidates: [candidate(1, 'lrclib')] } }),
+    inspectLyricsCandidates: async (_, items) => ({ data: { results: ++calls === 1
+      ? items.map(item => ({ ...item, state: 'error', error: { code: 'search_rate_limited', retryAfterSeconds: 3 } }))
+      : items.map(item => ready(item)) } }) }, song, translate, time.globals);
+  let tree = await search(s);
+  assert.equal(text(tree).includes('上游暂时限制了请求，请稍后重试。'), true);
+  assert.equal(button(tree, '3 秒后可重试').props.disabled, true);
+  assert.equal(button(tree, '重试失败项').props.disabled, true);
+  button(tree, '3 秒后可重试').props.onClick(); tree = await settle(s);
+  assert.equal(calls, 1);
+  time.advance(3000); tree = await settle(s);
+  assert.equal(calls, 1);
+  assert.equal(button(tree, '重试预览').props.disabled, false);
+  button(tree, '重试预览').props.onClick(); tree = await settle(s);
+  assert.equal(calls, 2);
+  assert.equal(button(tree, '导入当前歌词草稿').props.disabled, false);
+  s.component.unmount();
+  assert.equal(time.callbacks.size, 0);
+});
+
+test('internal request budgets and upstream cooldowns have distinct safe explanations', () => {
+  const warnings = state.projectProviderWarnings([
+    { source: 'custom_krc', code: 'request_budget_exceeded', retryAfterSeconds: 99 },
+    { source: 'lrclib', code: 'rate_limited', retryAfterSeconds: 2 },
+  ], 1000);
+  assert.ok(warnings[0].reason.includes('本次检索'));
+  assert.equal(warnings[0].retryAt, undefined);
+  assert.equal(warnings[1].retryAt, 3000);
+  assert.ok(state.projectCandidateInspectionError({ code: 'search_request_budget_exceeded' }).reason.includes('本次检索'));
+  assert.equal(state.lyricRetryAt({ code: 'rate_limited', retryAfterSeconds: -1 }, 1000), 31000);
+  assert.equal(state.projectProviderWarnings(Array.from({ length: 9 }, (_, i) => ({ source: `source-${i}`, code: 'timeout' }))).length, 9);
 });

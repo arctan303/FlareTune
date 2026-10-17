@@ -1,6 +1,7 @@
 import { createLyricDocument } from '../utils/lyricDocument.js';
 import { isLyricSourceId } from '../../../shared/lyricSources.js';
 import { createLyricRequestBudget } from './lyricRequestBudget.js';
+import { lyricSourceErrorCode, safeLyricRetryAfterSeconds } from './lyricSourceError.js';
 import {
   invalidateSourceLyricsDocumentCache,
   listSourceLyricCandidates,
@@ -99,6 +100,7 @@ export function applyLyricOffset(document, offsetMs) {
 
 export async function listLyricsResolutionCandidates(song, {
   signal,
+  executionContext,
   source: selectedSource = 'all',
   listCandidates = listSourceLyricCandidates,
   enabledSources,
@@ -111,14 +113,16 @@ export async function listLyricsResolutionCandidates(song, {
   const warnings = [];
   for (const source of (selectedSource === 'all' ? (enabledSources || ['custom_krc', 'custom_lrc', 'lrclib']) : [selectedSource]).filter(id => !enabledSources || enabledSources.includes(id))) {
     try {
-      const providerCandidates = await listCandidates(source, song, { signal, requestBudget });
+      const providerCandidates = await listCandidates(source, song, { signal, requestBudget, executionContext });
       if (!Array.isArray(providerCandidates)) throw new TypeError('provider candidates must be an array');
       providerCandidateGroups.push(providerCandidates);
     } catch (error) {
       if (error instanceof LyricSourceError && error.kind === 'aborted') throw error;
       warnings.push({
         source,
-        code: error instanceof LyricSourceError ? error.kind : 'invalid',
+        code: error instanceof LyricSourceError ? lyricSourceErrorCode(error) : 'invalid',
+        ...(error instanceof LyricSourceError && safeLyricRetryAfterSeconds(error.retryAfterSeconds)
+          && error.stage !== 'budget' ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
       });
     }
   }

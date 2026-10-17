@@ -282,7 +282,7 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       }
       const loader = deps.listCandidates || deps.listSourceCandidates ? null : await lyricSourceLoaderForDb(db);
       const found = await (deps.listCandidates || listLyricsResolutionCandidates)(target, {
-        source, signal: request.signal, enabledSources: loader?.enabledSources,
+        source, signal: request.signal, executionContext: deps.ctx, enabledSources: loader?.enabledSources,
         listCandidates: deps.listSourceCandidates || loader?.listSourceCandidates || listSourceLyricCandidates,
       });
       return success({ candidates: (found.candidates || []).map(safeCandidate).filter(Boolean),
@@ -296,7 +296,7 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
       const emptyEnvelope = encoder.encode(JSON.stringify({ ok: true, code: 200, data: { results: [], truncated: false } })).byteLength;
       const loader = deps.inspectCandidates || deps.createProviderSnapshot ? null : await lyricSourceLoaderForDb(db);
       const inspected = await (deps.inspectCandidates || inspectLyricCandidates)(target, body.candidates, {
-        signal: request.signal,
+        signal: request.signal, executionContext: deps.ctx,
         createProviderSnapshot: deps.createProviderSnapshot || loader?.createCandidateInspectionSnapshot || createSourceCandidateInspectionSnapshot,
         maxResponseBytes: LYRIC_CANDIDATE_INSPECTION_LIMITS.maxResponseBytes - emptyEnvelope,
       });
@@ -321,7 +321,7 @@ export async function handleLocalLyricsManageRoute(request, url, db, headers = {
         const loader = deps.fetchDocument ? null : await lyricSourceLoaderForDb(db);
         document = await fetchLyricsDocumentWithFallback(source, target,
           deps.fetchDocument || loader.fetchSourceDocument,
-          { signal: request.signal, enabledSources: loader?.enabledSources, ...(providerLyricId ? { providerLyricId } : {}) });
+          { signal: request.signal, executionContext: deps.ctx, enabledSources: loader?.enabledSources, ...(providerLyricId ? { providerLyricId } : {}) });
       } catch (error) {
         if (providerLyricId && error instanceof LyricSourceError && error.kind !== 'aborted') {
           return failure(422, 'LYRIC_CANDIDATE_INVALID', 'Selected lyric candidate is unavailable', headers);

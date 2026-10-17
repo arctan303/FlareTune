@@ -10,7 +10,7 @@ export function createSingleFlightDocumentFetcherCore(fetcher, { optionsKey, cre
     ].join('\u0000');
     return flight(key, ({ signal: sharedSignal }) => fetcher(provider, song, {
       // Only the I/O-owning caller spends its budget; joined callers make no fetch.
-      signal: sharedSignal, providerLyricId, cacheScope, cacheEpoch, requestBudget,
+      signal: sharedSignal, providerLyricId, cacheScope, cacheEpoch, requestBudget, executionContext,
     }), { signal, executionContext, abortError: () => createAbortError(provider, 'singleflight') });
   };
 }

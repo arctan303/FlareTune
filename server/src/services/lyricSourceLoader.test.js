@@ -938,7 +938,7 @@ test('circuit counts concurrent infrastructure failures and unavailable breaks t
     },
   });
   const first = concurrent.getLrclibDocument({ ...SONG, id: 'one' });
-  const second = concurrent.getLrclibDocument({ ...SONG, id: 'two' });
+  const second = concurrent.getLrclibDocument({ ...SONG, id: 'two', title: `${SONG.title} second` });
   await new Promise((resolve) => setImmediate(resolve));
   releaseFailures();
   await Promise.allSettled([first, second]);
