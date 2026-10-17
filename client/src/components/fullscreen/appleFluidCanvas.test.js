@@ -48,6 +48,32 @@ test('live suspension stops drawing and resumes the unchanged animation speed', 
   assert.equal(fixture.scheduler.frames.size, 0);
 });
 
+test('a cover loaded while the queue suspends drawing appears and keeps moving after close', () => {
+  const fixture = createAppleFluidHarness();
+  fixture.render({ coverUrl: 'first.jpg', isPlaying: true });
+  fixture.images.get('first.jpg?_c=1').onload();
+  fixture.frame(); fixture.frame();
+  const before = fixture.draws.at(-1).u_time;
+  fixture.render({ coverUrl: 'first.jpg', isPlaying: true, suspended: true });
+  fixture.frame();
+  const count = fixture.draws.length;
+  fixture.render({ coverUrl: 'second.jpg', isPlaying: true, suspended: true });
+  fixture.images.get('second.jpg?_c=1').onload();
+  fixture.frame();
+  assert.equal(fixture.draws.length, count);
+  assert.equal(fixture.scheduler.frames.size, 0);
+
+  fixture.render({ coverUrl: 'second.jpg', isPlaying: true, suspended: false });
+  fixture.frame();
+  assert.equal(fixture.draws.at(-1).u_time, before);
+  assert.ok(fixture.draws.at(-1).u_crossfade < 1);
+  fixture.frame();
+  assert.ok(fixture.draws.at(-1).u_time > before);
+  assert.equal(fixture.scheduler.frames.size, 1);
+  fixture.unmount();
+  assert.equal(fixture.scheduler.frames.size, 0);
+});
+
 test("pausing the fluid background holds time and resuming preserves its speed", () => {
   const fixture = createAppleFluidHarness();
   fixture.render({ isPlaying: true }); fixture.frame(); fixture.frame();

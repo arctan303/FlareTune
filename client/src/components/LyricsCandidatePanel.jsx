@@ -3,7 +3,7 @@ import { Loader2, Search } from 'lucide-react';
 import { t } from '../i18n/index.js';
 import SelectControl from './SelectControl.jsx';
 import { lyricsWorkspaceApi } from '../services/localLyricsWorkspaceApi.js';
-import { filterLyricsCandidates, sortLyricsCandidates, projectProviderWarnings } from './LyricsManagementWorkspace.state.js';
+import { filterLyricsCandidates, sortLyricsCandidates, projectProviderWarnings, projectCandidateInspectionError } from './LyricsManagementWorkspace.state.js';
 
 const SOURCES = { custom_krc: '自定义逐字源', custom_lrc: '自定义逐行源', lrclib: 'LRCLIB' };
 const MODES = { word: '逐字', line: '逐行', none: '无时间轴' };
@@ -38,6 +38,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
   const selected = visible.find(item => keyOf(item) === selectedKey) || visible[0] || null;
   const selectedIndex = visible.indexOf(selected);
   const inspection = selected && inspections[keyOf(selected)];
+  const inspectionError = projectCandidateInspectionError(inspection?.error);
   const unknown = candidates.filter(item => !inspections[keyOf(item)]);
   const failed = candidates.filter(item => inspections[keyOf(item)]?.state === 'error');
   const readyCount = candidates.filter(item => inspections[keyOf(item)]?.state === 'ready').length;
@@ -105,7 +106,7 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
     try {
       const response = await lyricsWorkspaceApi.getLyricsCandidates(song.id, { ...query, signal: controller.signal });
       if (!isCurrent()) return;
-      const found = Array.isArray(response.data?.candidates) ? response.data.candidates : [];
+      const found = sortLyricsCandidates(response.data?.candidates);
       setCandidates(found); setWarnings(projectProviderWarnings(response.data?.warnings));
       setSelectedKey(found.length ? keyOf(found[0]) : '');
     } catch (failure) {
@@ -197,7 +198,11 @@ export default function LyricsCandidatePanel({ song, authenticated, isAdmin, sav
           onClick={() => onImport(inspection)}>{t('导入当前歌词草稿')}</button>}
       </div>
       {inspection?.state === 'ready' ? <Preview key={keyOf(selected)} value={inspection} currentTime={currentTime} followsPlayback={followsPlayback} />
-        : <p className="lyric-studio__empty is-small">{inspection?.state === 'error' ? t('候选预览失败。') : t('正在读取候选歌词…')}</p>}
+        : <p className="lyric-studio__empty is-small">{inspection?.state === 'error' ? <>
+          {t('候选预览失败。')}{inspectionError && ` ${t('{source}：{reason}', {
+            source: t(inspectionError.stage), reason: t(inspectionError.reason),
+          })}`}
+        </> : t('正在读取候选歌词…')}</p>}
     </div>}
   </div>;
 }

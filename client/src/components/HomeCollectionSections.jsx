@@ -45,7 +45,6 @@ export function HomeExploreSection({ items = [], langCounts, onOpen }) {
     return (
         <section className="collection-section" aria-labelledby="explore-title">
             <div className="collection-section__header mb-5">
-                <p className="collection-section__index whitespace-nowrap">03 / EXPLORE</p>
                 <div className="flex items-center justify-between gap-3">
                     <h3 id="explore-title">{t("曲库探索")}</h3>
                     {isOverflowing && (

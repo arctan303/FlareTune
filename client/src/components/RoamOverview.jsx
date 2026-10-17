@@ -103,8 +103,7 @@ export default function RoamOverview({
         <div className="app-page roam-page pb-16">
             {/* 页面顶栏 */}
             <header className="app-page-heading">
-                <p className="app-page-heading__eyebrow">DISCOVER</p>
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)] mt-1">{t("漫游")}</h1>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--ink)]">{t("漫游")}</h1>
             </header>
 
             {/* 核心专区 1：随心漫游电台控制台 (精炼画报专属电台) */}

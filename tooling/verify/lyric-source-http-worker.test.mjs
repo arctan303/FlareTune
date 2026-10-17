@@ -30,3 +30,27 @@ test('real workerd lyric HTTP accepts JSON and refuses redirects without a secon
     assert.deepEqual(calls, ['https://lyrics.example.com/ok', 'https://lyrics.example.com/redirect']);
   } finally { await mf.dispose(); }
 });
+
+test('real workerd LRCLIB search recovers one 503 at the same destination', { timeout: 30000 }, async () => {
+  const bundle = await build({ stdin: { resolveDir: resolve('.'), contents: `
+    import {fetchLimitedJson} from './server/src/services/lyricSourceHttp.js';
+    export default {async fetch() {
+      return Response.json(await fetchLimitedJson(fetch,'https://lrclib.net/api/search',
+        {provider:'lrclib',stage:'search'}));
+    }};` }, bundle: true, write: false, format: 'esm', platform: 'browser' });
+  const calls = [];
+  const mf = new Miniflare(convertV4MiniflareOptions({ workers: [{ name: 'lyrics-retry', modules: true,
+    compatibilityDate: '2026-09-23', script: bundle.outputFiles[0].text,
+    outboundService: async request => {
+      calls.push(request.url);
+      return calls.length === 1 ? new Response(null, { status: 503, headers: { 'retry-after': '0' } })
+        : Response.json({ recovered: true });
+    },
+  }] }));
+  try {
+    const result = await mf.dispatchFetch('https://app.example.com/');
+    assert.equal(result.status, 200);
+    assert.deepEqual(await result.json(), { recovered: true });
+    assert.deepEqual(calls, Array(2).fill('https://lrclib.net/api/search'));
+  } finally { await mf.dispose(); }
+});

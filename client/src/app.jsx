@@ -30,6 +30,7 @@ import { usePlaybackPresentation } from './hooks/usePlaybackPresentation.js';
 import { selectHasRenderableWallpaper, useWallpaperStore } from './store/useWallpaperStore.js';
 import { toShellAuthSession } from './instance/state.js';
 import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, restoreSidebarWorkspaceAfterRejectedBack, SUPPORTED_PAGES } from './utils/navigation.js';
+import DrawerErrorBoundary from './components/drawers/DrawerErrorBoundary.jsx';
 
 const retryDynamicImport = (importer, retries = 2, delayMs = 600) => async () => {
     try {
@@ -83,66 +84,6 @@ const useOpenedOnce = (isOpen) => {
     }, [isOpen]);
     return opened || isOpen;
 };
-
-class DrawerErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, errorInfo) {
-    console.error(`[DrawerErrorBoundary] ${this.props.title || 'Drawer'} crashed:`, error, errorInfo);
-  }
-  handleReload = () => {
-    this.setState({ hasError: false, error: null });
-    window.location.reload();
-  };
-  handleClose = () => {
-    this.setState({ hasError: false, error: null });
-    if (typeof this.props.onClose === 'function') {
-      this.props.onClose();
-    }
-  };
-  render() {
-    if (this.props.isOpen === false) {
-      return null;
-    }
-    if (this.state.hasError) {
-      const isModal = Boolean(this.props.isModal);
-      const containerClass = isModal
-        ? 'fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md'
-        : 'fixed inset-y-0 right-0 z-[120] flex w-full max-w-sm flex-col justify-center border-l border-white/10 bg-[var(--surface-raised)]/95 p-6 shadow-2xl backdrop-blur-2xl';
-      return (
-        <aside className={containerClass} role="alert">
-          <div className="text-center">
-            <p className="state-panel__eyebrow mb-1 text-xs font-medium text-[var(--accent)]">COMPONENT UNAVAILABLE</p>
-            <h3 className="mb-2 text-base font-semibold text-[color:var(--ink)]">{this.props.title || t("组件加载未完成")}</h3>
-            <p className="mb-5 text-xs leading-relaxed text-[color:var(--muted)]">
-              {this.state.error?.message?.includes('Failed to fetch') || this.state.error?.message?.includes('dynamically imported')
-                ? t("网络连接波动或资源繁忙，未能成功加载组件。")
-                : (this.state.error?.message || t("组件暂时不可用"))}
-            </p>
-            <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={this.handleReload}
-                className="primary-button min-h-9 px-4 py-1.5 text-xs font-semibold"
-              >{t("刷新页面")}</button>
-              <button
-                type="button"
-                onClick={this.handleClose}
-                className="theme-drawer__close-btn inline-flex min-h-9 items-center justify-center rounded-xl border border-white/10 px-4 py-1.5 text-xs font-semibold text-[color:var(--muted)] hover:text-[color:var(--ink)]"
-              >{t("关闭")}</button>
-            </div>
-          </div>
-        </aside>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 export default function App({ validatedSession }) {
     useLayoutEffect(() => {
@@ -607,7 +548,6 @@ export default function App({ validatedSession }) {
                     {loadError ? (
                         <div className="h-full flex items-center justify-center px-6 pt-[var(--header-height,62px)]" role="alert">
                             <div className="state-panel state-panel--error max-w-md px-8 py-7 text-center">
-                                <p className="state-panel__eyebrow">CONNECTION INTERRUPTED</p>
                                 <h2 className="mb-2 text-lg font-semibold">{t("音乐库暂时不可用")}</h2>
                                 <p className="state-panel__copy mb-5 text-sm">{loadError}</p>
                                 <button type="button" onClick={retryMusicData} className="primary-button px-5 py-2 text-sm font-semibold">{t("重新加载")}</button>
@@ -616,7 +556,6 @@ export default function App({ validatedSession }) {
                     ) : isLoading && myPlaylists.length === 0 ? (
                         <div className="h-full flex items-center justify-center px-6 pt-[var(--header-height,62px)]" role="status" aria-label={t("正在加载音乐库")}>
                             <div className="state-panel state-panel--loading w-full max-w-sm px-8 py-7">
-                                <p className="state-panel__eyebrow">OPENING THE RECORD SHELF</p>
                                 <p className="state-panel__copy text-sm">{t("正在加载音乐库")}</p>
                                 <div className="state-skeleton mt-5" aria-hidden="true"><i></i><i></i><i></i></div>
                             </div>

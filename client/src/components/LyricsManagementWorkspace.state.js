@@ -14,6 +14,12 @@ const CANDIDATE_WARNING_LABELS = Object.freeze({
   version_mismatch: '版本不符',
 });
 
+export function projectCandidateInspectionError(error) {
+  const match = /^(search|download)_(\w+)$/u.exec(error?.code || '');
+  const reason = match && Object.hasOwn(PROVIDER_WARNING_LABELS, match[2]) ? PROVIDER_WARNING_LABELS[match[2]] : null;
+  return reason ? { stage: match[1] === 'search' ? '搜索' : '下载', reason } : null;
+}
+
 export const LYRICS_WORKSPACE_MOBILE_QUERY = '(max-width: 639px)';
 
 const normalizedSongId = (value) => String(value ?? '');
@@ -129,6 +135,9 @@ export function sortLyricsCandidates(candidates, inspections = {}) {
   const candidateKey = (c) => `${c?.source || ''}:${c?.providerLyricId || ''}`;
   const indexed = candidates.map((candidate, index) => ({ candidate, index }));
   indexed.sort((a, b) => {
+    // User-configured sources are the primary choices; built-in LRCLIB follows.
+    const sourceDifference = Number(a.candidate?.source === 'lrclib') - Number(b.candidate?.source === 'lrclib');
+    if (sourceDifference) return sourceDifference;
     const keyA = candidateKey(a.candidate);
     const keyB = candidateKey(b.candidate);
     const matchDifference = getCandidateMatchTier(b.candidate, inspections[keyB])

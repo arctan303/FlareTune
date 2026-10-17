@@ -102,10 +102,6 @@
   min-width: 0;
 }
 
-.local-playlist-empty__copy .state-panel__eyebrow {
-  margin-bottom: 5px;
-}
-
 .local-playlist-empty__copy h4 {
   margin: 0;
   font-family: var(--font-serif);

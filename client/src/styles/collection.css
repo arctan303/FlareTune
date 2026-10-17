@@ -7,15 +7,6 @@
   padding-bottom: calc(136px + env(safe-area-inset-bottom));
 }
 
-.collection-section__index {
-  margin: 0 0 4px;
-  color: var(--faint);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  white-space: nowrap;
-}
-
 .collection-section {
   padding-top: 24px;
 }

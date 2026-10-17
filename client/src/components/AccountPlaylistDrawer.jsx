@@ -245,7 +245,6 @@ export default function AccountPlaylistDrawer() {
     >
       <div className="account-playlist-header sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-[var(--line)] bg-[var(--drawer-solid-bg)]">
         <div>
-          <p className="collection-section__index text-xs">RECORD SHELF</p>
           <h2 id="account-playlist-drawer-title" className="text-base font-semibold text-[var(--ink)]">{t("歌单排序")}</h2>
         </div>
         <button

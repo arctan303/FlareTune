@@ -12,6 +12,15 @@ const responseStatusKind = (response) => {
 
 const byteLength = (value) => new TextEncoder().encode(value).byteLength;
 
+function waitForRetry(delayMs, signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, delayMs);
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, { once: true });
+  });
+}
+
 async function readResponseTextLimited(response, maximumBytes, signal) {
   const contentLength = Number(response?.headers?.get?.('content-length'));
   if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
@@ -68,16 +77,29 @@ export async function fetchLimitedJson(fetchImpl, url, {
     if (requestSignal?.aborted) {
       throw new LyricSourceError('aborted', provider, stage, `${provider} ${stage} aborted`);
     }
-    requestBudget?.consume(provider);
-    const response = await fetchImpl(url, {
-      // Workers supports follow/manual. Treat every non-2xx (including a
-      // redirect) as failure without making a second, unconfigured request.
+    const init = {
+      // Workers supports follow/manual. Never follow a redirect to an
+      // unconfigured destination.
       redirect: 'manual',
       signal: controller.signal,
       headers: provider === 'lrclib'
         ? { Accept: 'application/json', 'User-Agent': LRCLIB_USER_AGENT, 'Lrclib-Client': 'FlareTune' }
         : { Accept: 'application/json' },
-    });
+    };
+    let response;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      requestBudget?.consume(provider);
+      response = await fetchImpl(url, init);
+      // LRCLIB intermittently answers a fresh search with 503/Retry-After.
+      // Retry once within the original timeout and shared subrequest budget.
+      const retryAfter = response?.headers?.get?.('retry-after');
+      const delayMs = retryAfter == null ? 250 : Number(retryAfter) * 1000;
+      if (attempt || provider !== 'lrclib' || stage !== 'search' || response?.status !== 503
+        || !Number.isFinite(delayMs) || delayMs < 0 || delayMs > 1000) break;
+      try { await response.body?.cancel(); } catch { /* best effort */ }
+      await waitForRetry(delayMs, controller.signal);
+    }
     if (!response?.ok) {
       throw new LyricSourceError(responseStatusKind(response), provider, stage, `${provider} ${stage} HTTP ${response?.status || 0}`);
     }

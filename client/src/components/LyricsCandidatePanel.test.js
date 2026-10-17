@@ -156,6 +156,46 @@ test('a failed preview can be explicitly retried and errors are not treated as a
   s.component.unmount();
 });
 
+test('custom candidates display, select, and inspect before higher-scored LRCLIB results', async () => {
+  const custom = Array.from({ length: 5 }, (_, i) => candidate(i));
+  const lrclib = { ...candidate(1, 'lrclib'), score: 1000 };
+  const calls = [];
+  const s = setup({ getLyricsCandidates: async () => ({ data: { candidates: [lrclib, ...custom] } }),
+    inspectLyricsCandidates: async (_, items) => {
+      calls.push(items); return { data: { results: items.map(item => ready(item)) } };
+    } });
+  let tree = await search(s);
+  assert.ok(text(cards(tree)[0]).includes('自定义逐字源'));
+  assert.ok(text(cards(tree).at(-1)).includes('LRCLIB'));
+  assert.deepEqual(calls[0].map(item => item.source), Array(4).fill('custom_krc'));
+  button(tree, '导入当前歌词草稿').props.onClick();
+  assert.equal(s.imports[0].source, 'custom_krc');
+  cards(tree).at(-1).props.onClick(); tree = await settle(s);
+  assert.equal(calls.at(-1)[0].source, 'lrclib');
+  button(tree, '导入当前歌词草稿').props.onClick();
+  assert.equal(s.imports.at(-1).source, 'lrclib');
+  s.component.unmount();
+});
+
+test('preview explains a safe upstream search error in the selected language and permits retry', async () => {
+  let attempts = 0;
+  const dictionary = { '候选预览失败。': 'Candidate preview failed.', '搜索': 'Search',
+    '上游异常': 'Upstream error', '{source}：{reason}': '{source}: {reason}' };
+  const s = setup({ getLyricsCandidates: async () => ({ data: { candidates: [candidate(1, 'lrclib')] } }),
+    inspectLyricsCandidates: async (_, items) => ({ data: { results: ++attempts === 1
+      ? items.map(item => ({ ...item, state: 'error', error: { code: 'search_upstream', message: 'private upstream URL' } }))
+      : items.map(item => ready(item)) } }) }, song, (key, values) => translate(dictionary[key] || key, values));
+  let tree = await search(s);
+  assert.ok(text(tree).includes('Candidate preview failed. Search: Upstream error'));
+  assert.equal(text(tree).includes('private upstream URL'), false);
+  button(tree, '重试预览').props.onClick(); tree = await settle(s);
+  assert.equal(button(tree, '导入当前歌词草稿').props.disabled, false);
+  assert.equal(text(tree).includes('Upstream error'), false);
+  assert.equal(state.projectCandidateInspectionError({ code: 'search_private_host' }), null);
+  assert.equal(state.projectCandidateInspectionError({ code: 'search_toString' }), null);
+  s.component.unmount();
+});
+
 test('switching songs unmounts and aborts old search without leaving the new song busy', async () => {
   const pending = deferred(); let signal;
   const old = setup({ getLyricsCandidates: async (_, options) => { signal = options.signal; return pending.promise; } });
