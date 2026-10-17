@@ -31,6 +31,7 @@ export const createImageLoadRegistry = ({
   const privateInflight = new Map();
   const capacityWaiters = new Set();
   const visibilityListeners = new Set();
+  const displayAuthorizations = new WeakMap();
   let generation = 0;
   let sessionScope = null;
   let authorizedRoute = null;
@@ -63,6 +64,21 @@ export const createImageLoadRegistry = ({
   };
 
   const shouldLoadPrivately = (url) => Boolean(sessionScope && isPrivateMediaUrl(url));
+
+  const privateResult = (url, source, fromCache, expectedGeneration = generation) => {
+    if (expectedGeneration !== generation || !sessionScope || routeCheckError || authorizedRoute !== routeKey()) {
+      throw new Error('Private cover authorization changed');
+    }
+    const displayAuthorization = {};
+    displayAuthorizations.set(displayAuthorization, { url, source, generation });
+    return { url: source, fromCache, displayAuthorization };
+  };
+
+  const hasDisplayAuthorization = (url, source, authorization) => {
+    const grant = displayAuthorizations.get(authorization);
+    return !routeCheckError && shouldLoadPrivately(url) && grant?.generation === generation
+      && grant.url === url && grant.source === source;
+  };
 
   const evictPrivate = (url) => {
     const entry = privateCovers.get(url);
@@ -188,9 +204,9 @@ export const createImageLoadRegistry = ({
     if (cached) return ensureCurrentRoute().then(() => {
       const current = getPrivate(url);
       if (!current || !sessionScope) throw new Error('Private cover cache was invalidated');
-      return { url: current.objectUrl, fromCache: true };
+      return privateResult(url, current.objectUrl, true);
     });
-    if (isKnownOversized(url)) return ensureCurrentRoute().then(() => ({ url, fromCache: true }));
+    if (isKnownOversized(url)) return ensureCurrentRoute().then(() => privateResult(url, url, true));
     if (privateInflight.has(url)) return privateInflight.get(url).promise.then(async (result) => {
       await ensureCurrentRoute();
       return result;
@@ -219,14 +235,14 @@ export const createImageLoadRegistry = ({
         rememberOversized(url);
         if (routeKey() === requestRoute && routeEpoch === requestEpoch) authorizedRoute = requestRoute;
         await ensureCurrentRoute();
-        return { url, fromCache: false };
+        return privateResult(url, url, false, requestGeneration);
       }
       const blob = await readBoundedBlob(response, controller);
       if (!blob) {
         rememberOversized(url);
         if (routeKey() === requestRoute && routeEpoch === requestEpoch) authorizedRoute = requestRoute;
         await ensureCurrentRoute();
-        return { url, fromCache: false };
+        return privateResult(url, url, false, requestGeneration);
       }
       if (blob.size === 0) throw new Error('Private cover is empty');
       if (requestGeneration !== generation || requestScope !== sessionScope) {
@@ -238,7 +254,7 @@ export const createImageLoadRegistry = ({
       prunePrivate();
       if (routeKey() === requestRoute && routeEpoch === requestEpoch) authorizedRoute = requestRoute;
       await ensureCurrentRoute();
-      return { url: objectUrl, fromCache: false };
+      return privateResult(url, objectUrl, false, requestGeneration);
     })().finally(() => {
       if (privateInflight.get(url)?.promise === promise) privateInflight.delete(url);
     });
@@ -432,11 +448,25 @@ export const createImageLoadRegistry = ({
     loadWithFallback,
     loadGroup,
     getReadySource,
-    // Only keep a Blob already held by a mounted consumer. New consumers must
-    // still use getReadySource/load and pass the current route's session check.
-    canRetainSource(url, source) {
+    getDisplayAuthorization(url, source) {
+      return source && getReadySource(url) === source && shouldLoadPrivately(url)
+        ? privateResult(url, source, true).displayAuthorization : null;
+    },
+    // Grants retain existing pixels, not cache bytes or permission for a new mount.
+    // Session/route-check invalidations still revoke every grant via generation.
+    canRetainSource(url, source, authorization) {
+      if (hasDisplayAuthorization(url, source, authorization)) return true;
       return !routeCheckError && shouldLoadPrivately(url) && source?.startsWith('blob:')
         && getPrivate(url, false)?.objectUrl === source;
+    },
+    resolveDisplaySource(url, result) {
+      // A concurrent eviction can revoke a Blob before its new <img> decodes.
+      // Use one authenticated direct image request instead of a cache refill loop.
+      if (result.url?.startsWith('blob:') && hasDisplayAuthorization(url, result.url, result.displayAuthorization)
+        && authorizedRoute === routeKey() && getPrivate(url, false)?.objectUrl !== result.url) {
+        return privateResult(url, url, false);
+      }
+      return result;
     },
     shouldLoadPrivately,
     isPrivateMediaUrl,

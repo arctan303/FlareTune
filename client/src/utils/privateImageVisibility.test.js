@@ -1,9 +1,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createImageLoadRegistry, PRIVATE_COVER_MAX_BYTES } from './imageLoadRegistry.js';
+import { createImageLoadRegistry, PRIVATE_COVER_MAX_BYTES, PRIVATE_COVER_CACHE_TTL_MS, PRIVATE_COVER_CACHE_MAX_ENTRIES } from './imageLoadRegistry.js';
 import { visibleImageSource } from './privateImageVisibility.js';
 
 const session = { authenticated: true, user: { accountId: 'a' }, csrfToken: 'one' };
+
+for (const eviction of ['ttl', 'capacity']) {
+  test(`mounted display survives ${eviction} eviction without retaining cache bytes or refetching`, async () => {
+    let clock = 0, requests = 0;
+    const revoked = [];
+    const registry = createImageLoadRegistry({
+      now: () => clock,
+      fetchImpl: async () => { requests++; return new Response(new Blob(['cover'])); },
+      createObjectURL: () => `blob:cover-${requests}`, revokeObjectURL: url => revoked.push(url),
+    });
+    registry.setSessionScope(session);
+    const src = '/media/cover/first.png';
+    const loaded = await registry.load(src);
+    if (eviction === 'ttl') clock = PRIVATE_COVER_CACHE_TTL_MS + 1;
+    else for (let i = 0; i < PRIVATE_COVER_CACHE_MAX_ENTRIES; i++) await registry.load(`/media/cover/${i}.png`);
+    assert.equal(registry.getReadySource(src), null);
+    assert.ok(revoked.includes(loaded.url), 'cache eviction still revokes the reusable Blob URL');
+    const count = requests;
+    assert.equal(visibleImageSource(src, loaded.url, '', registry, true, loaded.displayAuthorization), loaded.url);
+    assert.equal(visibleImageSource(src, loaded.url, '', registry, true, {}), null, 'a fabricated grant cannot revive an evicted source');
+    assert.equal(visibleImageSource('/media/cover/other.png', loaded.url, '', registry, true, loaded.displayAuthorization), null);
+    assert.equal(requests, count);
+    registry.setSessionScope(null);
+    assert.equal(visibleImageSource(src, loaded.url, '', registry, true, loaded.displayAuthorization), null);
+  });
+}
+
+for (const failure of ['revoked', 'network']) {
+  test(`an evicted display grant cannot survive a failed new-route session check: ${failure}`, async () => {
+    let clock = 0, route = '/home';
+    const registry = createImageLoadRegistry({
+      now: () => clock, routeKey: () => route,
+      verifySession: async () => { if (failure === 'network') throw Error('offline'); return { authenticated: false }; },
+      fetchImpl: async () => new Response(new Blob(['cover'])),
+      createObjectURL: () => 'blob:old-display', revokeObjectURL() {}, onSessionRejected() {},
+    });
+    registry.setSessionScope(session);
+    const src = '/media/cover/first.png', loaded = await registry.load(src);
+    clock = PRIVATE_COVER_CACHE_TTL_MS + 1;
+    assert.equal(registry.getReadySource(src), null);
+    route = '/library'; registry.invalidateRoute();
+    assert.equal(registry.resolveDisplaySource(src, loaded).url, loaded.url, 'raw recovery waits for current-route authorization');
+    assert.equal(registry.getDisplayAuthorization(src, loaded.url), null, 'a new mount cannot obtain an expired grant');
+    await assert.rejects(registry.load(src));
+    assert.equal(visibleImageSource(src, loaded.url, '', registry, true, loaded.displayAuthorization), null);
+  });
+}
 
 test('a new consumer cannot display a cached Blob before route verification or after rejection', async () => {
   let route = '/home';

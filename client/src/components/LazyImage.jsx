@@ -12,7 +12,7 @@ const getInitialState = (src, fallback) => {
     const requestedSrc = src || fallback;
     const cachedSrc = imageLoadRegistry.getReadySource(requestedSrc, fallback);
     return isReadyCandidate(cachedSrc)
-        ? { requestedSrc, displaySrc: cachedSrc, status: 'displaying', reveal: false }
+        ? { requestedSrc, displaySrc: cachedSrc, displayAuthorization: imageLoadRegistry.getDisplayAuthorization(requestedSrc, cachedSrc), status: 'displaying', reveal: false }
         : { requestedSrc, displaySrc: null, status: 'loading', reveal: false };
 };
 
@@ -35,7 +35,7 @@ export default function LazyImage({ src, alt = t('专辑封面'), className = ''
         setPrevSrc(requestedSrc);
         const cached = imageLoadRegistry.getReadySource(requestedSrc, fallback);
         if (isReadyCandidate(cached)) {
-            setImageState({ requestedSrc, displaySrc: cached, status: 'displaying', reveal: false });
+            setImageState({ requestedSrc, displaySrc: cached, displayAuthorization: imageLoadRegistry.getDisplayAuthorization(requestedSrc, cached), status: 'displaying', reveal: false });
             setInView(true);
         } else {
             setImageState({ requestedSrc, displaySrc: null, status: 'loading', reveal: false });
@@ -58,12 +58,13 @@ export default function LazyImage({ src, alt = t('专辑封面'), className = ''
         if (imageLoadRegistry.shouldLoadPrivately(requestedSrc) && !cachedSrc) {
             let cancelled = false;
             setImageState((current) => current.requestedSrc === requestedSrc
-                && !imageLoadRegistry.canRetainSource(requestedSrc, current.displaySrc)
+                && !imageLoadRegistry.canRetainSource(requestedSrc, current.displaySrc, current.displayAuthorization)
                 ? { requestedSrc, displaySrc: null, status: 'loading', reveal: false } : current);
-            void imageLoadRegistry.loadWithFallback(requestedSrc, fallback).then(({ url }) => {
+            void imageLoadRegistry.loadWithFallback(requestedSrc, fallback).then((result) => {
                 if (cancelled) return;
+                const { url, displayAuthorization } = imageLoadRegistry.resolveDisplaySource(requestedSrc, result);
                 setImageState((current) => current.requestedSrc === requestedSrc
-                    ? current.displaySrc === url ? current : { requestedSrc, displaySrc: url, status: 'displaying', reveal: false }
+                    ? current.displaySrc === url ? current : { requestedSrc, displaySrc: url, displayAuthorization, status: 'displaying', reveal: false }
                     : current);
             }).catch(() => {
                 if (cancelled) return;
@@ -78,6 +79,7 @@ export default function LazyImage({ src, alt = t('专辑封面'), className = ''
             return {
                 requestedSrc,
                 displaySrc: cachedSrc || requestedSrc,
+                displayAuthorization: imageLoadRegistry.getDisplayAuthorization(requestedSrc, cachedSrc),
                 status: 'displaying',
                 reveal: !cachedSrc,
             };
@@ -86,6 +88,14 @@ export default function LazyImage({ src, alt = t('专辑封面'), className = ''
     }, [requestedSrc, fallback, inView, routeRevision, active]);
 
     const handleDisplayedImageError = (failedSrc) => {
+        const recovery = imageLoadRegistry.resolveDisplaySource(requestedSrc, {
+            url: failedSrc, displayAuthorization: imageState.displayAuthorization,
+        });
+        if (recovery.url !== failedSrc) {
+            setImageState((current) => current.requestedSrc === requestedSrc && current.displaySrc === failedSrc
+                ? { ...current, displaySrc: recovery.url, displayAuthorization: recovery.displayAuthorization, status: 'displaying' } : current);
+            return;
+        }
         imageLoadRegistry.markError(failedSrc.startsWith('blob:') ? requestedSrc : failedSrc);
         setImageState((current) => {
             if (current.requestedSrc !== requestedSrc || current.displaySrc !== failedSrc) return current;
@@ -111,7 +121,7 @@ export default function LazyImage({ src, alt = t('专辑封面'), className = ''
     }, [requestedSrc, imageState.requestedSrc, imageState.displaySrc, imageState.status]);
 
     const displayedSrc = imageState.requestedSrc === requestedSrc
-        ? visibleImageSource(requestedSrc, imageState.displaySrc, fallback, imageLoadRegistry, true) : null;
+        ? visibleImageSource(requestedSrc, imageState.displaySrc, fallback, imageLoadRegistry, true, imageState.displayAuthorization) : null;
     const isReady = imageState.requestedSrc === requestedSrc && imageState.status === 'ready' && Boolean(displayedSrc);
 
     return (

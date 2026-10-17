@@ -16,7 +16,7 @@ import {
   ARTIST_PHOTO_CACHE,
   preloadAndDecodeImage,
 } from '../hooks/useArtistPhotos.js';
-import { usePrivateMediaSource } from '../hooks/usePrivateMediaSource.js';
+import { usePrivateMediaImage } from '../hooks/usePrivateMediaSource.js';
 import { handleKeyboardActivation } from '../utils/keyboardActivation.js';
 import {
   ARTIST_HEADER_MAX_HEIGHT,
@@ -184,7 +184,7 @@ export default function ArtistDrawer() {
   };
 
   const displayAvatar = artistPhoto || fallbackCover || (resolvedSongs[0]?.cover_url) || '';
-  const resolvedAvatar = usePrivateMediaSource(displayAvatar);
+  const { url: resolvedAvatar, onError: onAvatarError } = usePrivateMediaImage(displayAvatar);
 
   if (!mounted) return null;
 
@@ -209,6 +209,7 @@ export default function ArtistDrawer() {
             {artistPhoto && resolvedAvatar ? (
               <img
                 src={resolvedAvatar}
+                onError={onAvatarError}
                 alt=""
                 className="w-full h-full object-cover object-top filter brightness-[0.8] transition-opacity duration-500"
                 loading="lazy"
@@ -216,6 +217,7 @@ export default function ArtistDrawer() {
             ) : fallbackCover && resolvedAvatar ? (
               <img
                 src={resolvedAvatar}
+                onError={onAvatarError}
                 alt=""
                 className="w-full h-full object-cover object-center filter blur-md brightness-50 opacity-60"
                 loading="lazy"
@@ -249,6 +251,7 @@ export default function ArtistDrawer() {
               {resolvedAvatar ? (
                 <img
                   src={resolvedAvatar}
+                  onError={onAvatarError}
                   alt={artistName}
                   className="w-full h-full object-cover"
                   loading="lazy"

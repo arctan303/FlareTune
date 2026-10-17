@@ -88,6 +88,7 @@ export function createBackgroundModuleHarness({ file, exportName = 'default', mo
       return slots[index].value;
     },
     useEffect: effect,
+    useLayoutEffect: effect,
     useCallback: (callback, dependencies) => memo(() => callback, dependencies),
   };
   const loaded = new Map();
@@ -169,7 +170,7 @@ export function createArtistPhotoHarness() {
   };
 }
 
-export function createAppleFluidHarness() {
+export function createAppleFluidHarness({ registry } = {}) {
   const scheduler = createBackgroundScheduler();
   const document = createVisibilityDocument();
   document.createElement = () => ({ getContext: () => ({ drawImage() {} }) });
@@ -198,7 +199,7 @@ export function createAppleFluidHarness() {
     file: new URL('../components/fullscreen/AppleFluidCanvas.jsx', import.meta.url),
     nodes: { canvas },
     modules: {
-      '../../utils/imageLoadRegistry.js': { imageLoadRegistry: {
+      '../../utils/imageLoadRegistry.js': { imageLoadRegistry: registry || {
         isPrivateMediaUrl: () => false, shouldLoadPrivately: () => false,
       } },
       '../../hooks/usePrivateMediaRouteRevision.js': { usePrivateMediaRouteRevision: () => 0 },

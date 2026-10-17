@@ -464,7 +464,8 @@ export default function AppleFluidCanvas({
                 };
 
                 if (isCrossfading) {
-                    drawSpriteSet(prevTex, 1.0 - crossfadeRef.current.progress);
+                    // 保持旧图 1.0 不透明度垫底，新图以 progress 渐入叠加，消除中间时刻两组 alpha<1 导致向深色底色下沉的 25% 亮度凹陷
+                    drawSpriteSet(prevTex, 1.0);
                     drawSpriteSet(curTex, crossfadeRef.current.progress);
                 } else {
                     drawSpriteSet(curTex, 1.0);
@@ -743,6 +744,7 @@ export default function AppleFluidCanvas({
         const img = new Image();
         let cancelled = false;
         let authorizedSource = null;
+        let authorizedDisplay = null;
 
         if (!shouldLoadPrivately && !coverUrl.startsWith('blob:') && !coverUrl.startsWith('data:')) {
             img.crossOrigin = 'Anonymous';
@@ -763,7 +765,7 @@ export default function AppleFluidCanvas({
             };
             lastCoverUrlRef.current = coverUrl;
             if (lastCoverWasPrivateRef.current) {
-                setTextureAuthorization({ coverUrl, routeRevision, source: authorizedSource });
+                setTextureAuthorization({ coverUrl, routeRevision, source: authorizedSource, displayAuthorization: authorizedDisplay });
             }
             triggerRender();
         };
@@ -787,6 +789,15 @@ export default function AppleFluidCanvas({
 
         img.onerror = () => {
             if (cancelled || !glRef.current) return;
+            const recovery = imageLoadRegistry.resolveDisplaySource(coverUrl, {
+                url: authorizedSource, displayAuthorization: authorizedDisplay,
+            });
+            if (recovery.url !== authorizedSource) {
+                authorizedSource = recovery.url;
+                authorizedDisplay = recovery.displayAuthorization;
+                img.src = recovery.url;
+                return;
+            }
             const currentGl = glRef.current;
             const fallbackTex = createPaletteFallbackTexture(currentGl, palette);
             applyNewTexture(fallbackTex);
@@ -797,9 +808,11 @@ export default function AppleFluidCanvas({
             : coverUrl;
 
         if (shouldLoadPrivately) {
-            void imageLoadRegistry.load(coverUrl).then(({ url }) => {
+            void imageLoadRegistry.load(coverUrl).then((result) => {
                 if (!cancelled) {
+                    const { url, displayAuthorization } = imageLoadRegistry.resolveDisplaySource(coverUrl, result);
                     authorizedSource = url;
+                    authorizedDisplay = displayAuthorization;
                     img.src = url;
                 }
             }).catch(() => {

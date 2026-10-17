@@ -2,5 +2,7 @@ export function isTextureAuthorized(coverUrl, routeRevision, authorization, regi
   if (!registry.isPrivateMediaUrl(coverUrl)) return true;
   return authorization?.coverUrl === coverUrl
     && authorization.routeRevision === routeRevision
-    && authorization.source === registry.getReadySource(coverUrl);
+    && Boolean(authorization.source)
+    && (registry.canRetainSource?.(coverUrl, authorization.source, authorization.displayAuthorization)
+      || authorization.source === registry.getReadySource(coverUrl));
 }

@@ -45,7 +45,7 @@ test('desktop artist player uses current cover only as a photo fallback', () => 
   const immersive = readSource('./fullscreen/DesktopImmersivePlayer.jsx');
   const background = readSource('./fullscreen/ImmersiveBackground.jsx');
   assert.match(immersive, /resolveCoverUrl\(currentSong\?\.cover_url \|\| ''\)/);
-  assert.match(background, /resolvedCoverUrl = usePrivateMediaSource\(coverUrl\)/);
+  assert.match(background, /usePrivateMediaImage\(coverUrl\)/);
   assert.match(background, /!showPhotos && resolvedCoverUrl && <img src=\{resolvedCoverUrl\}/);
   assert.doesNotMatch(background, /<video|videoSrc|natural-scenery/);
 });
