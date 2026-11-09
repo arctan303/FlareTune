@@ -33,7 +33,6 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
         lyricsStatus,
         translationEnabled,
         lyricSyncMode,
-        lyricIntro,
     } = usePlayerStore(useShallow((state) => ({
         currentSong: state.currentSong,
         lyrics: state.lyrics,
@@ -45,7 +44,6 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
         lyricsStatus: state.lyricsStatus,
         translationEnabled: state.translationEnabled,
         lyricSyncMode: state.lyricSyncMode,
-        lyricIntro: state.lyricIntro,
     })));
 
     const {
@@ -300,7 +298,6 @@ export default function DesktopImmersivePlayer({ motionProfile = 'full', instant
                     currentSong={currentSong}
                     translationEnabled={translationEnabled}
                     lyricSyncMode={lyricSyncMode}
-                    lyricIntro={lyricIntro}
                     isPlaying={isPlaying}
                     isBuffering={isBuffering}
                     surfaceVisible={Boolean(isFullScreen && hasEntered && !isClosing)}

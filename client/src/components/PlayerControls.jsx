@@ -1,3 +1,4 @@
+import { canReferenceAccountSong } from '../utils/musicSource.js';
 import { localizeUnknownArtist, t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import QualityBadge from './QualityBadge';
@@ -175,7 +176,7 @@ export default React.memo(function PlayerControls({
 
                         {/* 与歌名对齐，避免占用歌手和专辑的横向空间 */}
                         <div className="classic-controls__metadata-actions flex items-center gap-2 shrink-0 relative">
-                            <button
+                            {canReferenceAccountSong(currentSong) && <button
                                 type="button"
                                 aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                                 title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
@@ -189,7 +190,7 @@ export default React.memo(function PlayerControls({
                                 onAnimationEnd={() => clearAddedAnimation(currentSong)}
                             >
                                 <Star size={22} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
-                            </button>
+                            </button>}
 
                             <PlayerMoreMenu
                                 direction="up"
@@ -251,7 +252,7 @@ export default React.memo(function PlayerControls({
                     {showModeMenu && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => modeMenu.closeMenu()}></div>
-                            <div ref={modeMenuRef} role="menu" aria-label={t("选择播放模式")} {...modeMenu.menuProps} className="classic-controls__menu absolute bottom-full left-0 mb-4 glass-panel !rounded-2xl p-2 flex flex-col gap-1 w-36 shadow-2xl z-50">
+                            <div ref={modeMenuRef} role="menu" aria-label={t("选择播放模式")} {...modeMenu.menuProps} className="classic-controls__menu absolute bottom-full left-0 mb-4 glass-panel !rounded-2xl p-2 flex flex-col gap-1 w-max min-w-36 max-w-[calc(100vw-2rem)] shadow-2xl z-50">
                                 {[
                                     { id: 'sequence', label: t("顺序播放") },
                                     { id: 'loop', label: t("列表循环") },
@@ -266,12 +267,12 @@ export default React.memo(function PlayerControls({
                                         tabIndex={-1}
                                         data-active={playMode === mode.id}
                                         onClick={() => { handleModeChange(mode.id); modeMenu.closeMenu(); }}
-                                        className={`classic-controls__menu-item flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all focus:outline-none ${playMode === mode.id ? 'bg-white/15 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                                        className={`classic-controls__menu-item flex w-full items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-all focus:outline-none ${playMode === mode.id ? 'bg-white/15 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                                     >
                                         <div className={`classic-controls__menu-icon shrink-0 ${playMode === mode.id ? 'text-blue-400' : 'opacity-70'}`}>
                                             <PlaybackModeIcon mode={mode.id} size={18} strokeWidth={iconStrokeWidth} />
                                         </div>
-                                        {mode.label}
+                                        <span className="classic-controls__menu-label">{mode.label}</span>
                                     </button>
                                 ))}
                             </div>

@@ -604,10 +604,10 @@ export default function AdminSongCreatePage() {
     ? Math.min(100, Math.round(activeProgress.loaded / activeProgress.total * 100)) : 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-24 text-[var(--ink)]">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{t("歌曲入库")}</h1>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-5 pb-24 text-[var(--ink)]">
+      <header className="border-b border-[var(--line)] pb-4">
+        <h1 className="text-xl font-bold tracking-tight text-[var(--ink)] sm:text-2xl">{t("歌曲入库")}</h1>
+      </header>
 
       <div className="flex flex-wrap items-center gap-2" aria-label={t("歌曲入库步骤")}>
         <button type="button" aria-pressed={view === 'source'} disabled={saving}
@@ -921,7 +921,6 @@ export default function AdminSongCreatePage() {
               <div className="flex items-start gap-4">
                 <CoverThumbnail file={editing.coverFile} />
                 <div className="min-w-0 space-y-2">
-                  <p className="text-xs text-[var(--muted)]">{t("优先读取内嵌封面，也可替换。")}</p>
                   <label className="inline-flex cursor-pointer rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold">{t("选择封面图片")}<SettingsInput type="file" accept=".jpg,.jpeg,.png,.webp" className="sr-only"
                       onChange={(event) => {
                         const file = event.target.files?.[0];

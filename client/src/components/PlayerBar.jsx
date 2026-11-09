@@ -1,6 +1,7 @@
+import { canReferenceAccountSong } from '../utils/musicSource.js';
 import { localizeUnknownArtist, localizeUnknownTitle, t } from '../i18n/index.js';
 import React from 'react';
-import { Play, Pause, Menu, Star } from 'lucide-react';
+import { Play, Pause, Menu, Star, Languages } from 'lucide-react';
 import { SolidRoundedSkipBack, SolidRoundedSkipForward } from './icons/SolidSkipIcons';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { showToast, useUIStore } from '../store/useUIStore';
@@ -18,6 +19,7 @@ import PlayerBarLyricPreview from './playerbar/PlayerBarLyricPreview.jsx';
 import ScrollingText from './playerbar/ScrollingText.jsx';
 import { useShallow } from 'zustand/react/shallow';
 import { requestLyricsTranslationCompletion } from '../hooks/useLyricsFetcher.js';
+import { usePluginAvailable } from '../hooks/usePluginAvailable.js';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { useFavoriteSongAction } from '../hooks/useFavoriteSongAction.js';
 import './fullscreen/player-interactions.css';
@@ -39,8 +41,8 @@ const PlayerBarTimeDisplay = React.memo(function PlayerBarTimeDisplay({ classNam
     );
 });
 
-export default function PlayerBar({ motionProfile = 'full', activePage }) {
-    const { placement, transition } = useCompactPlayerPlacement(activePage);
+export default function PlayerBar({ motionProfile = 'full', activePage, activeRoute }) {
+    const { placement, transition } = useCompactPlayerPlacement(activeRoute || activePage);
     const { isFavorite, toggleFavorite, pendingSongIds } = useFavoriteSongAction();
     const {
         currentSong,
@@ -51,7 +53,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         playNext,
         lyrics,
         currentLyricIndex,
-        lyricIntro,
         lyricSyncMode,
         translationEnabled,
         translationAvailable,
@@ -68,7 +69,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         playNext: state.playNext,
         lyrics: state.lyrics,
         currentLyricIndex: state.currentLyricIndex,
-        lyricIntro: state.lyricIntro,
         lyricSyncMode: state.lyricSyncMode,
         translationEnabled: state.translationEnabled,
         translationAvailable: state.translationAvailable,
@@ -151,8 +151,9 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
     const isSidebarPlayer = !activeFullScreen && placement === 'sidebar';
     const isPlacementExit = !activeFullScreen && transition?.from === 'dock' && transition.phase === 'exit';
     const isHidden = (activeFullScreen && (!isDesktop || !isImmersiveMode)) || isSidebarPlayer || isPlacementExit;
+    const lyricsAiAvailable = usePluginAvailable('lyrics-workbench', 'ai');
     const showTranslationButton = translationState !== 'unavailable'
-        && (canManageLyrics || translationState === 'ready');
+        && (translationState === 'ready' || (canManageLyrics && lyricsAiAvailable));
     const translationPending = translationState === 'pending';
     const translationReady = translationState === 'ready' && translationAvailable;
     const translationStatusMessage = translationPending
@@ -169,14 +170,14 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
             toggleTranslation();
             return;
         }
-        if (!canManageLyrics) return;
+        if (!canManageLyrics || !lyricsAiAvailable) return;
         setTranslationEnabled(true);
         void requestLyricsTranslationCompletion({
             songId: currentSong?.id,
             authenticated,
             notify: showToast,
         });
-    }, [authenticated, canManageLyrics, currentSong?.id, setTranslationEnabled, toggleTranslation, translationPending, translationReady]);
+    }, [authenticated, canManageLyrics, lyricsAiAvailable, currentSong?.id, setTranslationEnabled, toggleTranslation, translationPending, translationReady]);
     
     if (!currentSong) return null;
 
@@ -331,7 +332,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                             ? (translationEnabled ? t("已显示歌词翻译（点击隐藏）") : t("显示歌词翻译"))
                                             : translationState === 'failed' ? t("补全失败，点击重试") : t("点击补全歌词翻译")}
                                 >
-                                    <span aria-hidden="true">{t("译")}</span>
+                                    <Languages size={14} strokeWidth={1.75} aria-hidden="true" focusable="false" />
                                     {translationState === 'failed' && (
                                         <span aria-hidden="true" className="lyrics-translation-action__warning">!</span>
                                     )}
@@ -342,7 +343,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             </span>
                             <PlayModeToggle isExpanded={true} />
                             <VolumeControl isExpanded={true} />
-                            <button
+                            {canReferenceAccountSong(currentSong) && <button
                                 type="button"
                                 aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                                 title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
@@ -356,7 +357,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 } ${isPendingFavorite ? 'animate-heart-pending' : ''}`}
                             >
                                 <Star size={20} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
-                            </button>
+                            </button>}
                             <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`text-white/70 hover:text-white transition-colors outline-none flex items-center justify-center ${playlistBouncing ? 'animate-playlist-bounce text-white' : ''}`}>
                                 <Menu size={20} />
                             </button>
@@ -409,7 +410,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 showBuffering={showBuffering}
                                 lyrics={lyrics}
                                 currentLyricIndex={currentLyricIndex}
-                                lyricIntro={lyricIntro}
                                 lyricSyncMode={lyricSyncMode}
                                 surfaceVisible={!isHidden}
                                 translationEnabled={translationEnabled}
@@ -439,7 +439,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             <div className="hidden lg:flex items-center">
                                 <PlayModeToggle isExpanded={false} />
                             </div>
-                            <button
+                            {canReferenceAccountSong(currentSong) && <button
                                 type="button"
                                 aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                                 title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
@@ -453,7 +453,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 } ${isPendingFavorite ? 'animate-heart-pending' : ''}`}
                             >
                                 <Star size={19} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
-                            </button>
+                            </button>}
                             <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`player-console__icon p-1.5 transition-all duration-300 active:scale-90 ${playlistBouncing ? 'animate-playlist-bounce text-[var(--accent-strong)]' : ''}`}>
                                 <Menu size={20} />
                             </button>

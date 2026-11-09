@@ -31,3 +31,10 @@ test('selected search songs omit results no longer present', () => {
   const songs = [{ id: 'current', title: 'current' }];
   assert.deepEqual(resolveSelectedSearchSongs(songs, ['stale', 'current']), [songs[0]]);
 });
+
+
+test('mixed local and YouTube results can be selected for the same personal playlist', () => {
+  assert.deepEqual(toggleSearchBulkSelection(['local'],'yt:QBtVFL0Qefs').selectedIds,['local','yt:QBtVFL0Qefs']);
+  const local={id:'local'}, yt={id:'yt:QBtVFL0Qefs',source:'youtube'};
+  assert.deepEqual(resolveSelectedSearchSongs([local,yt],['local',yt.id]),[local,yt]);
+});

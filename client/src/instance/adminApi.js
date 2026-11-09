@@ -10,54 +10,6 @@ export const putAdminSetting = (key, value, expectedRevision, csrfToken, fetchIm
     method: 'PUT', body: { key, value, expectedRevision }, csrfToken, fetchImpl,
   });
 
-export const testLyricSource = (source, song, csrfToken, fetchImpl) =>
-  instanceRequest('admin/lyrics/source-test', {
-    method: 'POST', body: { source: { protocol: source.protocol, searchUrl: source.searchUrl,
-      downloadUrl: source.downloadUrl, translationLanguage: source.translationLanguage }, song }, csrfToken, fetchImpl,
-  });
-
-export const putAssistant = (patch, expectedRevision, csrfToken, fetchImpl) =>
-  instanceRequest('admin/assistant', {
-    method: 'PUT', body: { patch, expectedRevision }, csrfToken, fetchImpl,
-  });
-
-export const getAiProfiles = (csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/profiles', { csrfToken, fetchImpl });
-
-export const getAiProviders = (csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/providers', { csrfToken, fetchImpl });
-export const createAiProvider = (provider, csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/providers', { method: 'POST', body: provider, csrfToken, fetchImpl });
-export const updateAiProvider = (id, provider, expectedRevision, csrfToken, fetchImpl) =>
-  instanceRequest(`admin/ai/providers/${encodeURIComponent(id)}`, { method: 'PUT', body: { provider, expectedRevision }, csrfToken, fetchImpl });
-export const deleteAiProvider = (id, expectedRevision, csrfToken, fetchImpl) =>
-  instanceRequest(`admin/ai/providers/${encodeURIComponent(id)}`, { method: 'DELETE', body: { expectedRevision }, csrfToken, fetchImpl });
-export const getAiProviderModels = (providerId, expectedRevision, csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/provider-models', { method: 'POST', body: { providerId, expectedRevision }, csrfToken, fetchImpl });
-export const saveAiFeatureModel = (configuration, csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/feature-models', { method: 'PUT', body: configuration, csrfToken, fetchImpl });
-
-export const getAiModels = (configuration, csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/models', { method: 'POST', body: configuration, csrfToken, fetchImpl });
-
-export const createAiProfile = (profile, csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/profiles', { method: 'POST', body: profile, csrfToken, fetchImpl });
-
-export const updateAiProfile = (id, profile, expectedRevision, csrfToken, fetchImpl) =>
-  instanceRequest(`admin/ai/profiles/${encodeURIComponent(id)}`, {
-    method: 'PUT', body: { profile, expectedRevision }, csrfToken, fetchImpl,
-  });
-
-export const deleteAiProfile = (id, expectedRevision, csrfToken, fetchImpl) =>
-  instanceRequest(`admin/ai/profiles/${encodeURIComponent(id)}`, {
-    method: 'DELETE', body: { expectedRevision }, csrfToken, fetchImpl,
-  });
-
-export const assignAiProfile = (feature, profileId, expectedRevision, csrfToken, fetchImpl) =>
-  instanceRequest('admin/ai/assignments', {
-    method: 'PUT', body: { feature, profileId, expectedRevision }, csrfToken, fetchImpl,
-  });
-
 export const createManagedAccount = (body, csrfToken, fetchImpl) =>
   instanceRequest('admin/accounts', { method: 'POST', body, csrfToken, fetchImpl });
 

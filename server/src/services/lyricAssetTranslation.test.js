@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createLyricArtifactStore } from './lyricArtifactStore.js';
 import { createMemoryR2Bucket } from '../test/lyricAssetFixtures.js';
 import {
-  beginLyricAssetAiCompletion,
-  runLyricAssetAiCompletion,
+  beginLyricAssetAiCompletion as beginRaw,
+  runLyricAssetAiCompletion as runRaw,
 } from './lyricAssetTranslation.js';
 import {
   createMemoryLyricStore,
@@ -12,6 +12,9 @@ import {
   makeSong,
 } from '../test/lyricAssetFixtures.js';
 
+import { testLyricsAiDeps } from '../plugins/lyrics-workbench/test-support.js';
+const beginLyricAssetAiCompletion = args => beginRaw({ ...args, deps: testLyricsAiDeps(args.deps) });
+const runLyricAssetAiCompletion = args => runRaw({ ...args, deps: testLyricsAiDeps(args.deps) });
 const STARTED_AT = '2026-09-10T00:00:00.000Z';
 const FINISHED_AT = Date.parse('2026-09-10T00:01:00.000Z');
 
@@ -651,6 +654,24 @@ test('cleared or replaced completion state supersedes a stale AI task', async ()
   assert.equal(result.state, 'superseded');
   assert.equal(aiCalls, 0);
   assert.equal(store.calls.put, 0);
+});
+
+test('reusing the pending CAS snapshot still preserves a newer edit before final completion', async () => {
+  const raw = createMemoryLyricStore(makeReadyArtifact());
+  const replacement = makeReadyArtifact({ textHash: 'b'.repeat(64), original: {
+    source: 'manual', format: 'lrc', syncMode: 'line', lines: [{ time: 1, text: 'Newer saved lyric' }],
+  } });
+  const store = { ...raw, async putIfMatch(songId, value, etag, options) {
+    const written = await raw.putIfMatch(songId, value, etag, options);
+    if (written.state === 'updated' && value.aiCompletion?.status === 'pending') {
+      await raw.putIfMatch(songId, replacement, written.etag);
+    }
+    return written;
+  } };
+  const started = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+    force: true, deps: successDeps() });
+  assert.equal(started.state, 'started'); assert.equal((await started.task).state, 'superseded');
+  assert.deepEqual(raw.current(), replacement); assert.equal(raw.calls.put, 2);
 });
 
 test('manual recompletion retains old translation while marking a new pending task', async () => {

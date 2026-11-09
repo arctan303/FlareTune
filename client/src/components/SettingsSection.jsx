@@ -1,10 +1,13 @@
-export default function SettingsSection({ title, description, action, children, className = '' }) {
+export default function SettingsSection({ title, meta, description, action, children, className = '' }) {
   const hasChildren = Boolean(children && (!Array.isArray(children) || children.some(Boolean)));
   return (
     <section className={`wallpaper-content-surface ${hasChildren ? 'space-y-3.5' : ''} rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:p-5 shadow-2xs ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold text-[var(--ink)]">{title}</h2>
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <h2 className="text-sm font-bold text-[var(--ink)]">{title}</h2>
+            {meta && <span className="text-xs font-normal text-[var(--muted)]">{meta}</span>}
+          </div>
           {description && <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{description}</p>}
         </div>
         {action && <div className="ml-auto max-w-full shrink-0">{action}</div>}

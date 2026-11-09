@@ -31,7 +31,7 @@ The public template's root `wrangler.toml` declares the Worker, static assets, D
 2. On the first visit, verify the setup secret in the wizard. This step does not write to D1. The verification proof stays only in the current page's memory and expires after ten minutes.
 3. Enter the first administrator username and a password of at least eight characters. The final submission creates the current built-in schema in a D1 transaction and then creates the sole initial administrator. Sign in when setup finishes.
 
-`SETUP_SECRET` is not a daily sign-in password. It also authorizes known database upgrades that block sign-in and derives separate encryption keys for saved AI model keys, the optional Google Client Secret and opt-in Subsonic password copies. After rotating it, administrators must re-enter model keys and the Google Secret, and users must verify their current password to re-enable Subsonic. It cannot reset an administrator account. See the [Google setup guide](google-login.en.md).
+`SETUP_SECRET` is not a daily sign-in password. It also authorizes known database upgrades that block sign-in and derives separate encryption keys for saved AI model keys, the optional Google Client Secret, opt-in Subsonic password copies and optional Xiaomi authorization in the development version. After rotating it, administrators must re-enter model keys and the Google Secret, users must reconnect Xiaomi and verify their current password to re-enable Subsonic. It cannot reset an administrator account. See the [Google setup guide](google-login.en.md).
 
 ## Existing instances and upgrades
 

@@ -46,7 +46,7 @@ async function findLyricSong(p, db, env) {
   return null;
 }
 
-export async function media(method, p, request, env, executionContext, accountId) {
+export async function media(method, p, request, env, executionContext, accountId, subsonicPrincipal) {
   const db = env.DB;
   if (['getLyrics', 'getLyricsBySongId'].includes(method)) {
     const enhanced = method === 'getLyricsBySongId' && p.get('enhanced') === 'true';
@@ -56,7 +56,8 @@ export async function media(method, p, request, env, executionContext, accountId
     const row = method === 'getLyricsBySongId' ? await findSong(db, required(p, 'id'))
       : await findLyricSong(p, db, env);
     if (!row) return { lyrics: {} };
-    const read = await readPlaybackLyrics({ env, db, song: row, accountId, executionContext, signal: request.signal });
+    const read = await readPlaybackLyrics({ env, db, song: row, accountId, executionContext, signal: request.signal,
+      deps: { subsonicPrincipal } });
     if (read.state === 'song_deleted') reject(70, 'Song was not found');
     const artifact = read.artifact;
     const lines = artifact?.status === 'ready' ? artifact.original?.lines || [] : [];

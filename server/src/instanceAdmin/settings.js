@@ -1,130 +1,53 @@
-import {
-  InstanceAdminError, atomic, changed, currentTime, requireActiveAdmin, statement, validateRevision,
-} from './common.js';
-import { DEFAULT_LYRIC_AI_CONFIG, normalizeLyricAiConfig } from '../utils/lyricAiConfig.js';
-import { DEFAULT_ASSISTANT_PERSONA, DEFAULT_ASSISTANT_RULES } from '../utils/aiPromptDefaults.js';
-import { DEFAULT_LYRIC_CHANNELS, normalizeLyricChannels } from '../../../shared/lyricSources.js';
+import { InstanceAdminError, atomic, changed, currentTime, requireActiveAdmin, statement, validateRevision } from './common.js';
 
-export const DEFAULT_SETTINGS = Object.freeze({
-  'instance.name': 'FlareTune',
-  'cors.allowed_origins': [],
-  'ai.compatible_api_url': '',
-  'lyrics.ai': DEFAULT_LYRIC_AI_CONFIG,
-  'lyrics.sources': DEFAULT_LYRIC_CHANNELS,
-  'assistant.images_enabled': false,
-});
-
-const knownKeys = new Set(Object.keys(DEFAULT_SETTINGS));
-const assistantFields = Object.freeze([
-  'name', 'description', 'avatar_icon', 'persona', 'welcome_message',
-  'system_rules', 'provider', 'model', 'temperature',
-]);
-
-function validText(value, max, min = 1) {
-  return typeof value === 'string' && value.trim().length >= min && value.length <= max;
-}
-
+function validText(value, max) { return typeof value === 'string' && value.trim().length > 0 && value.length <= max; }
 function exactHttpsOrigin(value) {
   if (typeof value !== 'string' || value.length > 2048) return false;
   try {
     const parsed = new URL(value);
     return parsed.protocol === 'https:' && !parsed.username && !parsed.password
       && !parsed.search && !parsed.hash && parsed.pathname === '/' && parsed.origin === value;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
-
+export const DEFAULT_SETTINGS = Object.freeze({ 'instance.name': 'FlareTune', 'cors.allowed_origins': [] });
 export function validateSetting(key, value) {
-  if (!knownKeys.has(key)) throw new InstanceAdminError('unknown_setting', 400);
-  if (key === 'assistant.images_enabled' && typeof value === 'boolean') return value;
-  if (key === 'lyrics.sources') {
-    try { return normalizeLyricChannels(value); }
-    catch { throw new InstanceAdminError('invalid_setting', 400); }
-  }
-  if (key === 'lyrics.ai') {
-    try { return normalizeLyricAiConfig(value); }
-    catch { throw new InstanceAdminError('invalid_setting', 400); }
-  }
+  if (!Object.hasOwn(DEFAULT_SETTINGS, key)) throw new InstanceAdminError('unknown_setting', 400);
   if (key === 'instance.name' && validText(value, 80)) return value.trim();
   if (key === 'cors.allowed_origins' && Array.isArray(value) && value.length <= 32
     && value.every(exactHttpsOrigin) && new Set(value).size === value.length) return value;
-  if (key === 'ai.compatible_api_url' && (value === '' || (typeof value === 'string'
-    && value.length <= 2048 && (() => {
-      try {
-        const url = new URL(value);
-        return url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash;
-      } catch { return false; }
-    })()))) return value;
   throw new InstanceAdminError('invalid_setting', 400);
 }
+const definitions = Object.fromEntries(Object.entries(DEFAULT_SETTINGS).map(([key, fallback]) => [key,
+  Object.freeze({ defaultValue: fallback, validate: value => validateSetting(key, value) })]));
 
-export function validateAssistantConfig(config) {
-  if (!config || typeof config !== 'object' || Array.isArray(config)
-    || Object.keys(config).some((key) => !assistantFields.includes(key))) {
-    throw new InstanceAdminError('invalid_assistant_setting', 400);
-  }
-  const lengths = { name: 80, description: 500, avatar_icon: 80, persona: 12000,
-    welcome_message: 1000, system_rules: 24000, provider: 80, model: 160 };
-  for (const [key, max] of Object.entries(lengths)) {
-    if (!validText(config[key], max)) throw new InstanceAdminError('invalid_assistant_setting', 400);
-  }
-  if (typeof config.temperature !== 'number' || !Number.isFinite(config.temperature)
-    || config.temperature < 0 || config.temperature > 2) throw new InstanceAdminError('invalid_assistant_setting', 400);
-  return config;
-}
-
-export async function getAdminSettings(db, actorAccountId, { aiApiKeyConfigured = null } = {}) {
+// Definitions belong to the caller. The host owns storage, live admin checks,
+// revisions and audit transactions; optional feature policy stays in its pack.
+export async function readDefinedSettings(db, actorAccountId, definitions) {
   await requireActiveAdmin(db, actorAccountId);
-  const rows = await db.prepare(`SELECT key, value_json, revision FROM instance_settings
-    WHERE key IN ('instance.name', 'cors.allowed_origins', 'ai.compatible_api_url', 'lyrics.ai', 'lyrics.sources', 'assistant.images_enabled')`).all();
-  const settings = {};
-  for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) settings[key] = { value: fallback, revision: 0 };
+  const keys = Object.keys(definitions);
+  const settings = Object.fromEntries(keys.map(key => [key, { value: definitions[key].defaultValue, revision: 0 }]));
+  if (!keys.length) return settings;
+  const rows = await db.prepare(`SELECT key, value_json, revision FROM instance_settings WHERE key IN (${keys.map(() => '?').join(',')})`).bind(...keys).all();
   for (const row of rows?.results ?? []) {
-    if (!knownKeys.has(row.key)) continue;
-    try {
-      const parsed = JSON.parse(row.value_json);
-      settings[row.key] = { value: row.key === 'lyrics.sources' ? normalizeLyricChannels(parsed, { migrateLegacy: true })
-        : validateSetting(row.key, parsed), revision: row.revision };
-    } catch {
-      throw new InstanceAdminError('setting_corrupt', 503);
-    }
+    if (!Object.hasOwn(definitions, row.key)) continue;
+    try { settings[row.key] = { value: (definitions[row.key].read || definitions[row.key].validate)(JSON.parse(row.value_json)), revision: row.revision }; }
+    catch { throw new InstanceAdminError('setting_corrupt', 503); }
   }
-  if (settings['lyrics.ai'].revision === 0) {
-    const legacy = await db.prepare(`SELECT provider, model, temperature, system_prompt
-      FROM AI_Assistants WHERE id = 'lyric_translator'`).first();
-    if (legacy?.provider && legacy?.model) {
-      settings['lyrics.ai'].value = normalizeLyricAiConfig({
-        ...DEFAULT_LYRIC_AI_CONFIG,
-        provider: legacy.provider,
-        model: legacy.model,
-        temperature: legacy.temperature ?? 0.2,
-        styleRules: DEFAULT_LYRIC_AI_CONFIG.styleRules,
-      });
-    }
-  }
-  const assistant = await db.prepare(`SELECT name, description, avatar_icon, persona, welcome_message,
-    system_rules, provider, model, temperature, revision FROM music_assistant_configs WHERE id = 'xiaoa'`).first();
-  if (!assistant) throw new InstanceAdminError('assistant_config_missing', 503);
-  return { settings, assistant, defaults: {
-    assistant: { persona: DEFAULT_ASSISTANT_PERSONA, system_rules: DEFAULT_ASSISTANT_RULES },
-    lyrics: { styleRules: DEFAULT_LYRIC_AI_CONFIG.styleRules },
-  }, secrets: { aiApiKeyConfigured } };
+  return settings;
 }
 
-export async function updateAdminSetting(db, actorAccountId, key, value, expectedRevision, now = Date.now()) {
+export async function updateDefinedSetting(db, actorAccountId, key, value, expectedRevision, definition, now = Date.now()) {
   const actor = await requireActiveAdmin(db, actorAccountId);
   validateRevision(expectedRevision, { allowZero: true });
-  const safeValue = validateSetting(key, value);
-  if (key === 'lyrics.sources' && expectedRevision > 0) {
+  if (!definition || typeof definition.validate !== 'function') throw new InstanceAdminError('unknown_setting', 400);
+  const safeValue = definition.validate(value);
+  if (definition.validatePrevious && expectedRevision > 0) {
     const row = await db.prepare('SELECT value_json, revision FROM instance_settings WHERE key = ?').bind(key).first();
     if (!row || row.revision !== expectedRevision) throw new InstanceAdminError('revision_conflict', 409);
     let previous;
-    try { previous = normalizeLyricChannels(JSON.parse(row.value_json), { migrateLegacy: true }); }
+    try { previous = (definition.read || definition.validate)(JSON.parse(row.value_json)); }
     catch { throw new InstanceAdminError('setting_corrupt', 503); }
-    if (safeValue.sources.some(source => previous.sources.some(old => old.id === source.id && old.protocol !== source.protocol))) {
-      throw new InstanceAdminError('invalid_setting', 400);
-    }
+    definition.validatePrevious(safeValue, previous);
   }
   currentTime(now);
   const json = JSON.stringify(safeValue);
@@ -137,40 +60,16 @@ export async function updateAdminSetting(db, actorAccountId, key, value, expecte
         updated_at = ?, updated_by = ? WHERE key = ? AND revision = ?
         AND EXISTS (SELECT 1 FROM accounts WHERE account_id = ? AND role = 'admin' AND status = 'active')`,
     json, now, actor.account_id, key, expectedRevision, actor.account_id);
-  const [result] = await atomic(db, [
-    mutation,
+  const [result] = await atomic(db, [mutation,
     statement(db, `INSERT INTO audit_events
       (id, actor_account_id, action, target_type, target_id, result, created_at)
       SELECT ?, ?, 'setting.update', 'setting', ?, 'success', ? WHERE changes() = 1`,
-    crypto.randomUUID(), actor.account_id, key, now),
-  ]);
+    crypto.randomUUID(), actor.account_id, key, now)]);
   if (!changed(result)) throw new InstanceAdminError('revision_conflict', 409);
   return { key, value: safeValue, revision: expectedRevision + 1 };
 }
-
-export async function updateAssistantConfig(db, actorAccountId, patch, expectedRevision, now = Date.now()) {
-  const actor = await requireActiveAdmin(db, actorAccountId);
-  validateRevision(expectedRevision);
-  currentTime(now);
-  if (!patch || typeof patch !== 'object' || Array.isArray(patch)
-    || Object.keys(patch).length === 0 || Object.keys(patch).some((key) => !assistantFields.includes(key))) {
-    throw new InstanceAdminError('invalid_assistant_setting', 400);
-  }
-  const existing = await db.prepare(`SELECT name, description, avatar_icon, persona, welcome_message,
-    system_rules, provider, model, temperature, revision FROM music_assistant_configs WHERE id = 'xiaoa'`).first();
-  if (!existing) throw new InstanceAdminError('assistant_config_missing', 503);
-  const next = validateAssistantConfig(Object.fromEntries(assistantFields.map((field) => [field, patch[field] ?? existing[field]])));
-  const [result] = await atomic(db, [
-    statement(db, `UPDATE music_assistant_configs SET name = ?, description = ?, avatar_icon = ?, persona = ?,
-      welcome_message = ?, system_rules = ?, provider = ?, model = ?, temperature = ?,
-      revision = revision + 1, updated_at = ?, updated_by = ? WHERE id = 'xiaoa' AND revision = ?
-      AND EXISTS (SELECT 1 FROM accounts WHERE account_id = ? AND role = 'admin' AND status = 'active')`,
-    ...assistantFields.map((field) => next[field]), now, actor.account_id, expectedRevision, actor.account_id),
-    statement(db, `INSERT INTO audit_events
-      (id, actor_account_id, action, target_type, target_id, result, created_at)
-      SELECT ?, ?, 'assistant.update', 'assistant', 'xiaoa', 'success', ? WHERE changes() = 1`,
-    crypto.randomUUID(), actor.account_id, now),
-  ]);
-  if (!changed(result)) throw new InstanceAdminError('revision_conflict', 409);
-  return { ...next, revision: expectedRevision + 1 };
+export async function getAdminSettings(db, actorAccountId, { aiApiKeyConfigured = null } = {}) {
+  return { settings: await readDefinedSettings(db, actorAccountId, definitions), defaults: {}, secrets: { aiApiKeyConfigured } };
 }
+export const updateAdminSetting = (db, actorAccountId, key, value, expectedRevision, now) =>
+  updateDefinedSetting(db, actorAccountId, key, value, expectedRevision, definitions[key], now);

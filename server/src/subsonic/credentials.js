@@ -2,6 +2,20 @@ import { verifyPassword } from '../auth/local/crypto.js';
 import { AuthError } from '../auth/local/index.js';
 import { md5 } from './md5.js';
 import { reject } from './response.js';
+import { isUsableCredentialMaterial } from '../instance/credentialFormat.js';
+
+// Only successful protocol authentication can mint this authority. Neither a
+// request body nor a reconstructed {accountId} object can be a WeakMap key.
+const principalsByAccount = new WeakMap();
+const authorityByPrincipal = new WeakMap();
+export const subsonicPrincipalForAccount = account => principalsByAccount.get(account) || null;
+export function subsonicAuthorityForPrincipal(principal, env) {
+  const authority = principal && typeof principal === 'object' ? authorityByPrincipal.get(principal) : null;
+  if (!authority || authority.database !== env.DB || authority.setupSecret !== env.SETUP_SECRET) {
+    throw new AuthError('PLUGIN_SERVICE_PRINCIPAL_INVALID', 403);
+  }
+  return authority.capability;
+}
 
 const encoder = new TextEncoder();
 export const settingKey = (accountId) => `account.subsonic.${accountId}`;
@@ -83,6 +97,23 @@ export async function authenticate(db, params, env) {
   let password = null;
   if (row) { try { password = await decrypt(row, env); } catch { /* Never reveal encryption errors. */ } }
   const matches = equal(md5(`${password || 'disabled'}${salt}`), token.toLowerCase());
-  if (!password || !matches) reject(40, 'Wrong username or password');
-  return { accountId: row.account_id, username: row.username };
+  if (!password || !matches || !isUsableCredentialMaterial(row)) reject(40, 'Wrong username or password');
+  const account = Object.freeze({ accountId: row.account_id, username: row.username });
+  const principal = Object.freeze(Object.create(null));
+  const predicate = `EXISTS(SELECT 1 FROM accounts subsonic_account
+    JOIN account_credentials subsonic_credential ON subsonic_credential.account_id=subsonic_account.account_id
+    JOIN instance_settings subsonic_setting ON subsonic_setting.key=?
+    WHERE subsonic_account.account_id=? AND subsonic_account.role=? AND subsonic_account.status='active'
+      AND subsonic_credential.must_change_password=0
+      AND subsonic_credential.kdf=? AND subsonic_credential.kdf_version=? AND subsonic_credential.kdf_params_json=?
+      AND subsonic_credential.salt=? AND subsonic_credential.password_hash=?
+      AND subsonic_setting.revision=? AND subsonic_setting.value_json=?
+      AND json_valid(subsonic_setting.value_json) AND json_extract(subsonic_setting.value_json,'$.enabled')=1)`;
+  const bindings = [settingKey(row.account_id), row.account_id, row.role, row.kdf, row.kdf_version,
+    row.kdf_params_json, row.salt, row.password_hash, Number(row.revision), row.value_json];
+  authorityByPrincipal.set(principal, { database: db, setupSecret: env.SETUP_SECRET,
+    capability: Object.freeze({ identity: Object.freeze({ accountId: row.account_id, role: row.role, mode: 'subsonic' }),
+      predicate, bindings: () => [...bindings] }) });
+  principalsByAccount.set(account, principal);
+  return account;
 }

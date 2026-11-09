@@ -1,7 +1,10 @@
+import { canReferenceAccountSong } from '../../utils/musicSource.js';
+
 export const MAX_SEARCH_BULK_SELECTION = 100;
 
 export const toggleSearchBulkSelection = (selectedIds, songId) => {
   const normalizedId = String(songId);
+  if (!canReferenceAccountSong(songId)) return { selectedIds, limitReached: false };
   if (selectedIds.includes(normalizedId)) {
     return {
       selectedIds: selectedIds.filter((id) => id !== normalizedId),
@@ -16,5 +19,5 @@ export const toggleSearchBulkSelection = (selectedIds, songId) => {
 
 export const resolveSelectedSearchSongs = (songs, selectedIds) => {
   const songsById = new Map(songs.map((song) => [String(song.id), song]));
-  return selectedIds.map((id) => songsById.get(String(id))).filter(Boolean);
+  return selectedIds.map((id) => songsById.get(String(id))).filter(song => song && canReferenceAccountSong(song));
 };

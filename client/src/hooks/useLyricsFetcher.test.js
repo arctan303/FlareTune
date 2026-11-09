@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  createLyricIntro,
   createLyricsTranslationPoller,
   createLyricsResultFromResponse,
   fetchLyricsAsset,
@@ -72,7 +71,6 @@ function createPlayerHarness(currentSong) {
     resolvedLyricSource: null,
     lyricFormat: 'none',
     lyricSyncMode: 'none',
-    lyricIntro: null,
     lyricOffsetMs: 0,
     currentLyricIndex: 0,
     isLyricsLoading: false,
@@ -87,7 +85,6 @@ function createPlayerHarness(currentSong) {
     setResolvedLyricSource: 'resolvedLyricSource',
     setLyricFormat: 'lyricFormat',
     setLyricSyncMode: 'lyricSyncMode',
-    setLyricIntro: 'lyricIntro',
     setLyricOffsetMs: 'lyricOffsetMs',
     setCurrentLyricIndex: 'currentLyricIndex',
     setIsLyricsLoading: 'isLyricsLoading',
@@ -106,7 +103,6 @@ function createPlayerHarness(currentSong) {
     state.resolvedLyricSource = snapshot.source;
     state.lyricFormat = snapshot.format;
     state.lyricSyncMode = snapshot.syncMode;
-    state.lyricIntro = snapshot.intro;
     state.lyricOffsetMs = snapshot.offsetMs;
     state.translationAvailable = snapshot.translationAvailable;
     state.translationState = snapshot.translationState;
@@ -210,6 +206,23 @@ test('named source documents reach the player with source identity, words and tr
   assert.deepEqual(harness.state.lyrics[0].words,payload.data.lines[0].words);
   assert.equal(harness.state.lyrics[0].translation,payload.data.translation.lines[0]);
   assert.throws(()=>createLyricsResultFromResponse({...payload,data:{...payload.data,source:'lyric_invalid'}}),/Invalid canonical/);
+});
+
+test('loading a long prelude preserves canonical first lyrics without synthesizing metadata', async () => {
+  const song = { id: 'long-prelude', artist: 'こっちのけんと', title: 'はいよろこんで', language: 'ja' };
+  const result = normalizeLyricsResult({ source: 'custom_krc', syncMode: 'word', lyrics: [
+    { time: 12, text: '『はい喜んで』', translation: '乐意效劳',
+      words: [{ text: '『はい喜んで』', startTime: 12, endTime: 13 }] },
+    { time: 14, text: '『あなた方のため』' },
+  ] });
+  const harness = createPlayerHarness(song);
+  await loadLyricsDocumentIntoStore({ currentSong: song, resolvedHasLyrics: true,
+    getPlayerState: harness.getPlayerState, fetchLyrics: async () => result });
+  assert.equal(harness.state.documentSnapshotCount, 1);
+  assert.deepEqual(harness.state.lyrics, result.lyrics);
+  assert.equal(harness.state.lyrics[0].text, '『はい喜んで』');
+  assert.equal(harness.state.currentLyricIndex, 0);
+  assert.equal(harness.state.lyricSyncMode, 'word');
 });
 
 test('translation button availability follows actual returned content', () => {
@@ -564,6 +577,23 @@ test('translation completion requires login and coalesces repeated administrator
   assert.equal(harness.state.translationStartedAt, '2026-09-11T00:00:00.000Z');
 });
 
+test('late translation completion cannot modify or notify a new owner reusing the same cached song', async () => {
+  for (const failure of [false, true]) {
+    const song = { id: `same-owner-fixture-${failure}` }, harness = createPlayerHarness(song), notices = [];
+    harness.state.translationState = 'missing'; harness.state.playbackOwnershipGeneration = 1;
+    let settle;
+    const pending = requestLyricsTranslationCompletion({ songId: song.id, authenticated: true,
+      getPlayerState: harness.getPlayerState, notify: value => notices.push(value),
+      completeTranslation: () => new Promise((resolve, reject) => { settle = () => failure
+        ? reject(new Error('Old session failed')) : resolve({ data: { status: 'not_needed' } }); }) });
+    harness.state.playbackOwnershipGeneration = 2;
+    harness.state.translationState = 'ready'; harness.state.translationAvailable = true;
+    settle(); await pending;
+    assert.equal(harness.state.translationState, 'ready'); assert.equal(harness.state.translationAvailable, true);
+    assert.deepEqual(notices, []);
+  }
+});
+
 test('translation polling uses the server start window, pauses while hidden and refreshes on return', async () => {
   const startedAt = '2026-09-11T00:00:00.000Z';
   let clock = Date.parse(startedAt);
@@ -904,4 +934,18 @@ test('the normal lyric hook stays source-agnostic while polling only an explicit
   assert.match(source, /state\.translationState === 'pending'/);
   assert.match(source, /preserveExisting: true/);
   assert.match(source, /documentTarget\?\.addEventListener\?\.\('visibilitychange'/);
+});
+
+
+test('canonical native YouTube text is accepted without inventing synchronization or changing the original lines', () => {
+  const lines = [{ text: 'Oops!... I did it again' }, { text: 'I played with your heart' }];
+  const result = createLyricsResultFromResponse({ code: 200, data: {
+    version: 2, source: 'youtube', format: 'plain', syncMode: 'none', lines, translationState: 'unavailable',
+  } });
+  assert.equal(result.source, 'youtube');
+  assert.equal(result.status, 'ready');
+  assert.equal(result.syncMode, 'none');
+  assert.deepEqual(result.lyrics, lines);
+  assert.equal(Object.hasOwn(result.lyrics[0], 'time'), false);
+  assert.equal(result.translationAvailable, false);
 });

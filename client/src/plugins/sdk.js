@@ -1,0 +1,22 @@
+// Public UI SDK v1. React is supplied by the host build, never bundled twice.
+export { t, useLocale, getLocale } from '../i18n/index.js';
+export { formatNumber } from '../i18n/index.js';
+export { default as SettingsSection } from '../components/SettingsSection.jsx';
+export { default as SettingsEditDialog } from '../components/SettingsEditDialog.jsx';
+export { default as SettingsSkeleton } from '../components/SettingsSkeleton.jsx';
+export { InfoTip, SettingsActions, SettingsButton, SettingsToggle } from '../components/SettingsControls.jsx';
+export { default as SelectControl } from '../components/SelectControl.jsx';
+export { SettingsInput, SettingsTextarea, SettingsWriteButton, useSettingsReadOnly } from '../components/SettingsReadOnly.jsx';
+export { useSettingsResource } from '../hooks/useSettingsResource.js';
+export { default as ProgressBar } from '../components/playerbar/ProgressBar.jsx';
+export { default as SyncedLyricText } from '../components/lyrics/SyncedLyricText.jsx';
+export { default as PageBackButton } from '../components/PageBackButton.jsx';
+export { lyricSourceLabel } from '../../../shared/lyricSources.js';
+export { DEFAULT_LYRIC_CHANNELS, MAX_LYRIC_SOURCES, normalizeLyricChannels } from '../../../shared/lyricSources.js';
+export { findActiveLyricLineIndex } from '../utils/lyricTimeline.js';
+export { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
+export { createAiResponseTypewriter, reconcileAiResponseContent } from '../aiResponseTypewriter.js';
+export { consumeSseJsonStream } from '../services/aiEventStream.js';
+export { default as ImagePreviewDialog } from '../components/ImagePreviewDialog.jsx';
+export { default as PrivateCoverImage } from '../components/PrivateCoverImage.jsx';
+export { decodeUserImage, encodeUserImage } from '../services/imageProcessing.js';

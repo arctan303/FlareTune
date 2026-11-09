@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveDevelopmentKv } from './dev-kv-binding.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const configPath = resolve(root, 'wrangler.toml');
@@ -22,14 +23,16 @@ if (createHash('sha256').update(databaseId.toLowerCase()).digest('hex') !== expe
 }
 const config = readFileSync(configPath, 'utf8');
 const marker = 'database_id = "__FLARETUNE_DEV_D1_ID__"';
-if (config.split(marker).length !== 2 ||
+const kvMarker = 'id = "__FLARETUNE_DEV_YTM_KV_ID__"';
+if (config.split(marker).length !== 2 || config.split(kvMarker).length !== 2 ||
     !config.includes('name = "flaretune"') ||
     !config.includes('[env.dev]') ||
     !config.includes('database_name = "flaretune-db-dev"') ||
     !config.includes('bucket_name = "flaretune-files-dev"')) {
   throw new Error('Unexpected development Wrangler configuration; deployment stopped.');
 }
-writeFileSync(configPath, config.replace(marker, `database_id = "${databaseId}"`));
+const namespaceId = resolveDevelopmentKv();
+writeFileSync(configPath, config.replace(marker, `database_id = "${databaseId}"`).replace(kvMarker, `id = "${namespaceId}"`));
 const args = ['wrangler', 'deploy', '--env', 'dev'];
 if (dryRun) args.push('--dry-run');
 const result = spawnSync('npx', args, {

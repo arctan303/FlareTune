@@ -15,7 +15,7 @@ function createHarness({ failFirst = false } = {}) {
     setLyrics: 'lyrics', setLyricsStatus: 'lyricsStatus', setCurrentLyricIndex: 'currentLyricIndex',
     setIsLyricsLoading: 'isLyricsLoading', setResolvedLyricSource: 'resolvedLyricSource',
     setLyricFormat: 'lyricFormat', setLyricSyncMode: 'lyricSyncMode',
-    setLyricIntro: 'lyricIntro', setLyricOffsetMs: 'lyricOffsetMs',
+    setLyricOffsetMs: 'lyricOffsetMs',
   })) state[setter] = (value) => { state[field] = value; };
   state.setTranslationSnapshot = ({ available, state: status, startedAt }) => {
     state.translationAvailable = available; state.translationState = status; state.translationStartedAt = startedAt;
@@ -122,4 +122,45 @@ test('aborting while waiting to retry settles the loader without a later network
   await loading;
   assert.equal(attempts, 1);
   assert.notEqual(harness.state.lyricsStatus, 'error');
+});
+
+
+test('YT unknown-language playback requests canonical lyrics and displays untimed YouTube text', async () => {
+  const harness = createHarness();
+  harness.state.currentSong = { id: 'yt:QBtVFL0Qefs', source: 'youtube', language: null, has_lyrics: 0 };
+  harness.render();
+  assert.equal(harness.requests.length, 1, 'unknown metadata must not short-circuit as instrumental');
+  assert.equal(harness.requests[0].url, '/api/lyrics?songId=yt%3AQBtVFL0Qefs');
+  const lines = [{ text: 'Oops!... I did it again' }, { text: 'I played with your heart' }];
+  harness.requests[0].resolve({ status: 200, json: async () => ({ code: 200, data: {
+    version: 2, source: 'youtube', format: 'plain', syncMode: 'none', lines, translationState: 'unavailable',
+  } }) });
+  await flush();
+  assert.equal(harness.state.lyricsStatus, 'ready');
+  assert.deepEqual(harness.state.lyrics, lines);
+  assert.equal(Object.hasOwn(harness.state.lyrics[0], 'time'), false, 'no timestamps are invented');
+  assert.equal(harness.state.isLyricsLoading, false);
+  harness.unmount();
+});
+
+test('YT unknown-language lyrics not found remains unavailable, rather than labelled instrumental', async () => {
+  const harness = createHarness();
+  harness.state.currentSong = { id: 'yt:QBtVFL0Qefs', source: 'youtube', language: null };
+  harness.render();
+  assert.equal(harness.requests.length, 1);
+  harness.requests[0].resolve({ status: 200, json: async () => ({ code: 200, data: { status: 'not_found' } }) });
+  await flush();
+  assert.equal(harness.state.lyricsStatus, 'unavailable');
+  assert.equal(harness.state.lyrics[0].text, '暂无歌词');
+  harness.unmount();
+});
+
+test('the global lyric hook still skips requests for an explicitly instrumental local song', () => {
+  const harness = createHarness();
+  harness.state.currentSong = { id: 'local-instrumental', language: 'instrumental' };
+  harness.render();
+  assert.equal(harness.requests.length, 0);
+  assert.equal(harness.state.lyricsStatus, 'none');
+  assert.equal(harness.state.lyrics[0].text, '纯音乐，请欣赏');
+  harness.unmount();
 });

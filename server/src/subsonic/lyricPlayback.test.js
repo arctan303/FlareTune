@@ -3,6 +3,7 @@ import test from 'node:test';
 import { fixture } from './test-support.js';
 import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
+import { pluginRegistry } from '../plugins/registry.js';
 
 const payload = async response => (await response.json())['subsonic-response'];
 const config = (f, overrides = {}) => f.sqlite.prepare(`INSERT OR REPLACE INTO instance_settings
@@ -149,6 +150,8 @@ test('member third-party playback follows both web automatic-AI switches and com
     const f = await fixture();
     try {
       const member = await f.signIn('member'); await f.enable(member);
+      for (const id of ['lyrics-workbench', 'ai-gateway']) await pluginRegistry.setInstalled(f.env, f.signed.session, id,
+        { installed: true, revision: 0 });
       config(f, { completionEnabled, automaticCompletionEnabled });
       f.sqlite.exec("UPDATE Songs SET language='en' WHERE id='s1'");
       await saved(f, 's1'); f.env.DEEPSEEK_API_KEY = 'test-only-key';

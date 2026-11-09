@@ -1,3 +1,4 @@
+import { isYouTubeEntity } from '../utils/musicSource.js';
 import { formatPlayCount, localizeUnknownArtist, localizeUnknownTitle, t, useLocale } from '../i18n/index.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal, Loader2 } from 'lucide-react';
@@ -103,6 +104,7 @@ export default function TrackRow({
                 {isDetail ? (
                     <div className="track-row__meta flex items-center truncate text-sm">
                         <span className="truncate max-w-[50%]">{localizeUnknownArtist(song.artist)}</span>
+                        {isYouTubeEntity(song) && <span className="ml-2 text-xs">YouTube Music</span>}
                         {song.album && (
                             <>
                                 <span className="mx-2 opacity-50 text-[10px]">•</span>
@@ -119,7 +121,7 @@ export default function TrackRow({
                     </div>
                 ) : (
                     <div className="flex items-center gap-1.5 mt-1 truncate">
-                        <p className="track-row__meta truncate text-xs">{localizeUnknownArtist(song.artist)}</p>
+                        <p className="track-row__meta truncate text-xs">{localizeUnknownArtist(song.artist)}{isYouTubeEntity(song) ? ' · YouTube Music' : ''}</p>
                         {showPlayCount && song.play_count != null && song.play_count > 0 && (
                             <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
                                 {formatPlayCount(song.play_count)}</span>

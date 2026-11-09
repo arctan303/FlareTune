@@ -15,7 +15,8 @@ export async function readSchemaInventory(db, now, reuse = false, executionConte
   entry.promise = (async () => {
     const schema = await db.prepare(`SELECT type, name FROM sqlite_master
       WHERE (type = 'table' AND name NOT LIKE 'sqlite_%')
-        OR (type = 'trigger' AND (name LIKE 'ft_member_playlist_%' OR name LIKE 'ft_play_receipts_%'))
+        OR (type = 'view' AND name LIKE 'Member_All_%')
+        OR (type = 'trigger' AND (name LIKE 'ft_member_playlist_%' OR name LIKE 'ft_play_receipts_%' OR name LIKE 'ft_external_%' OR name LIKE 'ft_music_%'))
         OR (type = 'index' AND (name = 'idx_member_playlist_preview' OR name LIKE 'idx_songs_%'))`).all();
     let columns;
     return {

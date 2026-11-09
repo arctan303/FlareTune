@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { handleLocalLyricsManageRoute } from './localLyricsManage.js';
+import { handleLyricsWorkbenchRoute as rawRoute } from '../plugins/lyrics-workbench/workspace.js';
+import { testLyricsContext, testLyricsAiDeps } from '../plugins/lyrics-workbench/test-support.js';
+const handleLocalLyricsManageRoute = (req, url, db, headers, session, env, deps = {}) => rawRoute(req, url, db, headers, session, env,
+  { context: testLyricsContext, aiAvailable: async () => true, ...deps, aiDeps: testLyricsAiDeps(deps.aiDeps) });
 import { createLyricArtifactStore } from '../services/lyricArtifactStore.js';
-import { runLyricAssetAiCompletion } from '../services/lyricAssetTranslation.js';
+import { runLyricAssetAiCompletion as runRaw } from '../services/lyricAssetTranslation.js';
 import { buildEditedLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { createLyricDraftReceipt } from '../services/lyricDraftReceipt.js';
 import { LyricSourceError } from '../services/lyricSourceLoader.js';
@@ -18,6 +21,7 @@ import {
   makeSongDb,
 } from '../test/lyricAssetFixtures.js';
 
+const runLyricAssetAiCompletion = args => runRaw({ ...args, deps: testLyricsAiDeps(args.deps) });
 const member = { mode: 'normal', account: { accountId: 'local_member', role: 'member' } };
 const admin = { mode: 'normal', account: { accountId: 'local_admin', role: 'admin' } };
 const path = (suffix = '') => `/api/lyrics/workspace/song-1${suffix}`;

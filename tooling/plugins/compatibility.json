@@ -1,0 +1,3062 @@
+{
+  "server/src/plugins/ai-gateway/ai.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/ai.js",
+    "exports": [
+      {
+        "name": "AI_STREAM_IDLE_TIMEOUT_MS",
+        "kind": "value"
+      },
+      {
+        "name": "buildGeminiContents",
+        "kind": "value"
+      },
+      {
+        "name": "createAiStreamIdleTimeoutError",
+        "kind": "value"
+      },
+      {
+        "name": "isTerminalGeminiFinishReason",
+        "kind": "value"
+      },
+      {
+        "name": "parseGeminiCandidateParts",
+        "kind": "value"
+      },
+      {
+        "name": "readStreamChunkWithIdleTimeout",
+        "kind": "value"
+      },
+      {
+        "name": "getPublicAiErrorCode",
+        "kind": "function"
+      },
+      {
+        "name": "resolveAIConfig",
+        "kind": "function"
+      },
+      {
+        "name": "getAIAssistantConfig",
+        "kind": "function"
+      },
+      {
+        "name": "askAI",
+        "kind": "function"
+      },
+      {
+        "name": "chatAI",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiAnthropic.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiAnthropic.js",
+    "exports": [
+      {
+        "name": "buildAnthropicMessages",
+        "kind": "function"
+      },
+      {
+        "name": "askAnthropic",
+        "kind": "function"
+      },
+      {
+        "name": "chatAnthropic",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiGemini.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiGemini.js",
+    "exports": [
+      {
+        "name": "AI_STREAM_IDLE_TIMEOUT_MS",
+        "kind": "value"
+      },
+      {
+        "name": "isTerminalGeminiFinishReason",
+        "kind": "function"
+      },
+      {
+        "name": "createAiStreamIdleTimeoutError",
+        "kind": "function"
+      },
+      {
+        "name": "readStreamChunkWithIdleTimeout",
+        "kind": "function"
+      },
+      {
+        "name": "buildGeminiContents",
+        "kind": "function"
+      },
+      {
+        "name": "geminiGenerationConfig",
+        "kind": "function"
+      },
+      {
+        "name": "parseGeminiCandidateParts",
+        "kind": "function"
+      },
+      {
+        "name": "askGemini",
+        "kind": "function"
+      },
+      {
+        "name": "chatGemini",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiJsonEventStream.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiJsonEventStream.js",
+    "exports": [
+      {
+        "name": "createJsonEventStreamParser",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiOpenAICompatible.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiOpenAICompatible.js",
+    "exports": [
+      {
+        "name": "wantsJson",
+        "kind": "function"
+      },
+      {
+        "name": "buildChatMessages",
+        "kind": "function"
+      },
+      {
+        "name": "askChatCompletions",
+        "kind": "function"
+      },
+      {
+        "name": "chatOpenAICompatible",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiProfiles.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiProfiles.js",
+    "exports": [
+      {
+        "name": "PROVIDER_CONNECTION_MODEL",
+        "kind": "value"
+      },
+      {
+        "name": "featureModelsReady",
+        "kind": "function"
+      },
+      {
+        "name": "listAiProfiles",
+        "kind": "function"
+      },
+      {
+        "name": "createAiProfile",
+        "kind": "function"
+      },
+      {
+        "name": "updateAiProfile",
+        "kind": "function"
+      },
+      {
+        "name": "deleteAiProfile",
+        "kind": "function"
+      },
+      {
+        "name": "assignAiProfile",
+        "kind": "function"
+      },
+      {
+        "name": "resolveAiFeature",
+        "kind": "function"
+      },
+      {
+        "name": "listAiModels",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiProviders.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiProviders.js",
+    "exports": [
+      {
+        "name": "listAiProviders",
+        "kind": "function"
+      },
+      {
+        "name": "createAiProvider",
+        "kind": "function"
+      },
+      {
+        "name": "updateAiProvider",
+        "kind": "function"
+      },
+      {
+        "name": "deleteAiProvider",
+        "kind": "function"
+      },
+      {
+        "name": "listAiProviderModels",
+        "kind": "function"
+      },
+      {
+        "name": "saveAiFeatureModel",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiResponses.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiResponses.js",
+    "exports": [
+      {
+        "name": "buildResponsesInput",
+        "kind": "function"
+      },
+      {
+        "name": "askResponses",
+        "kind": "function"
+      },
+      {
+        "name": "chatResponses",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiStream.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiStream.js",
+    "exports": [
+      {
+        "name": "AI_STREAM_IDLE_TIMEOUT_MS",
+        "kind": "value"
+      },
+      {
+        "name": "createAiStreamIdleTimeoutError",
+        "kind": "function"
+      },
+      {
+        "name": "readStreamChunkWithIdleTimeout",
+        "kind": "function"
+      },
+      {
+        "name": "consumeAiStream",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/aiTransport.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiTransport.js",
+    "exports": [
+      {
+        "name": "setAiConnectionTimeout",
+        "kind": "function"
+      },
+      {
+        "name": "aiConnection",
+        "kind": "function"
+      },
+      {
+        "name": "aiHeaders",
+        "kind": "function"
+      },
+      {
+        "name": "fetchAi",
+        "kind": "function"
+      },
+      {
+        "name": "requestReasoningEffort",
+        "kind": "function"
+      },
+      {
+        "name": "isOpenAiReasoningModel",
+        "kind": "function"
+      },
+      {
+        "name": "parseArguments",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/client.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/client.js",
+    "exports": [
+      {
+        "name": "createAiGatewayClient",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/ai-gateway/handler.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/handler.js",
+    "exports": [
+      {
+        "name": "createAiGatewayHandler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/assistant/bindingBudget.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/bindingBudget.js",
+    "exports": [
+      {
+        "name": "createAssistantBindingBudget",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/assistant/checkpoint.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/checkpoint.js",
+    "exports": [
+      {
+        "name": "readAssistantCheckpoint",
+        "kind": "function"
+      },
+      {
+        "name": "createAssistantCheckpoint",
+        "kind": "function"
+      },
+      {
+        "name": "assistantContextIdentity",
+        "kind": "function"
+      },
+      {
+        "name": "assistantOperationKey",
+        "kind": "function"
+      },
+      {
+        "name": "guardedAssistantToolDb",
+        "kind": "function"
+      },
+      {
+        "name": "completeSavedToolContext",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/assistant/config.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/config.js",
+    "exports": [
+      {
+        "name": "readMusicAssistantConfig",
+        "kind": "function"
+      },
+      {
+        "name": "exposeAssistantBootstrap",
+        "kind": "function"
+      },
+      {
+        "name": "toAssistantManagementDto",
+        "kind": "function"
+      },
+      {
+        "name": "updateMusicAssistantConfig",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/assistant/handler.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/handler.js",
+    "exports": [
+      {
+        "name": "getLocalAssistantThread",
+        "kind": "function"
+      },
+      {
+        "name": "chatWithAssistantTools",
+        "kind": "function"
+      },
+      {
+        "name": "handleLocalAssistantRoute",
+        "kind": "function"
+      },
+      {
+        "name": "createAssistantHandler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/assistant/images.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/images.js",
+    "exports": [
+      {
+        "name": "assistantImagePolicy",
+        "kind": "function"
+      },
+      {
+        "name": "validateImageIds",
+        "kind": "function"
+      },
+      {
+        "name": "validateOwnChatImages",
+        "kind": "function"
+      },
+      {
+        "name": "imageRefStatements",
+        "kind": "function"
+      },
+      {
+        "name": "prepareAssistantImages",
+        "kind": "function"
+      },
+      {
+        "name": "attachmentDto",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/assistant/liveContext.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/liveContext.js",
+    "exports": [
+      {
+        "name": "liveAssistantContext",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/assistant/memory.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/memory.js",
+    "exports": [
+      {
+        "name": "MemoryError",
+        "kind": "class"
+      },
+      {
+        "name": "memoryEnabled",
+        "kind": "function"
+      },
+      {
+        "name": "readAssistantMemories",
+        "kind": "function"
+      },
+      {
+        "name": "setAssistantMemoryEnabled",
+        "kind": "function"
+      },
+      {
+        "name": "saveAssistantMemory",
+        "kind": "function"
+      },
+      {
+        "name": "deleteAssistantMemory",
+        "kind": "function"
+      },
+      {
+        "name": "mergeAssistantMemories",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/lyrics-workbench/aiAccess.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/aiAccess.js",
+    "exports": [
+      {
+        "name": "createLyricsAiLease",
+        "kind": "function"
+      },
+      {
+        "name": "lyricsStoreGuard",
+        "kind": "value"
+      },
+      {
+        "name": "guardLyricsStore",
+        "kind": "function"
+      },
+      {
+        "name": "createLyricsAiAccess",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/lyrics-workbench/draftAi.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/draftAi.js",
+    "exports": [
+      {
+        "name": "completeLyricDraft",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/lyrics-workbench/handler.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/handler.js",
+    "exports": [
+      {
+        "name": "createLyricsWorkbenchHandler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/lyrics-workbench/invocationBudget.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/invocationBudget.js",
+    "exports": [
+      {
+        "name": "createLyricsInvocationDatabase",
+        "kind": "function"
+      },
+      {
+        "name": "lyricsInvocationBudget",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/lyrics-workbench/translation.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/translation.js",
+    "exports": [
+      {
+        "name": "getDailyLyricCompletionLimit",
+        "kind": "function"
+      },
+      {
+        "name": "resolveLegacyLyricCleanup",
+        "kind": "function"
+      },
+      {
+        "name": "runLyricAssetAiCompletion",
+        "kind": "function"
+      },
+      {
+        "name": "beginLyricAssetAiCompletion",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/lyrics-workbench/workspace.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/workspace.js",
+    "exports": [
+      {
+        "name": "handleLyricsWorkbenchRoute",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/roam/catalog.js": {
+    "pluginId": "roam",
+    "publicKey": "server/catalog.js",
+    "exports": [
+      {
+        "name": "createRoamCatalog",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/roam/handler.js": {
+    "pluginId": "roam",
+    "publicKey": "server/handler.js",
+    "exports": [
+      {
+        "name": "createRoamHandler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/roam/sample.js": {
+    "pluginId": "roam",
+    "publicKey": "server/sample.js",
+    "exports": [
+      {
+        "name": "RoamInputError",
+        "kind": "class"
+      },
+      {
+        "name": "sampleRoam",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/roam/sampler.js": {
+    "pluginId": "roam",
+    "publicKey": "server/sampler.js",
+    "exports": [
+      {
+        "name": "createRoamSampler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/core.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/core.js",
+    "exports": [
+      {
+        "name": "YouTubeError",
+        "kind": "class"
+      },
+      {
+        "name": "videoOf",
+        "kind": "function"
+      },
+      {
+        "name": "browseOf",
+        "kind": "function"
+      },
+      {
+        "name": "localeOf",
+        "kind": "function"
+      },
+      {
+        "name": "imageTarget",
+        "kind": "function"
+      },
+      {
+        "name": "streamTarget",
+        "kind": "function"
+      },
+      {
+        "name": "safeText",
+        "kind": "function"
+      },
+      {
+        "name": "chooseAudio",
+        "kind": "function"
+      },
+      {
+        "name": "digest",
+        "kind": "function"
+      },
+      {
+        "name": "publicError",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/evaluator-core.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/evaluator-core.js",
+    "exports": [
+      {
+        "name": "PLAYER_EVALUATOR_LIMITS",
+        "kind": "value"
+      },
+      {
+        "name": "evaluatePlayerInEngine",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/media.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/media.js",
+    "exports": [
+      {
+        "name": "fetchMedia",
+        "kind": "function"
+      },
+      {
+        "name": "streamOptions",
+        "kind": "function"
+      },
+      {
+        "name": "streamResponse",
+        "kind": "function"
+      },
+      {
+        "name": "imageResponse",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/normalize.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/normalize.js",
+    "exports": [
+      {
+        "name": "songId",
+        "kind": "function"
+      },
+      {
+        "name": "artistId",
+        "kind": "function"
+      },
+      {
+        "name": "albumId",
+        "kind": "function"
+      },
+      {
+        "name": "COVER_IMAGE_SIZE",
+        "kind": "value"
+      },
+      {
+        "name": "highResolutionImageTarget",
+        "kind": "function"
+      },
+      {
+        "name": "thumbnails",
+        "kind": "function"
+      },
+      {
+        "name": "item",
+        "kind": "function"
+      },
+      {
+        "name": "shelf",
+        "kind": "function"
+      },
+      {
+        "name": "searchResult",
+        "kind": "function"
+      },
+      {
+        "name": "albumResult",
+        "kind": "function"
+      },
+      {
+        "name": "artistResult",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/pagination.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/pagination.js",
+    "exports": [
+      {
+        "name": "pageOptions",
+        "kind": "function"
+      },
+      {
+        "name": "pagedSearch",
+        "kind": "function"
+      },
+      {
+        "name": "pagedArtist",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/player.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/player.js",
+    "exports": [
+      {
+        "name": "PROFILE",
+        "kind": "value"
+      },
+      {
+        "name": "createPlayer",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/public-visibility.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/public-visibility.js",
+    "exports": [
+      {
+        "name": "publicVisibilityTarget",
+        "kind": "function"
+      },
+      {
+        "name": "createPublicVisibilityGate",
+        "kind": "function"
+      },
+      {
+        "name": "assertPublicVideo",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/runtime-actor.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/runtime-actor.js",
+    "exports": [
+      {
+        "name": "createYouTubeRuntimeHandler",
+        "kind": "function"
+      },
+      {
+        "name": "YouTubeRuntime",
+        "kind": "class"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/service.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/service.js",
+    "exports": [
+      {
+        "name": "createYouTubeService",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/timed-lyrics.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/timed-lyrics.js",
+    "exports": [
+      {
+        "name": "MUSIC_LYRICS_CLIENT_VERSION",
+        "kind": "value"
+      },
+      {
+        "name": "normalizeTimedLyrics",
+        "kind": "function"
+      },
+      {
+        "name": "fetchTimedLyrics",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/tv-profile.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/tv-profile.js",
+    "exports": [
+      {
+        "name": "SAMSUNG_UA",
+        "kind": "value"
+      },
+      {
+        "name": "applySamsungProfile",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/upstream.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/upstream.js",
+    "exports": [
+      {
+        "name": "upstreamFetch",
+        "kind": "function"
+      },
+      {
+        "name": "mediaFetch",
+        "kind": "function"
+      },
+      {
+        "name": "credentialScope",
+        "kind": "function"
+      },
+      {
+        "name": "signInNative",
+        "kind": "function"
+      },
+      {
+        "name": "createSessionManager",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtube/worker-evaluator.mjs": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/worker-evaluator.js",
+    "exports": [
+      {
+        "name": "ready",
+        "kind": "function"
+      },
+      {
+        "name": "evaluatePlayer",
+        "kind": "function"
+      },
+      {
+        "name": "PLAYER_EVALUATOR_LIMITS",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/plugins/youtubeAdmin.js": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/admin.js",
+    "exports": [
+      {
+        "name": "safeDeviceDisplay",
+        "kind": "function"
+      },
+      {
+        "name": "createYouTubeHandler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/youtubeConnection.js": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/connection.js",
+    "exports": [
+      {
+        "name": "YOUTUBE_PLUGIN_ID",
+        "kind": "value"
+      },
+      {
+        "name": "YOUTUBE_CONNECTION_KEY",
+        "kind": "value"
+      },
+      {
+        "name": "validYouTubeCredentials",
+        "kind": "function"
+      },
+      {
+        "name": "sealYouTubeConnection",
+        "kind": "function"
+      },
+      {
+        "name": "openYouTubeConnection",
+        "kind": "function"
+      },
+      {
+        "name": "readYouTubeConnection",
+        "kind": "function"
+      },
+      {
+        "name": "saveYouTubeConnection",
+        "kind": "function"
+      },
+      {
+        "name": "publicYouTubeStatus",
+        "kind": "function"
+      },
+      {
+        "name": "getYouTubeBinding",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/routes/youtubeIntegration.js": {
+    "pluginId": "youtube-music",
+    "publicKey": "server/integration.js",
+    "exports": [
+      {
+        "name": "createYouTubeAccess",
+        "kind": "function"
+      },
+      {
+        "name": "youtubeLyricDependencies",
+        "kind": "function"
+      },
+      {
+        "name": "youtubeAccountMusicDependencies",
+        "kind": "function"
+      },
+      {
+        "name": "handleYouTubeMusicRoute",
+        "kind": "function"
+      },
+      {
+        "name": "handleYouTubeMedia",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/plugins/xiaomiAdapter.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "server/handler.js",
+    "exports": [
+      {
+        "name": "createXiaomiHandler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/routes/speakers.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "server/api.js",
+    "exports": [
+      {
+        "name": "handleSpeakerApi",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/routes/speakerMedia.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "server/media.js",
+    "exports": [
+      {
+        "name": "parseSpeakerRange",
+        "kind": "function"
+      },
+      {
+        "name": "handleSpeakerMedia",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/speakers/service.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "server/service.js",
+    "exports": [
+      {
+        "name": "TEST_AUDIO_URL",
+        "kind": "value"
+      },
+      {
+        "name": "status",
+        "kind": "function"
+      },
+      {
+        "name": "beginLogin",
+        "kind": "function"
+      },
+      {
+        "name": "pollLogin",
+        "kind": "function"
+      },
+      {
+        "name": "disconnect",
+        "kind": "function"
+      },
+      {
+        "name": "refreshDevices",
+        "kind": "function"
+      },
+      {
+        "name": "songMediaPath",
+        "kind": "function"
+      },
+      {
+        "name": "playbackState",
+        "kind": "function"
+      },
+      {
+        "name": "command",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/speakers/store.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "server/store.js",
+    "exports": [
+      {
+        "name": "speakerKey",
+        "kind": "function"
+      },
+      {
+        "name": "fail",
+        "kind": "function"
+      },
+      {
+        "name": "seal",
+        "kind": "function"
+      },
+      {
+        "name": "open",
+        "kind": "function"
+      },
+      {
+        "name": "readRecord",
+        "kind": "function"
+      },
+      {
+        "name": "saveRecord",
+        "kind": "function"
+      },
+      {
+        "name": "publicStatus",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/speakers/xiaomi.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "server/xiaomi.js",
+    "exports": [
+      {
+        "name": "XiaomiError",
+        "kind": "class"
+      },
+      {
+        "name": "beginQr",
+        "kind": "function"
+      },
+      {
+        "name": "pollQr",
+        "kind": "function"
+      },
+      {
+        "name": "exchange",
+        "kind": "function"
+      },
+      {
+        "name": "listDevices",
+        "kind": "function"
+      },
+      {
+        "name": "playMusic",
+        "kind": "function"
+      },
+      {
+        "name": "stopMusic",
+        "kind": "function"
+      },
+      {
+        "name": "pauseMusic",
+        "kind": "function"
+      },
+      {
+        "name": "resumeMusic",
+        "kind": "function"
+      },
+      {
+        "name": "setVolume",
+        "kind": "function"
+      },
+      {
+        "name": "seekMusic",
+        "kind": "function"
+      },
+      {
+        "name": "getPlaybackState",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/lyricAiConfig.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/config.js",
+    "exports": [
+      {
+        "name": "loadLyricAiConfig",
+        "kind": "function"
+      },
+      {
+        "name": "loadLyricTargetLanguage",
+        "kind": "function"
+      },
+      {
+        "name": "loadLyricAiProcessingSettings",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/utils/lyricAiConfig.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/policy.js",
+    "exports": [
+      {
+        "name": "DEFAULT_LYRIC_AI_CONFIG",
+        "kind": "value"
+      },
+      {
+        "name": "lyricAiProcessingKey",
+        "kind": "function"
+      },
+      {
+        "name": "normalizeLyricAiConfig",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/instanceAdmin/lyricSourceTest.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/sourceTest.js",
+    "exports": [
+      {
+        "name": "testLyricSource",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/lyricDraftReceipt.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/draftReceipt.js",
+    "exports": [
+      {
+        "name": "createLyricDraftReceipt",
+        "kind": "function"
+      },
+      {
+        "name": "verifyLyricDraftReceipt",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiUsageStore.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/usage.js",
+    "exports": [
+      {
+        "name": "reserveDailyQuota",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/utils/lyricsTranslation.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/translationFormat.js",
+    "exports": [
+      {
+        "name": "analyzeLrcLanguage",
+        "kind": "value"
+      },
+      {
+        "name": "computeHash",
+        "kind": "value"
+      },
+      {
+        "name": "isNonLyricText",
+        "kind": "value"
+      },
+      {
+        "name": "normalizeLrcForHash",
+        "kind": "value"
+      },
+      {
+        "name": "parseLrcLines",
+        "kind": "value"
+      },
+      {
+        "name": "buildTranslationPrompt",
+        "kind": "function"
+      },
+      {
+        "name": "buildTranslationBatches",
+        "kind": "function"
+      },
+      {
+        "name": "parseTranslationResponse",
+        "kind": "function"
+      },
+      {
+        "name": "parseLanguageAwareTranslationResponse",
+        "kind": "function"
+      },
+      {
+        "name": "reconstructTranslatedLrc",
+        "kind": "function"
+      },
+      {
+        "name": "orderedLyricBody",
+        "kind": "function"
+      },
+      {
+        "name": "computeLyricsBodyHash",
+        "kind": "function"
+      },
+      {
+        "name": "retimeCachedTranslation",
+        "kind": "function"
+      },
+      {
+        "name": "getTranslationPromptVersion",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/utils/unifiedAiSystemPrompt.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/unifiedPrompt.js",
+    "exports": [
+      {
+        "name": "buildUnifiedAiSystemPrompt",
+        "kind": "function"
+      }
+    ]
+  },
+  "shared/aiProtocols.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "shared/aiProtocols.js",
+    "exports": [
+      {
+        "name": "AI_PROTOCOLS",
+        "kind": "value"
+      },
+      {
+        "name": "AI_REASONING_EFFORTS",
+        "kind": "value"
+      },
+      {
+        "name": "AI_SOURCES",
+        "kind": "value"
+      },
+      {
+        "name": "sourceFromProvider",
+        "kind": "function"
+      },
+      {
+        "name": "legacyProtocol",
+        "kind": "function"
+      },
+      {
+        "name": "effectiveAiBaseUrl",
+        "kind": "function"
+      },
+      {
+        "name": "validateAiBaseUrl",
+        "kind": "function"
+      },
+      {
+        "name": "normalizeGenerationOptions",
+        "kind": "function"
+      }
+    ]
+  },
+  "shared/assistantFailure.js": {
+    "pluginId": "assistant",
+    "publicKey": "shared/assistantFailure.js",
+    "exports": [
+      {
+        "name": "assistantFailureReason",
+        "kind": "function"
+      },
+      {
+        "name": "assistantInternalFailureCode",
+        "kind": "function"
+      }
+    ]
+  },
+  "shared/assistantProcessTrace.js": {
+    "pluginId": "assistant",
+    "publicKey": "shared/assistantProcessTrace.js",
+    "exports": [
+      {
+        "name": "appendThoughtProcessEntry",
+        "kind": "function"
+      },
+      {
+        "name": "appendToolProcessEntry",
+        "kind": "function"
+      },
+      {
+        "name": "finishToolProcessEntry",
+        "kind": "function"
+      },
+      {
+        "name": "getAssistantProcessTimeline",
+        "kind": "function"
+      },
+      {
+        "name": "getAssistantProcessOverview",
+        "kind": "function"
+      },
+      {
+        "name": "getAssistantProcessStatus",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/tools/assistantMemory.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/assistantMemory.js",
+    "exports": [
+      {
+        "name": "assistantMemoryTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/currentTime.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/currentTime.js",
+    "exports": [
+      {
+        "name": "DEFAULT_TIME_ZONE",
+        "kind": "value"
+      },
+      {
+        "name": "currentTimeTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/getCurrentPlayback.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/getCurrentPlayback.js",
+    "exports": [
+      {
+        "name": "getCurrentPlaybackTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/index.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/index.js",
+    "exports": [
+      {
+        "name": "getToolProgressText",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/tools/localListeningStats.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/localListeningStats.js",
+    "exports": [
+      {
+        "name": "localListeningStatsTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/localManagePlaylist.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/localManagePlaylist.js",
+    "exports": [
+      {
+        "name": "executeLocalManagePlaylist",
+        "kind": "function"
+      },
+      {
+        "name": "localManagePlaylistTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/localPersonalPlaylists.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/localPersonalPlaylists.js",
+    "exports": [
+      {
+        "name": "validPersonalPlaylistArgs",
+        "kind": "function"
+      },
+      {
+        "name": "localPersonalPlaylistsTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/managePlaylist.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/managePlaylist.js",
+    "exports": [
+      {
+        "name": "managePlaylistTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/musicControl.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/musicControl.js",
+    "exports": [
+      {
+        "name": "musicControlTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/musicQuery.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/musicQuery.js",
+    "exports": [
+      {
+        "name": "queryRandomSongs",
+        "kind": "function"
+      },
+      {
+        "name": "musicQueryTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/playerQueue.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/playerQueue.js",
+    "exports": [
+      {
+        "name": "playerQueueTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/playerSeek.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/playerSeek.js",
+    "exports": [
+      {
+        "name": "playerSeekTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/roamControl.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/roamControl.js",
+    "exports": [
+      {
+        "name": "createRoamControlTool",
+        "kind": "function"
+      },
+      {
+        "name": "roamControlTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/songDetails.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/songDetails.js",
+    "exports": [
+      {
+        "name": "songDetailsTool",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/tools/toolResult.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/tools/toolResult.js",
+    "exports": [
+      {
+        "name": "assertToolResult",
+        "kind": "function"
+      },
+      {
+        "name": "createToolResult",
+        "kind": "function"
+      },
+      {
+        "name": "createToolFailure",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/ai.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/ai.js",
+    "exports": [
+      {
+        "name": "AI_STREAM_IDLE_TIMEOUT_MS",
+        "kind": "value"
+      },
+      {
+        "name": "buildGeminiContents",
+        "kind": "value"
+      },
+      {
+        "name": "createAiStreamIdleTimeoutError",
+        "kind": "value"
+      },
+      {
+        "name": "isTerminalGeminiFinishReason",
+        "kind": "value"
+      },
+      {
+        "name": "parseGeminiCandidateParts",
+        "kind": "value"
+      },
+      {
+        "name": "readStreamChunkWithIdleTimeout",
+        "kind": "value"
+      },
+      {
+        "name": "getPublicAiErrorCode",
+        "kind": "function"
+      },
+      {
+        "name": "resolveAIConfig",
+        "kind": "function"
+      },
+      {
+        "name": "getAIAssistantConfig",
+        "kind": "function"
+      },
+      {
+        "name": "askAI",
+        "kind": "function"
+      },
+      {
+        "name": "chatAI",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiAnthropic.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiAnthropic.js",
+    "exports": [
+      {
+        "name": "buildAnthropicMessages",
+        "kind": "function"
+      },
+      {
+        "name": "askAnthropic",
+        "kind": "function"
+      },
+      {
+        "name": "chatAnthropic",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiGemini.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiGemini.js",
+    "exports": [
+      {
+        "name": "AI_STREAM_IDLE_TIMEOUT_MS",
+        "kind": "value"
+      },
+      {
+        "name": "isTerminalGeminiFinishReason",
+        "kind": "function"
+      },
+      {
+        "name": "createAiStreamIdleTimeoutError",
+        "kind": "function"
+      },
+      {
+        "name": "readStreamChunkWithIdleTimeout",
+        "kind": "function"
+      },
+      {
+        "name": "buildGeminiContents",
+        "kind": "function"
+      },
+      {
+        "name": "geminiGenerationConfig",
+        "kind": "function"
+      },
+      {
+        "name": "parseGeminiCandidateParts",
+        "kind": "function"
+      },
+      {
+        "name": "askGemini",
+        "kind": "function"
+      },
+      {
+        "name": "chatGemini",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiJsonEventStream.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiJsonEventStream.js",
+    "exports": [
+      {
+        "name": "createJsonEventStreamParser",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiOpenAICompatible.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiOpenAICompatible.js",
+    "exports": [
+      {
+        "name": "wantsJson",
+        "kind": "function"
+      },
+      {
+        "name": "buildChatMessages",
+        "kind": "function"
+      },
+      {
+        "name": "askChatCompletions",
+        "kind": "function"
+      },
+      {
+        "name": "chatOpenAICompatible",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiResponses.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiResponses.js",
+    "exports": [
+      {
+        "name": "buildResponsesInput",
+        "kind": "function"
+      },
+      {
+        "name": "askResponses",
+        "kind": "function"
+      },
+      {
+        "name": "chatResponses",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiStream.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiStream.js",
+    "exports": [
+      {
+        "name": "AI_STREAM_IDLE_TIMEOUT_MS",
+        "kind": "value"
+      },
+      {
+        "name": "createAiStreamIdleTimeoutError",
+        "kind": "function"
+      },
+      {
+        "name": "readStreamChunkWithIdleTimeout",
+        "kind": "function"
+      },
+      {
+        "name": "consumeAiStream",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/aiTransport.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "server/aiTransport.js",
+    "exports": [
+      {
+        "name": "setAiConnectionTimeout",
+        "kind": "function"
+      },
+      {
+        "name": "aiConnection",
+        "kind": "function"
+      },
+      {
+        "name": "aiHeaders",
+        "kind": "function"
+      },
+      {
+        "name": "fetchAi",
+        "kind": "function"
+      },
+      {
+        "name": "requestReasoningEffort",
+        "kind": "function"
+      },
+      {
+        "name": "isOpenAiReasoningModel",
+        "kind": "function"
+      },
+      {
+        "name": "parseArguments",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/assistantCheckpoint.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/checkpoint.js",
+    "exports": [
+      {
+        "name": "readAssistantCheckpoint",
+        "kind": "function"
+      },
+      {
+        "name": "createAssistantCheckpoint",
+        "kind": "function"
+      },
+      {
+        "name": "assistantContextIdentity",
+        "kind": "function"
+      },
+      {
+        "name": "assistantOperationKey",
+        "kind": "function"
+      },
+      {
+        "name": "guardedAssistantToolDb",
+        "kind": "function"
+      },
+      {
+        "name": "completeSavedToolContext",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/assistantImages.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/images.js",
+    "exports": [
+      {
+        "name": "assistantImagePolicy",
+        "kind": "function"
+      },
+      {
+        "name": "validateImageIds",
+        "kind": "function"
+      },
+      {
+        "name": "validateOwnChatImages",
+        "kind": "function"
+      },
+      {
+        "name": "imageRefStatements",
+        "kind": "function"
+      },
+      {
+        "name": "prepareAssistantImages",
+        "kind": "function"
+      },
+      {
+        "name": "attachmentDto",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/assistantMemory.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/memory.js",
+    "exports": [
+      {
+        "name": "MemoryError",
+        "kind": "class"
+      },
+      {
+        "name": "memoryEnabled",
+        "kind": "function"
+      },
+      {
+        "name": "readAssistantMemories",
+        "kind": "function"
+      },
+      {
+        "name": "setAssistantMemoryEnabled",
+        "kind": "function"
+      },
+      {
+        "name": "saveAssistantMemory",
+        "kind": "function"
+      },
+      {
+        "name": "deleteAssistantMemory",
+        "kind": "function"
+      },
+      {
+        "name": "mergeAssistantMemories",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/assistants.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/config.js",
+    "exports": [
+      {
+        "name": "readMusicAssistantConfig",
+        "kind": "function"
+      },
+      {
+        "name": "exposeAssistantBootstrap",
+        "kind": "function"
+      },
+      {
+        "name": "toAssistantManagementDto",
+        "kind": "function"
+      },
+      {
+        "name": "updateMusicAssistantConfig",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/lyricAssetTranslation.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/translation.js",
+    "exports": [
+      {
+        "name": "getDailyLyricCompletionLimit",
+        "kind": "function"
+      },
+      {
+        "name": "resolveLegacyLyricCleanup",
+        "kind": "function"
+      },
+      {
+        "name": "runLyricAssetAiCompletion",
+        "kind": "function"
+      },
+      {
+        "name": "beginLyricAssetAiCompletion",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/services/lyricDraftAi.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/draftAi.js",
+    "exports": [
+      {
+        "name": "completeLyricDraft",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/routes/localAssistant.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/handler.js",
+    "exports": [
+      {
+        "name": "getLocalAssistantThread",
+        "kind": "function"
+      },
+      {
+        "name": "chatWithAssistantTools",
+        "kind": "function"
+      },
+      {
+        "name": "handleLocalAssistantRoute",
+        "kind": "function"
+      },
+      {
+        "name": "createAssistantHandler",
+        "kind": "function"
+      }
+    ]
+  },
+  "server/src/routes/localAssistantContext.js": {
+    "pluginId": "assistant",
+    "publicKey": "server/liveContext.js",
+    "exports": [
+      {
+        "name": "liveAssistantContext",
+        "kind": "function"
+      }
+    ]
+  },
+  "client/src/plugins/ai-gateway/api.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "client/api.js",
+    "exports": [
+      {
+        "name": "getAiProviders",
+        "kind": "function"
+      },
+      {
+        "name": "createAiProvider",
+        "kind": "function"
+      },
+      {
+        "name": "updateAiProvider",
+        "kind": "function"
+      },
+      {
+        "name": "deleteAiProvider",
+        "kind": "function"
+      },
+      {
+        "name": "getAiProviderModels",
+        "kind": "function"
+      },
+      {
+        "name": "saveAiFeatureModel",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/ai-gateway/GatewaySettings.jsx": {
+    "pluginId": "ai-gateway",
+    "publicKey": "client/GatewaySettings.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/ai-gateway/providerDraft.js": {
+    "pluginId": "ai-gateway",
+    "publicKey": "client/providerDraft.js",
+    "exports": [
+      {
+        "name": "providerDraft",
+        "kind": "function"
+      },
+      {
+        "name": "changeProviderSource",
+        "kind": "function"
+      },
+      {
+        "name": "providerNeedsKey",
+        "kind": "function"
+      },
+      {
+        "name": "providerLabel",
+        "kind": "function"
+      },
+      {
+        "name": "featureDraft",
+        "kind": "function"
+      },
+      {
+        "name": "changeFeatureProvider",
+        "kind": "function"
+      },
+      {
+        "name": "changeFeatureModel",
+        "kind": "function"
+      },
+      {
+        "name": "modelListError",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/AssistantAction.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantAction.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/AssistantAttachments.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantAttachments.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/AssistantMemoryView.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantMemoryView.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/AssistantPluginPage.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantPluginPage.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/AssistantSettings.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantSettings.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/AssistantView.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantView.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      },
+      {
+        "name": "XiaoaView",
+        "kind": "value"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/client.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/client.js",
+    "exports": [
+      {
+        "name": "assistantFetch",
+        "kind": "function"
+      },
+      {
+        "name": "registerConversationClear",
+        "kind": "function"
+      },
+      {
+        "name": "clearConversation",
+        "kind": "function"
+      },
+      {
+        "name": "loadThinkingPreference",
+        "kind": "function"
+      },
+      {
+        "name": "saveThinkingPreference",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/failure.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/failure.js",
+    "exports": [
+      {
+        "name": "assistantFailureMessage",
+        "kind": "function"
+      },
+      {
+        "name": "withAssistantFailure",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/imagePreview.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/imagePreview.js",
+    "exports": [
+      {
+        "name": "resolveAssistantImagePreview",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/liveContext.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/liveContext.js",
+    "exports": [
+      {
+        "name": "captureAssistantLiveContext",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/playlistDeletion.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/playlistDeletion.js",
+    "exports": [
+      {
+        "name": "confirmAssistantPlaylistDeletion",
+        "kind": "function"
+      },
+      {
+        "name": "rebindAssistantPlaylistConfirmations",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/request.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/request.js",
+    "exports": [
+      {
+        "name": "optimisticAssistantUserMessage",
+        "kind": "function"
+      },
+      {
+        "name": "localAssistantMutationHeaders",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/thread.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/thread.js",
+    "exports": [
+      {
+        "name": "normalizeCloudThreadMessages",
+        "kind": "function"
+      },
+      {
+        "name": "pendingAssistantTurn",
+        "kind": "function"
+      },
+      {
+        "name": "normalizeCloudThread",
+        "kind": "function"
+      },
+      {
+        "name": "AiThreadRequestError",
+        "kind": "class"
+      },
+      {
+        "name": "fetchCloudThread",
+        "kind": "function"
+      },
+      {
+        "name": "mergeAssistantProcessMessages",
+        "kind": "function"
+      },
+      {
+        "name": "planCloudThreadSync",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/assistant/welcome.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/welcome.js",
+    "exports": [
+      {
+        "name": "DEFAULT_ASSISTANT_NAME",
+        "kind": "value"
+      },
+      {
+        "name": "resolveAssistantWelcome",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/api.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/api.js",
+    "exports": [
+      {
+        "name": "LYRIC_OFFSET_MIN",
+        "kind": "value"
+      },
+      {
+        "name": "LYRIC_OFFSET_MAX",
+        "kind": "value"
+      },
+      {
+        "name": "clampLyricOffset",
+        "kind": "function"
+      },
+      {
+        "name": "LyricsWorkspaceError",
+        "kind": "class"
+      },
+      {
+        "name": "createLyricsWorkspaceApi",
+        "kind": "function"
+      },
+      {
+        "name": "bindLyricsWorkspaceHost",
+        "kind": "function"
+      },
+      {
+        "name": "lyricsWorkspaceApi",
+        "kind": "value"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/candidates.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/candidates.js",
+    "exports": [
+      {
+        "name": "projectCandidateInspectionError",
+        "kind": "function"
+      },
+      {
+        "name": "lyricRetryAt",
+        "kind": "function"
+      },
+      {
+        "name": "LYRICS_WORKSPACE_MOBILE_QUERY",
+        "kind": "value"
+      },
+      {
+        "name": "createWorkspaceRequestLifecycle",
+        "kind": "function"
+      },
+      {
+        "name": "getWorkspacePaneAccessibility",
+        "kind": "function"
+      },
+      {
+        "name": "projectProviderWarnings",
+        "kind": "function"
+      },
+      {
+        "name": "projectCandidateWarnings",
+        "kind": "function"
+      },
+      {
+        "name": "getCandidateQualityTier",
+        "kind": "function"
+      },
+      {
+        "name": "sortLyricsCandidates",
+        "kind": "function"
+      },
+      {
+        "name": "getCandidateMatchTier",
+        "kind": "function"
+      },
+      {
+        "name": "filterLyricsCandidates",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/editor.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/editor.js",
+    "exports": [
+      {
+        "name": "parseLyricTime",
+        "kind": "function"
+      },
+      {
+        "name": "serializeLyricEditorRows",
+        "kind": "function"
+      },
+      {
+        "name": "insertLyricRow",
+        "kind": "function"
+      },
+      {
+        "name": "validateLyricRows",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/LyricsCandidatePanel.jsx": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/LyricsCandidatePanel.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/LyricSourceQuickTest.jsx": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/LyricSourceQuickTest.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/LyricSourcesSettings.jsx": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/LyricSourcesSettings.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/LyricsPluginPage.jsx": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/LyricsPluginPage.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/LyricsSettings.jsx": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/LyricsSettings.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/previewScroll.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/previewScroll.js",
+    "exports": [
+      {
+        "name": "centeredLyricScrollTop",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/runtime.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/runtime.js",
+    "exports": [
+      {
+        "name": "startLyricsWorkbenchRuntime",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/timelineShift.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/timelineShift.js",
+    "exports": [
+      {
+        "name": "TIMELINE_SHIFT_LIMIT_MS",
+        "kind": "value"
+      },
+      {
+        "name": "TIMELINE_SHIFT_STEP_MS",
+        "kind": "value"
+      },
+      {
+        "name": "clampTimelineShift",
+        "kind": "function"
+      },
+      {
+        "name": "stepTimelineShift",
+        "kind": "function"
+      },
+      {
+        "name": "timelineShiftAtY",
+        "kind": "function"
+      },
+      {
+        "name": "projectTimelineShift",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/useHostPlayer.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/useHostPlayer.js",
+    "exports": [
+      {
+        "name": "useHostPlayer",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/useManagedLyricsAsset.js": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/useManagedLyricsAsset.js",
+    "exports": [
+      {
+        "name": "unwrapManagedLyricsAsset",
+        "kind": "function"
+      },
+      {
+        "name": "useManagedLyricsAsset",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/lyrics-workbench/workspace.css": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "client/workspace.css",
+    "exports": [],
+    "kind": "css"
+  },
+  "client/src/plugins/roam/algorithms.js": {
+    "pluginId": "roam",
+    "publicKey": "client/algorithms.js",
+    "exports": [
+      {
+        "name": "RANDOM_ROAM_PREFETCH_THRESHOLD",
+        "kind": "value"
+      },
+      {
+        "name": "RANDOM_ROAM_SEEN_IDS_LIMIT",
+        "kind": "value"
+      },
+      {
+        "name": "normalizeRoamLanguage",
+        "kind": "function"
+      },
+      {
+        "name": "createInactiveRandomRoam",
+        "kind": "function"
+      },
+      {
+        "name": "normalizeRandomRoamSongIds",
+        "kind": "function"
+      },
+      {
+        "name": "normalizeRandomRoamState",
+        "kind": "function"
+      },
+      {
+        "name": "getRandomRoamRemainingAfterCurrent",
+        "kind": "function"
+      },
+      {
+        "name": "shouldPrefetchRandomRoam",
+        "kind": "function"
+      },
+      {
+        "name": "normalizeRandomRoamResponse",
+        "kind": "function"
+      },
+      {
+        "name": "buildRandomRoamPayload",
+        "kind": "function"
+      },
+      {
+        "name": "recentRoamIds",
+        "kind": "function"
+      },
+      {
+        "name": "splitRoamQueue",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/controller.js": {
+    "pluginId": "roam",
+    "publicKey": "client/controller.js",
+    "exports": [
+      {
+        "name": "createRoamController",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/languages.js": {
+    "pluginId": "roam",
+    "publicKey": "client/languages.js",
+    "exports": [
+      {
+        "name": "ROAM_LANGUAGES",
+        "kind": "value"
+      },
+      {
+        "name": "normalizeRoamLanguage",
+        "kind": "value"
+      },
+      {
+        "name": "formatRoamLanguageScope",
+        "kind": "function"
+      },
+      {
+        "name": "getMatchingRoamLanguageKey",
+        "kind": "function"
+      },
+      {
+        "name": "getRoamShortcutLabel",
+        "kind": "function"
+      },
+      {
+        "name": "getRoamShortcutToast",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/preferences.js": {
+    "pluginId": "roam",
+    "publicKey": "client/preferences.js",
+    "exports": [
+      {
+        "name": "normalizeRoamPreferences",
+        "kind": "function"
+      },
+      {
+        "name": "createRoamPreferences",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/RoamOverview.jsx": {
+    "pluginId": "roam",
+    "publicKey": "client/RoamOverview.jsx",
+    "exports": [
+      {
+        "name": "ROAM_LANGUAGES",
+        "kind": "value"
+      },
+      {
+        "name": "ROAM_BATCH_SIZE_OPTIONS",
+        "kind": "value"
+      },
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/RoamPluginPage.jsx": {
+    "pluginId": "roam",
+    "publicKey": "client/RoamPluginPage.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/rolling.js": {
+    "pluginId": "roam",
+    "publicKey": "client/rolling.js",
+    "exports": [
+      {
+        "name": "recentRoamIds",
+        "kind": "value"
+      },
+      {
+        "name": "splitRoamQueue",
+        "kind": "value"
+      },
+      {
+        "name": "appendRollingRoam",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/runtime.js": {
+    "pluginId": "roam",
+    "publicKey": "client/runtime.js",
+    "exports": [
+      {
+        "name": "startRoamRuntime",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/roam/state.js": {
+    "pluginId": "roam",
+    "publicKey": "client/state.js",
+    "exports": [
+      {
+        "name": "getRoamState",
+        "kind": "function"
+      },
+      {
+        "name": "subscribeRoam",
+        "kind": "function"
+      },
+      {
+        "name": "useRoamState",
+        "kind": "function"
+      },
+      {
+        "name": "bindRoamController",
+        "kind": "function"
+      },
+      {
+        "name": "roamActions",
+        "kind": "value"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/youtube/runtime.js": {
+    "pluginId": "youtube-music",
+    "publicKey": "client/runtime.js",
+    "exports": [
+      {
+        "name": "startYouTubeRuntime",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/youtube/YouTubeSettings.jsx": {
+    "pluginId": "youtube-music",
+    "publicKey": "client/YouTubeSettings.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/xiaomi/runtime.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/runtime.js",
+    "exports": [
+      {
+        "name": "startXiaomiRuntime",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/plugins/xiaomi/SpeakerPluginSection.jsx": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/SpeakerPluginSection.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/components/AiReviewConversation.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantConversation.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/components/AssistantMarkdown.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/AssistantMarkdown.jsx",
+    "exports": [
+      {
+        "name": "renderMarkdownSafe",
+        "kind": "value"
+      },
+      {
+        "name": "AssistantMarkdown",
+        "kind": "function"
+      },
+      {
+        "name": "XiaoaMarkdown",
+        "kind": "value"
+      },
+      {
+        "name": "MarkdownContent",
+        "kind": "value"
+      },
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/assistantMarkdownLinks.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/markdownLinks.js",
+    "exports": [
+      {
+        "name": "resolveAssistantLink",
+        "kind": "function"
+      },
+      {
+        "name": "resolveXiaoaLink",
+        "kind": "value"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/assistantMarkdownRenderer.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/markdownRenderer.js",
+    "exports": [
+      {
+        "name": "renderMarkdownSafe",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/assistantToolText.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/toolText.js",
+    "exports": [
+      {
+        "name": "ASSISTANT_TOOL_TEXT_KEYS",
+        "kind": "value"
+      },
+      {
+        "name": "formatAssistantToolText",
+        "kind": "function"
+      },
+      {
+        "name": "formatAssistantToolEntry",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/utils/assistantMessageTime.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/messageTime.js",
+    "exports": [
+      {
+        "name": "resolveAssistantMessageTime",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/services/assistantInlinePlayback.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/inlinePlayback.js",
+    "exports": [
+      {
+        "name": "playAssistantInlineSong",
+        "kind": "function"
+      },
+      {
+        "name": "activateInlineAssistantSong",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/services/localAssistantPlayer.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/localPlayer.js",
+    "exports": [
+      {
+        "name": "dispatchLocalAssistantPlayerAction",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/assistantPlayerActions.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/playerActions.js",
+    "exports": [
+      {
+        "name": "applyPlayerQueueEdit",
+        "kind": "value"
+      },
+      {
+        "name": "applyCurrentSongMetadataAndToggle",
+        "kind": "value"
+      },
+      {
+        "name": "applyPlaySongNow",
+        "kind": "value"
+      },
+      {
+        "name": "applyReplacePlayerQueue",
+        "kind": "value"
+      },
+      {
+        "name": "applyPlayerControl",
+        "kind": "value"
+      },
+      {
+        "name": "applyRoamControl",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/components/SpeakerSettings.jsx": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/SpeakerSettings.jsx",
+    "exports": [
+      {
+        "name": "SpeakerPrivacy",
+        "kind": "function"
+      },
+      {
+        "name": "SpeakerFeedback",
+        "kind": "function"
+      },
+      {
+        "name": "SpeakerPicker",
+        "kind": "function"
+      },
+      {
+        "name": "SpeakerConnectionPanel",
+        "kind": "function"
+      },
+      {
+        "name": "SpeakerPluginSettings",
+        "kind": "function"
+      },
+      {
+        "name": "default",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/components/SpeakerOutputSettings.jsx": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/SpeakerOutputSettings.jsx",
+    "exports": [
+      {
+        "name": "default",
+        "kind": "function"
+      },
+      {
+        "name": "SpeakerOutputSection",
+        "kind": "function"
+      },
+      {
+        "name": "SpeakerOutputPanel",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/hooks/useSpeakers.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/useSpeakers.js",
+    "exports": [
+      {
+        "name": "useSpeakers",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/hooks/useSpeakerOutput.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/useSpeakerOutput.js",
+    "exports": [
+      {
+        "name": "useSpeakerOutput",
+        "kind": "function"
+      },
+      {
+        "name": "mountSpeakerOutput",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/services/speakers.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/speakers.js",
+    "exports": [
+      {
+        "name": "createSpeakerSessionGuard",
+        "kind": "function"
+      },
+      {
+        "name": "speakerRequest",
+        "kind": "function"
+      },
+      {
+        "name": "speakerOutcomeMessage",
+        "kind": "function"
+      },
+      {
+        "name": "isSpeakerMp3",
+        "kind": "function"
+      },
+      {
+        "name": "speakerErrorMessage",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/services/speakerMirror.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/speakerMirror.js",
+    "exports": [
+      {
+        "name": "createSpeakerMirror",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/store/useSpeakerOutputStore.js": {
+    "pluginId": "xiaomi-speaker",
+    "publicKey": "client/outputState.js",
+    "exports": [
+      {
+        "name": "bindSpeakerOutputControls",
+        "kind": "function"
+      },
+      {
+        "name": "useSpeakerOutputStore",
+        "kind": "value"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/services/aiPlayerActionDispatch.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/actionDispatch.js",
+    "exports": [
+      {
+        "name": "dispatchAiPlayerAction",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/components/AiReviewChrome.jsx": {
+    "pluginId": "assistant",
+    "publicKey": "client/Composer.jsx",
+    "exports": [
+      {
+        "name": "AiReviewComposer",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "client/src/services/assistantAttachmentInput.js": {
+    "pluginId": "assistant",
+    "publicKey": "client/attachmentInput.js",
+    "exports": [
+      {
+        "name": "clipboardImageFiles",
+        "kind": "function"
+      },
+      {
+        "name": "isFileTransfer",
+        "kind": "function"
+      },
+      {
+        "name": "pasteAttachmentImages",
+        "kind": "function"
+      },
+      {
+        "name": "dropAttachmentFiles",
+        "kind": "function"
+      }
+    ],
+    "kind": "module"
+  },
+  "server/src/utils/aiPromptDefaults.js#assistant": {
+    "pluginId": "assistant",
+    "publicKey": "server/defaultPrompts.js",
+    "exports": [
+      {
+        "name": "DEFAULT_ASSISTANT_PERSONA",
+        "kind": "value"
+      },
+      {
+        "name": "DEFAULT_ASSISTANT_RULES",
+        "kind": "value"
+      }
+    ]
+  },
+  "server/src/utils/aiPromptDefaults.js#lyrics-workbench": {
+    "pluginId": "lyrics-workbench",
+    "publicKey": "server/defaultPrompts.js",
+    "exports": [
+      {
+        "name": "DEFAULT_LYRIC_TRANSLATION_RULES",
+        "kind": "value"
+      }
+    ]
+  }
+}

@@ -1,3 +1,5 @@
+import { subscribeMusicSources } from '../services/musicSources.js';
+import { artistFromSong, artistIdentity, isYouTubeEntity, canUseLocalSongLibrary, canReferenceAccountSong, youtubeSearchWarning } from '../utils/musicSource.js';
 import { t } from '../i18n/index.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { Search, Play, ListPlus, Loader2, X, FolderPlus, MoreHorizontal, History, Disc, User, Music, Trash2, ChevronRight, Sparkles } from 'lucide-react';
@@ -53,7 +55,7 @@ function RecentSearchCard({ item, onPlaySong, onOpenArtist, onRemove }) {
   const [photoUrl, setPhotoUrl] = useState(null);
 
   useEffect(() => {
-    if (item.type !== 'artist' || !item.name) return;
+    if (item.type !== 'artist' || !item.name || isYouTubeEntity(item)) return;
     const trimmed = item.name.trim();
     if (ARTIST_PHOTO_CACHE.has(trimmed)) {
       const cached = ARTIST_PHOTO_CACHE.get(trimmed);
@@ -86,6 +88,7 @@ function RecentSearchCard({ item, onPlaySong, onOpenArtist, onRemove }) {
   const handleClick = () => {
     if (item.type === 'artist') {
       onOpenArtist?.({
+        ...item,
         name: item.name,
         coverUrl: displayAvatar,
       });
@@ -178,6 +181,8 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   const searchCacheRef = useRef(cache || createSearchPageCache());
   const initialPage = searchCacheRef.current.get(searchPageKey(route?.query || '', route?.language || 'all'));
   const [songs, setSongs] = useState(() => initialPage?.songs || []);
+  const [songSourceWarnings, setSongSourceWarnings] = useState(() => initialPage?.sourceWarnings || []);
+  const [nextOffset, setNextOffset] = useState(() => initialPage?.nextOffset ?? PAGE_SIZE);
   useEffect(() => {
     const handleSongUpdated = (event) => {
       const updated = event.detail;
@@ -205,6 +210,14 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   const inputRef = useRef(null);
   const searchGenerationRef = useRef(0);
   const loadMoreControllerRef = useRef(null);
+  useEffect(() => subscribeMusicSources(() => {
+    searchGenerationRef.current += 1;
+    loadMoreControllerRef.current?.abort();
+    searchCacheRef.current.clear();
+    setSongs(previous => previous.filter(canUseLocalSongLibrary));
+    setSongSourceWarnings([]);
+    setRefreshVersion(value => value + 1);
+  }), []);
   const prevQueryRef = useRef(initialPage ? (route?.query || '').trim() : '');
   const prevSubCategoryRef = useRef('all');
 
@@ -212,6 +225,12 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
 
   const recordRecentEntity = (entity) => {
     setRecentEntities(saveRecentSearchEntity(entity, accountId));
+  };
+
+  const handleOpenArtist = (artist) => {
+    const entity = { ...artist, type: 'artist', coverUrl: artist.photoUrl || artist.coverUrl };
+    recordRecentEntity(entity);
+    useUIStore.getState().openArtistDrawer(entity);
   };
 
   const handleRemoveRecentEntity = (entity, e) => {
@@ -289,6 +308,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     loadMoreControllerRef.current?.abort();
     loadMoreControllerRef.current = null;
     setLoadingMore(false);
+    setSongSourceWarnings([]);
     if (!isAuthenticated) {
       setStatus('unauthorized');
       setSongs([]);
@@ -328,6 +348,8 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     if (cached) {
       setSongs(cached.songs);
       setHasMore(cached.hasMore);
+      setNextOffset(cached.nextOffset ?? PAGE_SIZE);
+      setSongSourceWarnings(cached.sourceWarnings || []);
       setStatus('ready');
       setIsFiltering(false);
       return undefined;
@@ -368,12 +390,15 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
         const data = await res.json();
         if (generation !== searchGenerationRef.current) return;
         const batch = (data?.data?.songs || []).map(hydratePlayableSong).filter(Boolean);
-        const hasMoreBatch = batch.length === PAGE_SIZE;
+        const hasMoreBatch = data?.data?.hasMore ?? batch.length === PAGE_SIZE;
+        const sourceWarnings = data?.data?.sourceWarnings || [];
 
-        searchCacheRef.current.set(cacheKey, { songs: batch, hasMore: hasMoreBatch });
+        searchCacheRef.current.set(cacheKey, { songs: batch, hasMore: hasMoreBatch, sourceWarnings, nextOffset: data?.data?.nextOffset ?? PAGE_SIZE });
 
         setSongs(batch);
+        setSongSourceWarnings(sourceWarnings);
         setHasMore(hasMoreBatch);
+        setNextOffset(data?.data?.nextOffset ?? PAGE_SIZE);
         setStatus('ready');
         setIsFiltering(false);
       } catch (error) {
@@ -435,7 +460,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     setLoadingMore(true);
     try {
       const languageParam = songSubCategory === 'all' ? '' : `&language=${encodeURIComponent(songSubCategory)}`;
-      const res = await authenticatedFetch(`${getSearchApiBase()}/api/songs/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&offset=${songs.length}${languageParam}`, {
+      const res = await authenticatedFetch(`${getSearchApiBase()}/api/songs/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&offset=${nextOffset}${languageParam}`, {
         credentials: 'include',
         signal: controller.signal,
       });
@@ -450,10 +475,12 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
       setSongs((prev) => {
         const next = [...prev, ...batch];
         const cacheKey = searchPageKey(q, songSubCategory);
-        searchCacheRef.current.set(cacheKey, { songs: next, hasMore: batch.length === PAGE_SIZE });
+        searchCacheRef.current.set(cacheKey, { songs: next, hasMore: data?.data?.hasMore ?? batch.length === PAGE_SIZE, sourceWarnings: data?.data?.sourceWarnings || [], nextOffset: data?.data?.nextOffset ?? nextOffset + PAGE_SIZE });
         return next;
       });
-      setHasMore(batch.length === PAGE_SIZE);
+      setHasMore(data?.data?.hasMore ?? batch.length === PAGE_SIZE);
+      setNextOffset(data?.data?.nextOffset ?? nextOffset + PAGE_SIZE);
+      setSongSourceWarnings(data?.data?.sourceWarnings || []);
     } catch (error) {
       if (error?.name !== 'AbortError' && generation === searchGenerationRef.current) {
         showToast(t("加载更多失败，请稍后重试"));
@@ -553,6 +580,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
 
   const toggleBulkSong = (song, event) => {
     event?.stopPropagation();
+    if (!canReferenceAccountSong(song)) return;
     setSelectedSongIds((current) => {
       const result = toggleSearchBulkSelection(current, song.id);
       if (result.limitReached) showToast(t("一次最多选择 {p0} 首歌曲", { p0: (MAX_SEARCH_BULK_SELECTION) }));
@@ -571,6 +599,10 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     openAddToPlaylist(selectedSongs);
     closeBulkSelection();
   };
+
+  const sourceWarning = youtubeSearchWarning(subView === 'artists' ? fullArtistResults.sourceWarnings
+    : subView === 'albums' ? fullAlbumResults.sourceWarnings
+      : [...songSourceWarnings, ...(artistResults.sourceWarnings || []), ...(albumResults.sourceWarnings || [])]);
 
   return (
     <div className="app-page search-page">
@@ -623,6 +655,8 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
             disabled={!draftQuery.trim()}>{t('搜索')}</button>
         </form>
 
+        {sourceWarning && <p role="status" className="mx-auto mb-6 max-w-2xl text-center text-sm text-[var(--muted)]">{t(sourceWarning)}</p>}
+
         {status === 'error' && (
           <div className="theme-empty mx-auto max-w-2xl rounded-2xl p-6 text-center text-sm">{t("搜索失败，请稍后重试。")}</div>
         )}
@@ -660,18 +694,13 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {recentEntities.map((item) => (
                     <RecentSearchCard
-                      key={item.type === 'song' ? `song-${item.id}` : `artist-${item.name}`}
+                      key={item.type === 'song' ? `song-${item.id}` : `artist-${artistIdentity(item)}`}
                       item={item}
                       onPlaySong={(s) => {
                         playSong(s, [s]);
                         showToast(t("已开始播放 {p0}", { p0: (s.title) }));
                       }}
-                      onOpenArtist={(a) => {
-                        useUIStore.getState().openArtistDrawer({
-                          name: a.name,
-                          coverUrl: a.coverUrl,
-                        });
-                      }}
+                      onOpenArtist={handleOpenArtist}
                       onRemove={handleRemoveRecentEntity}
                     />
                   ))}
@@ -720,8 +749,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                     </div>
                     <ArtistPreviewRow artists={matchedArtists.slice(0, 6)} onVisibleCountChange={setArtistVisibleCount}
                       onOpen={(artist) => {
-                        recordRecentEntity({ type: 'artist', name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
-                        useUIStore.getState().openArtistDrawer({ name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
+                        handleOpenArtist(artist);
                       }} />
                   </div>
                 )}
@@ -788,19 +816,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                             onInsertNext={insertNextWithFeedback}
                             onToggleMenu={(songId) => setOpenMenuSongId((prev) => (prev === songId ? null : songId))}
                             onCloseMenu={() => setOpenMenuSongId(null)}
-                            onFilterArtist={(artist) => {
-                              const artistSongs = songs.filter(s => (s.artist || '').toLowerCase() === (artist || '').toLowerCase());
-                              recordRecentEntity({
-                                type: 'artist',
-                                name: artist,
-                                coverUrl: song.cover_url,
-                              });
-                              useUIStore.getState().openArtistDrawer({
-                                name: artist,
-                                songs: artistSongs.length > 0 ? artistSongs : [song],
-                                coverUrl: song.cover_url,
-                              });
-                            }}
+                            onFilterArtist={(name) => handleOpenArtist(artistFromSong(song, name))}
                           />
                         );
                       })}
@@ -870,7 +886,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                           <button
                             type="button"
                             onClick={() => setIsBulkSelecting(true)}
-                            disabled={filteredSongs.length === 0}
+                            disabled={!filteredSongs.some(canReferenceAccountSong)}
                             className="search-action-btn"
                             title={t("选择多首歌曲加入歌单")}
                           >
@@ -924,19 +940,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                         onInsertNext={insertNextWithFeedback}
                         onToggleMenu={(songId) => setOpenMenuSongId((prev) => (prev === songId ? null : songId))}
                         onCloseMenu={() => setOpenMenuSongId(null)}
-                        onFilterArtist={(artist) => {
-                          const artistSongs = songs.filter(s => (s.artist || '').toLowerCase() === (artist || '').toLowerCase());
-                          recordRecentEntity({
-                            type: 'artist',
-                            name: artist,
-                            coverUrl: song.cover_url,
-                          });
-                          useUIStore.getState().openArtistDrawer({
-                            name: artist,
-                            songs: artistSongs.length > 0 ? artistSongs : [song],
-                            coverUrl: song.cover_url,
-                          });
-                        }}
+                        onFilterArtist={(name) => handleOpenArtist(artistFromSong(song, name))}
                       />
                     );
                   })}
@@ -962,9 +966,8 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                 {subView === 'artists' ? (
                   <>
                     <div className="artist-full-grid">
-                      {fullArtistResults.items.map((artist) => <ArtistCard key={artist.name} artist={artist} onOpen={() => {
-                        recordRecentEntity({ type: 'artist', name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
-                        useUIStore.getState().openArtistDrawer({ name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
+                      {fullArtistResults.items.map((artist) => <ArtistCard key={artist.id || artist.name} artist={artist} onOpen={() => {
+                        handleOpenArtist(artist);
                       }} />)}
                     </div>
                     {fullArtistResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullArtistResults.loadMore} disabled={fullArtistResults.loadingMore}>{fullArtistResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}

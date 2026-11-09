@@ -25,9 +25,6 @@ test('homepage shelf sections render properly while MainContent retains navigati
   const sections = readSource('./HomeCollectionSections.jsx');
 
   assert.match(main, /<HomeOverview/);
-  assert.match(main, /<RoamOverview/);
-  assert.match(main, /onToggleRoam=\{handleStartRandomRoam\}/);
-  assert.match(main, /items=\{EXPLORE_CATEGORIES\}/);
   assert.match(overview, /home-empty-footprints/);
   assert.match(sections, /items\.map/);
   assert.match(sections, /HorizontalScrollButtons/);

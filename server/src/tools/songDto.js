@@ -7,4 +7,8 @@ export const normalizeSong = (song) => ({
   audio_url: song.audio_url || '',
   cover_url: song.cover_url || '',
   language: song.language || null,
+  ...(song.source === 'youtube' && /^yt:[A-Za-z0-9_-]{11}$/.test(String(song.id)) ? {
+    source: 'youtube', sourceId: song.sourceId,
+    artists: song.artists || [], albumId: song.albumId || null,
+  } : {}),
 });

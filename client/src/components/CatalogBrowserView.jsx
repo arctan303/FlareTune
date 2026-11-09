@@ -36,7 +36,7 @@ export default function CatalogBrowserView({ route, onBack, currentSong, isPlayi
     if (target === 'overview') returnToParentRoute(url);
     else syncBrowserHistory(url);
   };
-  const openArtist = (artist) => useUIStore.getState().openArtistDrawer({ name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
+  const openArtist = (artist) => useUIStore.getState().openArtistDrawer({ ...artist, name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
   const openAlbum = (album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }));
   const label = t(EXPLORE_PRESETS[language]?.subtitle || EXPLORE_PRESETS[language]?.label || '曲库');
   const renderItems = (type, items) => {
@@ -48,7 +48,7 @@ export default function CatalogBrowserView({ route, onBack, currentSong, isPlayi
       onToggleLiked={onToggleLiked} onInsertNext={onInsertNext} onAddToPlaylist={onAddToPlaylist} />)}</div>;
     if (type === 'artists') return selected === 'overview'
       ? <ArtistPreviewRow artists={items} onOpen={openArtist} onVisibleCountChange={setArtistVisibleCount} />
-      : <div className="artist-full-grid">{items.map((artist) => <ArtistCard key={artist.name} artist={artist} onOpen={openArtist} />)}</div>;
+      : <div className="artist-full-grid">{items.map((artist) => <ArtistCard key={artist.id || artist.name} artist={artist} onOpen={openArtist} />)}</div>;
     if (selected === 'overview') return <AlbumPreviewGrid albums={items} onOpen={openAlbum}
       onVisibleCountChange={setAlbumVisibleCount} />;
     return <AlbumPreviewGrid albums={items} maxRows={Infinity} onOpen={openAlbum} />;

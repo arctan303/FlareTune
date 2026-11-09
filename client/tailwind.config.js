@@ -1,8 +1,11 @@
+import { pluginTailwindContent } from '../tooling/plugins/tailwind-content.mjs';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
     "./client/index.html",
     "./client/src/**/*.{js,ts,jsx,tsx}",
+    ...pluginTailwindContent(),
     "./demo/**/*.{html,js,jsx}",
   ],
   darkMode: 'class',

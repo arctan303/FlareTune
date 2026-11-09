@@ -1,15 +1,10 @@
-import { appendRollingRoam } from '../rollingRoam.js';
+import { createQueueContinuationRegistry } from './queueContinuation.js';
 import { t } from '../i18n/index.js';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useUIStore, showToast } from './useUIStore.js';
 import { isPlayableSong } from '../utils.js';
 import { planInsertNext, reorderQueue, sanitizePlayableQueue } from './playerQueue.js';
-import {
-  createInactiveRandomRoam,
-  normalizeRandomRoamSongIds,
-  normalizeRandomRoamState,
-} from '../randomRoam.js';
 import { isPlaybackMode, PLAYBACK_MODE_NAMES, PLAYBACK_MODES } from '../constants/playbackModes.js';
 import { throttledLocalStorage } from './throttledStorage.js';
 import { createPlayerPersistenceStorage } from './playerPersistence.js';
@@ -43,7 +38,6 @@ export const usePlayerStore = create(
                   resolvedLyricSource: null,
                   lyricFormat: 'none',
                   lyricSyncMode: 'none',
-                  lyricIntro: null,
                   lyricOffsetMs: 0,
               };
 
@@ -60,6 +54,7 @@ export const usePlayerStore = create(
               ...extraState,
               ...lyricsResetState,
               currentSong: song,
+              playbackOwnershipGeneration: get().playbackOwnershipGeneration + 1,
               isPlaying: true,
               shouldAutoPlay: forceReload || !isSameResource,
           });
@@ -76,7 +71,93 @@ export const usePlayerStore = create(
           return true;
       };
 
+      const continuation = createQueueContinuationRegistry();
+      let playbackAttempt = 0, cancelledAttempt = 0;
+      const revokePendingPlayback = () => { cancelledAttempt = ++playbackAttempt; };
+      let snapshotRevision = 0, lastQueue = null, lastSong = null, lastMode = null, lastReady = null, lastOwner = null;
+      const contextOwner = () => {
+          const session = useUIStore.getState().authSession;
+          return session?.authenticated ? JSON.stringify([session.user?.accountId, session.user?.role, session.csrfToken]) : '';
+      };
+      const copy = value => value == null ? null : JSON.parse(JSON.stringify(value));
+      const queueSnapshot = () => {
+          const state = get();
+          const owner = contextOwner();
+          const ready = state.queueContextReady === true && !!owner && state.queueContextOwner === owner;
+          if (state.playlist !== lastQueue || state.currentSong !== lastSong || state.playMode !== lastMode
+              || ready !== lastReady || owner !== lastOwner) {
+              snapshotRevision++; lastQueue = state.playlist; lastSong = state.currentSong;
+              lastMode = state.playMode; lastReady = ready; lastOwner = owner;
+          }
+          return { currentSong: copy(state.currentSong), queue: state.playlist.map(copy),
+              isPlaying: state.isPlaying, playMode: state.playMode, revision: snapshotRevision,
+              ready, waitingForContinuation: continuation.isWaiting() };
+      };
+      const notify = event => continuation.notify(event, queueSnapshot());
+
       return {
+      // Runtime-only ownership. A restored/new playback may reuse the same
+      // cached song and audio URL; retired plugin cleanup must distinguish it.
+      playbackOwnershipGeneration: 0,
+      queueContextReady: false,
+      queueContextOwner: null,
+      setQueueContextReady: value => {
+          const ready = value === true;
+          const owner = ready ? contextOwner() : null;
+          if (!ready) continuation.consumed();
+          if (get().queueContextReady !== ready || get().queueContextOwner !== owner) snapshotRevision++;
+          set({ queueContextReady: ready, queueContextOwner: owner,
+              ...(ready && (!get().queueContextReady || get().queueContextOwner !== owner)
+                  ? { playbackOwnershipGeneration: get().playbackOwnershipGeneration + 1 } : {}) });
+      },
+      getQueueSnapshot: queueSnapshot,
+      registerQueueContinuation: (callbacks, isCurrent) => continuation.register(callbacks, isCurrent),
+      setQueueSequence: () => { set({ playMode: 'sequence' }); continuation.prepare(); },
+      trimQueueAfterCurrent: () => {
+          const { playlist, currentSong } = get();
+          const index = playlist.findIndex(song => String(song.id) === String(currentSong?.id));
+          if (index >= 0) set({ playlist: playlist.slice(0, index + 1) });
+          return queueSnapshot();
+      },
+      startQueueContinuation: songs => {
+          const playlist = sanitizePlayableQueue(songs);
+          if (!playlist.length) return false;
+          continuation.prepare();
+          return selectSongForPlayback(playlist[0], { playlist, playMode: 'sequence' });
+      },
+      appendQueueContinuation: (songs, options = {}) => {
+          const snapshot = queueSnapshot();
+          const actualId = snapshot.currentSong?.id == null ? null : String(snapshot.currentSong.id);
+          const expectedId = options.expectedCurrentSongId == null ? null : String(options.expectedCurrentSongId);
+          if ((Object.hasOwn(options, 'expectedCurrentSongId') && actualId !== expectedId)
+              || (options.expectedRevision !== undefined && snapshot.revision !== options.expectedRevision)) {
+              return { added: [], snapshot, stale: true };
+          }
+          const { playlist, currentSong } = get();
+          const currentIndex = playlist.findIndex(song => String(song.id) === actualId);
+          const boundary = currentIndex >= 0 ? currentIndex : continuation.isWaiting() ? playlist.length : 0;
+          const played = playlist.slice(0, boundary), queued = playlist.slice(boundary);
+          const occupied = new Set((options.relocatePlayedDuplicates ? queued : playlist).map(song => String(song.id)));
+          const added = sanitizePlayableQueue(songs).filter(song => {
+              const id = String(song.id); if (occupied.has(id)) return false;
+              occupied.add(id); return true;
+          });
+          const renewed = new Set(added.map(song => String(song.id)));
+          const next = options.relocatePlayedDuplicates
+              ? [...played.filter(song => !renewed.has(String(song.id))), ...queued, ...added]
+              : [...playlist, ...added];
+          const shouldResume = options.resume === true && continuation.canResume();
+          if (added.length) {
+              const waiting = continuation.isWaiting();
+              continuation.consumed();
+              if (shouldResume) selectSongForPlayback(added[0], { playlist: next });
+              else if (waiting && !currentSong) set({ playlist: next, currentSong: added[0], isPlaying: false, shouldAutoPlay: false });
+              else set({ playlist: next });
+          }
+          return { added: added.map(copy), snapshot: queueSnapshot() };
+      },
+      legacyPluginPreferences: {},
+      getLegacyPluginPreferences: pluginId => copy(get().legacyPluginPreferences?.[pluginId]) || {},
       currentSong: null,
       switchDirection: 'next',
       setCurrentSong: (song) => {
@@ -92,7 +173,6 @@ export const usePlayerStore = create(
                   resolvedLyricSource: null,
                   lyricFormat: 'none',
                   lyricSyncMode: 'none',
-                  lyricIntro: null,
                   lyricOffsetMs: 0,
               });
           } else {
@@ -113,18 +193,8 @@ export const usePlayerStore = create(
       playlist: [],
       setPlaylist: (value) => {
           const nextPlaylist = sanitizePlayableQueue(typeof value === 'function' ? value(get().playlist) : value);
-          const currentRoam = get().randomRoam;
-          const shouldDisableRoam = nextPlaylist.length === 0 && currentRoam.enabled;
-          set({
-              playlist: nextPlaylist,
-              ...(shouldDisableRoam ? {
-                  randomRoam: {
-                      ...createInactiveRandomRoam(),
-                      language: currentRoam?.language || 'all',
-                      batchSize: currentRoam?.batchSize || 10,
-                  },
-              } : {}),
-          });
+          set({ playlist: nextPlaylist });
+          notify(nextPlaylist.length ? 'onExplicitPlay' : 'onQueueCleared');
       },
       reorderPlaylist: (fromIndex, toIndex) => {
           const { playlist } = get();
@@ -134,13 +204,11 @@ export const usePlayerStore = create(
           return true;
       },
       clearPlaylist: () => {
-          const { audioRef, randomRoam } = get();
+          const { audioRef } = get();
           if (audioRef?.current) {
               audioRef.current.pause();
               audioRef.current.src = '';
           }
-          const currentLang = randomRoam?.language || 'all';
-          const currentBatchSize = randomRoam?.batchSize || 10;
           set({
               playlist: [],
               currentSong: null,
@@ -156,260 +224,13 @@ export const usePlayerStore = create(
               resolvedLyricSource: null,
               lyricFormat: 'none',
               lyricSyncMode: 'none',
-              lyricIntro: null,
               lyricOffsetMs: 0,
-              randomRoam: {
-                  ...createInactiveRandomRoam(),
-                  language: currentLang,
-                  batchSize: currentBatchSize,
-              },
           });
+          notify('onQueueCleared');
       },
 
-      randomRoam: createInactiveRandomRoam(),
-      setRandomRoamLanguage: (language) => {
-          const current = get().randomRoam;
-          const nextLang = (language && typeof language === 'string') ? language.trim() : 'all';
-          if (current.language === nextLang) return;
-          const { playlist, currentSong } = get();
-          let nextPlaylist = playlist;
-          // 当随机漫游开启时，为了让新偏好立即生效且不打断当前播放：
-          // 保留当前正在播放的歌曲及其前序歌曲，清除当前歌曲之后排队的旧偏好歌曲，触发即时预拉取
-          if (current.enabled && currentSong && Array.isArray(playlist) && playlist.length > 0) {
-              const currentIndex = playlist.findIndex((s) => String(s?.id) === String(currentSong?.id));
-              if (currentIndex >= 0) {
-                  nextPlaylist = playlist.slice(0, currentIndex + 1);
-              }
-          }
-          set({
-              playlist: nextPlaylist,
-              randomRoam: {
-                  ...current,
-                  language: nextLang,
-                  saturatedAtSongId: null,
-                  seenSongIds: normalizeRandomRoamSongIds(nextPlaylist.map((s) => s.id)),
-                  totalPlayable: null,
-                  remainingPlayable: null,
-                  exhausted: false,
-                  error: null,
-                  retryNonce: current.retryNonce + 1,
-                  status: 'idle',
-              },
-          });
-      },
-      startRandomRoam: (songs, options = {}) => {
-          const playlist = sanitizePlayableQueue(songs);
-          if (!playlist.length) return false;
-          const currentRoam = get().randomRoam;
-          const language = options?.language || currentRoam?.language || 'all';
-          const batchSize = currentRoam?.batchSize || 10;
-          const randomRoam = {
-              ...createInactiveRandomRoam(),
-              enabled: true,
-              language,
-              batchSize,
-              seenSongIds: normalizeRandomRoamSongIds(playlist.map((song) => song.id)),
-          };
-          return selectSongForPlayback(playlist[0], {
-              playlist,
-              playMode: 'sequence',
-              randomRoam,
-          });
-      },
-      setRandomRoamEnabled: (enabled, options = {}) => {
-          const current = get().randomRoam;
-          const currentBatchSize = current?.batchSize || 10;
-          if (!enabled) {
-              set({
-                  randomRoam: {
-                      ...createInactiveRandomRoam(),
-                      language: current?.language || 'all',
-                      batchSize: currentBatchSize,
-                  },
-              });
-              return true;
-          }
-          const { playlist } = get();
-          const language = options?.language || current?.language || 'all';
-          const isEmpty = !playlist.length;
-          set({
-              playMode: 'sequence',
-              randomRoam: {
-                  ...createInactiveRandomRoam(),
-                  enabled: true,
-                  language,
-                  batchSize: currentBatchSize,
-                  seenSongIds: normalizeRandomRoamSongIds(playlist.map((song) => song.id)),
-                  waitingAtQueueEnd: isEmpty,
-                  resumeWhenAppended: isEmpty,
-              },
-          });
-          return true;
-      },
-      triggerManualRandomRoam: () => {
-          const { playlist, randomRoam } = get();
-          const currentBatchSize = randomRoam?.batchSize || 10;
-          const isEmpty = !playlist.length;
-          set({
-              playMode: 'sequence',
-              randomRoam: {
-                  ...randomRoam,
-                  enabled: isEmpty ? true : Boolean(randomRoam.enabled),
-                  batchSize: currentBatchSize,
-                  status: 'idle',
-                  error: null,
-                  exhausted: false,
-                  manualNonce: (randomRoam.manualNonce || 0) + 1,
-                  retryNonce: (randomRoam.retryNonce || 0) + 1,
-                  waitingAtQueueEnd: isEmpty ? true : randomRoam.waitingAtQueueEnd,
-                  resumeWhenAppended: isEmpty ? true : randomRoam.resumeWhenAppended,
-              },
-          });
-          return true;
-      },
-      setRandomRoamBatchSize: (batchSize) => {
-          const parsed = typeof batchSize === 'number' && Number.isInteger(batchSize) && batchSize >= 1
-              ? Math.min(batchSize, 50)
-              : 10;
-          const { randomRoam } = get();
-          if (randomRoam.batchSize === parsed) return;
-          set({
-              randomRoam: {
-                  ...randomRoam,
-                  batchSize: parsed,
-              },
-          });
-      },
-      beginRandomRoamRequest: () => {
-          const { randomRoam } = get();
-          if (randomRoam.status === 'loading') return false;
-          set({ randomRoam: { ...randomRoam, status: 'loading', error: null } });
-          return true;
-      },
-      appendRandomRoamBatch: (songs, batchState = {}) => {
-          const { randomRoam, playlist } = get();
-          const rolling = batchState.strategy === 'recent'
-              ? appendRollingRoam(playlist, get().currentSong, randomRoam, sanitizePlayableQueue(songs)) : null;
-          const seenSongIds = normalizeRandomRoamSongIds([
-              ...randomRoam.seenSongIds,
-              ...playlist.map((song) => song.id),
-          ]);
-          const seen = new Set(seenSongIds);
-          const additions = rolling?.additions || sanitizePlayableQueue(songs).filter((song) => {
-              const id = String(song.id);
-              if (seen.has(id)) return false;
-              seen.add(id);
-              seenSongIds.push(id);
-              return true;
-          });
-          const nextPlaylist = rolling?.playlist || [...playlist, ...additions];
-          const normalizedTotal = Number.isInteger(batchState.totalPlayable) && batchState.totalPlayable >= 0
-              ? batchState.totalPlayable
-              : randomRoam.totalPlayable;
-          const normalizedRemaining = Number.isInteger(batchState.remainingPlayable) && batchState.remainingPlayable >= 0
-              ? batchState.remainingPlayable
-              : randomRoam.remainingPlayable;
-          const exhausted = batchState.exhausted === true;
-          const nextRandomRoam = {
-              ...randomRoam,
-              seenSongIds: normalizeRandomRoamSongIds(seenSongIds),
-              ...(rolling ? { recentSongIds: rolling.recentSongIds, recentWindow: batchState.recentWindow,
-                  saturatedAtSongId: normalizedRemaining === 0
-                      ? (batchState.requestedForSongId ?? additions[0]?.id ?? null) : null,
-                  saturatedQueueKey: nextPlaylist.slice(Math.max(0, nextPlaylist.findIndex(song =>
-                      String(song.id) === String(get().currentSong?.id ?? additions[0]?.id))))
-                      .map(song => String(song.id)).join(',') } : {}),
-              totalPlayable: normalizedTotal,
-              remainingPlayable: normalizedRemaining,
-              exhausted,
-              status: 'idle',
-              error: null,
-              waitingAtQueueEnd: randomRoam.waitingAtQueueEnd && additions.length === 0,
-              resumeWhenAppended: randomRoam.resumeWhenAppended && additions.length === 0,
-          };
-
-          if (randomRoam.waitingAtQueueEnd && randomRoam.resumeWhenAppended && additions.length > 0) {
-              return selectSongForPlayback(additions[0], {
-                  playlist: nextPlaylist,
-                  randomRoam: nextRandomRoam,
-              });
-          }
-          if (randomRoam.waitingAtQueueEnd && additions.length > 0 && !get().currentSong) {
-              set({
-                  playlist: nextPlaylist,
-                  currentSong: additions[0],
-                  isPlaying: false,
-                  shouldAutoPlay: false,
-                  randomRoam: nextRandomRoam,
-              });
-              return true;
-          }
-          if (randomRoam.waitingAtQueueEnd && additions.length === 0 && exhausted) {
-              set({
-                  playlist: nextPlaylist,
-                  isPlaying: false,
-                  shouldAutoPlay: false,
-                  randomRoam: {
-                      ...nextRandomRoam,
-                      enabled: false,
-                      status: 'exhausted',
-                      waitingAtQueueEnd: false,
-                      resumeWhenAppended: false,
-                  },
-              });
-              showToast(t("当前范围暂无可补充的歌曲"));
-              return true;
-          }
-          set({ playlist: nextPlaylist, randomRoam: nextRandomRoam });
-          return true;
-      },
-      failRandomRoamRequest: (message) => {
-          const { randomRoam } = get();
-          if (!randomRoam.enabled) return;
-          set({
-              randomRoam: {
-                  ...randomRoam,
-                  status: 'error',
-                  error: message || '续播加载失败',
-              },
-          });
-      },
-      pauseRandomRoamRequest: () => {
-          const { randomRoam } = get();
-          if (!randomRoam.enabled || randomRoam.status !== 'loading') return;
-          set({ randomRoam: { ...randomRoam, status: 'idle', error: null } });
-      },
-      retryRandomRoam: () => {
-          const { randomRoam } = get();
-          if (!randomRoam.enabled) return false;
-          set({
-              randomRoam: {
-                  ...randomRoam,
-                  status: 'idle',
-                  error: null,
-                  retryNonce: randomRoam.retryNonce + 1,
-              },
-          });
-          return true;
-      },
-      resetRandomRoamHistory: () => {
-          const current = get().randomRoam;
-          set({
-              randomRoam: {
-                  ...current,
-                  seenSongIds: [],
-                  recentSongIds: [],
-                  totalPlayable: null,
-                  remainingPlayable: null,
-                  exhausted: false,
-                  error: null,
-                  retryNonce: current.retryNonce + 1,
-              },
-          });
-          return true;
-      },
       removePlaylistSong: (target) => {
-          const { playlist, currentSong, randomRoam } = get();
+          const { playlist, currentSong } = get();
           let index = -1;
           if (Number.isInteger(target)) {
               index = target;
@@ -422,20 +243,8 @@ export const usePlayerStore = create(
           const removedSong = playlist[index];
           const nextPlaylist = playlist.filter((_, itemIndex) => itemIndex !== index);
           if (nextPlaylist.length === 0) {
-              const currentLang = randomRoam?.language || 'all';
-              const currentBatchSize = randomRoam?.batchSize || 10;
-              set({
-                  playlist: [],
-                  currentSong: null,
-                  isPlaying: false,
-                  shouldAutoPlay: false,
-                  progress: 0,
-                  randomRoam: {
-                      ...createInactiveRandomRoam(),
-                      language: currentLang,
-                      batchSize: currentBatchSize,
-                  },
-              });
+              set({ playlist: [], currentSong: null, isPlaying: false, shouldAutoPlay: false, progress: 0 });
+              notify('onQueueCleared');
               return true;
           }
           if (String(removedSong?.id) !== String(currentSong?.id)) {
@@ -447,25 +256,11 @@ export const usePlayerStore = create(
           const nextSong = index < nextPlaylist.length ? nextPlaylist[index] : null;
           if (nextSong) return selectSongForPlayback(nextSong, { playlist: nextPlaylist });
 
-          const shouldContinueRoam = randomRoam.enabled && !randomRoam.exhausted;
-          if (!shouldContinueRoam && nextPlaylist.length > 0) {
-              return selectSongForPlayback(nextPlaylist[nextPlaylist.length - 1], { playlist: nextPlaylist });
-          }
-          set({
-              playlist: nextPlaylist,
-              currentSong: null,
-              isPlaying: false,
-              shouldAutoPlay: false,
-              progress: 0,
-              randomRoam: shouldContinueRoam
-                  ? {
-                      ...randomRoam,
-                      waitingAtQueueEnd: true,
-                      resumeWhenAppended: true,
-                      retryNonce: randomRoam.retryNonce + 1,
-                    }
-                  : randomRoam,
-          });
+          // A provider can continue a deleted current tail without replaying
+          // an already played item. An unrelated queue retains old semantics.
+          set({ playlist: nextPlaylist, currentSong: null, isPlaying: false, shouldAutoPlay: false, progress: 0 });
+          const accepted = notify('onQueueEnd');
+          if (!accepted) return selectSongForPlayback(nextPlaylist[nextPlaylist.length - 1], { playlist: nextPlaylist });
           return true;
       },
 
@@ -505,9 +300,6 @@ export const usePlayerStore = create(
       lyricSyncMode: 'none',
       setLyricSyncMode: makeSetter('lyricSyncMode'),
 
-      lyricIntro: null,
-      setLyricIntro: makeSetter('lyricIntro'),
-
       lyricOffsetMs: 0,
       setLyricOffsetMs: makeSetter('lyricOffsetMs'),
       setLyricsDocumentSnapshot: (snapshot) => set({
@@ -516,7 +308,6 @@ export const usePlayerStore = create(
           resolvedLyricSource: snapshot.source,
           lyricFormat: snapshot.format,
           lyricSyncMode: snapshot.syncMode,
-          lyricIntro: snapshot.intro,
           lyricOffsetMs: Number.isInteger(snapshot.offsetMs) ? snapshot.offsetMs : 0,
           translationAvailable: Boolean(snapshot.translationAvailable),
           translationState: ['unavailable', 'missing', 'pending', 'ready', 'failed'].includes(snapshot.translationState)
@@ -578,9 +369,15 @@ export const usePlayerStore = create(
       setShouldAutoPlay: makeSetter('shouldAutoPlay'),
 
       tryPlay: () => {
-          const { audioRef, progress } = get();
+          const { audioRef, progress, currentSong, playbackOwnershipGeneration } = get();
           const audio = audioRef?.current;
           if (!audio) return;
+          const attempt = ++playbackAttempt, src = audio.src;
+          const samePlayback = () => {
+              const state = get();
+              return state.audioRef?.current === audio && state.currentSong === currentSong
+                  && audio.src === src && state.playbackOwnershipGeneration === playbackOwnershipGeneration;
+          };
           if (progress > 0 && Math.abs(audio.currentTime - progress) > 0.5 && (!audio.duration || progress < audio.duration - 5)) {
               try {
                   audio.currentTime = progress;
@@ -589,8 +386,10 @@ export const usePlayerStore = create(
               }
           }
           audio.play().then(() => {
-              set({ isPlaying: true });
+              if (attempt === playbackAttempt && samePlayback()) set({ isPlaying: true });
+              else if (attempt <= cancelledAttempt && playbackAttempt === cancelledAttempt && samePlayback()) audio.pause();
           }).catch(e => {
+              if (attempt !== playbackAttempt || !samePlayback()) return;
               console.error("Play error:", e);
               set({ isPlaying: false });
               showToast(t("准备就绪，请点击播放键开始播放"));
@@ -608,6 +407,7 @@ export const usePlayerStore = create(
                   set({ isPlaying: true });
                   tryPlay();
               } else {
+                  notify('onPause');
                   audio.pause();
                   set({ isPlaying: false });
               }
@@ -626,14 +426,20 @@ export const usePlayerStore = create(
       },
 
       pause: () => {
+          revokePendingPlayback();
+          notify('onPause');
           const { audioRef } = get();
           const audio = audioRef?.current;
-          if (audio && !audio.paused) {
-              audio.pause();
-              set({ isPlaying: false });
-          } else if (get().isPlaying) {
-              get().togglePlay();
-          }
+          if (audio && !audio.paused) audio.pause();
+          set({ isPlaying: false, shouldAutoPlay: false });
+      },
+
+      // A user pause revokes pending autoplay even while audio is already
+      // stopped at queue end; late provider results may append but not resume.
+      cancelPendingPlayback: () => {
+          revokePendingPlayback();
+          notify('onPause');
+          set({ isPlaying: false, shouldAutoPlay: false });
       },
 
       toggleTranslation: () => {
@@ -641,13 +447,10 @@ export const usePlayerStore = create(
       },
 
       playSong: (song, list) => {
+          if (!isPlayableSong(song)) return false;
           const playableList = Array.isArray(list) ? sanitizePlayableQueue(list) : null;
-          const currentLang = get().randomRoam?.language || 'all';
-          const currentBatchSize = get().randomRoam?.batchSize || 10;
-          return selectSongForPlayback(song, playableList ? {
-              playlist: playableList,
-              randomRoam: { ...createInactiveRandomRoam(), language: currentLang, batchSize: currentBatchSize },
-          } : {});
+          notify('onExplicitPlay');
+          return selectSongForPlayback(song, playableList ? { playlist: playableList } : {});
       },
 
       insertAndPlay: (song, e = null) => {
@@ -656,6 +459,7 @@ export const usePlayerStore = create(
           const insertion = planInsertNext(playlist, currentSong, song);
 
           if (insertion.action === 'play') {
+              notify('onExplicitPlay');
               return selectSongForPlayback(song, { playlist: insertion.playlist });
           }
           if (insertion.action !== 'queue') {
@@ -676,21 +480,15 @@ export const usePlayerStore = create(
               const nextIndex = (PLAYBACK_MODES.indexOf(playMode) + 1) % PLAYBACK_MODES.length;
               nextMode = PLAYBACK_MODES[nextIndex];
           }
-          const currentLang = get().randomRoam?.language || 'all';
-          const currentBatchSize = get().randomRoam?.batchSize || 10;
-          set({
-              playMode: nextMode,
-              ...(nextMode !== 'sequence' && get().randomRoam.enabled
-                  ? { randomRoam: { ...createInactiveRandomRoam(), language: currentLang, batchSize: currentBatchSize } }
-                  : {}),
-          });
+          set({ playMode: nextMode });
+          notify('onModeChange');
           const modeName = PLAYBACK_MODE_NAMES[nextMode];
           showToast(t("已切换为：{p0}", { p0: (modeName) }));
       },
 
       playNext: (e = null) => {
           e?.stopPropagation && e.stopPropagation();
-          const { playlist, playMode, currentSong, audioRef, randomRoam } = get();
+          const { playlist, playMode, currentSong, audioRef } = get();
           if (!playlist.length) return;
 
           const applyNext = (song) => selectSongForPlayback(
@@ -722,33 +520,8 @@ export const usePlayerStore = create(
           if (currentIndex >= 0 && currentIndex < playlist.length - 1) {
               applyNext(playlist[currentIndex + 1]);
           } else {
-              if (randomRoam.enabled && playMode === 'sequence') {
-                  if (randomRoam.exhausted) {
-                      set({
-                          isPlaying: false,
-                          progress: 0,
-                          randomRoam: {
-                              ...randomRoam,
-                              enabled: false,
-                              status: 'exhausted',
-                              waitingAtQueueEnd: false,
-                              resumeWhenAppended: false,
-                          },
-                      });
-                      if (audioRef?.current) audioRef.current.currentTime = 0;
-                      showToast(t("当前范围暂无可补充的歌曲"));
-                      return;
-                  }
-                  set({
-                      isPlaying: false,
-                      progress: 0,
-                      randomRoam: {
-                          ...randomRoam,
-                          waitingAtQueueEnd: true,
-                          resumeWhenAppended: true,
-                          retryNonce: randomRoam.retryNonce + 1,
-                      },
-                  });
+              if (playMode === 'sequence' && notify('onQueueEnd')) {
+                  set({ isPlaying: false, progress: 0, shouldAutoPlay: false });
                   if (audioRef?.current) audioRef.current.currentTime = 0;
                   return;
               }
@@ -808,11 +581,7 @@ export const usePlayerStore = create(
         volume: state.volume,
         playMode: state.playMode,
         translationEnabled: state.translationEnabled,
-        randomRoam: {
-          ...state.randomRoam,
-          // 浏览器恢复时保留“需要续批”，但绝不保留自动起播授权。
-          resumeWhenAppended: false,
-        },
+        legacyPluginPreferences: state.legacyPluginPreferences,
       }),
       // IndexedDB 保存跨站播放上下文；Local Storage 保存当前播放器偏好与会话恢复数据。
       merge: (persisted, current) => ({
@@ -830,7 +599,12 @@ export const usePlayerStore = create(
         translationEnabled: typeof persisted?.translationEnabled === 'boolean'
           ? persisted.translationEnabled
           : current.translationEnabled,
-        randomRoam: normalizeRandomRoamState(persisted?.randomRoam),
+        // One-way migration only: old enabled/request/autoplay state never
+        // authorizes a plugin. Its previous language/batch are passive data.
+        legacyPluginPreferences: persisted?.legacyPluginPreferences || {
+          roam: { language: typeof persisted?.randomRoam?.language === 'string' ? persisted.randomRoam.language : 'all',
+            batchSize: Number.isInteger(persisted?.randomRoam?.batchSize) ? persisted.randomRoam.batchSize : 10 },
+        },
       }),
     }
   )

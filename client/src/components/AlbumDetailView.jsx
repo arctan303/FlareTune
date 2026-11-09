@@ -1,3 +1,6 @@
+import { useMusicSourcesRevision } from '../hooks/useMusicSourcesRevision.js';
+import { getMusicSourcesRevision } from '../services/musicSources.js';
+import { isYouTubeEntity } from '../utils/musicSource.js';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import { Play } from 'lucide-react';
@@ -11,19 +14,21 @@ import PageBackButton from './PageBackButton.jsx';
 import { resolveCoverUrl } from '../utils.js';
 
 export default function AlbumDetailView({ id, onBack, currentSong, isPlaying, onPlaySong, onInsertNext, onAddToPlaylist, onToggleLiked, isSongLiked }) {
+  const sourceRevision = useMusicSourcesRevision();
+  const albumRevision = isYouTubeEntity(id) ? sourceRevision : 0;
   const cachedAlbum = peekCachedAlbum(id);
   const [retry, setRetry] = React.useState(0);
-  const [state, setState] = React.useState(() => ({ id, status: cachedAlbum ? 'ready' : 'loading', album: cachedAlbum, reveal: false }));
+  const [state, setState] = React.useState(() => ({ id, sourceRevision: albumRevision, status: cachedAlbum ? 'ready' : 'loading', album: cachedAlbum, reveal: false }));
   React.useEffect(() => {
     const controller = new AbortController();
     const cached = peekCachedAlbum(id);
-    setState({ id, status: cached ? 'ready' : 'loading', album: cached, reveal: false });
+    setState({ id, sourceRevision: albumRevision, status: cached ? 'ready' : 'loading', album: cached, reveal: false });
     readAlbum(id, controller.signal)
-      .then((album) => { if (!controller.signal.aborted) setState({ id, status: 'ready', album, reveal: !cached }); })
-      .catch((error) => { if (!controller.signal.aborted && error.name !== 'AbortError') setState({ id, status: 'error', album: null, reveal: false }); });
+      .then((album) => { if (!controller.signal.aborted && (!isYouTubeEntity(id) || albumRevision === getMusicSourcesRevision())) setState({ id, sourceRevision: albumRevision, status: 'ready', album, reveal: !cached }); })
+      .catch((error) => { if (!controller.signal.aborted && error.name !== 'AbortError' && (!isYouTubeEntity(id) || albumRevision === getMusicSourcesRevision())) setState({ id, sourceRevision: albumRevision, status: 'error', album: null, reveal: false }); });
     return () => controller.abort();
-  }, [id, retry]);
-  const current = state.id === id ? state : { status: cachedAlbum ? 'ready' : 'loading', album: cachedAlbum, reveal: false };
+  }, [id, retry, albumRevision]);
+  const current = state.id === id && state.sourceRevision === albumRevision ? state : { status: cachedAlbum ? 'ready' : 'loading', album: cachedAlbum, reveal: false };
   if (current.status === 'loading') return <CollectionDetailSkeleton onBack={onBack} />;
   if (current.status === 'error') return <div className="app-page state-panel" role="alert"><PageBackButton onClick={onBack} className="mb-4" /><p>{t("专辑暂时无法打开。")}</p><SettingsButton onClick={() => setRetry(value => value + 1)}>{t('重试')}</SettingsButton></div>;
   const album = current.album;

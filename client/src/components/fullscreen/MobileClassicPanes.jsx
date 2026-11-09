@@ -1,3 +1,4 @@
+import { canReferenceAccountSong } from '../../utils/musicSource.js';
 import { localizeUnknownArtist, localizeUnknownTitle, t } from '../../i18n/index.js';
 import React from 'react';
 import { Star } from 'lucide-react';
@@ -50,7 +51,7 @@ export function MobileLyricsPane({
           <div className="flex items-center justify-between gap-2">
             <div onClick={onExit} className="truncate font-bold text-white text-base sm:text-lg tracking-tight cursor-pointer" title={t("点击返回大封面视图")}>{localizeUnknownTitle(currentSong?.title)}</div>
             <div className="flex items-center gap-2 shrink-0 relative">
-              <button
+              {canReferenceAccountSong(currentSong) && <button
                 type="button"
                 aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                 title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
@@ -64,7 +65,7 @@ export function MobileLyricsPane({
                 onAnimationEnd={() => clearAddedAnimation(currentSong)}
               >
                 <Star size={22} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
-              </button>
+              </button>}
               <PlayerMoreMenu direction="down" showPlayerModes />
             </div>
           </div>
@@ -97,7 +98,6 @@ export function MobileSongPane({
   playerControlsProps,
   artwork,
   translationEnabled,
-  lyricIntro = null,
   lyricSyncMode = 'line',
   surfaceVisible = true,
 }) {
@@ -110,7 +110,6 @@ export function MobileSongPane({
   const lyricPresentation = useLyricSurfacePresentation({
     lyrics,
     currentLyricIndex,
-    lyricIntro,
     lyricSyncMode,
     surfaceVisible,
   });
@@ -139,15 +138,14 @@ export function MobileSongPane({
                 {lyrics.slice(lyricWindow.start, lyricWindow.end).map((lyric, windowIndex) => {
                   const index = lyricWindow.start + windowIndex;
                   const isActive = index === safeLyricIndex;
-                  const isIntroRow = lyricPresentation.kind === 'intro' && index === 0;
-                  const displayLine = isIntroRow ? lyricPresentation.line : lyric;
+                  const displayLine = lyric;
                   const primaryText = getPrimaryLyricLine(displayLine);
                   const displayText = primaryText
                     ? (typeof displayLine?.text === 'string' && !displayLine.text.includes('\n')
                       ? displayLine.text
                       : primaryText)
                     : '…';
-                  const translation = !isIntroRow && translationEnabled ? getTranslationLyricLine(lyric) : '';
+                  const translation = translationEnabled ? getTranslationLyricLine(lyric) : '';
                   return <div key={index} className={`paper-mobile-lyric-preview__row${isActive ? ' is-active' : ''}`} style={{ height: `${rowHeight}px` }}><div className="paper-mobile-lyric-preview__primary truncate"><SyncedLyricText line={displayLine} text={displayText} active={isActive} visible={surfaceVisible} syncMode={lyricSyncMode} surface="mobile-preview" /></div>{translation && <div className="paper-mobile-lyric-preview__translation truncate">{translation}</div>}</div>;
                 })}
                 {lyricWindow.afterHeight > 0 && <div aria-hidden="true" style={{ height: `${lyricWindow.afterHeight}px`, flexShrink: 0 }} />}

@@ -387,17 +387,19 @@ test('applyPlaySongNow hydrates relative media paths against the deployment-loca
   assert.equal(fixture.state.currentSong.cover_url, '/media/cover/rel-1.jpg');
 });
 
-test('applyRoamControl drives the shared randomRoam state machine with the requested language', () => {
+test('applyRoamControl delegates to the active plugin controller with the requested language', () => {
   const calls = [];
   const state = {
-    randomRoam: { enabled: false, language: 'all' },
+    available: true, enabled: false, language: 'all',
+  };
+  const actions = {
     setRandomRoamEnabled: (enabled, options) => {
       calls.push([enabled, options]);
-      state.randomRoam = { enabled, language: options?.language || state.randomRoam.language };
+      state.enabled = enabled; state.language = options?.language || state.language;
       return true;
     },
   };
-  const fixture = { getState: () => state };
+  const fixture = { getState: () => state, actions };
 
   assert.deepEqual(
     applyRoamControl({ action: 'enable', language: 'ja' }, fixture),
@@ -411,4 +413,6 @@ test('applyRoamControl drives the shared randomRoam state machine with the reque
   assert.equal(applyRoamControl({ action: 'disable' }, fixture).outcome, 'noop');
   assert.deepEqual(applyRoamControl({ action: 'toggle' }, fixture), { ok: false, outcome: 'ignored' });
   assert.equal(applyRoamControl({ action: 'enable' }, { getState: () => ({}) }).ok, false);
+  state.available = false;
+  assert.equal(applyRoamControl({ action: 'enable' }, fixture).error, 'roam_unavailable');
 });

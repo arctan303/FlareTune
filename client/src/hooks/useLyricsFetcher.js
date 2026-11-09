@@ -2,8 +2,7 @@ import { useEffect } from 'react';
 import { getApiBaseUrl } from '../utils.js';
 import { usePlayerStore } from '../store/usePlayerStore.js';
 import { songLanguageHasLyrics } from '../constants/language.js';
-import { getLyricVocalStart } from '../utils/lyricTimeline.js';
-import { lyricsWorkspaceApi } from '../services/localLyricsWorkspaceApi.js';
+import { getPluginContribution } from '../plugins/contributions.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
 import { isLyricSourceId, LEGACY_LYRIC_SOURCES } from '../../../shared/lyricSources.js';
 
@@ -15,13 +14,17 @@ const EMPTY_LYRICS = [{ time: 0, text: '暂无歌词' }];
 const ERROR_LYRICS = [{ time: 0, text: '歌词加载失败' }];
 const LYRICS_RETRY_DELAYS_MS = [1_500, 3_000];
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/;
-const INTRO_LYRIC_THRESHOLD_SECONDS = 3;
 const VALID_SYNC_MODES = new Set(['word', 'line', 'none']);
-const validResolvedSource = source => isLyricSourceId(source) || source === 'manual' || Object.hasOwn(LEGACY_LYRIC_SOURCES, source);
+const validResolvedSource = source => isLyricSourceId(source) || source === 'manual' || source === 'youtube' || Object.hasOwn(LEGACY_LYRIC_SOURCES, source);
 const VALID_TRANSLATION_STATES = new Set(['unavailable', 'missing', 'pending', 'ready', 'failed']);
 const TRANSLATION_POLL_INTERVAL_MS = 2_000;
 const TRANSLATION_POLL_WINDOW_MS = 30_000;
 const pendingTranslationCompletions = new Map();
+const completePluginTranslation = songId => {
+    const complete = getPluginContribution('lyrics-workbench', 'translation-completion')?.actions.complete;
+    if (!complete) return Promise.reject(Object.assign(new Error('歌词工作台尚未安装或 AI 功能不可用。'), { code: 'PLUGIN_DEPENDENCY_UNAVAILABLE' }));
+    return complete(songId);
+};
 
 const waitForLyricsRetry = (delayMs, signal) => new Promise((resolve) => {
     if (signal?.aborted) { resolve(); return; }
@@ -59,18 +62,6 @@ const hasTranslation = (lines) => (
     Array.isArray(lines)
     && lines.some((line) => typeof line?.translation === 'string' && line.translation.trim())
 );
-
-const getIntroLyricText = (song) => (
-    [song?.artist, song?.title].filter(Boolean).join(' - ') || '正在播放'
-);
-
-export const createLyricIntro = (lyrics, song) => {
-    if (!songLanguageHasLyrics(song?.language)) return null;
-    if (!Array.isArray(lyrics) || lyrics.length === 0 || isPlaceholderLyrics(lyrics)) return null;
-    const firstVocalStart = getLyricVocalStart(lyrics[0]);
-    if (firstVocalStart === null || firstVocalStart <= INTRO_LYRIC_THRESHOLD_SECONDS) return null;
-    return { time: 0, text: getIntroLyricText(song) };
-};
 
 export const getLyricsRequestKey = (song) => (
     song?.id ? `v${LYRICS_CACHE_SCHEMA}|${encodeURIComponent(String(song.id))}` : ''
@@ -294,9 +285,7 @@ const hasSameOriginalDocument = (state, result) => (
 const applyLyricsDocumentSnapshot = (
     state,
     result,
-    currentSong,
     lyrics = result.lyrics,
-    intro = createLyricIntro(result.lyrics, currentSong),
 ) => {
     state.setLyricsDocumentSnapshot({
         lyrics,
@@ -304,7 +293,6 @@ const applyLyricsDocumentSnapshot = (
         source: result.source,
         format: result.format,
         syncMode: result.syncMode,
-        intro,
         offsetMs: result.offsetMs,
         translationAvailable: result.translationAvailable,
         translationState: result.translationState,
@@ -429,7 +417,7 @@ export function createLyricsTranslationPoller({
 export async function requestLyricsTranslationCompletion({
     songId,
     authenticated,
-    completeTranslation = lyricsWorkspaceApi.completeLyricsTranslation,
+    completeTranslation = completePluginTranslation,
     getPlayerState = usePlayerStore.getState,
     notify = () => {},
     now = Date.now,
@@ -443,7 +431,11 @@ export async function requestLyricsTranslationCompletion({
     const current = getPlayerState();
     if (String(current.currentSong?.id) !== normalizedSongId) return { state: 'ignored' };
     if (current.translationState === 'pending') return { state: 'pending' };
-    const duplicate = pendingTranslationCompletions.get(normalizedSongId);
+    const ownership = current.playbackOwnershipGeneration;
+    const requestKey = `${normalizedSongId}:${ownership}`;
+    const belongsToPlayback = latest => String(latest.currentSong?.id) === normalizedSongId
+        && latest.playbackOwnershipGeneration === ownership;
+    const duplicate = pendingTranslationCompletions.get(requestKey);
     if (duplicate) return duplicate;
 
     const previousAvailable = Boolean(current.translationAvailable);
@@ -458,7 +450,7 @@ export async function requestLyricsTranslationCompletion({
             const responseState = response?.data?.status;
             const serverStartedAt = response?.data?.translationStartedAt ?? response?.data?.startedAt;
             const latest = getPlayerState();
-            if (String(latest.currentSong?.id) !== normalizedSongId) return { state: responseState || 'pending' };
+            if (!belongsToPlayback(latest)) return { state: responseState || 'pending' };
             if (responseState === 'not_needed') {
                 setTranslationSnapshot(latest, { available: false, state: 'unavailable', startedAt: null });
                 return { state: 'unavailable' };
@@ -473,20 +465,20 @@ export async function requestLyricsTranslationCompletion({
             return { state: 'pending' };
         } catch (error) {
             const latest = getPlayerState();
-            if (String(latest.currentSong?.id) === normalizedSongId) {
+            if (belongsToPlayback(latest)) {
                 setTranslationSnapshot(latest, {
                     available: Boolean(latest.translationAvailable),
                     state: latest.translationAvailable ? 'ready' : 'failed',
                     startedAt: null,
                 });
             }
-            notify(error?.message || '歌词翻译补全提交失败');
+            if (belongsToPlayback(latest)) notify(error?.message || '歌词翻译补全提交失败');
             return { state: 'failed', error };
         } finally {
-            pendingTranslationCompletions.delete(normalizedSongId);
+            pendingTranslationCompletions.delete(requestKey);
         }
     })();
-    pendingTranslationCompletions.set(normalizedSongId, request);
+    pendingTranslationCompletions.set(requestKey, request);
     return request;
 }
 
@@ -507,7 +499,6 @@ export async function loadLyricsDocumentIntoStore({
         store().setResolvedLyricSource(null);
         store().setLyricFormat('none');
         store().setLyricSyncMode('none');
-        store().setLyricIntro(null);
         store().setLyricOffsetMs(0);
         setTranslationSnapshot(store(), { available: false, state: 'unavailable', startedAt: null });
     };
@@ -585,12 +576,10 @@ export async function loadLyricsDocumentIntoStore({
             applyLyricsDocumentSnapshot(
                 currentState,
                 result,
-                currentSong,
                 mergedLyrics,
-                currentState.lyricIntro,
             );
         } else {
-            applyLyricsDocumentSnapshot(currentState, result, currentSong);
+            applyLyricsDocumentSnapshot(currentState, result);
         }
         return result;
     } catch (error) {

@@ -13,38 +13,154 @@ test('parsePathname resolves standard primary pages', () => {
   assert.deepEqual(parsePathname('/history'), { type: 'page', page: 'history' });
   assert.deepEqual(parsePathname('/search'), { type: 'page', page: 'search' });
   assert.deepEqual(parsePathname('/roam'), { type: 'page', page: 'roam' });
+  assert.equal(formatPath({ type: 'page', page: 'roam' }), '/roam');
   assert.deepEqual(parsePathname('/library'), { type: 'page', page: 'library' });
   assert.deepEqual(parsePathname('/settings'), { type: 'page', page: 'settings', section: 'appearance' });
-  assert.deepEqual(parsePathname('/assistant'), { type: 'page', page: 'assistant' });
-  assert.deepEqual(parsePathname('/xiaoa'), { type: 'page', page: 'assistant' });
+  assert.deepEqual(parsePathname('/assistant'), { type: 'page', page: 'plugin', pluginId: 'assistant', pluginPage: 'conversation' });
+  assert.deepEqual(parsePathname('/xiaoa'), { type: 'page', page: 'plugin', pluginId: 'assistant', pluginPage: 'conversation' });
 });
 
 test('settings sections have direct URLs and round-trip through browser history', () => {
-  const sections = ['personal', 'appearance', 'admin-assistant', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
+  const sections = ['personal', 'appearance', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
   for (const section of sections) {
     const route = { type: 'page', page: 'settings', section };
     assert.deepEqual(parsePathname(formatPath(route)), route);
   }
+  const assistantConfiguration = { type: 'page', page: 'plugin', pluginId: 'assistant', pluginPage: 'configuration' };
+  assert.deepEqual(parsePathname('/settings/admin/assistant'), assistantConfiguration);
+  assert.deepEqual(parsePathname(formatPath({ type: 'page', page: 'settings', section: 'admin-assistant' })), assistantConfiguration);
   assert.deepEqual(parsePathname('/settings/admin'), { type: 'page', page: 'settings', section: 'admin-system' });
   assert.deepEqual(parsePathname('/settings/admin/instance'), { type: 'page', page: 'settings', section: 'admin-system' });
   assert.deepEqual(parsePathname('/settings/unknown'), { type: 'page', page: 'settings', section: 'appearance' });
   assert.equal(formatPath({ type: 'page', page: 'settings' }), '/settings/appearance');
 });
 
-test('assistant memory has a direct URL while conversation keeps the existing URL', () => {
+test('legacy plugin workspaces canonicalize into the shared workspace and preserve detail identity', () => {
+  for (const section of ['plugins', 'admin-plugins']) {
+    for (const pluginSection of ['overview', 'connection', 'devices', 'playback']) {
+      const route = { type: 'page', page: 'settings', section, pluginId: 'xiaomi-speaker', pluginSection };
+      assert.deepEqual(parsePathname(formatPath(route)), { type: 'page', page: 'plugin', pluginId: route.pluginId, pluginPage: pluginSection });
+    }
+  }
+  assert.deepEqual(parsePathname('/settings/plugins/xiaomi-speaker'), {
+    type: 'page', page: 'plugin', pluginId: 'xiaomi-speaker', pluginPage: 'overview',
+  });
+  assert.equal(formatPath({ type: 'page', page: 'settings', section: 'admin-plugins', pluginId: 'future/plugin', pluginSection: 'a b' }),
+    '/plugins/future%2Fplugin/a%20b');
+  assert.deepEqual(parsePathname('/settings/plugins/future%2Fplugin/a%20b'), {
+    type: 'page', page: 'plugin', pluginId: 'future/plugin', pluginPage: 'a b',
+  });
+  assert.deepEqual(parsePathname('/settings/plugins/xiaomi-speaker/overview/extra'),
+    { type: 'page', page: 'settings', section: 'appearance' });
+});
+
+test('plugin list, management routes and legacy roots have one canonical URL without reserving plugin ids', () => {
+  for (const section of ['list', 'delivery']) {
+    const route = { type: 'page', page: 'plugin', section };
+    assert.deepEqual(parsePathname(formatPath(route)), route);
+  }
+  assert.equal(formatPath({ type: 'page', page: 'settings', section: 'plugins' }), '/plugins');
+  assert.equal(formatPath({ type: 'page', page: 'settings', section: 'admin-plugins' }), '/plugins');
+  assert.deepEqual(parsePathname('/settings/plugins'), { type: 'page', page: 'plugin', section: 'list' });
+  assert.deepEqual(parsePathname('/settings/admin/plugins'), { type: 'page', page: 'plugin', section: 'list' });
+  assert.deepEqual(parsePathname('/plugins/_/install'), { type: 'page', page: 'plugin', section: 'list' });
+  assert.deepEqual(parsePathname('/plugins/_/sources'), { type: 'page', page: 'plugin', section: 'delivery' });
+  assert.deepEqual(parsePathname('/plugins/install'), { type: 'page', page: 'plugin', pluginId: 'install', pluginPage: 'overview' });
+  assert.deepEqual(parsePathname('/plugins/_/missing'), { type: 'page', page: 'plugin', section: 'missing' });
+});
+
+test('catalog detail URLs retain the chosen source and version across reloads', () => {
+  const route = { type: 'page', page: 'plugin', pluginId: 'external', pluginPage: 'overview', catalogSource: 'second-source', catalogVersion: '2.0.0' };
+  const url = new URL(formatPath(route), 'https://flaretune.dev');
+  assert.deepEqual(parseAppLocation(url), route);
+});
+
+test('assistant legacy conversation and memory URLs canonicalize to their plugin pages', () => {
   assert.deepEqual(parsePathname('/assistant/memory'),
-    { type: 'page', page: 'assistant', section: 'memory' });
-  assert.equal(formatPath({ type: 'page', page: 'assistant', section: 'memory' }), '/assistant/memory');
-  assert.equal(formatPath({ type: 'page', page: 'assistant', section: 'conversation' }), '/assistant');
+    { type: 'page', page: 'plugin', pluginId: 'assistant', pluginPage: 'memory' });
+  assert.equal(formatPath({ type: 'page', page: 'assistant', section: 'memory' }), '/plugins/assistant/memory');
+  assert.equal(formatPath({ type: 'page', page: 'assistant', section: 'conversation' }), '/plugins/assistant/conversation');
+});
+
+test('service routes preserve plugin/page identity independently from settings compatibility URLs', () => {
+  const route = { type: 'page', page: 'plugin', pluginId: 'reading-room', pluginPage: 'browse' };
+  assert.equal(formatPath(route), '/plugins/reading-room/browse');
+  assert.deepEqual(parsePathname(formatPath(route)), route);
+  assert.deepEqual(parsePathname('/plugins/reading-room'), { ...route, pluginPage: 'overview' });
+  assert.deepEqual(parsePathname('/plugins/reading-room/browse/extra'), { type: 'page', page: 'home' });
+  assert.deepEqual(parsePathname('/plugins/reading%2Froom/page%20name'), { ...route, pluginId: 'reading/room', pluginPage: 'page name' });
+});
+
+test('roam browse has one host route while its plugin overview remains in plugin management', () => {
+  const route = { type: 'page', page: 'roam' };
+  for (const url of ['/roam', '/roam?lang=zh#top', '/plugins/roam/browse', '/plugins/roam/browse?source=official#top']) {
+    assert.deepEqual(parsePathname(url), route);
+    assert.equal(formatPath(parsePathname(url)), '/roam');
+  }
+  assert.equal(formatPath({ type: 'page', page: 'plugin', pluginId: 'roam', pluginPage: 'browse' }), '/roam');
+  assert.deepEqual(parsePathname('/plugins/roam/overview'), { type: 'page', page: 'plugin', pluginId: 'roam', pluginPage: 'overview' });
+});
+
+function browserHistory(start, inspect) {
+  const previousWindow = globalThis.window, previousCustomEvent = globalThis.CustomEvent;
+  const location = { pathname: '', search: '' }, entries = [{ url: start, state: null }], moves = [];
+  let index = 0;
+  const setLocation = url => { const parsed = new URL(url, 'https://test.example'); location.pathname = parsed.pathname; location.search = parsed.search; };
+  setLocation(start);
+  const history = {
+    state: null, get length() { return entries.length; },
+    replaceState(state, _title, url) { const target = url || entries[index].url; entries[index] = { url: target, state }; this.state = state; setLocation(target); },
+    pushState(state, _title, url) { entries.splice(index + 1, entries.length, { url, state }); index++; this.state = state; setLocation(url); },
+    go(delta) { moves.push(delta); index += delta; assert.ok(index >= 0 && index < entries.length); this.state = entries[index].state; setLocation(entries[index].url); },
+    back() { this.go(-1); },
+  };
+  globalThis.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
+  globalThis.window = { location, history, dispatchEvent() {} };
+  try { inspect({ location, history, moves, entries }); }
+  finally { globalThis.window = previousWindow; globalThis.CustomEvent = previousCustomEvent; }
+}
+
+test('daily plugin service return preserves home, plugin list or management origin through internal tab changes', () => {
+  for (const origin of ['/home', '/plugins', '/plugins/assistant/overview']) browserHistory('/home', ({ history, location, moves }) => {
+    if (origin !== '/home') syncBrowserHistory(origin);
+    syncBrowserHistory('/plugins/assistant/conversation');
+    syncBrowserHistory('/plugins/assistant/memory');
+    syncBrowserHistory('/plugins/assistant/conversation');
+    assert.equal(history.state.sidebarOrigin, origin);
+    assert.equal(history.state.sidebarDepth, 3);
+    assert.equal(returnFromSidebarWorkspace('/home'), 'back');
+    assert.deepEqual(moves, [-3]);
+    assert.equal(location.pathname + location.search, origin);
+  });
+});
+
+test('direct service links followed by internal tabs return home without looping between tabs', () => {
+  browserHistory('/plugins/assistant/memory', ({ history, location, moves }) => {
+    syncBrowserHistory('/plugins/assistant/conversation');
+    syncBrowserHistory('/plugins/assistant/memory');
+    assert.equal(history.state.sidebarOrigin, null);
+    assert.equal(returnFromSidebarWorkspace('/home'), 'replace');
+    assert.equal(location.pathname, '/home'); assert.deepEqual(moves, []);
+  });
+});
+
+test('a direct category page returns to host roam without requiring the roam plugin', () => {
+  browserHistory('/explore/zh', ({ location, moves }) => {
+    assert.equal(returnToOriginRoute('/roam'), 'replace');
+    assert.equal(location.pathname, '/roam'); assert.deepEqual(moves, []);
+  });
 });
 
 test('lyrics workbench song and sidebar sections have direct URLs', () => {
   for (const section of ['current', 'tools', 'candidates']) {
     const route = { type: 'page', page: 'lyrics', songId: 'song 你好', section };
-    assert.deepEqual(parsePathname(formatPath(route)), route);
+    const pluginRoute = { type: 'page', page: 'plugin', pluginId: 'lyrics-workbench', songId: route.songId, pluginPage: section };
+    assert.deepEqual(parsePathname(formatPath(route)), pluginRoute);
+    assert.deepEqual(parseAppLocation(new URL(formatPath(route), 'https://flare.test')), pluginRoute);
+    assert.deepEqual(parsePathname(`/lyrics/${encodeURIComponent(route.songId)}/${section}`), pluginRoute);
   }
   assert.deepEqual(parsePathname('/lyrics/song-id/unknown'),
-    { type: 'page', page: 'lyrics', songId: 'song-id', section: 'current' });
+    { type: 'page', page: 'plugin', pluginId: 'lyrics-workbench', songId: 'song-id', pluginPage: 'current' });
 });
 
 test('parsePathname strips query params and hash correctly', () => {
@@ -202,8 +318,12 @@ test('sidebar return goes to the page that opened the workspace after internal s
   globalThis.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
   try {
     for (const [origin, workspace, section] of [
-      ['/roam', '/assistant', '/assistant/memory'],
+      ['/home', '/assistant', '/assistant/memory'],
       ['/search?q=jazz', '/settings/appearance', '/settings/admin/system'],
+      ['/search?q=plugins', '/settings/appearance', '/plugins'],
+      ['/explore/zh', '/settings/appearance', '/plugins/_/sources'],
+      ['/search?q=devices', '/plugins', '/plugins/xiaomi-speaker/connection'],
+      ['/search?q=books', '/plugins/reading-room/browse', '/plugins/reading-room/notes'],
     ]) {
       const location = { pathname: origin.split('?')[0], search: origin.includes('?') ? `?${origin.split('?')[1]}` : '' };
       const entries = [{ url: origin, state: null }];
@@ -288,7 +408,7 @@ test('rejected lyrics Back restores sidebar origin so its return reaches search'
     const lyricsScrollEntry = history.state.scrollEntryId;
     history.go(-1); // Browser Back arrives on search before the guard rejects it.
     restoreSidebarWorkspaceAfterRejectedBack('/lyrics/song-1', lyricsScrollEntry);
-    assert.equal(history.state.sidebarPage, 'lyrics');
+    assert.equal(history.state.sidebarPage, 'plugin:lyrics-workbench:lyrics');
     assert.equal(history.state.sidebarOrigin, '/search?q=jazz');
     assert.equal(history.state.sidebarDepth, 1);
     assert.equal(history.state.scrollEntryId, lyricsScrollEntry);

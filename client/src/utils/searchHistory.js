@@ -1,3 +1,8 @@
+import { artistIdentity, isYouTubeEntity } from './musicSource.js';
+const sameArtist = (left, right) => isYouTubeEntity(left) || isYouTubeEntity(right)
+  ? artistIdentity(left) === artistIdentity(right)
+  : artistIdentity(left).trim().toLowerCase() === artistIdentity(right).trim().toLowerCase();
+
 export const RECENT_SEARCHES_KEY = 'arc_recent_searches';
 export const MAX_RECENT_SEARCHES = 10;
 
@@ -100,7 +105,7 @@ export function saveRecentSearchEntity(entity, accountId) {
         return String(item.id) !== String(entity.id);
       }
       if (entity.type === 'artist') {
-        return (item.name || '').trim().toLowerCase() !== (entity.name || '').trim().toLowerCase();
+        return !sameArtist(item, entity);
       }
       return true;
     });
@@ -125,7 +130,7 @@ export function removeRecentSearchEntity(entity, accountId) {
         return String(item.id) !== String(entity.id);
       }
       if (entity.type === 'artist') {
-        return (item.name || '').trim().toLowerCase() !== (entity.name || '').trim().toLowerCase();
+        return !sameArtist(item, entity);
       }
       return true;
     });

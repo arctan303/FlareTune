@@ -6,7 +6,9 @@ import { lyricSourceLoaderForDb } from './lyricSourcesConfig.js';
 import { TEST_LYRIC_SOURCES } from '../test/lyricSourceConfigFixtures.js';
 import { makeReadyArtifact } from '../test/lyricAssetFixtures.js';
 import { validateLyricArtifact } from './lyricArtifactStore.js';
-import { handleLocalLyricsManageRoute } from '../routes/localLyricsManage.js';
+import { fixture } from '../subsonic/test-support.js';
+import { setInstalled } from '../plugins/registry.js';
+import { pluginBuilds } from '../../../shared/plugins/build.generated.js';
 
 const song = { id: 's1', title: 'Song', artist: 'Artist', duration: 200 };
 test('defaults query only LRCLIB; unconfigured adapters never fetch', async () => {
@@ -39,14 +41,32 @@ test('configuration changes and different databases never share loaders or disab
   settings.custom_krc.enabled=false;
   const b=await lyricSourceLoaderForDb(first); assert.notEqual(a,b); assert.ok(!b.enabledSources.includes('custom_krc'));
 });
-test('members receive only enabled IDs; anonymous access and settings writes are refused', async () => {
-  const db={prepare:()=>({first:async()=>({value_json:JSON.stringify(TEST_LYRIC_SOURCES)})})};
-  const route=(method,session)=>{ const request=new Request('https://app.example.com/api/lyrics/sources',{method});return handleLocalLyricsManageRoute(request,new URL(request.url),db,{},session); };
-  assert.equal((await route('GET',null)).status,401);
-  const member={mode:'normal',account:{accountId:'member',role:'member'}};
-  const response=await route('GET',member); assert.equal(response.status,200);
-  const body=await response.json(); assert.deepEqual(body.data.sources,['custom_krc','custom_lrc','lrclib']); assert.doesNotMatch(JSON.stringify(body),/https|example\.com|searchUrl/);
-  assert.equal((await route('PUT',member)).status,405);
+test('members receive only enabled IDs; anonymous access and settings writes are refused', async t => {
+  const f = await fixture(); t.after(() => f.close());
+  f.sqlite.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
+    VALUES ('lyrics.sources',?,1,1,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json`)
+    .run(JSON.stringify(TEST_LYRIC_SOURCES), f.owner);
+  const member = await f.signIn('member');
+  const build = pluginBuilds.find(item => item.id === 'lyrics-workbench')?.sourceDigest;
+  assert.match(build || '', /^[a-f0-9]{64}$/);
+  const headers = { 'X-FlareTune-Plugin-Build': build };
+  const routes = ['lyrics/sources', 'account/plugins/lyrics-workbench/sources'];
+  for (const route of routes) {
+    assert.equal((await f.api(route, 'GET', undefined, f.signed, { Cookie: '' })).status, 401, 'the real HTTP session gate rejects anonymous access');
+    assert.equal((await f.api(route, 'GET', undefined, member, headers)).status, 409, 'the plugin is not installed');
+  }
+  await setInstalled(f.env, f.signed.session, 'lyrics-workbench', { installed: true, revision: 0 });
+  for (const route of routes) {
+    assert.equal((await f.api(route, 'GET', undefined, member)).status, 409, 'missing build is refused');
+    assert.equal((await f.api(route, 'GET', undefined, member, { 'X-FlareTune-Plugin-Build': '0'.repeat(64) })).status, 409, 'an old build is refused');
+    const response = await f.api(route, 'GET', undefined, member, headers); assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.data.sources, ['custom_krc', 'custom_lrc', 'lrclib']);
+    assert.doesNotMatch(JSON.stringify(body), /https|example\.com|searchUrl|downloadUrl|secret/i);
+    const before = f.sqlite.prepare("SELECT value_json,revision FROM instance_settings WHERE key='lyrics.sources'").get();
+    assert.equal((await f.api(route, 'PUT', {}, member, headers)).status, 403, 'member writes are refused before reaching shared settings');
+    assert.deepEqual(f.sqlite.prepare("SELECT value_json,revision FROM instance_settings WHERE key='lyrics.sources'").get(), before);
+  }
 });
 test('old stored assets remain canonical and use neutral UI labels', () => {
   for (const source of ['kugou','netease']) {

@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
 const readSource = (relativePath) => {
-  const url = new URL(relativePath, import.meta.url);
-  const content = readFileSync(url, 'utf8');
+  let url = new URL(relativePath, import.meta.url);
+  let content = readFileSync(url, 'utf8');
+  // Plugin implementation contracts run against their owning repository.
   if (relativePath.endsWith('.css')) {
     return content.replace(/@import\s+['"](\.[^'"]+)['"];/g, (_, importPath) => {
       const targetUrl = new URL(importPath, url);
@@ -76,8 +77,8 @@ test('application sidebar uses labeled desktop navigation and a focus-managed mo
   const wordmark = readSource('./components/TuneWordmark.jsx');
   const queue = readSource('./components/PlaylistDrawer.jsx');
 
-  assert.match(sidebar, /PRIMARY_ITEMS[\s\S]*主页[\s\S]*搜索[\s\S]*漫游[\s\S]*资料库/);
-  assert.match(sidebar, /data-ai-entry="sidebar"/);
+  assert.match(sidebar, /PRIMARY_ITEMS[\s\S]*主页[\s\S]*搜索[\s\S]*资料库/);
+  assert.match(sidebar, /usePluginMenu\('sidebar.primary'\)/);
   assert.match(sidebar, /previousFocusRef/);
   assert.match(sidebar, /event\.key !== 'Tab'/);
   assert.match(sidebar, /mainContent\?\.setAttribute\('inert', ''\)/);
@@ -155,38 +156,13 @@ test('identity-sensitive music data waits for session discovery and forces reval
   assert.match(songApi, /credentials: 'include',[\s\S]{0,80}cache: 'no-store'/);
 });
 
-test('assistant page owns input, messages and pending state', () => {
-  const page = readSource('./components/AssistantView.jsx');
-
-  assert.match(page, /const \[inputText, setInputText\] = React\.useState\(''\);/);
-  assert.match(page, /const \[messages, setMessages\] = React\.useState\(\[\]\);/);
-  assert.match(page, /const \[isLoading, setIsLoading\] = React\.useState\(false\);/);
-});
-
-test('assistant page stops its stream and typewriter when cancelled', () => {
-  const page = readSource('./components/AssistantView.jsx');
-
-  assert.match(page, /const handleStopGeneration = React\.useCallback/);
-  assert.match(page, /abortControllerRef\.current\.abort\(\)/);
-  assert.match(page, /typewriter\?\.cancel\(\)/);
-  assert.match(page, /if \(!completed \|\| !canonicalThread\)/);
-});
-
-test('assistant page retains stream and composer without reply song cards or retired prompt chips', () => {
-  const page = readSource('./components/AssistantView.jsx');
-  const chrome = readSource('./components/AiReviewChrome.jsx');
-  const conversation = readSource('./components/AiReviewConversation.jsx');
+test('retired assistant card and prompt-chip files remain absent from the Host', () => {
 
   assert.equal(existsSync(new URL('./aiPromptChips.js', import.meta.url)), false);
   assert.equal(existsSync(new URL('./aiPromptChips.test.js', import.meta.url)), false);
-  assert.doesNotMatch(`${page}\n${conversation}`, /getAiPromptChips|resolveAiPromptChipText|PROMPT_CHIP_ICONS|activeChips|shouldShowChips|快捷 Prompt Chips/);
-  assert.match(page, /event\.type === 'thread_state'/);
-  assert.match(page, /event\.type === 'content'/);
-  assert.match(page, /event\.type === 'done'/);
-  assert.match(chrome, /placeholder=\{t\("聊聊音乐…"\)\}/);
+
   assert.equal(existsSync(new URL('./components/AssistantMusicCard.jsx', import.meta.url)), false);
-  assert.doesNotMatch(conversation, /XiaoaMessageMusicCards|displaySongs|message\.songs/);
-  assert.doesNotMatch(page, /displaySongs/);
+
 });
 
 test('home and playlist opening titles stay compact without scaling the page', () => {

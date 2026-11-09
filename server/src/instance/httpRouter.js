@@ -9,29 +9,26 @@ import { decideApiAccess } from './accessPolicy.js';
 import { isTrustedMutationRequest, readBoundedJson, RequestBodyError } from './httpSecurity.js';
 import { InstanceAdminError } from '../instanceAdmin/common.js';
 import { createAccount, listAccounts, resetAccountPassword, updateAccount } from '../instanceAdmin/accounts.js';
-import { getAdminSettings, updateAdminSetting, updateAssistantConfig } from '../instanceAdmin/settings.js';
-import { listAiProfiles, listAiModels, createAiProfile, updateAiProfile, deleteAiProfile,
-  assignAiProfile } from '../instanceAdmin/aiProfiles.js';
-import { listAiProviders, createAiProvider, updateAiProvider, deleteAiProvider, listAiProviderModels,
-  saveAiFeatureModel } from '../instanceAdmin/aiProviders.js';
+import { getAdminSettings, updateAdminSetting } from '../instanceAdmin/settings.js';
 import { validateSetting } from '../instanceAdmin/settings.js';
-import { testLyricSource } from '../instanceAdmin/lyricSourceTest.js';
 import { handleLocalMusicReadRoute } from '../routes/localMusicRead.js';
 import { handleLocalAccountMusicRoute } from '../routes/localAccountMusic.js';
 import { handleLocalMusicDiscoveryRoute } from '../routes/localMusicDiscovery.js';
 import { handleLocalAlbumReadRoute } from '../routes/localAlbumRead.js';
-import { handleLocalAssistantRoute } from '../routes/localAssistant.js';
 import { handleLocalMetadataReadRoute } from '../routes/localMetadataRead.js';
-import { handleLocalLyricsManageRoute } from '../routes/localLyricsManage.js';
 import { handleLocalCatalogAdminRoute } from '../routes/localCatalogAdmin.js';
 import { handleLocalCatalogMediaRoute } from '../routes/localCatalogMedia.js';
 import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
 import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
 import { getOwnUiLanguage, updateOwnDisplayName, updateOwnUiLanguage } from '../auth/local/profile.js';
 import { handleUserImages } from '../routes/userImages.js';
+import { deliveryPluginModules } from '../plugins/delivery.generated.js';
+import { handlePluginApi } from '../routes/plugins.js';
+import { handlePluginDelivery, handlePluginBuild } from '../routes/pluginDelivery.js';
 import { handleGoogleRequest } from '../auth/google.js';
 import { getOwnImageSlot, userImagesReady } from '../services/userImages.js';
 import { ownStatus as subsonicStatus, setEnabled as setSubsonicEnabled } from '../subsonic/credentials.js';
+import { createInvocationDatabase as createLyricsInvocationDatabase } from '../services/invocationDatabase.js';
 import {
   AuthError,
   claimInstance,
@@ -58,6 +55,8 @@ export const json = (body, status = 200, extraHeaders = {}) => new Response(JSON
 });
 
 const authFailure = (error) => {
+  if (error?.name === 'YouTubeError' && /^YOUTUBE_[A-Z0-9_]{1,80}$/.test(error.code || '')
+    && Number.isInteger(error.status) && error.status >= 400 && error.status <= 599) return json({ error: error.code }, error.status);
   if (error instanceof AuthError) return json({ error: error.code }, error.status);
   if (error instanceof InstanceAdminError) return json({ error: error.code }, error.status);
   if (error instanceof RateLimitError) return json({ error: error.code }, error.status);
@@ -91,11 +90,15 @@ function attachCors(response, origin) {
 
 export async function handleApi(request, env, path, ctx) {
   if (path === '/api/auth/recovery') return json({ error: 'not_found' }, 404);
+  if (path === '/api/lyrics' || path.startsWith('/api/lyrics/workspace/')
+    || path.startsWith('/api/account/plugins/lyrics-workbench/workspace/')) {
+    env = { ...env, DB: createLyricsInvocationDatabase(env.DB, request.signal, { exhaustedCode: 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' }) };
+  }
   const cacheSchema = (request.method === 'GET'
     && !['/api/health', '/api/instance/status'].includes(path)
     && !path.startsWith('/api/admin/') && !path.startsWith('/api/manage/')
     && !path.startsWith('/api/instance/')) || (request.method === 'POST'
-      && ['/api/songs/roam', '/api/songs/resolve'].includes(path));
+      && ['/api/songs/roam', '/api/songs/resolve', '/api/account/plugins/roam/sample'].includes(path));
   const instance = await resolveInstanceState(env?.DB, Date.now(), { cacheSchema, executionContext: ctx });
   const origin = request.headers.get('Origin');
   const sameOrigin = new URL(request.url).origin;
@@ -110,7 +113,7 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     'Cache-Control': 'no-store',
     ...(crossOrigin ? {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Requested-With, X-CSRF-Token, X-FlareTune-Expected-Account, X-FlareTune-Media-Size',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Requested-With, X-CSRF-Token, X-FlareTune-Expected-Account, X-FlareTune-Plugin-Build, X-FlareTune-Media-Size',
       'Access-Control-Max-Age': '600',
     } : {}),
   } });
@@ -121,6 +124,11 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
   if (path === '/api/health' && request.method === 'GET') {
     return json({ ok: instance.state !== 'recovery_required', state: instance.state },
       instance.state === 'recovery_required' ? 503 : 200);
+  }
+
+  if (path.startsWith('/api/plugin-build/')) {
+    if (instance.state !== 'ready') return json({ error: instance.state }, 503);
+    return handlePluginBuild(request, path, env, json);
   }
 
   let token = null;
@@ -165,6 +173,12 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
   }
 
   try {
+    const deliveryResponse = await handlePluginDelivery(request, path, env, session, json);
+    if (deliveryResponse) return deliveryResponse;
+    const pluginResponse = await handlePluginApi(request, path, env, session, json, { executionContext: ctx });
+    if (pluginResponse) return pluginResponse;
+    const speakerResponse = await deliveryPluginModules['xiaomi-speaker']?.handleLegacyApi?.(request, path, env, session, json);
+    if (speakerResponse) return speakerResponse;
     const googleResponse = await handleGoogleRequest(request, env, path, session, json);
     if (googleResponse) return googleResponse;
     if (access.category === 'verify-setup') {
@@ -243,7 +257,7 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
     }
     const actorAccountId = session?.account?.accountId;
-    const imageResponse = await handleUserImages(request, new URL(request.url), env.DB, env.MEDIA_BUCKET, session);
+    const imageResponse = await handleUserImages(request, new URL(request.url), env.DB, env.MEDIA_BUCKET, session, { env });
     if (imageResponse) return imageResponse;
     if (path === '/api/account/subsonic' && request.method === 'GET') {
       return json(await subsonicStatus(env.DB, actorAccountId, env));
@@ -291,68 +305,17 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
         accountId: accountAction[1], temporaryPassword: body.temporaryPassword }));
     }
     if (path === '/api/admin/settings' && request.method === 'GET') {
-      return json(await getAdminSettings(env.DB, actorAccountId,
-        { aiApiKeyConfigured: Boolean(env.OPENAI_API_KEY || env.GEMINI_API_KEY || env.DEEPSEEK_API_KEY) }));
-    }
-    if (path === '/api/admin/lyrics/source-test' && request.method === 'POST') {
-      return json(await testLyricSource(env.DB, actorAccountId, await readBoundedJson(request), { signal: request.signal }));
-    }
-    if (path === '/api/admin/ai/providers' && request.method === 'GET') {
-      return json(await listAiProviders(env.DB, actorAccountId, env));
-    }
-    if (path === '/api/admin/ai/providers' && request.method === 'POST') {
-      return json(await createAiProvider(env.DB, actorAccountId, await readBoundedJson(request), env), 201);
-    }
-    if (path === '/api/admin/ai/provider-models' && request.method === 'POST') {
-      return json(await listAiProviderModels(env.DB, actorAccountId, await readBoundedJson(request), env));
-    }
-    if (path === '/api/admin/ai/feature-models' && request.method === 'PUT') {
-      return json(await saveAiFeatureModel(env.DB, actorAccountId, await readBoundedJson(request), env));
-    }
-    const aiProviderAction = path.match(/^\/api\/admin\/ai\/providers\/([0-9a-f-]{36})$/);
-    if (aiProviderAction && ['PUT', 'DELETE'].includes(request.method)) {
-      const body = await readBoundedJson(request);
-      return json(request.method === 'PUT'
-        ? await updateAiProvider(env.DB, actorAccountId, aiProviderAction[1], body.provider, body.expectedRevision, env)
-        : await deleteAiProvider(env.DB, actorAccountId, aiProviderAction[1], body.expectedRevision));
-    }
-    if (path === '/api/admin/ai/models' && request.method === 'POST') {
-      const body = await readBoundedJson(request);
-      return json(await listAiModels(env.DB, actorAccountId, body, env));
-    }
-    if (path === '/api/admin/ai/profiles' && request.method === 'GET') {
-      return json(await listAiProfiles(env.DB, actorAccountId, env));
-    }
-    if (path === '/api/admin/ai/profiles' && request.method === 'POST') {
-      const body = await readBoundedJson(request);
-      return json(await createAiProfile(env.DB, actorAccountId, body, env), 201);
-    }
-    const aiProfileAction = path.match(/^\/api\/admin\/ai\/profiles\/([0-9a-f-]{36})$/);
-    if (aiProfileAction && request.method === 'PUT') {
-      const body = await readBoundedJson(request);
-      return json(await updateAiProfile(env.DB, actorAccountId, aiProfileAction[1],
-        body.profile, body.expectedRevision, env));
-    }
-    if (aiProfileAction && request.method === 'DELETE') {
-      const body = await readBoundedJson(request);
-      return json(await deleteAiProfile(env.DB, actorAccountId, aiProfileAction[1],
-        body.expectedRevision));
-    }
-    if (path === '/api/admin/ai/assignments' && request.method === 'PUT') {
-      const body = await readBoundedJson(request);
-      return json(await assignAiProfile(env.DB, actorAccountId, body.feature, body.profileId,
-        body.expectedRevision));
+      const result = await getAdminSettings(env.DB, actorAccountId);
+      return json({ settings: Object.fromEntries(Object.entries(result.settings).filter(([key]) => ['instance.name', 'cors.allowed_origins'].includes(key))) });
     }
     if (path === '/api/admin/settings' && request.method === 'PUT') {
       const body = await readBoundedJson(request);
       return json(await updateAdminSetting(env.DB, actorAccountId,
         body.key, body.value, body.expectedRevision));
     }
-    if (path === '/api/admin/assistant' && request.method === 'PUT') {
-      const body = await readBoundedJson(request);
-      return json(await updateAssistantConfig(env.DB, actorAccountId,
-        body.patch, body.expectedRevision));
-    }
+    const source = deliveryPluginModules['youtube-music'];
+    const youtubeRead = await source?.handleYouTubeMusicRoute?.(request, new URL(request.url), env, session, ctx);
+    if (youtubeRead) return youtubeRead;
     const musicRead = await handleLocalMusicReadRoute(request, new URL(request.url), env.DB,
       {}, actorAccountId, { schemaVersion: instance.schemaVersion });
     if (musicRead) return musicRead;
@@ -363,17 +326,11 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       {}, actorAccountId, { executionContext: ctx });
     if (musicDiscovery) return musicDiscovery;
     const accountMusic = await handleLocalAccountMusicRoute(request, new URL(request.url), env.DB,
-      {}, session);
+      {}, session, { externalReferences: true, ...source?.youtubeAccountMusicDependencies?.(env, session, ctx) });
     if (accountMusic) return accountMusic;
-    const assistant = await handleLocalAssistantRoute(request, new URL(request.url), env.DB,
-      {}, session, env);
-    if (assistant) return assistant;
     const metadata = await handleLocalMetadataReadRoute(request, new URL(request.url), env.DB,
-      {}, actorAccountId, env, { ctx });
+      {}, actorAccountId, env, { ctx, session, ...source?.createLyricDependencies?.(env, session, ctx) });
     if (metadata) return metadata;
-    const lyricsManage = await handleLocalLyricsManageRoute(request, new URL(request.url), env.DB,
-      {}, session, env, { ctx });
-    if (lyricsManage) return lyricsManage;
     const catalogMedia = await handleLocalCatalogMediaRoute(request, new URL(request.url), env.DB,
       {}, session, env);
     if (catalogMedia) return catalogMedia;

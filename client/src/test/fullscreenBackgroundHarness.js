@@ -90,6 +90,12 @@ export function createBackgroundModuleHarness({ file, exportName = 'default', mo
     useEffect: effect,
     useLayoutEffect: effect,
     useCallback: (callback, dependencies) => memo(() => callback, dependencies),
+    useMemo: memo,
+    forwardRef: render => Object.assign((props) => render(props, props?.ref || null), { render }),
+    useImperativeHandle: (ref, create, dependencies) => effect(() => {
+      if (ref) ref.current = create();
+      return () => { if (ref) ref.current = null; };
+    }, dependencies),
   };
   const loaded = new Map();
   const load = moduleFile => {

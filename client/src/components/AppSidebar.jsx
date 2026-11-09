@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { t, useLocale } from '../i18n/index.js';
 import React from 'react';
 import {
   Activity,
@@ -13,11 +13,12 @@ import {
   PictureInPicture,
   PictureInPicture2,
   Plus,
+  Puzzle,
   Palette,
   Search,
+  Shuffle,
   Settings,
   FileText,
-  Shuffle,
   Trash2,
   UserRound,
   Users,
@@ -30,13 +31,17 @@ import PageBackButton from './PageBackButton.jsx';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { useSidebarNavigationMotion } from '../hooks/useSidebarNavigationMotion.js';
 import { useUIStore } from '../store/useUIStore.js';
-import { returnFromSidebarWorkspace } from '../utils/navigation.js';
+import { formatPath, syncBrowserHistory, returnFromSidebarWorkspace, returnToParentRoute } from '../utils/navigation.js';
+import { getPlugin, getPluginPages, getPluginPage, getPluginEntryRoute, localizePlugin } from '../plugins/registry.js';
+import { usePluginStore } from '../store/usePluginStore.js';
+import { usePluginMenu } from '../hooks/usePluginMenu.js';
+import PluginActionDialog from './PluginActionDialog.jsx';
 
 const PRIMARY_ITEMS = [
-  { id: 'home', label: '主页', icon: Home },
-  { id: 'search', label: '搜索', icon: Search },
-  { id: 'roam', label: '漫游', icon: Shuffle },
-  { id: 'library', label: '资料库', icon: Library },
+  { id: 'home', label: '主页', icon: Home, order: 10 },
+  { id: 'search', label: '搜索', icon: Search, order: 20 },
+  { id: 'roam', label: '漫游', icon: Shuffle, order: 30 },
+  { id: 'library', label: '资料库', icon: Library, order: 40 },
 ];
 
 const PERSONAL_SETTINGS = [
@@ -47,7 +52,6 @@ const PERSONAL_SETTINGS = [
 const ADMIN_SETTINGS = [
   { id: 'admin-catalog', label: '曲库管理', icon: Disc },
   { id: 'admin-add-song', label: '歌曲入库', icon: Plus },
-  { id: 'admin-assistant', label: 'AI 与助手', icon: Bot },
   { id: 'admin-accounts', label: '账号管理', icon: Users },
   { id: 'admin-system', label: '实例设置', icon: Activity },
 ];
@@ -58,18 +62,62 @@ const LYRICS_SECTIONS = [
 ];
 
 export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
+  const locale = useLocale();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
-  const { placement, transition, isPageOverride } = useCompactPlayerPlacement(activePage);
+  const primaryPluginMenu = usePluginMenu('sidebar.primary');
+  const primaryItems = [...PRIMARY_ITEMS, ...primaryPluginMenu.entries.filter(entry => entry.pluginId !== 'roam')
+    .map(entry => ({ ...entry, pluginEntry: true }))]
+    .sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+  const adminPluginMenu = usePluginMenu('sidebar.settings.admin');
+  const secondaryPluginMenu = usePluginMenu('sidebar.secondary');
+  const { placement, transition, isPageOverride } = useCompactPlayerPlacement(activePage, activeRoute);
   const isFullScreen = useUIStore((state) => state.isFullScreen);
   const settingsActiveSection = activeRoute?.type === 'page' && activeRoute.page === 'settings'
     ? activeRoute.section || 'appearance'
-    : 'appearance';
+    : null;
   const lyricsActiveSection = activeRoute?.page === 'lyrics' ? activeRoute.section || 'current' : 'current';
   const assistantActiveSection = activeRoute?.page === 'assistant' ? activeRoute.section || 'conversation' : 'conversation';
   const isAdmin = useUIStore((state) => state.authSession?.authenticated && state.authSession?.user?.role === 'admin');
+  const authenticated = useUIStore((state) => !!state.authSession?.authenticated);
+  const installedIds = usePluginStore((state) => state.installedIds);
+  const availabilityById = usePluginStore((state) => state.availabilityById);
+  const pluginContext = { isAdmin, authenticated, installedIds, availabilityById };
+  const plugin = activePage === 'plugin' || (activePage === 'settings' && ['plugins', 'admin-plugins'].includes(settingsActiveSection)
+    && (settingsActiveSection !== 'admin-plugins' || isAdmin)) ? localizePlugin(getPlugin(activeRoute?.pluginId), locale) : null;
+  const pluginPageId = activeRoute?.pluginPage || activeRoute?.pluginSection || 'overview';
+  const currentPluginPage = getPluginPage(plugin, pluginPageId);
+  const serviceWorkspace = currentPluginPage?.kind === 'service';
+  const pluginPages = plugin ? getPluginPages(plugin, pluginContext) : [];
+  const secondaryEntries = plugin ? secondaryPluginMenu.entries.filter(entry => entry.pluginId === plugin.id
+    && (entry.group || plugin.id) === (currentPluginPage?.group || plugin.id)) : [];
+  if (plugin) secondaryEntries.unshift(...primaryPluginMenu.entries.filter(entry => entry.pluginId === plugin.id)
+    .filter(entry => entry.page && (getPluginPage(plugin, entry.page)?.group || plugin.id) === (currentPluginPage?.group || plugin.id)));
+  const pluginSections = pluginPages.filter(page => serviceWorkspace
+    ? page.kind === 'service' && (page.group || plugin.id) === (currentPluginPage.group || plugin.id)
+      && (!plugin.entries.some(entry => entry.page === page.id && ['sidebar.primary', 'sidebar.secondary'].includes(entry.slot))
+        || secondaryEntries.some(entry => entry.page === page.id))
+    : page.id === 'overview' || page.kind === 'settings')
+    .map(page => ({ ...page, targetPage: page.id }));
+  for (const entry of secondaryEntries) {
+    if (entry.page && (getPluginPage(plugin, entry.page)?.kind === 'service') !== serviceWorkspace) continue;
+    const existing = entry.page ? pluginSections.find(page => page.targetPage === entry.page) : null;
+    if (existing && serviceWorkspace) Object.assign(existing, entry, { targetPage: entry.page });
+    else if (!existing) pluginSections.push({ ...entry, targetPage: entry.page });
+  }
+  const selectPluginRoute = route => {
+    if (route.pluginId === activeRoute?.pluginId && activeRoute?.songId) route = { ...route, songId: activeRoute.songId };
+    syncBrowserHistory(formatPath(route));
+    setIsMobileOpen(false);
+  };
+  const selectPluginSection = targetPage => selectPluginRoute({ type: 'page', page: 'plugin', pluginId: plugin.id, pluginPage: targetPage });
+  const openPluginEntry = entry => {
+    const menus = { 'sidebar.primary': primaryPluginMenu, 'sidebar.settings.admin': adminPluginMenu, 'sidebar.secondary': secondaryPluginMenu };
+    menus[entry.slot]?.open(entry);
+    setIsMobileOpen(false);
+  };
   const setCompactPlayerPlacement = useUIStore((state) => state.setCompactPlayerPlacement);
   const sidebarRef = React.useRef(null);
-  const navigationRef = useSidebarNavigationMotion(activePage);
+  const navigationRef = useSidebarNavigationMotion(activePage, activeRoute);
   const closeButtonRef = React.useRef(null);
   const previousFocusRef = React.useRef(null);
 
@@ -131,6 +179,20 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
       <span>{t(label)}</span>
     </button>
   );
+  const renderPluginEntry = entry => {
+    const route = getPluginEntryRoute(entry);
+    const Icon = entry.icon || Puzzle;
+    return <button key={`${entry.pluginId}:${entry.id}`} type="button" className="app-nav-item"
+      onClick={() => route ? selectPluginRoute(route) : openPluginEntry(entry)} data-tooltip={entry.labelKey ? entry.label : t(entry.label)}>
+      <Icon size={19} strokeWidth={1.8} aria-hidden="true" /><span>{entry.labelKey ? entry.label : t(entry.label)}</span>
+    </button>;
+  };
+  const renderPluginSection = ({ id, targetPage, label, icon: Icon = Puzzle, ...entry }) => <button key={`${entry.slot || 'page'}:${id}`} type="button"
+    className={`app-nav-item ${pluginPageId === targetPage ? 'is-active' : ''}`}
+    aria-current={pluginPageId === targetPage ? 'page' : undefined}
+    onClick={() => entry.action ? openPluginEntry({ ...entry, id, label, icon: Icon }) : selectPluginSection(targetPage)} data-tooltip={entry.labelKey ? label : t(label)}>
+    <Icon size={19} strokeWidth={1.8} aria-hidden="true" /><span>{entry.labelKey ? label : t(label)}</span>
+  </button>;
 
   const returnFromLyrics = () => {
     if (!useUIStore.getState().approveLyricsWorkspaceExit()) return;
@@ -192,41 +254,29 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           </button>
         </div>
 
-        <nav ref={navigationRef} className="app-sidebar__nav" aria-label={activePage === 'settings' ? t("设置分类") : activePage === 'lyrics' ? t("歌词工作台分区") : activePage === 'assistant' ? t("助手分区") : t("主要页面")}>
-          {activePage === 'lyrics' ? <>
-            <PageBackButton onClick={returnFromLyrics} label={t("返回")} className="app-nav-item app-sidebar__back" />
-            <div className="app-sidebar__nav-group" aria-label={t("歌词工作台")}>
-              <p className="app-sidebar__group-label">{t("歌词工作台")}</p>
-              {LYRICS_SECTIONS.map(({ id, label, icon: Icon }) => <button key={id} type="button"
-                className={`app-nav-item ${lyricsActiveSection === id ? 'is-active' : ''}`}
-                aria-current={lyricsActiveSection === id ? 'page' : undefined}
-                onClick={() => navigate('lyrics', id)} data-tooltip={t(label)}>
-                <Icon size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t(label)}</span>
-              </button>)}
+        <nav ref={navigationRef} className="app-sidebar__nav" aria-label={plugin ? plugin.supportedLocales?.length ? plugin.name : t(plugin.name) : ['settings', 'plugin'].includes(activePage) ? t("设置分类") : activePage === 'lyrics' ? t("歌词工作台分区") : activePage === 'assistant' ? t("助手分区") : t("主要页面")}>
+          {plugin ? <>
+            <PageBackButton label={t('返回')} className="app-nav-item app-sidebar__back"
+              onClick={() => {
+                if (serviceWorkspace) returnFromSidebarWorkspace('/home');
+                else returnToParentRoute('/plugins');
+                setIsMobileOpen(false);
+              }} />
+            <div className="app-sidebar__nav-group" aria-label={plugin.supportedLocales?.length ? plugin.name : t(plugin.name)}>
+              <p className="app-sidebar__group-label">{plugin.supportedLocales?.length ? plugin.name : t(plugin.name)}</p>
+              {serviceWorkspace ? pluginSections.map(renderPluginSection) : <>
+              {pluginSections.filter(page => page.id === 'overview').map(renderPluginSection)}
+              {['account', 'instance'].map(scope => {
+                const pages = pluginSections.filter(page => page.id !== 'overview' && page.kind === 'settings' && (page.scope || (page.access === 'admin' ? 'instance' : 'account')) === scope);
+                return pages.length > 0 && <div key={scope} className="mt-3">
+                  <p className="app-sidebar__group-label">{t(scope === 'instance' ? '站点设置' : '我的设置')}</p>
+                  {pages.map(renderPluginSection)}
+                </div>;
+              })}
+              {pluginSections.filter(page => page.id !== 'overview' && page.kind !== 'settings').map(renderPluginSection)}
+              </>}
             </div>
-          </> : activePage === 'assistant' ? <>
-            <PageBackButton label={t("返回")} className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
-            <div className="app-sidebar__nav-group" aria-label={t("助手")}>
-              <p className="app-sidebar__group-label">{t("助手")}</p>
-              <button type="button" className={`app-nav-item ${assistantActiveSection === 'conversation' ? 'is-active' : ''}`}
-                aria-current={assistantActiveSection === 'conversation' ? 'page' : undefined}
-                onClick={() => navigate('assistant', 'conversation')} data-tooltip={t("对话")}>
-                <MessageCircle size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t("对话")}</span>
-              </button>
-              <button type="button" className={`app-nav-item ${assistantActiveSection === 'memory' ? 'is-active' : ''}`}
-                aria-current={assistantActiveSection === 'memory' ? 'page' : undefined}
-                onClick={() => navigate('assistant', 'memory')} data-tooltip={t("记忆")}>
-                <Brain size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t("记忆")}</span>
-              </button>
-              <button type="button" className="app-nav-item app-sidebar__assistant-clear"
-                onClick={() => {
-                  setIsMobileOpen(false);
-                  useUIStore.getState().requestAssistantClear();
-                }} data-tooltip={t("清空对话")}>
-                <Trash2 size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t("清空对话")}</span>
-              </button>
-            </div>
-          </> : activePage === 'settings' ? (
+          </> : ['settings', 'plugin'].includes(activePage) ? (
             <>
               <PageBackButton label={t("返回")} className="app-nav-item app-sidebar__back" onClick={returnFromSecondarySidebar} />
               <div className="app-sidebar__nav-group" aria-label={t("个人设置")}>
@@ -239,9 +289,21 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
                   {ADMIN_SETTINGS.map(renderSettingsItem)}
                 </div>
               )}
+              <div className="app-sidebar__nav-group" aria-label={t('插件')}>
+                <p className="app-sidebar__group-label">{t('插件')}</p>
+                {[{ id: 'list', label: '插件列表', icon: Puzzle }, ...(isAdmin ? [
+                  { id: 'delivery', label: '来源与部署', icon: Library },
+                ] : [])].map(({ id, label, icon: Icon }) => <button key={id} type="button"
+                  className={`app-nav-item ${activePage === 'plugin' && (activeRoute?.section || 'list') === id ? 'is-active' : ''}`}
+                  aria-current={activePage === 'plugin' && (activeRoute?.section || 'list') === id ? 'page' : undefined}
+                  onClick={() => selectPluginRoute({ type: 'page', page: 'plugin', section: id })} data-tooltip={t(label)}>
+                  <Icon size={19} strokeWidth={1.8} aria-hidden="true" /><span>{t(label)}</span>
+                </button>)}
+              </div>
             </>
           ) : <>
-          {PRIMARY_ITEMS.map(({ id, label, icon: Icon }) => (
+          {primaryItems.map(({ id, label, icon: Icon, pluginEntry, ...entry }) => pluginEntry
+            ? renderPluginEntry({ ...entry, id, label, icon: Icon }) : (
             <button
               key={id}
               type="button"
@@ -254,17 +316,6 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
               <span>{t(label)}</span>
             </button>
           ))}
-          <button
-            type="button"
-            className={`app-nav-item ${activePage === 'assistant' ? 'is-active' : ''}`}
-            onClick={() => navigate('assistant')}
-            data-ai-entry="sidebar"
-            data-tooltip={t("助手")}
-            aria-current={activePage === 'assistant' ? 'page' : undefined}
-          >
-            <MessageCircle size={19} strokeWidth={1.8} aria-hidden="true" />
-            <span>{t("助手")}</span>
-          </button>
           <button
             type="button"
             className={`app-nav-item ${activePage === 'settings' ? 'is-active' : ''}`}
@@ -324,6 +375,8 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           );
         })()}
       </aside>
+      {[primaryPluginMenu, adminPluginMenu, secondaryPluginMenu].map((menu, index) => menu.selection
+        ? <PluginActionDialog key={index} selection={menu.selection} onClose={menu.close} /> : null)}
     </>
   );
 }

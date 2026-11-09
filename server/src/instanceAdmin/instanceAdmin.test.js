@@ -3,7 +3,21 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { createAccount, listAccounts, resetAccountPassword, updateAccount } from './accounts.js';
-import { getAdminSettings, updateAdminSetting, updateAssistantConfig } from './settings.js';
+import { getAdminSettings, updateAdminSetting } from './settings.js';
+import { compiledPluginSources } from '../../../shared/plugins/delivery.generated.js';
+
+// Exercise the settings implementation owned by the actually selected package,
+// while core setting tests continue to use the host's generic storage API.
+const selectedSettings = id => {
+  const sha = compiledPluginSources[id]?.sha256;
+  if (!/^[a-f0-9]{64}$/.test(sha || '')) throw new Error('Selected settings fixture is missing: ' + id);
+  return import(new URL('../../../shared/plugins/.delivery/' + id + '/' + sha + '/server/settings.js', import.meta.url));
+};
+const [
+  { getAdminSettings: getLyricsSettings, updateAdminSetting: updateLyricsSetting },
+  { updateAdminSetting: updateGatewaySetting },
+  { updateAssistantConfig },
+] = await Promise.all(['lyrics-workbench', 'ai-gateway', 'assistant'].map(selectedSettings));
 import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
 import { KNOWN_MIGRATIONS } from '../instance/schemaManifest.js';
 import { DEFAULT_LYRIC_SOURCES, DEFAULT_LYRIC_CHANNELS, normalizeLyricChannels } from '../../../shared/lyricSources.js';
@@ -78,24 +92,24 @@ async function rejectsCode(callback, code) {
 test('lyric source configuration is admin-only, revision checked and audited', async () => {
   const {sqlite,db,close}=fixture();
   try {
-    const defaults=await getAdminSettings(db,'a1'); assert.deepEqual(defaults.settings['lyrics.sources'].value,DEFAULT_LYRIC_CHANNELS);
+    const defaults=await getLyricsSettings(db,'a1'); assert.deepEqual(defaults.settings['lyrics.sources'].value,DEFAULT_LYRIC_CHANNELS);
     sqlite.exec("INSERT INTO accounts (account_id,username,display_name,role,status,created_at,updated_at) VALUES ('m1','listener','Listener','member','active',1,1)");
-    await rejectsCode(()=>updateAdminSetting(db,'m1','lyrics.sources',DEFAULT_LYRIC_SOURCES,0,now),'forbidden');
-    await rejectsCode(()=>getAdminSettings(db,'m1'),'forbidden');
+    await rejectsCode(()=>updateLyricsSetting(db,'m1','lyrics.sources',DEFAULT_LYRIC_SOURCES,0,now),'forbidden');
+    await rejectsCode(()=>getLyricsSettings(db,'m1'),'forbidden');
     const config=structuredClone(DEFAULT_LYRIC_SOURCES);config.custom_krc={enabled:true,searchUrl:'https://lyrics.example.com/search',downloadUrl:'https://lyrics.example.com/download',translationLanguage:'en'};
-    const saved=await updateAdminSetting(db,'a1','lyrics.sources',config,0,now); assert.equal(saved.revision,1);
+    const saved=await updateLyricsSetting(db,'a1','lyrics.sources',config,0,now); assert.equal(saved.revision,1);
     const renamed=normalizeLyricChannels(config); renamed.sources[0].name='Work lyrics'; renamed.sources[0].note='Separate purpose';
     const changedProtocol=structuredClone(renamed); changedProtocol.sources[0].protocol='custom_lrc';
-    await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',changedProtocol,1,now+1),'invalid_setting');
-    await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',{version:2,sources:[],lrclib:{enabled:false}},1,now+1),'invalid_setting');
-    await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',config,0,now+1),'revision_conflict');
-    assert.deepEqual((await getAdminSettings(db,'a1')).settings['lyrics.sources'].value,normalizeLyricChannels(config));
+    await rejectsCode(()=>updateLyricsSetting(db,'a1','lyrics.sources',changedProtocol,1,now+1),'invalid_setting');
+    await rejectsCode(()=>updateLyricsSetting(db,'a1','lyrics.sources',{version:2,sources:[],lrclib:{enabled:false}},1,now+1),'invalid_setting');
+    await rejectsCode(()=>updateLyricsSetting(db,'a1','lyrics.sources',config,0,now+1),'revision_conflict');
+    assert.deepEqual((await getLyricsSettings(db,'a1')).settings['lyrics.sources'].value,normalizeLyricChannels(config));
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE target_id='lyrics.sources'").get().n,1);
     config.custom_krc.searchUrl='https://127.0.0.1/private';
-    await rejectsCode(()=>updateAdminSetting(db,'a1','lyrics.sources',config,1,now+2),'invalid_setting');
-    assert.equal((await getAdminSettings(db,'a1')).settings['lyrics.sources'].revision,1);
-    await updateAdminSetting(db,'a1','lyrics.sources',renamed,1,now+3);
-    const read=(await getAdminSettings(db,'a1')).settings['lyrics.sources'];
+    await rejectsCode(()=>updateLyricsSetting(db,'a1','lyrics.sources',config,1,now+2),'invalid_setting');
+    assert.equal((await getLyricsSettings(db,'a1')).settings['lyrics.sources'].revision,1);
+    await updateLyricsSetting(db,'a1','lyrics.sources',renamed,1,now+3);
+    const read=(await getLyricsSettings(db,'a1')).settings['lyrics.sources'];
     assert.equal(read.value.sources[0].name,'Work lyrics'); assert.equal(read.value.sources[0].note,'Separate purpose');
     assert.equal(JSON.parse(sqlite.prepare("SELECT value_json FROM instance_settings WHERE key='lyrics.sources'").get().value_json).version,2);
   } finally {close();}
@@ -219,7 +233,7 @@ test('settings enforce exact HTTPS origins, compare revisions and audit successf
   try {
     await rejectsCode(() => updateAdminSetting(db, 'a1', 'cors.allowed_origins', ['*'], 0, now), 'invalid_setting');
     await rejectsCode(() => updateAdminSetting(db, 'a1', 'cors.allowed_origins', ['https://example.com/path'], 0, now), 'invalid_setting');
-    await rejectsCode(() => updateAdminSetting(db, 'a1', 'ai.compatible_api_url', 'https://api.example/v1?key=secret', 0, now), 'invalid_setting');
+    await rejectsCode(() => updateGatewaySetting(db, 'a1', 'ai.compatible_api_url', 'https://api.example/v1?key=secret', 0, now), 'invalid_setting');
     const saved = await updateAdminSetting(db, 'a1', 'cors.allowed_origins', ['https://example.com'], 0, now);
     assert.equal(saved.revision, 1);
     await rejectsCode(() => updateAdminSetting(db, 'a1', 'cors.allowed_origins', [], 0, now + 1), 'revision_conflict');
@@ -233,12 +247,12 @@ test('only an administrator can change the instance-wide lyric AI language and r
   const { db, close } = fixture();
   try {
     const next = { ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'en', referenceExistingTranslation: true };
-    await rejectsCode(() => updateAdminSetting(db, 'm1', 'lyrics.ai', next, 0, now), 'forbidden');
-    const saved = await updateAdminSetting(db, 'a1', 'lyrics.ai', next, 0, now);
+    await rejectsCode(() => updateLyricsSetting(db, 'm1', 'lyrics.ai', next, 0, now), 'forbidden');
+    const saved = await updateLyricsSetting(db, 'a1', 'lyrics.ai', next, 0, now);
     assert.equal(saved.revision, 1);
-    assert.deepEqual((await getAdminSettings(db, 'a1')).settings['lyrics.ai'], { value: next, revision: 1 });
-    await rejectsCode(() => updateAdminSetting(db, 'a1', 'lyrics.ai', next, 0, now + 1), 'revision_conflict');
-    await rejectsCode(() => updateAdminSetting(db, 'a1', 'lyrics.ai', {
+    assert.deepEqual((await getLyricsSettings(db, 'a1')).settings['lyrics.ai'], { value: next, revision: 1 });
+    await rejectsCode(() => updateLyricsSetting(db, 'a1', 'lyrics.ai', next, 0, now + 1), 'revision_conflict');
+    await rejectsCode(() => updateLyricsSetting(db, 'a1', 'lyrics.ai', {
       ...next, cleanDirtyLyrics: false, translateLyrics: false, detectLanguage: false,
     }, 1, now + 1), 'invalid_setting');
   } finally { close(); }
@@ -252,7 +266,7 @@ test('stored lyric AI settings from before the switches keep completion enabled'
     delete previous.automaticCompletionEnabled;
     sqlite.prepare(`INSERT INTO instance_settings (key, value_json, revision, updated_at, updated_by)
       VALUES ('lyrics.ai', ?, 1, ?, 'a1')`).run(JSON.stringify(previous), now);
-    const setting = (await getAdminSettings(db, 'a1')).settings['lyrics.ai'];
+    const setting = (await getLyricsSettings(db, 'a1')).settings['lyrics.ai'];
     assert.equal(setting.value.completionEnabled, true);
     assert.equal(setting.value.automaticCompletionEnabled, true);
     assert.equal(setting.revision, 1);
@@ -262,11 +276,11 @@ test('stored lyric AI settings from before the switches keep completion enabled'
 test('assistant updates use a fixed field set and CAS revision', async () => {
   const { sqlite, db, close } = fixture();
   try {
-    const before = await getAdminSettings(db, 'a1');
-    const next = await updateAssistantConfig(db, 'a1', { name: 'Nova' }, before.assistant.revision, now);
+    const before = sqlite.prepare("SELECT revision FROM music_assistant_configs WHERE id='xiaoa'").get();
+    const next = await updateAssistantConfig(db, 'a1', { name: 'Nova' }, before.revision, now);
     assert.equal(next.name, 'Nova');
-    assert.equal(next.revision, before.assistant.revision + 1);
-    await rejectsCode(() => updateAssistantConfig(db, 'a1', { system_rules: 'changed' }, before.assistant.revision, now + 1), 'revision_conflict');
+    assert.equal(next.revision, before.revision + 1);
+    await rejectsCode(() => updateAssistantConfig(db, 'a1', { system_rules: 'changed' }, before.revision, now + 1), 'revision_conflict');
     await rejectsCode(() => updateAssistantConfig(db, 'a1', { api_key: 'secret' }, next.revision, now + 2), 'invalid_assistant_setting');
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE action='assistant.update'").get().n, 1);
   } finally { close(); }

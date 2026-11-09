@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completeLyricDraft } from './lyricDraftAi.js';
+import { completeLyricDraft as completeRaw } from './lyricDraftAi.js';
+import { testLyricsAiDeps } from '../plugins/lyrics-workbench/test-support.js';
+const completeLyricDraft = args => completeRaw({ ...args, deps: testLyricsAiDeps(args.deps) });
 import { makeSong } from '../test/lyricAssetFixtures.js';
 
 test('AI completes an imported draft without persisting lyrics or song language', async () => {

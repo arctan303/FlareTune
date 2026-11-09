@@ -1,6 +1,6 @@
 import { t } from '../i18n/index.js';
 import React from 'react';
-import { VolumeX, Volume2, Loader2 } from 'lucide-react';
+import { VolumeX, Volume2, Languages } from 'lucide-react';
 import InterludeHost from './lyrics/InterludeHost';
 import SyncedLyricText from './lyrics/SyncedLyricText';
 
@@ -8,6 +8,7 @@ import { useLyricSurfacePresentation } from './lyrics/lyricSurfacePresentation.j
 import { getLyricKeyboardTarget, getSeekableLyricIndices } from './lyricKeyboardNavigation.js';
 import { usePlayerInteractionLock } from '../hooks/usePlayerAutoHide.js';
 import { CLASSIC_LYRIC_SCROLL_MS, classicLyricEase } from './classicLyricMotion.js';
+import { usePlaybackVolume } from '../hooks/usePlaybackVolume.js';
 
 const LYRIC_STATUS_LINES = new Set(['纯音乐，请欣赏', '暂无歌词', '歌词加载失败']);
 
@@ -19,13 +20,12 @@ export default function LyricsScroller({
     isControlsHidden = false,
     onWakeControls,
     lyricSyncMode = 'line',
-    lyricIntro = null,
     surfaceVisible = true,
 }) {
     const lyricsContainerRef = React.useRef(null);
     const [isUserScrolling, setIsUserScrolling] = React.useState(false);
     const [isVolumePanelOpen, setIsVolumePanelOpen] = React.useState(false);
-    const [prevVolume, setPrevVolume] = React.useState(volume > 0 ? volume : 0.8);
+    const { volume: targetVolume, setVolume: setTargetVolume, toggleMute } = usePlaybackVolume({ volume, setVolume, audioRef });
     const volumeTimerRef = React.useRef(null);
     const volumeRegionRef = React.useRef(null);
     const volumeDraggingRef = React.useRef(false);
@@ -72,18 +72,10 @@ export default function LyricsScroller({
             return;
         }
         // 已弹出状态下再次点击：切换静音与恢复
-        if (volume === 0) {
-            const restored = prevVolume || 0.8;
-            setVolume(restored);
-            if (audioRef?.current) audioRef.current.volume = restored;
-        } else {
-            setPrevVolume(volume);
-            setVolume(0);
-            if (audioRef?.current) audioRef.current.volume = 0;
-        }
+        toggleMute();
         openVolumePanel();
         scheduleCloseVolumePanel(3000);
-    }, [isVolumePanelOpen, volume, prevVolume, setVolume, audioRef, openVolumePanel, scheduleCloseVolumePanel]);
+    }, [isVolumePanelOpen, toggleMute, openVolumePanel, scheduleCloseVolumePanel]);
 
     React.useEffect(() => {
         return () => {
@@ -94,7 +86,6 @@ export default function LyricsScroller({
     const lyricPresentation = useLyricSurfacePresentation({
         lyrics,
         currentLyricIndex,
-        lyricIntro,
         lyricSyncMode,
         surfaceVisible,
     });
@@ -359,10 +350,8 @@ export default function LyricsScroller({
                             {lyrics.map((lrc, index) => {
                                 const isActive = index === displayedLyricIndex;
                                 const diff = index - displayedLyricIndex;
-                                const isIntroRow = lyricPresentation.kind === 'intro' && index === 0;
-                                const sourceLine = isIntroRow ? lyricPresentation.line : lrc;
-                                const displayLine = LYRIC_STATUS_LINES.has(sourceLine?.text)
-                                    ? { ...sourceLine, text: t(sourceLine.text) } : sourceLine;
+                                const displayLine = LYRIC_STATUS_LINES.has(lrc?.text)
+                                    ? { ...lrc, text: t(lrc.text) } : lrc;
                                 const lines = String(displayLine?.text || '').split('\n');
                                 const canSeek = Number.isFinite(lrc.time);
                                 let lineStyle = {};
@@ -460,7 +449,7 @@ export default function LyricsScroller({
                                                     />
                                                  </p>
                                             ))}
-                                            {(!isIntroRow && lrc.translation && translationEnabled) && (
+                                            {(lrc.translation && translationEnabled) && (
                                                 <p
                                                     className={`classic-lyrics__translation text-base md:text-lg mt-1 leading-normal ${
                                                         isActive ? 'text-gray-300/80 font-medium' : 'text-gray-400/50'
@@ -520,7 +509,9 @@ export default function LyricsScroller({
                                 : translationReady
                                     ? (translationEnabled ? t("已显示歌词翻译（点击隐藏）") : t("显示歌词翻译"))
                                     : resolvedTranslationState === 'failed' ? t("补全失败，点击重试") : t("点击补全歌词翻译")}
-                        >{t("译")}</button>
+                        >
+                            <Languages size={14} strokeWidth={1.75} aria-hidden="true" focusable="false" />
+                        </button>
                     )}
                     <div 
                         ref={volumeRegionRef}
@@ -534,24 +525,23 @@ export default function LyricsScroller({
                         onWheel={(e) => {
                             e?.stopPropagation?.();
                             const delta = e.deltaY < 0 ? 0.05 : -0.05;
-                            const nextVol = Math.max(0, Math.min(1, Number((volume + delta).toFixed(2))));
-                            setVolume(nextVol);
-                            if (audioRef?.current) audioRef.current.volume = nextVol;
+                            const nextVol = Math.max(0, Math.min(1, Number((targetVolume + delta).toFixed(2))));
+                            setTargetVolume(nextVol);
                             openVolumePanel();
                             scheduleCloseVolumePanel(3000);
                         }}
                     >
                         <button
                             type="button"
-                            aria-label={volume === 0 ? t("恢复音量") : t("静音")}
+                            aria-label={targetVolume === 0 ? t("恢复音量") : t("静音")}
                             onClick={(e) => {
                                 e?.stopPropagation?.();
                                 handleVolumeButtonClick(e);
                             }}
                             className="classic-lyrics__tool min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 hover:text-white hover:scale-110 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white rounded-lg flex items-center justify-center p-1 cursor-pointer active:scale-95"
-                            title={isVolumePanelOpen ? (volume === 0 ? t("点击恢复音量") : t("点击静音")) : t("当前音量 {p0}%（点击展开滑块）", { p0: (Math.round(volume * 100)) })}
+                            title={isVolumePanelOpen ? (targetVolume === 0 ? t("点击恢复音量") : t("点击静音")) : t("当前音量 {p0}%（点击展开滑块）", { p0: (Math.round(targetVolume * 100)) })}
                         >
-                            {volume === 0 ? <VolumeX size={20} strokeWidth={iconStrokeWidth} /> : <Volume2 size={20} strokeWidth={iconStrokeWidth} />}
+                            {targetVolume === 0 ? <VolumeX size={20} strokeWidth={iconStrokeWidth} /> : <Volume2 size={20} strokeWidth={iconStrokeWidth} />}
                         </button>
 
                         {/* 往右侧水平展开的音频调节浮层容器 (包含悬停桥接区，彻底防止中途断触消失) */}
@@ -562,7 +552,7 @@ export default function LyricsScroller({
                             onMouseEnter={cancelCloseVolumePanel}
                             onMouseLeave={() => scheduleCloseVolumePanel(1200)}
                         >
-                            <div 
+                            <div
                                 className="h-11 lg:h-7 px-2.5 bg-black/65 backdrop-blur-2xl rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.55)] focus-within:ring-2 focus-within:ring-white/70 flex items-center gap-2 select-none"
                                 onClick={(e) => e.stopPropagation()}
                             >
@@ -570,7 +560,7 @@ export default function LyricsScroller({
                                 <div className="w-20 h-1.5 bg-white/20 rounded-full overflow-hidden flex relative pointer-events-none">
                                     <div 
                                         className="h-full bg-white rounded-full transition-all duration-75 shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-                                        style={{ width: `${Math.round(volume * 100)}%` }}
+                                        style={{ width: `${Math.round(targetVolume * 100)}%` }}
                                     />
                                 </div>
 
@@ -578,7 +568,7 @@ export default function LyricsScroller({
                                 <input
                                     type="range"
                                     min="0" max="1" step="0.01"
-                                    value={volume}
+                                    value={targetVolume}
                                     onPointerDown={(event) => {
                                         volumeDraggingRef.current = true;
                                         event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -595,8 +585,7 @@ export default function LyricsScroller({
                                     onTouchCancel={finishVolumeDrag}
                                     onChange={(e) => {
                                         const newVol = parseFloat(e.target.value);
-                                        setVolume(newVol);
-                                        if (audioRef?.current) audioRef.current.volume = newVol;
+                                        setTargetVolume(newVol);
                                         openVolumePanel();
                                     }}
                                     aria-label={t("音量")}
@@ -604,7 +593,7 @@ export default function LyricsScroller({
                                 />
 
                                 <span className="text-[10px] font-mono font-medium text-white/75 select-none tracking-tight w-5 text-right">
-                                    {Math.round(volume * 100)}
+                                    {Math.round(targetVolume * 100)}
                                 </span>
                             </div>
                         </div>

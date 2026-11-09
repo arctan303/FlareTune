@@ -29,8 +29,8 @@ test('SearchView source keeps current category filters, batch actions, keyboard 
   assert.match(source, /subFilterOptions/);
   assert.match(source, /languageParam/);
   assert.match(source, /language=\$\{encodeURIComponent\(songSubCategory\)\}/);
-  assert.match(source, /offset=\$\{songs\.length\}/);
-  assert.match(source, /setHasMore\(batch\.length === PAGE_SIZE\)/);
+  // Server page cursors are verified behaviorally in the catalog page tests;
+  // merged sources may return more than PAGE_SIZE rows.
   assert.match(source, /searchGenerationRef/);
   assert.match(source, /loadMoreControllerRef\.current\?\.abort\(\)/);
   assert.match(source, /generation !== searchGenerationRef\.current/);

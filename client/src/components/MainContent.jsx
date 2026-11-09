@@ -16,30 +16,28 @@ import { createSearchPageCache } from '../utils/searchPageCache.js';
 import { getPlaylistCoverUrls, PLAYLIST_COVER_FALLBACK } from './PlaylistCover.jsx';
 import PlaylistDetailView from './PlaylistDetailView.jsx';
 import AllPlaylistsView from './AllPlaylistsView.jsx';
-import { HomeExploreSection } from './HomeCollectionSections.jsx';
-import RoamOverview from './RoamOverview.jsx';
 import HomeOverview from './HomeOverview.jsx';
 import RetainedPage from './RetainedPage.jsx';
 import PlayHistoryView from './PlayHistoryView.jsx';
 import PlayStatsDetailView from './PlayStatsDetailView.jsx';
 import SettingsView from './SettingsView.jsx';
 const AdminSongCreatePage = React.lazy(() => import('./AdminSongCreatePage.jsx'));
-const LyricsManagementWorkspace = React.lazy(() => import('./LyricsManagementWorkspace.jsx'));
-import AssistantView from './AssistantView.jsx';
+const PluginPageView = React.lazy(() => import('./PluginPageView.jsx'));
 import ArtistDetailView from './ArtistDetailView.jsx';
 import AlbumDetailView from './AlbumDetailView.jsx';
 import CatalogBrowserView from './CatalogBrowserView.jsx';
+import RoamBrowseView from './RoamBrowseView.jsx';
 import ArtistCard from './catalog/ArtistCard.jsx';
 import PageBackButton from './PageBackButton.jsx';
 import { formatPath, returnToOriginRoute, syncBrowserHistory } from '../utils/navigation.js';
-import { EXPLORE_CATEGORIES } from '../constants/explore.js';
 import { useFavoriteSongAction } from '../hooks/useFavoriteSongAction.js';
-import { useSongLanguageCounts } from '../hooks/useSongLanguageCounts.js';
 import { insertNextWithFeedback } from '../services/playerActions.js';
 import { usePlayStatsStore } from '../store/usePlayStatsStore.js';
 import { deriveTopArtists } from '../utils/topArtists.js';
 import { createDailyRecommendationPlaylist } from '../services/dailyRecommendations.js';
-import { formatRoamLanguageScope } from '../constants/roamLanguages.js';
+import { usePluginContribution } from '../plugins/contributions.js';
+
+const inactiveQueueControls = Object.freeze({ available: false, actions: Object.freeze({}) });
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
 
@@ -55,16 +53,13 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         favoriteSongIds: likedSongIdSet,
         toggleFavorite: toggleLikedWithFeedback,
     } = useFavoriteSongAction();
-    const { currentSong, isPlaying, playSong, randomRoam, startRandomRoam, playlist, setRandomRoamEnabled, setRandomRoamLanguage } = usePlayerStore(useShallow((state) => ({
+    const { currentSong, isPlaying, playSong, playlist } = usePlayerStore(useShallow((state) => ({
         currentSong: state.currentSong,
         isPlaying: state.isPlaying,
         playSong: state.playSong,
-        randomRoam: state.randomRoam,
-        startRandomRoam: state.startRandomRoam,
         playlist: state.playlist,
-        setRandomRoamEnabled: state.setRandomRoamEnabled,
-        setRandomRoamLanguage: state.setRandomRoamLanguage,
     })));
+    const randomRoam = usePluginContribution('roam', 'queue-controls', inactiveQueueControls);
     const viewingPlaylist = useUIStore(s => s.viewingPlaylistData);
 
     const playlistSongs = useUIStore(s => s.playlistSongs);
@@ -80,6 +75,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     const setIsAccountPlaylistOpen = useUIStore(s => s.setIsAccountPlaylistOpen);
     const openAddToPlaylist = useUIStore((s) => s.openAddToPlaylist);
     const authUser = useUIStore((state) => state.authSession.user || null);
+    const pluginSession = useUIStore((state) => state.authSession);
     const isAuthenticated = useUIStore((state) => Boolean(state.authSession.authenticated));
     const topSongs = usePlayStatsStore((state) => state.listeningPreview);
     const resolvedTopSongs = React.useMemo(() => (topSongs || []).map((song) => {
@@ -90,10 +86,8 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
     }).filter((song) => song?.title), [songsMap, topSongs]);
     const topArtists = React.useMemo(() => deriveTopArtists(resolvedTopSongs), [resolvedTopSongs]);
     const backToContent = React.useCallback((fallback = '/home') => {
-        if (returnToOriginRoute(fallback) === 'replace') {
-            onNavigate?.(fallback.replace(/^\//, ''));
-        }
-    }, [onNavigate]);
+        returnToOriginRoute(fallback);
+    }, []);
     const backToAlbumOrigin = React.useCallback(() => {
         if (returnToOriginRoute('/library') === 'replace') onNavigate?.('library');
     }, [onNavigate]);
@@ -122,7 +116,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         refresh: refreshRandomSongs,
     } = useRandomSongs(isAuthenticated, {
         accountId: authUser?.accountId,
-        active: activePage === 'home' || activePage === 'roam' || activeRoute?.id === 'daily-recommend',
+        active: activePage === 'home' || activeRoute?.id === 'daily-recommend',
     });
     const handleRefreshRandomSongs = React.useCallback(async () => {
         const result = await refreshRandomSongs();
@@ -136,24 +130,10 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             showToast(t(result.message));
         }
     }, [refreshRandomSongs]);
-    const currentRoamLang = randomRoam.language || 'all';
-    const langCounts = useSongLanguageCounts(isAuthenticated && activePage === 'roam' && activeRoute?.type === 'page');
-
     const handleStartRandomRoam = React.useCallback(() => {
-        if (randomRoam.enabled) {
-            setRandomRoamEnabled(false);
-            showToast(t("已关闭随机漫游"));
-            return;
-        }
-        const activeLabel = formatRoamLanguageScope(currentRoamLang);
-        if (currentSong && playlist.length > 0) {
-            setRandomRoamEnabled(true, { language: currentRoamLang });
-            showToast(t("已开启【{p0}】随机漫游，将在队尾自动补充歌曲", { p0: (activeLabel) }));
-            return;
-        }
-        if (!startRandomRoam(randomSongs, { language: currentRoamLang })) return;
-        showToast(t("已开启【{p0}】随机漫游，将在队尾自动补充歌曲", { p0: (activeLabel) }));
-    }, [currentRoamLang, currentSong, playlist.length, randomRoam.enabled, randomSongs, setRandomRoamEnabled, startRandomRoam]);
+        if (!randomRoam.available) return;
+        randomRoam.actions.toggleFromCatalog?.({ songs: randomSongs });
+    }, [randomRoam, randomSongs]);
 
     const handleLoadMoreLibrarySongs = React.useCallback(async () => {
         const activePlaylist = useUIStore.getState().viewingPlaylistData;
@@ -413,10 +393,6 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         if (playlist) void openPlaylist(playlist);
     }, [activeRoute?.type, activeRoute?.id, shelfPlaylists, accountPlaylists, favoritePlaylist, randomSongs]);
 
-    const handleOpenLanguageSongs = React.useCallback((lang) => {
-        syncBrowserHistory(formatPath({ type: 'explore', language: lang.key }));
-    }, []);
-
     React.useEffect(() => () => {
         requestGuardRef.current.cancel();
         clearSkeletonTimer();
@@ -450,11 +426,11 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
             playSong={playSong}
             openPlaylist={openPlaylist}
             onOpenHistory={() => syncBrowserHistory('/history')}
-            onNavigateRoam={() => onNavigate('roam')}
+            onNavigateRoam={() => syncBrowserHistory('/roam')}
             onOpenTopSongs={() => syncBrowserHistory('/library/top-songs')}
             onOpenTopArtists={() => syncBrowserHistory('/library/top-artists')}
             onOpenArtist={(artist) => useUIStore.getState().openArtistDrawer(artist)}
-            onToggleRoam={handleStartRandomRoam}
+            onToggleRoam={randomRoam.available ? handleStartRandomRoam : undefined}
             randomRoam={randomRoam}
             likedSongIdSet={likedSongIdSet}
             toggleLikedWithFeedback={toggleLikedWithFeedback}
@@ -466,17 +442,6 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         />
     );
 
-    const renderRoam = () => (
-        <RoamOverview
-            isAuthenticated
-            items={EXPLORE_CATEGORIES}
-            langCounts={langCounts}
-            onOpenLanguage={handleOpenLanguageSongs}
-            onToggleRoam={handleStartRandomRoam}
-            randomRoam={randomRoam}
-            songsMap={songsMap}
-        />
-    );
 
     const renderLibrary = () => (
         <div className="app-page library-page">
@@ -496,12 +461,12 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
         </div>
     );
 
-    const isAssistantActive = activePage === 'assistant' && !(isViewingPlaylist && activeRoute?.type === 'playlist') && !(isArtistDrawerOpen && activeArtistData) && activeRoute?.type !== 'album' && activeRoute?.type !== 'explore' && !isViewingAdmin;
-    const isLyricsCurrentActive = activePage === 'lyrics' && activeRoute?.type === 'page'
-        && (activeRoute.section || 'current') === 'current'
+    const isAssistantActive = activeRoute?.pluginId === 'assistant' && ['conversation', 'memory'].includes(activeRoute.pluginPage) && !isViewingAdmin;
+    const isLyricsCurrentActive = activeRoute?.pluginId === 'lyrics-workbench'
+        && activeRoute.pluginPage === 'current'
         && !isViewingPlaylist && !isArtistDrawerOpen && !isViewingAdmin;
-    const isLyricsCandidatesActive = activePage === 'lyrics' && activeRoute?.type === 'page'
-        && activeRoute.section === 'candidates'
+    const isLyricsCandidatesActive = activeRoute?.pluginId === 'lyrics-workbench'
+        && activeRoute.pluginPage === 'candidates'
         && !isViewingPlaylist && !isArtistDrawerOpen && !isViewingAdmin;
     const isHomeActive = activePage === 'home' && (!activeRoute || activeRoute.type === 'page')
         && !isArtistDrawerOpen && !isViewingAdmin;
@@ -599,7 +564,7 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                         <h1 className="text-3xl font-bold mb-8">{t("常听歌手")}</h1>
                         {topArtists.length > 0
                             ? <div className="artist-full-grid">
-                                {topArtists.map((artist) => <ArtistCard key={artist.name} artist={artist}
+                                {topArtists.map((artist) => <ArtistCard key={artist.id || artist.name} artist={artist}
                                     onOpen={(selectedArtist) => useUIStore.getState().openArtistDrawer(selectedArtist)} />)}
                               </div>
                             : <p className="text-sm text-[var(--muted)]">{t("还没有常听歌手")}</p>}
@@ -613,13 +578,12 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 ) : activePage === 'history' ? <PlayHistoryView onBack={() => backToContent('/home')}
                     likedSongIdSet={likedSongIdSet} onToggleLiked={toggleLikedWithFeedback}
                     onInsertNext={insertNextWithFeedback} onAddToPlaylist={openAddToPlaylist} />
-                    : activePage === 'assistant' ? <AssistantView isAuthenticated section={activeRoute?.section || 'conversation'} />
                     : activePage === 'search' ? <SearchView key={`${viewerKey}:${sessionToken}`} cache={searchCache} route={activeRoute} onBack={() => onNavigate('home')} songsMap={songsMap} />
                         : activePage === 'library' ? renderLibrary()
-                        : activePage === 'roam' ? renderRoam()
-                            : activePage === 'settings' ? (isIngestActive ? null : <SettingsView section={activeRoute?.section} themePreference={themePreference} selectTheme={selectTheme} />)
-                                : activePage === 'lyrics' ? <React.Suspense fallback={<div className="app-page" role="status">{t("正在打开歌词工作台…")}</div>}>
-                                    <LyricsManagementWorkspace route={activeRoute} songFromLibrary={songsMap?.get(String(activeRoute?.songId))} onNavigate={onNavigate} />
+                        : activePage === 'roam' ? <RoamBrowseView />
+                            : activePage === 'settings' ? (isIngestActive ? null : <SettingsView route={activeRoute} section={activeRoute?.section} themePreference={themePreference} selectTheme={selectTheme} />)
+                                : activePage === 'plugin' ? <React.Suspense fallback={<div className="app-page" role="status">{t('正在加载…')}</div>}>
+                                    <PluginPageView route={activeRoute} session={pluginSession} />
                                   </React.Suspense>
                                 : null
             )}

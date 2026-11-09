@@ -21,6 +21,8 @@ This independent Static Assets deployment uses a read-only media Worker only for
 
 The media Worker reads only packaged catalog audio and supports GET, HEAD, single byte ranges and 416 for invalid ranges. It does not accept uploads, proxy arbitrary URLs or provide business APIs. Audio requests count toward Worker usage; other static assets follow Static Assets delivery rules. Browser codec support and network conditions still apply.
 
+The public demo serves its own `/robots.txt` as a plain-text static asset, permitting search and AI input while declaring that AI training is not permitted. Content signals express use preferences; they are not access controls or additional rights to third-party music. They apply only to the demo and do not change indexing restrictions, authentication or private media access in normal installations.
+
 ## Music and licenses
 
 The catalog includes CC BY 4.0 works by Kevin MacLeod and an author-dedicated public-domain recording of “Amazing Grace” by Rocks From The Garden. Per-track sources, licenses, credits, modifications and checksums are in [catalog.json](../demo/catalog.json) and accessible at the bottom of Personal settings. Geometric covers are original project artwork. Public-domain lyrics have manual line timing, with no claim of word timing precision. MIT does not cover the music.

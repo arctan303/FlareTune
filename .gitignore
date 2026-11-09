@@ -1,4 +1,5 @@
 node_modules/
+server/src/plugins/youtube/.generated/
 dist/
 dist-demo/
 /demo/public/media/*.mp3
@@ -58,6 +59,9 @@ music-ingest.json
 server/wrangler.production.toml
 server/wrangler.production-ci.toml
 AGENTS.md
+shared/plugins/.delivery/
+shared/plugins/.artifact-cache/
+tooling/plugins/.delivery-recovery/
 CLAUDE.md
 EVOLUTION.md
 restart.bat
@@ -80,3 +84,6 @@ tooling/dev/seed-dev-songs.mjs
 tooling/dev/smoke-dev.mjs
 tooling/dev/bootstrap-dev.mjs
 tooling/dev/smoke-online-*.mjs
+tooling/dev/youtube-source-smoke.mjs
+tooling/dev/youtube-tail-diagnostics.mjs
+tooling/dev/youtube-account-library-smoke.mjs

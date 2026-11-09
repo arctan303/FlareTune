@@ -1,3 +1,4 @@
+import { isYouTubeEntity, canReferenceAccountSong } from '../../utils/musicSource.js';
 import { t } from '../../i18n/index.js';
 import React, { useRef, useState, useEffect } from 'react';
 import { MoreHorizontal, Check } from 'lucide-react';
@@ -51,6 +52,7 @@ export function SearchTrackRow({
   onCloseMenu,
   onFilterArtist,
 }) {
+  const selecting = isBulkSelecting && canReferenceAccountSong(song);
   const isCurrent = currentSong?.id === song.id;
   const songLang = resolveSongLanguage(song);
   const artistLabel = song.artist || t('歌手未设置');
@@ -65,8 +67,8 @@ export function SearchTrackRow({
         <button
           type="button"
           className="track-row__main-action"
-          onClick={(event) => (isBulkSelecting ? onToggleBulkSelection(song, event) : onPlay(song, songs))}
-          aria-label={isBulkSelecting
+          onClick={(event) => (selecting ? onToggleBulkSelection(song, event) : onPlay(song, songs))}
+          aria-label={selecting
             ? `${isBulkSelected ? t("取消选择") : t("选择")} ${song.title}`
             : t("播放 {p0} - {p1}", { p0: song.title, p1: artistLabel })}
         />
@@ -89,6 +91,7 @@ export function SearchTrackRow({
               <HighlightText text={song.title} query={query} />
             </h4>
             {(() => {
+              if (isYouTubeEntity(song) && !song.language) return null;
               const label = getLanguageShortLabel(songLang);
               let badgeClass = 'search-type-badge search-type-badge--other';
               if (songLang === 'zh') badgeClass = 'search-type-badge search-type-badge--native';
@@ -123,10 +126,11 @@ export function SearchTrackRow({
                 <HighlightText text={song.album} query={query} />
               </span>
             ) : null}
+            {isYouTubeEntity(song) && <span> · YouTube Music</span>}
           </p>
         </div>
         <div className="track-row__actions relative z-10 flex items-center justify-end gap-1">
-          {isBulkSelecting && (
+          {selecting && (
             <button
               type="button"
               onClick={(event) => onToggleBulkSelection(song, event)}

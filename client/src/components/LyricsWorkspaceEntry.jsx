@@ -3,6 +3,7 @@ import React from 'react';
 import { Languages } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { usePlayerStore } from '../store/usePlayerStore.js';
+import { usePluginAvailable } from '../hooks/usePluginAvailable.js';
 
 const VARIANT_CLASS = Object.freeze({
   immersive: 'flex h-11 w-11 items-center justify-center rounded-full bg-black/30 text-white/75 backdrop-blur-md transition hover:bg-white/15 hover:text-white focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/70',
@@ -12,8 +13,9 @@ export default function LyricsWorkspaceEntry({ variant = 'immersive' }) {
   const isAuthenticated = useUIStore((state) => Boolean(state.authSession.authenticated));
   const openLyricsWorkspace = useUIStore((state) => state.openLyricsWorkspace);
   const currentSong = usePlayerStore((state) => state.currentSong);
+  const available = usePluginAvailable('lyrics-workbench');
 
-  if (!isAuthenticated || !currentSong?.id) return null;
+  if (!available || !isAuthenticated || !currentSong?.id) return null;
 
   return (
     <button

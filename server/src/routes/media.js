@@ -1,6 +1,7 @@
 import { mediaPrefix } from '../services/adminMusicMedia.js';
 import { resolveInstanceState } from '../instance/state.js';
 import { getSessionAfterReadyCheck, tokenFromCookie } from '../auth/local/index.js';
+import { deliveryPluginModules } from '../plugins/delivery.generated.js';
 
 const baseHeaders = () => new Headers({
   'Accept-Ranges': 'bytes',
@@ -64,18 +65,20 @@ const denied = (status, extraHeaders = {}) => new Response(null, { status, heade
 } });
 
 export async function handleMediaRoute(request, pathname, env, executionContext) {
+  let session;
   try {
     const instance = await resolveInstanceState(env?.DB, Date.now(), { cacheSchema: true, executionContext });
     if (instance.state !== 'ready') return denied(503);
     const token = tokenFromCookie(request.headers.get('Cookie'));
     if (!token) return denied(401);
-    const session = await getSessionAfterReadyCheck({ db: env.DB, token });
+    session = await getSessionAfterReadyCheck({ db: env.DB, token });
     if (!session) return denied(401);
     if (session.mode !== 'normal' || !['admin', 'member'].includes(session.account?.role)) return denied(403);
   } catch {
     return denied(503);
   }
-  return serveMediaObject(request, pathname, env);
+  const youtube = await deliveryPluginModules['youtube-music']?.handleYouTubeMedia?.(request, pathname, env, session, executionContext);
+  return youtube || serveMediaObject(request, pathname, env);
 }
 
 // Only handleMediaRoute is wired to the public Worker entrypoint.

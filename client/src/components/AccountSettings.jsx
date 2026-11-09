@@ -202,11 +202,10 @@ export default function AccountSettings() {
       {isPasswordDialogOpen && (
         <SettingsEditDialog title={t('修改密码')} onClose={closePasswordDialog} busy={busy} size="small" closeOnBackdrop>
             <p className="mt-2 text-sm text-[var(--muted)]">{t('修改后所有设备的会话都会失效，请用新密码重新登录。')}</p>
-            <form className="mt-6 space-y-4" onSubmit={handlePasswordChange}>
+            <form className="mt-4 space-y-4" onSubmit={handlePasswordChange}>
               <label className="block text-sm font-medium">{t('当前密码')}<SettingsInput autoFocus className={passwordInputClassName} type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
-              <label className="block text-sm font-medium">{t('新密码')}<SettingsInput className={passwordInputClassName} type="password" autoComplete="new-password" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
-              <p className="text-sm text-[var(--muted)]">{t('至少 8 个字符。')}</p>
-              <label className="block text-sm font-medium">{t('确认新密码')}<SettingsInput className={passwordInputClassName} type="password" autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+              <label className="block text-sm font-medium">{t('新密码')}<SettingsInput className={passwordInputClassName} type="password" autoComplete="new-password" minLength={8} required placeholder={t('至少 8 个字符。')} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+              <label className="block text-sm font-medium">{t('确认新密码')}<SettingsInput className={passwordInputClassName} type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
               {error && errorContext === 'password' && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(error)}</p>}
               <SettingsActions className="pt-2">
                 <SettingsButton closeDialog variant="quiet" disabled={busy}>{t('取消')}</SettingsButton>

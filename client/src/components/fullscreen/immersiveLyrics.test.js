@@ -99,7 +99,6 @@ test('desktop cinematic wiring resolves transition state before use and preserve
   );
   for (const prop of [
     'lyricSyncMode={lyricSyncMode}',
-    'lyricIntro={lyricIntro}',
     'isPlaying={isPlaying}',
     'isBuffering={isBuffering}',
     'surfaceVisible={Boolean(isFullScreen && hasEntered && !isClosing)}',

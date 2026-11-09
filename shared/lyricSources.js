@@ -1,5 +1,5 @@
 export const LYRIC_SOURCE_LABELS = Object.freeze({
-  lrclib: 'LRCLIB', custom_krc: '自定义逐字源', custom_lrc: '自定义逐行源', manual: '手动整理',
+  lrclib: 'LRCLIB', custom_krc: '自定义逐字源', custom_lrc: '自定义逐行源', manual: '手动整理', youtube: 'YouTube Music',
 });
 // Stored asset IDs from earlier versions are read-only compatibility aliases.
 export const LEGACY_LYRIC_SOURCES = Object.freeze({ kugou: 'custom_krc', netease: 'custom_lrc' });

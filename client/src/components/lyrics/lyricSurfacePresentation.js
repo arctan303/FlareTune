@@ -2,7 +2,6 @@ import React from 'react';
 import { lyricPlaybackClock } from '../../services/lyricPlaybackClock.js';
 import {
     findActiveLyricLineIndex,
-    getLyricVocalStart,
     getNextLyricBoundary,
 } from '../../utils/lyricTimeline.js';
 
@@ -22,15 +21,9 @@ const clampLyricIndex = (lyrics, index) => {
     return Math.max(0, Math.min(numericIndex, lyrics.length - 1));
 };
 
-export function getFirstVocalStart(lyrics) {
-    if (!Array.isArray(lyrics) || lyrics.length === 0) return null;
-    return getLyricVocalStart(lyrics[0]);
-}
-
 export function resolveLyricSurfacePresentation({
     lyrics,
     currentLyricIndex = 0,
-    lyricIntro = null,
     currentTime = null,
     usePreciseIndex = false,
 }) {
@@ -39,11 +32,6 @@ export function resolveLyricSurfacePresentation({
     }
 
     const safeCurrentTime = finiteTime(currentTime);
-    const firstVocalStart = getFirstVocalStart(lyrics);
-    if (lyricIntro && safeCurrentTime !== null && firstVocalStart !== null && safeCurrentTime < firstVocalStart) {
-        return { kind: 'intro', index: 0, line: lyricIntro };
-    }
-
     const preciseIndex = usePreciseIndex && safeCurrentTime !== null
         ? findActiveLyricLineIndex(lyrics, safeCurrentTime, 'word')
         : currentLyricIndex;
@@ -56,12 +44,11 @@ const presentationKey = (presentation) => `${presentation.kind}:${presentation.i
 /**
  * Subscribe to the shared clock without exposing its per-frame object snapshot to
  * React. The wrapped subscriber only invalidates React when the presentation row
- * changes (or the independent intro hands over to canonical row zero).
+ * changes. Row zero always contains the first canonical lyric, even before vocals.
  */
 export function useLyricSurfacePresentation({
     lyrics,
     currentLyricIndex = 0,
-    lyricIntro = null,
     lyricSyncMode = 'line',
     surfaceVisible = true,
     clock = lyricPlaybackClock,
@@ -70,16 +57,15 @@ export function useLyricSurfacePresentation({
         surfaceVisible
         && Array.isArray(lyrics)
         && lyrics.length > 0
-        && (lyricSyncMode === 'word' || lyricIntro),
+        && lyricSyncMode === 'word',
     );
 
     const resolveFromSnapshot = React.useCallback((snapshot) => resolveLyricSurfacePresentation({
         lyrics,
         currentLyricIndex,
-        lyricIntro,
         currentTime: snapshot?.currentTime,
         usePreciseIndex: shouldUseClock && lyricSyncMode === 'word',
-    }), [lyrics, currentLyricIndex, lyricIntro, lyricSyncMode, shouldUseClock]);
+    }), [lyrics, currentLyricIndex, lyricSyncMode, shouldUseClock]);
 
     const getKey = React.useCallback(() => presentationKey(resolveFromSnapshot(
         shouldUseClock ? clock.getSnapshot() : null,
@@ -105,6 +91,6 @@ export function useLyricSurfacePresentation({
     return {
         kind,
         index,
-        line: kind === 'intro' ? lyricIntro : (lyrics?.[index] || null),
+        line: lyrics?.[index] || null,
     };
 }

@@ -14,7 +14,7 @@ test('player-bar preview keeps lyrics visible while paused or buffering', () => 
 test('player-bar preview consumes the shared original renderer and leaves translation static', () => {
   assert.match(source, /import SyncedLyricText from '\.\.\/lyrics\/SyncedLyricText\.jsx'/);
   assert.match(source, /<SyncedLyricText[\s\S]*?visible=\{surfaceVisible && !isHidden\}[\s\S]*?syncMode=\{lyricSyncMode\}[\s\S]*?surface="playerbar"/);
-  assert.match(source, /const translationText = isIntroRow \? '' :/);
+  assert.match(source, /const translationText = line\.translation \|\|/);
   assert.match(source, /\{translationText\}/);
   assert.doesNotMatch(source, /<SyncedLyricText[^>]*translation/);
 });
@@ -30,15 +30,13 @@ test('player-bar bilingual translation line uses muted lyric color and never cur
   );
 });
 
-test('player-bar preview presents intro without changing canonical lyric window indices', () => {
-  assert.match(source, /lyricPresentation\.kind === 'intro' && index === 0/);
-  assert.match(source, /const displayLine = isIntroRow \? lyricPresentation\.line : line/);
+test('player-bar preview retains canonical lyric content and window indices', () => {
+  assert.match(source, /const displayLine = line/);
   assert.match(source, /currentLyricIndex: displayedLyricIndex/);
-  assert.doesNotMatch(source, /unshift|splice|\[lyricIntro,\s*\.\.\./);
+  assert.doesNotMatch(source, /lyricIntro|isIntroRow|unshift|splice/);
 });
 
 test('player-bar preview receives low-frequency lyric fields and visibility as explicit props', () => {
-  assert.match(source, /lyricIntro = null/);
   assert.match(source, /lyricSyncMode = 'line'/);
   assert.match(source, /surfaceVisible = true/);
   assert.doesNotMatch(source, /usePlayerStore|useStore|zustand/);

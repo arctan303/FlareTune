@@ -11,6 +11,8 @@ import { scheduleLyricAssetUpgrade } from './lyricAssetUpgrade.js';
 import { lyricSourceLoaderForDb } from './lyricSourcesConfig.js';
 import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId } from '../../../shared/lyricSources.js';
 import { createLyricRequestBudget } from './lyricRequestBudget.js';
+import { preferredAutomaticDocument } from './lyricAutomaticSelection.js';
+import { LyricSourceError } from './lyricSourceError.js';
 
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/u;
 export const LYRIC_AI_PENDING_FRESH_MS = 30_000;
@@ -175,6 +177,7 @@ export async function readOrCreateLyricArtifact({
   executionContext,
   store,
   fetchDocument = fetchSourceLyricsDocument,
+  fetchNativeDocument,
   requestBudget = createLyricRequestBudget(),
   songStillExists,
   now = Date.now,
@@ -209,6 +212,7 @@ export async function readOrCreateLyricArtifact({
   if (isTerminalArtifact(current)) {
     scheduleLyricAssetUpgrade({ store: artifactStore, song, read: current, executionContext,
       buildArtifact: buildReadyLyricArtifact, songStillExists, now, enabledSources, requestBudget,
+      fetchNativeDocument,
       ...(upgradeFetcher !== fetchSourceLyricsDocument ? { fetchDocument: upgradeFetcher } : {}),
     });
     return current;
@@ -218,20 +222,38 @@ export async function readOrCreateLyricArtifact({
     const afterWait = ensureReadable(await artifactStore.get(song.id));
     if (isTerminalArtifact(afterWait)) return afterWait;
 
-    const document = await fetchLyricsDocumentWithFallback(
-      'auto',
-      song,
-      fetchDocument,
-      { signal: sharedSignal, executionContext, enabledSources, requestBudget },
-    );
+    const options = { signal: sharedSignal, executionContext, enabledSources, requestBudget };
+    const automatic = () => fetchLyricsDocumentWithFallback('auto', song, fetchDocument, options);
+    let document;
+    if (typeof fetchNativeDocument === 'function') {
+      // The exact-resource native document and existing automatic scrapers run
+      // once inside the same asset singleflight. Keep real word/line timing when
+      // it is a better match; native plain lines never receive invented times.
+      const [scraped, native] = await Promise.allSettled([
+        automatic(), Promise.resolve().then(() => fetchNativeDocument(song, options)),
+      ]);
+      sharedSignal?.throwIfAborted();
+      document = scraped.status === 'fulfilled' ? scraped.value : null;
+      let nativeDocument = null;
+      if (native.status === 'fulfilled' && native.value) {
+        nativeDocument = createLyricDocument(native.value);
+        if (nativeDocument.source !== 'youtube') throw new TypeError('Invalid native lyric source');
+      }
+      if (preferredAutomaticDocument(nativeDocument, document)) document = nativeDocument;
+      if (!document && scraped.status === 'rejected') throw scraped.reason;
+      if (!document && native.status === 'rejected') {
+        throw new LyricSourceError('upstream', 'youtube', 'native', 'Native lyric source temporarily unavailable');
+      }
+    } else document = await automatic();
     const built = document
       ? await buildReadyLyricArtifact(song, document, { now: now() })
       : { artifact: buildNotFoundLyricArtifact(song.id, now()) };
     if (songStillExists && !await songStillExists()) {
       return { state: 'song_deleted', artifact: null, etag: null };
     }
+    sharedSignal?.throwIfAborted();
     const writeOptions = built.artifact.status === 'ready'
-      ? { automation: { checkedAt: nowIso(now()) } } : {};
+      ? { automation: { checkedAt: nowIso(now()) }, signal: sharedSignal } : { signal: sharedSignal };
     const written = afterWait.state === 'legacy'
       || (afterWait.state === 'found' && ['reset', 'not_found'].includes(afterWait.artifact.status))
       ? await artifactStore.putIfMatch(song.id, built.artifact, afterWait.etag, writeOptions)

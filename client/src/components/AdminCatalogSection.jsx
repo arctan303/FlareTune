@@ -1,4 +1,5 @@
 import { SettingsInput, SettingsWriteButton } from './SettingsReadOnly.jsx';
+import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
@@ -173,17 +174,6 @@ export default function AdminCatalogSection() {
 
   return (
     <div className="admin-catalog space-y-6">
-      {/* 顶部标题 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-[var(--ink)] flex items-center gap-2">
-            <Disc className="text-[var(--accent)]" size={20} />
-            <span>{t("曲库数据管理")}</span>
-          </h2>
-        </div>
-
-      </div>
-
       {/* 分类切换与搜索栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <span className="text-xs font-semibold text-[var(--muted)]">{t("单曲 (")}{list.total || 0})</span>
@@ -516,21 +506,21 @@ export default function AdminCatalogSection() {
               {message && <div role="alert" className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--ink)]">{t(message)}</div>}
 
               {/* 底部提交栏 */}
-              <div className="pt-4 border-t border-[var(--line)] flex items-center justify-end gap-2.5">
-                <button
+              <SettingsActions className="pt-4 border-t border-[var(--line)]">
+                <SettingsButton
                   type="button"
+                  variant="quiet"
                   onClick={() => { editRequest.current.invalidate(); setEditor(null); }}
                   disabled={busy}
-                  className="px-4 py-2 rounded-xl border border-[var(--line)] text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
-                >{t("取消")}</button>
+                >{t("取消")}</SettingsButton>
                 <SettingsWriteButton
                   type="submit"
                   disabled={busy}
-                  className="primary-button px-5 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
+                  className="settings-button settings-button--primary primary-button"
                 >
                   {busy ? t("正在处理…") : t("保存到曲库")}
                 </SettingsWriteButton>
-              </div>
+              </SettingsActions>
             </form>
           </section>
         </>, document.body

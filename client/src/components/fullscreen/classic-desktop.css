@@ -221,7 +221,7 @@
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  white-space: nowrap !important;
+  white-space: normal !important;
 }
 
 .classic-player__stage .classic-controls__menu .classic-controls__menu-icon svg,
@@ -231,8 +231,8 @@
   flex-shrink: 0 !important;
 }
 
-.classic-player__stage .classic-controls__menu button span {
-  white-space: nowrap !important;
+.classic-player__stage .classic-controls__menu button .classic-controls__menu-label {
+  white-space: normal !important;
 }
 
 /* 4. 底部播放控制图标：缓和微幅放大，保持精致紧凑 */
@@ -251,7 +251,7 @@
   height: calc(38 * var(--classic-ctrl-unit));
 }
 
-/* 5. 歌词工具栏（译、音量）保持标准工具图标与文本尺寸 */
+/* 5. 歌词工具栏（翻译、音量）保持标准工具尺寸；翻译图标沿用外部与全屏一致的 14px */
 .classic-player__stage .classic-lyrics__tools {
   gap: 12px;
 }
@@ -266,7 +266,7 @@
   font-size: 11px;
 }
 
-.classic-player__stage .classic-lyrics__tool > svg {
+.classic-player__stage .classic-lyrics__tool:not(.lyrics-translation-action) > svg {
   width: 20px;
   height: 20px;
 }

@@ -3,6 +3,7 @@ import { requireExpandedSchema, requirePlaylistMigrationPreflight,
   runPlaylistCountMigration } from './playlistCountMigration.js';
 import { resolveInstanceState } from './state.js';
 import { hasHotpathObjects } from './hotpathSchema.js';
+import { hasExternalMusicObjects } from './externalMusicSchema.js';
 import { invalidateSchemaInventory } from './schemaInventory.js';
 
 export class DatabaseUpgradeError extends Error {
@@ -15,6 +16,13 @@ export class DatabaseUpgradeError extends Error {
 
 const resultRows = (result) => Array.isArray(result?.results) ? result.results : [];
 const bundled = (index) => MIGRATION_BUNDLE[index]?.statements ?? [];
+const externalCore = ['Member_External_Songs', 'Member_External_Playlist_Songs', 'Member_External_Song_Plays', 'Member_External_Play_Events'];
+const requireConsistentExternalCore = objects => {
+  const names = new Set(resultRows(objects).map(row => row.name));
+  if (externalCore.some(name => names.has(name)) && !externalCore.every(name => names.has(name))) {
+    throw new DatabaseUpgradeError('migration_schema_inconsistent');
+  }
+};
 
 async function objectExists(db, name) {
   return Boolean(await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
@@ -36,7 +44,20 @@ async function googleAddonReady(db) {
 async function ensureHotpaths(db) {
   const objects = await db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table','index','trigger')").all();
   if (hasHotpathObjects(objects.results)) return;
-  try { await db.batch(bundled(12).map(sql => db.prepare(sql))); }
+  // 0013 repairs local counts. Restore combined totals in the same transaction
+  // when the database already holds external references.
+  const repairMixed = await objectExists(db, 'Member_External_Songs');
+  if (repairMixed) requireConsistentExternalCore(objects);
+  try { await db.batch([...bundled(12), ...(repairMixed ? bundled(13) : [])].map(sql => db.prepare(sql))); }
+  catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
+  invalidateSchemaInventory(db);
+}
+
+async function ensureExternalMusic(db) {
+  const objects = await db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table','index','trigger','view')").all();
+  if (hasExternalMusicObjects(objects.results)) return;
+  requireConsistentExternalCore(objects);
+  try { await db.batch(bundled(13).map(sql => db.prepare(sql))); }
   catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
   invalidateSchemaInventory(db);
 }
@@ -125,6 +146,7 @@ export async function runKnownDatabaseUpgrade(db, { allowDestructive = false } =
       catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
     }
     await ensureHotpaths(db);
+    await ensureExternalMusic(db);
     return { status: 'current', schemaVersion: 2 };
   }
   const eligible = (before.state === 'ready' && before.reason === 'migration_available')
@@ -139,6 +161,7 @@ export async function runKnownDatabaseUpgrade(db, { allowDestructive = false } =
       { verifyPrefix: await objectExists(db, 'Playlists') });
     await ensureSupplemental(db, allowDestructive);
     await ensureHotpaths(db);
+    await ensureExternalMusic(db);
     const ownerToken = crypto.randomUUID().replaceAll('-', '');
     const step = await runPlaylistCountMigration(db, { ownerToken });
     return { ...step, schemaVersion: (await resolveInstanceState(db)).schemaVersion };

@@ -17,6 +17,7 @@ const names = [
   '0011_ai_feature_models.sql',
   '0012_google_login.sql',
   '0013_hotpath_indexes_and_counts.sql',
+  '0014_external_music_references.sql',
 ];
 
 // Split checked-in SQL once at build time. A trigger body contains semicolons;

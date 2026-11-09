@@ -10,7 +10,7 @@ const flights = new WeakMap();
 // Reserve the rest of Workers' post-response lifetime for validation and CAS.
 // A slow provider must not discard results already returned by another one.
 export async function fetchUpgradeDocument(song, fetchDocument, { signal, budgetMs = LYRIC_UPGRADE_SEARCH_BUDGET_MS,
-  enabledSources, executionContext, requestBudget = createLyricRequestBudget() } = {}) {
+  enabledSources, executionContext, fetchNativeDocument, requestBudget = createLyricRequestBudget() } = {}) {
   if (signal?.aborted || budgetMs <= 0) return null;
   const controller = new AbortController();
   const completed = new Map();
@@ -32,10 +32,19 @@ export async function fetchUpgradeDocument(song, fetchDocument, { signal, budget
         acceptCandidate(document);
       } catch { /* Keep the existing asset on failure; no negative asset is written. */ }
     });
+    if (typeof fetchNativeDocument === 'function') tasks.push((async () => {
+      try {
+        const document = await fetchNativeDocument(song, { signal: controller.signal, executionContext, requestBudget });
+        if (!controller.signal.aborted && document?.source === 'youtube'
+          && reliableAutomaticMatch(document)) completed.set('youtube', document);
+      } catch { /* A native outage must retain the existing asset. */ }
+    })());
     await Promise.race([Promise.all(tasks), deadline]);
     controller.abort();
     if (signal?.aborted) return null;
-    return fetchLyricsDocumentWithFallback('auto', song, async provider => completed.get(provider) || null, { enabledSources });
+    const scraped = await fetchLyricsDocumentWithFallback('auto', song, async provider => completed.get(provider) || null, { enabledSources });
+    const native = completed.get('youtube');
+    return preferredAutomaticDocument(native, scraped) ? native : scraped;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', onAbort);
@@ -64,6 +73,7 @@ function originalDocument(artifact, song) {
 // an object CAS; a later human edit/deletion always wins over this old snapshot.
 export function scheduleLyricAssetUpgrade({ store, song, read, executionContext,
   buildArtifact, songStillExists, now = Date.now, fetchDocument = fetchUncachedSourceLyricsDocument, enabledSources,
+  fetchNativeDocument,
   requestBudget = createLyricRequestBudget(),
 }) {
   if (!executionContext?.waitUntil || !canUpgrade(read, now())) return null;
@@ -81,7 +91,7 @@ export function scheduleLyricAssetUpgrade({ store, song, read, executionContext,
       current.etag, { automation });
     if (claim.state !== 'updated') return { state: 'superseded' };
     const document = await fetchUpgradeDocument(song, fetchDocument, {
-      signal, budgetMs: LYRIC_UPGRADE_SEARCH_BUDGET_MS - (Date.now() - startedAt), enabledSources, requestBudget, executionContext,
+      signal, budgetMs: LYRIC_UPGRADE_SEARCH_BUDGET_MS - (Date.now() - startedAt), enabledSources, requestBudget, executionContext, fetchNativeDocument,
     });
     const previous = originalDocument(claim.artifact, song);
     if (!document || !Number.isFinite(document.providerMeta?.durationDelta)

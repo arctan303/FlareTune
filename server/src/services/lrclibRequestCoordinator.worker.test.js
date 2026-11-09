@@ -3,54 +3,21 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { build } from 'esbuild';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
+import { bundleWorkerModules } from '../../../tooling/dev/bundle-worker-modules.mjs';
 
-// Exercise the production workspace route, source configuration and adapters.
-// Only session/database/storage and LRCLIB itself are local deterministic fakes.
-const script = `
-  import { handleLocalLyricsManageRoute } from './server/src/routes/localLyricsManage.js';
-  import { makeSongDb, makeSong, createMemoryLyricStore } from './server/src/test/lyricAssetFixtures.js';
-  const db = makeSongDb([makeSong({ title:'Song', artist:'Artist', duration:180, album:'' })]);
-  const session = { mode:'normal', account:{accountId:'worker-fixture',role:'admin'} };
-  export default { async fetch(request, env, ctx) {
-    const input = new URL(request.url);
-    if (input.pathname === '/warmup') return new Response('ready');
-    let waitUntilCalls = 0;
-    const operationContext = { waitUntil(task) { waitUntilCalls++; ctx.waitUntil(task); } };
-    const controller = new AbortController();
-    const abortAfter = Number(input.searchParams.get('abortAfter'));
-    let timer;
-    if (abortAfter > 0) timer = setTimeout(() => controller.abort(), abortAfter);
-    const title = input.searchParams.get('title') || 'Song';
-    const action = input.searchParams.get('action') || 'candidates';
-    let target = 'https://app.test/api/lyrics/workspace/song-1';
-    let method = 'GET', body;
-    if (action === 'inspect') {
-      target += '/candidates/inspect'; method = 'POST';
-      body = { candidates:[{source:'lrclib',providerLyricId:'1'}], searchTitle:title };
-    } else if (action === 'import') {
-      method = 'PUT'; body = { source:'lrclib', providerLyricId:'1', etag:null, searchTitle:title };
-    } else target += '/candidates?source=lrclib&title=' + encodeURIComponent(title);
-    const routed = new Request(target, { method, signal:controller.signal,
-      ...(body ? { headers:{'Content-Type':'application/json'},body:JSON.stringify(body) } : {}) });
-    try {
-      const response = await handleLocalLyricsManageRoute(routed, new URL(target), db, {}, session, {},
-        { ctx:operationContext, store:createMemoryLyricStore() });
-      response.headers.set('X-Registered-Tasks', String(waitUntilCalls));
-      return response;
-    } finally { clearTimeout(timer); }
-  } };`;
-
+// Exercise the production workspace policy, source configuration and adapters.
+// Session/plugin lease/database/storage and LRCLIB are deterministic fakes;
+// real installation authorization is covered by the plugin handler suite.
 let bundle;
 async function fixture(t, outbound) {
-  bundle ||= build({ stdin: { resolveDir: resolve('.'), contents: script }, bundle: true, write: false,
-    format: 'esm', platform: 'browser' });
+  bundle ||= bundleWorkerModules({ esbuild: { build },
+    entryPoint: resolve('server/src/test/lrclibRequestCoordinatorWorker.fixture.js'), buildOptions: { target: 'es2022' } });
   const built = await bundle;
   const calls = [];
   const starts = new Map();
   const waiters = new Map();
   const mf = new Miniflare(convertV4MiniflareOptions({ workers: [{
-    name: 'lyrics-owner-lifetime', modules: true, compatibilityDate: '2026-09-23',
-    script: built.outputFiles[0].text,
+    name: 'lyrics-owner-lifetime', ...built, compatibilityDate: '2026-09-23',
     outboundService: async request => {
       const url = new URL(request.url);
       const title = url.searchParams.get('track_name');

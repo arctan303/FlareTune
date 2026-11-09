@@ -255,7 +255,8 @@ export function createLyricDocument({
   lrc = '',
   providerMeta,
 } = {}) {
-  if (!isLyricSourceId(source) && source !== 'manual' && !Object.hasOwn(LEGACY_LYRIC_SOURCES, source)) throw new TypeError('invalid lyric source');
+  // Native YouTube lyrics are a stored source, not a configurable scraper.
+  if (!isLyricSourceId(source) && !['manual', 'youtube'].includes(source) && !Object.hasOwn(LEGACY_LYRIC_SOURCES, source)) throw new TypeError('invalid lyric source');
   if (!['krc', 'lyricsfile', 'lrc', 'plain'].includes(format)) throw new TypeError('invalid lyric format');
   if (!Array.isArray(lines)) throw new TypeError('lyrics lines must be an array');
   if (lines.length > MAX_LINES) throw new RangeError('lyrics exceed safe line count');

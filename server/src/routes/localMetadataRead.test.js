@@ -7,6 +7,7 @@ import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
 import { createMemoryLyricStore, makeReadyArtifact } from '../test/lyricAssetFixtures.js';
 import { createLyricsResultFromResponse } from '../../../client/src/hooks/useLyricsFetcher.js';
 import { handleLocalMetadataReadRoute } from './localMetadataRead.js';
+import { testLyricsAiDeps, testLyricsAiLease } from '../plugins/lyrics-workbench/test-support.js';
 
 class Statement {
   constructor(sqlite, sql, values = []) { this.sqlite = sqlite; this.sql = sql; this.values = values; }
@@ -41,7 +42,9 @@ function r2() {
 async function call(db, path, { accountId = 'owner', method = 'GET', bucket, deps } = {}) {
   const request = new Request(`https://flaretune.test${path}`, { method });
   const env = bucket ? { MEDIA_BUCKET: bucket } : {};
-  return handleLocalMetadataReadRoute(request, new URL(request.url), db, { 'X-Test': 'metadata' }, accountId, env, deps);
+  return handleLocalMetadataReadRoute(request, new URL(request.url), db, { 'X-Test': 'metadata' }, accountId, env,
+    { ...deps, session: { mode: 'normal', account: { accountId, role: 'member' } }, createAiLease: testLyricsAiLease,
+      aiDeps: testLyricsAiDeps(deps?.aiDeps) });
 }
 
 test('route is closed without a normal local account and only handles canonical paths', async () => {

@@ -39,7 +39,7 @@ test('actual player actions skip progress serialization and persist queue and pr
       (state) => state.removePlaylistSong('b'),
       (state) => state.setVolume(0.3),
       (state) => state.toggleTranslation(),
-      (state) => state.setRandomRoamEnabled(true),
+      (state) => state.handleModeChange('sequence'),
       (state) => state.clearPlaylist(),
     ];
     for (const action of actions) {
@@ -53,7 +53,8 @@ test('actual player actions skip progress serialization and persist queue and pr
       assert.deepEqual(persisted.state.currentSong, current.currentSong);
       assert.equal(persisted.state.volume, current.volume);
       assert.equal(persisted.state.translationEnabled, current.translationEnabled);
-      assert.equal(persisted.state.randomRoam.resumeWhenAppended, false);
+      assert.equal(Object.hasOwn(persisted.state, 'randomRoam'), false);
+      assert.equal(Object.hasOwn(persisted.state, 'queueContextReady'), false);
       assert.equal(Object.hasOwn(persisted.state, 'progress'), false);
     }
   } finally {
@@ -67,7 +68,7 @@ test('existing version-one JSON hydrates queue and preferences without restoring
     currentSong: songs[1], playlist: songs, volume: 0.6, playMode: 'sequence',
     translationEnabled: true,
     randomRoam: { enabled: true, seenSongIds: songs.map((item) => item.id),
-      waitingAtQueueEnd: true, resumeWhenAppended: true },
+      waitingAtQueueEnd: true, resumeWhenAppended: true, language: 'ja', batchSize: 7 },
   } }));
   await usePlayerStore.persist.rehydrate();
   const state = usePlayerStore.getState();
@@ -76,6 +77,8 @@ test('existing version-one JSON hydrates queue and preferences without restoring
   assert.equal(state.volume, 0.6);
   assert.equal(state.playMode, 'sequence');
   assert.equal(state.translationEnabled, true);
-  assert.equal(state.randomRoam.waitingAtQueueEnd, true);
-  assert.equal(state.randomRoam.resumeWhenAppended, false);
+  assert.equal(state.randomRoam, undefined);
+  assert.equal(state.queueContextReady, false);
+  assert.deepEqual(state.getLegacyPluginPreferences('roam'), { language: 'ja', batchSize: 7 });
+  assert.equal(state.getQueueSnapshot().waitingForContinuation, false);
 });

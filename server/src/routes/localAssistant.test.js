@@ -378,11 +378,13 @@ test('tool_call SSE chunk is readable while catalog query and model continuation
     const prepare = db.prepare.bind(db);
     db.prepare = (sql) => {
       const statement = prepare(sql);
-      if (/\bFROM\s+Songs\s+s\b/i.test(sql)) {
-        const all = statement.all.bind(statement);
-        statement.all = async () => { catalogStarted(); await queryGate; return all(); };
-      }
+      statement.sql = sql;
       return statement;
+    };
+    const batch = db.batch.bind(db);
+    db.batch = async statements => {
+      if (statements.some(statement => /\bFROM\s+Songs\s+s\b/i.test(statement.sql || ''))) { catalogStarted(); await queryGate; }
+      return batch(statements);
     };
     let modelCalls = 0;
     const response = await route('/api/ai/chat', 'POST', chatBody(), 'account-A', {
@@ -537,7 +539,7 @@ test('unknown or malformed tools are rejected without executing mutations or fin
   } finally { sqlite.close(); }
 });
 
-test('five tool rounds are followed by one tool-free finalization request', async () => {
+test('database resource budget stops repeated catalog rounds with a recoverable failure before tool limits', async () => {
   const { sqlite, route } = fixture();
   try {
     const seenTools = [];
@@ -549,11 +551,13 @@ test('five tool rounds are followed by one tool-free finalization request', asyn
     });
     assert.equal(answer.status, 200);
     const events = await streamEvents(answer);
-    assert.deepEqual(seenTools, [availableToolNames, availableToolNames, availableToolNames,
-      availableToolNames, availableToolNames, []]);
-    assert.equal(events.filter((event) => event.type === 'tool_call').length, 5);
-    assert.match(events.find((event) => event.type === 'content').content, /没能整理出可靠答案/);
-    assert.equal(sqlite.prepare("SELECT status FROM music_chat_turns WHERE account_id='account-A'").get().status, 'completed');
+    assert.ok(seenTools.length >= 2 && seenTools.length <= 5);
+    assert.ok(seenTools.every(tools => JSON.stringify(tools) === JSON.stringify(availableToolNames)));
+    assert.equal(events.some(event => event.type === 'done'), false);
+    assert.equal(events.at(-1).error, 'upstream_failure');
+    assert.equal(sqlite.prepare("SELECT status FROM music_chat_turns WHERE account_id='account-A'").get().status, 'failed');
+    const stored = JSON.parse(sqlite.prepare("SELECT extra_json FROM music_chat_thread_messages WHERE role='assistant'").get().extra_json);
+    assert.ok(stored.savedContext.messages.some(message => message.role === 'tool'));
   } finally { sqlite.close(); }
 });
 

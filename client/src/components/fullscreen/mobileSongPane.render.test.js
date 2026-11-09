@@ -1,3 +1,4 @@
+import { canReferenceAccountSong } from '../../utils/musicSource.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -5,7 +6,8 @@ import { transformSync } from 'esbuild';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { getMobileLyricWindow, getPrimaryLyricLine, getTranslationLyricLine } from './mobileLyricPreview.js';
-import { resolveLyricSurfacePresentation } from '../lyrics/lyricSurfacePresentation.js';
+import { useLyricSurfacePresentation } from '../lyrics/lyricSurfacePresentation.js';
+import { lyricPlaybackClock } from '../../services/lyricPlaybackClock.js';
 
 // Execute the actual JSX component. Neighbouring controls/artwork are stubs so
 // this focused render test needs neither browser globals nor store fixtures.
@@ -19,14 +21,15 @@ const dependencies = {
   '../LyricsScroller.jsx': empty,
   '../PlayerControls.jsx': empty,
   '../PlayerMoreMenu.jsx': empty,
-  '../../hooks/useFavoriteSongAction.js': {},
+  '../../utils/musicSource.js': { canReferenceAccountSong },
+  '../../hooks/useFavoriteSongAction.js': { useFavoriteSongAction: () => ({ isFavorite: () => false, pendingSongIds: new Set(), justAddedSongIds: new Set(), toggleFavorite() {}, clearAddedAnimation() {} }) },
   './mobileLyricPreview.js': { getMobileLyricWindow, getPrimaryLyricLine, getTranslationLyricLine },
   '../lyrics/SyncedLyricText.jsx': ({ text }) => {
     renderedLyricLines += 1;
     return React.createElement('span', null, text);
   },
   '../lyrics/lyricSurfacePresentation.js': {
-    useLyricSurfacePresentation: (props) => resolveLyricSurfacePresentation(props),
+    useLyricSurfacePresentation,
   },
   './ClassicArtwork.jsx': empty,
 };
@@ -38,7 +41,7 @@ new Function('require', 'module', 'exports', compiled)((name) => {
   assert.ok(Object.hasOwn(dependencies, name), `unhandled component dependency: ${name}`);
   return dependencies[name];
 }, module, module.exports);
-const { MobileSongPane } = module.exports;
+const { MobileSongPane, MobileLyricsPane } = module.exports;
 const lyrics = [
   { time: 0, text: 'First line', translation: '第一行' },
   { time: 3, text: 'Second line', translation: '第二行' },
@@ -78,6 +81,31 @@ test('mobile unavailable and instrumental states still omit the lyric preview', 
   assert.equal(renderedLyricLines, 0);
 });
 
+test('mobile prelude preview preserves the first two original rows and first translation', () => {
+  const preludeLyrics = [
+    { time: 12, text: '『はい喜んで』', translation: '乐意效劳',
+      words: [{ text: '『はい喜んで』', startTime: 12, endTime: 13 }] },
+    { time: 14, text: '『あなた方のため』' },
+  ];
+  const audio = { currentTime: 0, paused: true, duration: 120, playbackRate: 1,
+    addEventListener() {}, removeEventListener() {} };
+  lyricPlaybackClock.attach(audio);
+  try {
+    for (const currentTime of [0, 10, 11.999, 12, 0]) {
+      audio.currentTime = currentTime;
+      lyricPlaybackClock.sample('seeked');
+      const markup = renderPane({ lyrics: preludeLyrics, currentLyricIndex: 0, lyricSyncMode: 'word',
+        lyricIntro: { time: 0, text: 'こっちのけんと - はいよろこんで' } });
+      assert.ok(markup.includes(preludeLyrics[0].text));
+      assert.ok(markup.includes(preludeLyrics[1].text));
+      assert.ok(markup.includes('乐意效劳'));
+      assert.ok(!markup.includes('こっちのけんと - はいよろこんで'));
+    }
+  } finally {
+    lyricPlaybackClock.detach();
+  }
+});
+
 test('long mobile lyrics mount at most seven nearby rows without changing the full roller height', () => {
   const longLyrics = Array.from({ length: 100 }, (_, index) => ({ time: index * 3,
     text: `lyric-${index}`, translation: `translation-${index}` }));
@@ -93,4 +121,13 @@ test('long mobile lyrics mount at most seven nearby rows without changing the fu
   assert.equal(renderedLyricLines, 4);
   renderPane({ lyrics: longLyrics, currentLyricIndex: 99 });
   assert.equal(renderedLyricLines, 4);
+});
+
+
+test('mobile lyrics controls expose account-library favorite for both local and YouTube songs', () => {
+  const render=currentSong=>renderToStaticMarkup(React.createElement(MobileLyricsPane,{
+    currentSong,controlsVisible:true,coverUrl:'/placeholder-album.svg',playerControlsProps:{},lyricsScrollerProps:{},
+  }));
+  assert.match(render({id:'local',title:'Local'}),/加入我的收藏/);
+  assert.match(render({id:'yt:QBtVFL0Qefs',source:'youtube',title:'YT'}),/加入我的收藏/);
 });

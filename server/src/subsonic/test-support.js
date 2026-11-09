@@ -25,7 +25,7 @@ export async function fixture() {
         db.beforeWrite?.(sql);
         if (db.fail?.test(sql)) throw new Error('injected failure');
         db.queries.push(sql);
-        if (/^\s*(SELECT|WITH)\b/i.test(sql)) return { results: sqlite.prepare(sql).all(...values) };
+        if (/^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql)) return { results: sqlite.prepare(sql).all(...values) };
         if (/\bRETURNING\b/i.test(sql)) {
           const results = sqlite.prepare(sql).all(...values);
           return { results, meta: { changes: results.length } };

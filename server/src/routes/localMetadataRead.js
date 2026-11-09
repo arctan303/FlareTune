@@ -1,6 +1,6 @@
 import { parseArtistNames } from '../utils/artistParser.js';
 import { LyricArtifactStoreError } from '../services/lyricArtifactStore.js';
-import { PlaybackLyricsError, readPlaybackLyrics } from '../services/playbackLyrics.js';
+import { PlaybackLyricsError, readPlaybackLyrics, resolveLyricSong, isExternalLyricSongId } from '../services/playbackLyrics.js';
 import { LyricSourceError } from '../services/lyricSourceLoader.js';
 import { fetchArtistPhotosFromSources } from '../services/artistPhotoSources.js';
 import { saveArtistPhotoToDb } from '../services/artistPhotoStore.js';
@@ -92,9 +92,9 @@ async function readLyrics(url, db, headers, env, accountId, deps = {}) {
 
   let song;
   try {
-    song = await db.prepare(`SELECT id, title, artist, album, duration, language
-      FROM Songs WHERE id = ?`).bind(songId).first();
+    song = await resolveLyricSong(db, songId, deps);
   } catch {
+    if (isExternalLyricSongId(songId)) return json({ code: 503, message: 'Song source unavailable', reason: 'source_unavailable' }, 503, headers);
     return json({ code: 503, message: 'Database unavailable' }, 503, headers);
   }
   if (!song) return json({ code: 404, message: 'Song not found', reason: 'song_not_found' }, 404, headers);

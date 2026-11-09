@@ -1,6 +1,7 @@
 import React from 'react';
 import { Edit3, KeyRound } from 'lucide-react';
 import { SettingsInput, SettingsWriteButton } from './SettingsReadOnly.jsx';
+import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import { validLocalPassword } from '../instance/state.js';
@@ -92,14 +93,10 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
         </div>
 
         {/* 操作按钮组 */}
-        <div className="flex items-center gap-2 ml-auto">
-          <button
+        <SettingsActions>
+          <SettingsButton
             type="button"
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              editOpen
-                ? 'bg-current/10 text-[var(--ink)] font-semibold'
-                : 'text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/5'
-            }`}
+            variant={editOpen ? 'primary' : 'secondary'}
             onClick={() => {
               setEditOpen((v) => !v);
               if (!editOpen) setResetOpen(false);
@@ -108,15 +105,11 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
           >
             <Edit3 size={12} />
             <span>{editOpen ? t("收起") : t("编辑")}</span>
-          </button>
+          </SettingsButton>
 
-          <button
+          <SettingsButton
             type="button"
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              resetOpen
-                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold'
-                : 'text-[var(--accent)] hover:opacity-80 hover:bg-[var(--accent)]/10'
-            }`}
+            variant={resetOpen ? 'primary' : 'secondary'}
             onClick={() => {
               setResetOpen((v) => !v);
               if (!resetOpen) setEditOpen(false);
@@ -125,8 +118,8 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
           >
             <KeyRound size={12} />
             <span>{resetOpen ? t("收起重置") : t("重置密码")}</span>
-          </button>
-        </div>
+          </SettingsButton>
+        </SettingsActions>
       </div>
 
       {/* 编辑表单：折叠展开 */}
@@ -147,14 +140,10 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
               <option value="disabled">{t("停用")}</option>
             </SelectControl>
           </Field>
-          <div className="flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
-            >{t("取消")}</button>
+          <SettingsActions>
+            <SettingsButton type="button" variant="quiet" onClick={cancelEdit}>{t("取消")}</SettingsButton>
             <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("保存")}</SettingsWriteButton>
-          </div>
+          </SettingsActions>
         </form>
       )}
 
@@ -166,14 +155,10 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
               <SettingsInput className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("输入新的临时密码（至少 8 位）")} />
             </Field>
           </div>
-          <div className="flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={() => setResetOpen(false)}
-              className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
-            >{t("取消")}</button>
+          <SettingsActions>
+            <SettingsButton type="button" variant="quiet" onClick={() => setResetOpen(false)}>{t("取消")}</SettingsButton>
             <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("确认重置")}</SettingsWriteButton>
-          </div>
+          </SettingsActions>
         </form>
       )}
     </div>

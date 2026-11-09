@@ -18,18 +18,20 @@ import { useUIStore, showToast } from './store/useUIStore';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerContext } from './hooks/usePlayerContext';
 import { useAudioEngine } from './hooks/useAudioEngine';
+import { usePluginRuntime } from './hooks/usePluginRuntime.js';
+import { usePlugins } from './hooks/usePlugins.js';
+import { usePlaybackVolume } from './hooks/usePlaybackVolume.js';
 import { getShellThemeStyle } from './constants/shellThemes';
 import { useCoverAccent } from './hooks/useCoverAccent';
 import { useVisualMotionProfile } from './hooks/useVisualMotionProfile';
 import { useWakeLock } from './hooks/useWakeLock';
-import { useRandomRoam } from './hooks/useRandomRoam';
 import { clearFullscreenRootScrollLock, setFullscreenRootScrollLock } from './utils/fullscreenRootScroll.js';
 import { accountPlaylistsStore } from './accountPlaylists.js';
 import { usePlayStatsStore } from './store/usePlayStatsStore.js';
 import { usePlaybackPresentation } from './hooks/usePlaybackPresentation.js';
 import { selectHasRenderableWallpaper, useWallpaperStore } from './store/useWallpaperStore.js';
 import { toShellAuthSession } from './instance/state.js';
-import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, restoreSidebarWorkspaceAfterRejectedBack, SUPPORTED_PAGES } from './utils/navigation.js';
+import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, restoreSidebarWorkspaceAfterRejectedBack, SUPPORTED_PAGES, isLyricsWorkspaceRoute } from './utils/navigation.js';
 import DrawerErrorBoundary from './components/drawers/DrawerErrorBoundary.jsx';
 
 const retryDynamicImport = (importer, retries = 2, delayMs = 600) => async () => {
@@ -152,6 +154,11 @@ export default function App({ validatedSession }) {
     const hasOpenedAccountPlaylistDrawer = useOpenedOnce(isAccountPlaylistOpen);
 
     const audioRef = useRef(null);
+    const playbackVolume = usePlaybackVolume({ volume, setVolume, audioRef });
+    const { outputEnabled: speakerOutputEnabled, outputError: speakerOutputError } = playbackVolume;
+    useEffect(() => {
+        if (speakerOutputEnabled && speakerOutputError) showToast(t(speakerOutputError), 6000);
+    }, [speakerOutputEnabled, speakerOutputError]);
     const hasInitializedPlaylist = useRef(false);
     const initialRouteRef = useRef(null);
     if (!initialRouteRef.current && typeof window !== 'undefined') {
@@ -193,6 +200,9 @@ export default function App({ validatedSession }) {
         persistSeekPosition,
         restorePosition,
     });
+    usePluginRuntime({ audioRef });
+    const pluginSession = useUIStore((state) => state.authSession);
+    usePlugins(pluginSession);
 
     useEffect(() => {
         if (toastMessage) lastToastRef.current = toastMessage;
@@ -216,7 +226,10 @@ export default function App({ validatedSession }) {
     const authInitialized = useUIStore((state) => Boolean(state.authSession.initialized));
     const authenticated = useUIStore((state) => Boolean(state.authSession.authenticated));
     const accountId = useUIStore((state) => state.authSession.user?.accountId || null);
-    useRandomRoam({ authenticated, isPlayerContextReady });
+    useLayoutEffect(() => {
+        usePlayerStore.getState().setQueueContextReady(isPlayerContextReady);
+        return () => usePlayerStore.getState().setQueueContextReady(false);
+    }, [isPlayerContextReady, accountId, pluginSession.csrfToken]);
 
     useLayoutEffect(() => {
         if (authInitialized && authenticated) setPlaybackSessionReady(true);
@@ -245,10 +258,9 @@ export default function App({ validatedSession }) {
         const targetPath = formatPath({ type: 'page', page: targetPage,
             ...(targetPage === 'settings' ? { section } : {}),
             ...(targetPage === 'assistant' ? { section } : {}),
+            ...(targetPage === 'plugin' ? { section: section || 'list' } : {}),
             ...(targetPage === 'lyrics' ? { section, songId: activeRoute.songId } : {}) });
         const ui = useUIStore.getState();
-        if (activePage === 'lyrics' && targetPage !== 'lyrics'
-            && ui.lyricsWorkspaceBeforeCloseGuard?.() === false) return;
         if (targetPage === activePage && activeRoute.type === 'page' && formatPath(activeRoute) === targetPath && !ui.isViewingPlaylist && !ui.isArtistDrawerOpen) {
             if (ui.isViewingAdmin) ui.setIsViewingAdmin(false);
             if (contentScrollRef.current) contentScrollRef.current.scrollTop = 0;
@@ -257,7 +269,6 @@ export default function App({ validatedSession }) {
         if (ui.isViewingPlaylist) ui.closeViewingPlaylist();
         if (ui.isViewingAdmin) ui.setIsViewingAdmin(false);
         if (ui.isArtistDrawerOpen) ui.setIsArtistDrawerOpen(false);
-        setActivePage(targetPage);
         syncBrowserHistory(targetPath, { replace: targetPage === 'lyrics' && activePage === 'lyrics' });
     }, [activePage, activeRoute]);
 
@@ -267,8 +278,13 @@ export default function App({ validatedSession }) {
         if (!init) return;
         if (window.location.pathname === '/' || window.location.pathname === '') {
             syncBrowserHistory('/home', { replace: true });
+        } else if (init.type === 'page' && init.page === 'roam' && window.location.pathname === '/plugins/roam/browse') {
+            syncBrowserHistory('/roam', { replace: true });
+        } else if (init.type === 'page' && init.page === 'plugin'
+            && (['/settings/', '/assistant', '/xiaoa', '/lyrics/'].some(prefix => window.location.pathname.startsWith(prefix)) || ['/roam', '/plugins/_/install', '/plugins/_/sources'].includes(window.location.pathname))) {
+            syncBrowserHistory(formatPath(init), { replace: true });
         } else if (init.type === 'artist' && init.name) {
-            useUIStore.getState().openArtistDrawer({ name: init.name, view: init.view || 'overview' });
+            useUIStore.getState().openArtistDrawer({ ...init, view: init.view || 'overview' });
         }
     }, []);
 
@@ -278,6 +294,7 @@ export default function App({ validatedSession }) {
             const targetUrl = formatPath({
                 type: 'artist',
                 name: activeArtistData.name,
+                id: activeArtistData.id,
                 view: activeArtistData.view || 'overview',
             });
             syncBrowserHistory(targetUrl);
@@ -287,7 +304,7 @@ export default function App({ validatedSession }) {
                 syncBrowserHistory(`/${activePage}`);
             }
         }
-    }, [isArtistDrawerOpen, activeArtistData?.name, activeArtistData?.view, activePage, isViewingPlaylist]);
+    }, [isArtistDrawerOpen, activeArtistData?.name, activeArtistData?.id, activeArtistData?.view, activePage, isViewingPlaylist]);
 
     // 当前 URL 是内容页的唯一来源；替换搜索词不增加历史条目。
     useEffect(() => {
@@ -300,7 +317,7 @@ export default function App({ validatedSession }) {
             routeEntryRef.current = ensureHistoryScrollEntry();
             const nextRoute = parseAppLocation(window.location);
             const ui = useUIStore.getState();
-            if (nextRoute.page !== 'lyrics') useUIStore.setState({ lyricsWorkspaceExitApproved: false });
+            useUIStore.setState({ lyricsWorkspaceExitApproved: false });
             if (nextRoute.type !== 'artist' && ui.isArtistDrawerOpen) ui.setIsArtistDrawerOpen(false);
             if (nextRoute.type !== 'playlist' && ui.isViewingPlaylist) ui.closeViewingPlaylist();
             setActiveRoute(nextRoute);
@@ -318,7 +335,7 @@ export default function App({ validatedSession }) {
             const previousRoute = parsePathname(routeKeyRef.current);
             const nextRoute = parseAppLocation(window.location);
             const ui = useUIStore.getState();
-            if (previousRoute.page === 'lyrics' && nextRoute.page !== 'lyrics') {
+            if (isLyricsWorkspaceRoute(previousRoute) && (!isLyricsWorkspaceRoute(nextRoute) || previousRoute.songId !== nextRoute.songId)) {
                 if (ui.lyricsWorkspaceExitApproved) {
                     useUIStore.setState({ lyricsWorkspaceExitApproved: false });
                 } else if (ui.lyricsWorkspaceBeforeCloseGuard?.() === false) {
@@ -338,11 +355,12 @@ export default function App({ validatedSession }) {
                 if (ui.isViewingPlaylist) ui.closeViewingPlaylist();
                 if (ui.isViewingAdmin) ui.setIsViewingAdmin(false);
                 const currentData = ui.activeArtistData;
-                const isSameArtist = currentData?.name?.toLowerCase() === route.name.toLowerCase();
+                const isSameArtist = route.id ? currentData?.id === route.id
+                    : !currentData?.id && currentData?.name?.toLowerCase() === route.name.toLowerCase();
                 ui.openArtistDrawer(
                     isSameArtist
                         ? { ...currentData, view: route.view || 'overview' }
-                        : { name: route.name, view: route.view || 'overview' }
+                        : { ...route, view: route.view || 'overview' }
                 );
             } else if (route.type === 'page') {
                 if (ui.isArtistDrawerOpen) ui.setIsArtistDrawerOpen(false);
@@ -466,8 +484,8 @@ export default function App({ validatedSession }) {
         isPlaying, 
         playPrev, 
         playNext, 
-        volume, 
-        setVolume, 
+        volume: playbackVolume.volume,
+        setVolume: playbackVolume.setVolume,
         showToast,
         onOpenSearch: handleOpenSearch
     });
@@ -584,7 +602,7 @@ export default function App({ validatedSession }) {
                 aria-label={isFullScreen ? t("全屏播放器") : undefined}
                 inert={secondaryModalOpen ? '' : undefined}
             >
-                {playbackSessionReady && <PlayerBar motionProfile={motionProfile} activePage={activePage} />}
+                {playbackSessionReady && <PlayerBar motionProfile={motionProfile} activePage={activePage} activeRoute={activeRoute} />}
                 {playbackSessionReady && isFullScreen && <FullscreenPlayerSurface loader={loadFullScreenPlayer} motionProfile={motionProfile} onClose={closeFullScreenPlayer} />}
             </div>
             <DrawerErrorBoundary title={t("播放列表")} isOpen={isPlaylistOpen} onClose={() => useUIStore.getState().setIsPlaylistOpen(false)}>

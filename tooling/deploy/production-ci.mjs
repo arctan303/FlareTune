@@ -3,6 +3,11 @@ import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Every prefix dispatched by server/src/flaretune.js must reach the Worker before
+// the SPA asset fallback, or production would answer it with index.html.
+const REQUIRED_BACKEND_ROUTES = Object.freeze(['/api', '/api/*', '/auth', '/auth/*', '/media', '/media/*',
+  '/rest', '/rest/*', '/speaker-media', '/speaker-media/*']);
+
 // Instance bindings remain in Cloudflare Builds; application routes follow Git.
 export function productionConfig(template, encoded, environment) {
   if (environment.WORKERS_CI !== '1' || environment.WORKERS_CI_BRANCH !== 'main' || !encoded) {
@@ -23,7 +28,7 @@ export function productionConfig(template, encoded, environment) {
   if (publicLines.length !== 1 || privateLines.length !== 1) throw new Error('Unexpected routing configuration.');
   const routes = JSON.parse(publicLines[0][1]);
   if (!Array.isArray(routes) || routes.some(route => typeof route !== 'string' || !route.startsWith('/')) ||
-      !['/api', '/api/*', '/auth', '/auth/*', '/media', '/media/*', '/rest', '/rest/*'].every(route => routes.includes(route))) {
+      !REQUIRED_BACKEND_ROUTES.every(route => routes.includes(route))) {
     throw new Error('Required backend routes missing.');
   }
   const oldSection = target[0][0];

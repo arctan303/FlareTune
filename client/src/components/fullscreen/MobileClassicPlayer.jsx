@@ -18,11 +18,13 @@ import { songLanguageHasLyrics } from '../../constants/language';
 import { useFullscreenTransition } from '../../hooks/useFullscreenTransition.js';
 import { usePlayerAutoHide } from '../../hooks/usePlayerAutoHide.js';
 import { requestLyricsTranslationCompletion } from '../../hooks/useLyricsFetcher.js';
+import { usePluginAvailable } from '../../hooks/usePluginAvailable.js';
 import './classic-player.css';
 import './classic-mobile.css';
 import './classic-desktop.css';
 
 export default function MobileClassicPlayer({ instantEnter = false, mobileVisual = 'classic' }) {
+    const lyricsAiAvailable = usePluginAvailable('lyrics-workbench', 'ai');
     const {
         currentSong, isPlaying, isBuffering, togglePlay, playNext, playPrev,
         playMode, handleModeChange,
@@ -30,7 +32,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         translationEnabled, translationAvailable, translationState, toggleTranslation,
         setTranslationEnabled,
         isLyricsLoading,
-        lyricSyncMode, lyricIntro,
+        lyricSyncMode,
         volume, setVolume,
     } = usePlayerStore(useShallow((state) => ({
         currentSong: state.currentSong,
@@ -51,7 +53,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         setTranslationEnabled: state.setTranslationEnabled,
         isLyricsLoading: state.isLyricsLoading,
         lyricSyncMode: state.lyricSyncMode,
-        lyricIntro: state.lyricIntro,
         volume: state.volume,
         setVolume: state.setVolume,
     })));
@@ -131,7 +132,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         if (isLyricsLoading || !lyrics || lyrics.length === 0) return false;
         return lyrics.some((lrc) => Boolean(getPrimaryLyricLine(lrc)));
     }, [isLyricsLoading, lyrics]);
-    const canShowLyrics = songLanguageHasLyrics(currentSong?.language);
+    const canShowLyrics = Boolean(currentSong) && songLanguageHasLyrics(currentSong?.language);
 
     const {
         hasMounted,
@@ -299,14 +300,14 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
             toggleTranslation();
             return;
         }
-        if (!canManageLyrics) return;
+        if (!canManageLyrics || !lyricsAiAvailable) return;
         setTranslationEnabled(true);
         void requestLyricsTranslationCompletion({
             songId: currentSong?.id,
             authenticated,
             notify: showToast,
         });
-    }, [authenticated, canManageLyrics, currentSong?.id, setTranslationEnabled, toggleTranslation, translationPending, translationReady]);
+    }, [authenticated, canManageLyrics, lyricsAiAvailable, currentSong?.id, setTranslationEnabled, toggleTranslation, translationPending, translationReady]);
 
     const lyricsScrollerProps = {
         lyrics,
@@ -314,7 +315,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         audioRef,
         isLyricsLoading,
         translationEnabled,
-        canTranslate: translationState !== 'unavailable' && (canManageLyrics || translationReady),
+        canTranslate: translationState !== 'unavailable' && ((canManageLyrics && lyricsAiAvailable) || translationReady),
         translationState,
         toggleTranslation: handleTranslationAction,
         volume,
@@ -322,7 +323,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         isFullScreen,
         currentSong,
         lyricSyncMode,
-        lyricIntro,
     };
     const playerControlsProps = {
         currentSong,
@@ -357,7 +357,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         onEnterLyrics: handleEnterLyricsView,
         playerControlsProps,
         translationEnabled,
-        lyricIntro,
         lyricSyncMode,
     };
     const layoutTouchProps = {

@@ -1,3 +1,6 @@
+import { useMusicSourcesRevision } from '../hooks/useMusicSourcesRevision.js';
+import { getMusicSourcesRevision } from '../services/musicSources.js';
+import { artistIdentity, isYouTubeEntity } from '../utils/musicSource.js';
 import { t } from '../i18n/index.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Play, Pause, ListPlus } from 'lucide-react';
@@ -44,13 +47,13 @@ export default function ArtistDetailView({
 
   const navigateSubView = (targetView) => {
     if (targetView === 'overview') {
-      const overviewUrl = formatPath({ type: 'artist', name: artist?.name, view: 'overview' });
+      const overviewUrl = formatPath({ type: 'artist', name: artist?.name, id: artist?.id, view: 'overview' });
       if (returnToParentRoute(overviewUrl) === 'replace') {
         useUIStore.getState().openArtistDrawer({ ...artist, view: 'overview' });
       }
       return;
     }
-    syncBrowserHistory(formatPath({ type: 'artist', name: artist?.name, view: targetView }));
+    syncBrowserHistory(formatPath({ type: 'artist', name: artist?.name, id: artist?.id, view: targetView }));
     useUIStore.getState().openArtistDrawer({ ...artist, view: targetView });
   };
 
@@ -66,43 +69,64 @@ export default function ArtistDetailView({
     return () => scrollEl.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const artistName = artist?.name || '';
-  const fallbackCover = artist?.coverUrl || '';
+  const sourceRevision = useMusicSourcesRevision();
+  const artistKey = artistIdentity(artist);
+  const isYouTubeArtist = isYouTubeEntity(artist);
+  const [remoteArtist, setRemoteArtist] = useState(null);
+  const profile = remoteArtist?.key === artistKey && (!isYouTubeArtist || remoteArtist.revision === sourceRevision) ? remoteArtist.data : null;
+  const artistName = profile?.name || artist?.name || '';
+  const fallbackCover = profile?.photoUrl || profile?.coverUrl || artist?.coverUrl || '';
   const [artistPhoto, setArtistPhoto] = useState(null);
   const [isPhotoLoading, setIsPhotoLoading] = useState(false);
 
   const [fetchedSongs, setFetchedSongs] = useState([]);
+  const artistGenerationRef = useRef(0);
   const [songsStatus, setSongsStatus] = useState('loading');
   const [artistPage, setArtistPage] = useState({ hasMore: false, total: 0, loadingMore: false });
-  const albumResults = useCatalogPage('albums', { artist: artistName, limit: currentSubView === 'albums' ? 50 : 10 });
+  const localAlbumResults = useCatalogPage('albums', { artist: artistName,
+    limit: currentSubView === 'albums' ? 50 : 10, enabled: !isYouTubeArtist });
+  const albumResults = isYouTubeArtist
+    ? { items: profile?.albums || [], status: songsStatus, hasMore: false, total: profile?.albums?.length ?? 0 }
+    : localAlbumResults;
 
   // Use the artist endpoint so the full view is not capped by the first search page.
   useEffect(() => {
-    const name = artistName.trim();
+    const generation = ++artistGenerationRef.current;
+    const name = artistKey.trim();
     if (!name) return;
     const controller = new AbortController();
     setFetchedSongs([]);
     setSongsStatus('loading');
     readArtist(name, { signal: controller.signal })
-      .then((data) => { setFetchedSongs(data.songs); setArtistPage({ hasMore: data.hasMore, total: data.total, loadingMore: false }); setSongsStatus('ready'); })
-      .catch((error) => { if (error.name !== 'AbortError') { console.warn('获取歌手歌曲失败:', error); setSongsStatus('error'); } });
+      .then((data) => {
+        if (controller.signal.aborted || (generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
+        setRemoteArtist({ key: artistKey, data, revision: sourceRevision });
+        setFetchedSongs(data.songs);
+        setArtistPage({ hasMore: data.hasMore, total: data.total, loadingMore: false });
+        setSongsStatus('ready');
+      })
+      .catch((error) => { if (error.name !== 'AbortError' && !controller.signal.aborted && generation === artistGenerationRef.current && (!isYouTubeArtist || sourceRevision === getMusicSourcesRevision())) { console.warn('获取歌手歌曲失败:', error); setSongsStatus('error'); } });
     return () => controller.abort();
-  }, [artistName]);
+  }, [artistKey, isYouTubeArtist ? sourceRevision : 0]);
 
   const loadMoreArtistSongs = async () => {
     if (!artistPage.hasMore || artistPage.loadingMore) return;
+    const generation = artistGenerationRef.current;
     setArtistPage((previous) => ({ ...previous, loadingMore: true }));
     try {
-      const data = await readArtist(artistName, { offset: fetchedSongs.length });
+      const data = await readArtist(artistKey, { offset: fetchedSongs.length });
+      if ((generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
       setFetchedSongs((previous) => [...previous, ...data.songs]);
       setArtistPage({ hasMore: data.hasMore, total: data.total, loadingMore: false });
     } catch {
+      if ((generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
       setArtistPage((previous) => ({ ...previous, loadingMore: false }));
     }
   };
 
   // 解析并格式化歌曲列表
   const songs = useMemo(() => {
+    if (isYouTubeArtist && !profile) return [];
     if (fetchedSongs.length > 0) {
       return fetchedSongs.map((s) => hydrateSong(s));
     }
@@ -110,15 +134,16 @@ export default function ArtistDetailView({
       return artist.songs.map((s) => hydrateSong(s));
     }
     return [];
-  }, [artist?.songs, fetchedSongs]);
+  }, [artist?.songs, fetchedSongs, isYouTubeArtist, profile]);
 
   const albums = albumResults.items;
   const openAlbum = (album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }));
 
   // 获取歌手高清写真
   useEffect(() => {
-    if (!artistName.trim()) {
+    if (isYouTubeArtist || !artistName.trim()) {
       setArtistPhoto(null);
+      setIsPhotoLoading(false);
       return;
     }
 
@@ -160,7 +185,7 @@ export default function ArtistDetailView({
     return () => {
       isCancelled = true;
     };
-  }, [artistName]);
+  }, [artistName, isYouTubeArtist]);
 
   // 视觉大片兜底：写真优先 -> 外部传入封面 -> 第一首歌曲专辑封面
   const firstSongCover = songs.length > 0 ? (songs[0].cover_url || songs[0].coverUrl) : '';
@@ -185,8 +210,9 @@ export default function ArtistDetailView({
   };
 
   const isCurrentArtistPlaying = isPlaying && currentSong && (
-    (currentSong.artist || '').toLowerCase() === artistName.toLowerCase() ||
-    (currentSong.artist_name || '').toLowerCase() === artistName.toLowerCase()
+    (isYouTubeArtist === isYouTubeEntity(currentSong)) && (
+      (currentSong.artist || '').toLowerCase() === artistName.toLowerCase() ||
+      (currentSong.artist_name || '').toLowerCase() === artistName.toLowerCase())
   );
 
   const isScrolled = scrollTop > 240;

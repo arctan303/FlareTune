@@ -84,17 +84,15 @@ test('classic lyrics mounts InterludeHost in-place exclusively while other lyric
 test('classic lyrics uses the shared renderer only for original text and leaves translation static', () => {
   assert.match(source, /import SyncedLyricText from '\.\/lyrics\/SyncedLyricText'/);
   assert.match(source, /<SyncedLyricText[\s\S]*?line=\{displayLine\}[\s\S]*?active=\{isActive\}[\s\S]*?visible=\{surfaceVisible\}[\s\S]*?syncMode=\{lyricSyncMode\}/);
-  const translationBlock = source.match(/\{\(!isIntroRow && lrc\.translation && translationEnabled\)[\s\S]*?\{lrc\.translation\}[\s\S]*?<\/p>/)?.[0] || '';
+  const translationBlock = source.match(/\{\(lrc\.translation && translationEnabled\)[\s\S]*?\{lrc\.translation\}[\s\S]*?<\/p>/)?.[0] || '';
   assert.ok(translationBlock, 'translation should retain its dedicated static paragraph');
   assert.doesNotMatch(translationBlock, /SyncedLyricText|synced-word|--synced/);
 });
 
-test('classic lyrics presents intro in canonical row zero without inserting or shifting lyrics', () => {
-  assert.match(source, /lyricPresentation\.kind === 'intro' && index === 0/);
-  assert.match(source, /const sourceLine = isIntroRow \? lyricPresentation\.line : lrc/);
-  assert.match(source, /const displayLine = LYRIC_STATUS_LINES\.has\(sourceLine\?\.text\)/);
+test('classic lyrics preserves canonical row content and seek targets', () => {
+  assert.match(source, /const displayLine = LYRIC_STATUS_LINES\.has\(lrc\?\.text\)/);
   assert.match(source, /const canSeek = Number\.isFinite\(lrc\.time\)/);
-  assert.doesNotMatch(source, /unshift|\[lyricIntro,\s*\.\.\.lyrics\]|lyrics\.splice/);
+  assert.doesNotMatch(source, /lyricIntro|isIntroRow|unshift|lyrics\.splice/);
 });
 
 test('classic lyric clock work is explicitly gated by surface visibility', () => {

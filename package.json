@@ -5,6 +5,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "pretest": "node tooling/plugins/seed.mjs hydrate",
+    "prebuild": "node tooling/plugins/seed.mjs hydrate",
+    "predemo:build": "node tooling/plugins/seed.mjs hydrate",
+    "predev:worker": "node tooling/plugins/seed.mjs hydrate",
+    "predev": "node tooling/plugins/seed.mjs hydrate",
     "dev": "vite --config client/vite.config.js",
     "dev:cloud": "node tooling/dev/start-cloud-client.mjs",
     "dev:worker": "wrangler dev --config server/wrangler.local.toml --port 8789 --ip 127.0.0.1 --persist-to worker/.wrangler/state",
@@ -14,10 +19,20 @@
     "ingest:pack": "node tooling/ingest-agent/package.mjs",
     "ingest:verify-package": "node tooling/ingest-agent/smoke-package.mjs",
     "ingest:agent": "node --experimental-sqlite tooling/ingest-agent/cli.mjs start",
-    "build": "vite build --config client/vite.config.js && node tooling/verify/verify-worker-assets.mjs",
+    "plugins:lock": "node tooling/plugins/verify.mjs --update",
+    "plugins:verify": "node tooling/plugins/verify.mjs",
+    "plugins:prepare": "node tooling/plugins/delivery.mjs prepare",
+    "plugins:seed": "node tooling/plugins/seed.mjs bootstrap",
+    "plugins:hydrate": "node tooling/plugins/seed.mjs hydrate",
+    "plugins:ci-build": "node tooling/plugins/ci-channel.mjs build",
+    "plugins:ci-deploy": "node tooling/plugins/ci-channel.mjs deploy",
+    "plugins:check-plan": "node tooling/plugins/delivery.mjs check-plan",
+    "plugins:report": "node tooling/plugins/delivery.mjs report",
+    "plugins:deploy": "node tooling/plugins/delivery-deploy.mjs",
+    "build": "npm run plugins:verify && vite build --config client/vite.config.js && node tooling/verify/verify-worker-assets.mjs",
     "demo:media": "node tooling/demo/prepare-media.mjs",
     "demo:dev": "vite --config demo/vite.config.js",
-    "demo:build": "node tooling/demo/verify-media.mjs && vite build --config demo/vite.config.js",
+    "demo:build": "npm run plugins:verify && node tooling/demo/verify-media.mjs && vite build --config demo/vite.config.js",
     "demo:deploy": "npm run demo:build && wrangler deploy --config demo/wrangler.toml",
     "test": "node tooling/verify/run-source-tests.mjs",
     "preview": "npm run preview:worker",
@@ -45,7 +60,7 @@
         "description": "FlareTune stores audio, artwork, and generated lyric artifacts in this private R2 bucket."
       },
       "SETUP_SECRET": {
-        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI keys, the optional Google Client Secret, and opt-in Subsonic password copies. Rotating it requires re-entering AI/Google secrets and re-enabling Subsonic; it cannot reset an administrator."
+        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI keys, the optional Google Client Secret, opt-in Subsonic password copies and optional Xiaomi authorization. Rotating it requires re-entering AI/Google secrets, reconnecting Xiaomi and re-enabling Subsonic; it cannot reset an administrator."
       }
     }
   },

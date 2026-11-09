@@ -1,0 +1,27 @@
+// YouTube source settings and integration messages.
+export default Object.freeze({
+  "YouTube 暂不提供可靠的歌曲语种筛选，请选择全部语种查看结果。": "YouTube does not provide reliable song-language filters. Select all languages to see its results.",
+  "YouTube Music": "YouTube Music",
+  "连接一个站点 YouTube 账号，为现有搜索和播放器提供音乐源。": "Connect one site YouTube account to provide music for the existing search and player.",
+  "全站使用一个 YouTube 账号，仅管理员可以连接和断开。": "The site uses one YouTube account. Only administrators can connect or disconnect it.",
+  "YouTube Music 已连接": "YouTube Music connected",
+  "YouTube Music 未连接": "YouTube Music not connected",
+  "连接后，YouTube 内容会出现在现有搜索、歌手和专辑页面中。": "After connecting, YouTube content appears in the existing search, artist and album pages.",
+  "本插件提供音乐源，不同步此账号的私人收藏和歌单。": "This plugin provides music. It does not sync this account’s private favorites or playlists.",
+  "连接凭据无法读取，请重新连接。": "Connection credentials cannot be read. Connect again.",
+  "音乐源缓存尚未配置，请联系部署管理员。": "The music source cache is not configured. Contact the deployment administrator.",
+  "打开 YouTube 设备授权页面，输入以下代码并确认关联。": "Open the YouTube device authorization page, enter this code and confirm the connection.",
+  "打开授权页面": "Open authorization page",
+  "等待授权完成，此页面会自动更新。": "Waiting for authorization. This page updates automatically.",
+  "重新连接 YouTube": "Reconnect YouTube",
+  "连接 YouTube": "Connect YouTube",
+  "断开本网站的 YouTube 连接": "Disconnect YouTube from this site",
+  "无法读取 YouTube Music 连接状态，请重试。": "Cannot read the YouTube Music connection status. Try again.",
+  "YouTube 授权未完成或已过期，请重新连接。": "YouTube authorization is incomplete or expired. Connect again.",
+  "YouTube Music 连接操作失败，请重试。": "The YouTube Music connection could not be changed. Try again.",
+  "YouTube Music 暂时不可用，已保留本地搜索结果。": "YouTube Music is temporarily unavailable. Local search results are still shown.",
+  "YouTube Music 请求过于频繁，请稍后重试。": "Too many YouTube Music requests. Try again later.",
+  "YouTube Music 歌曲暂不支持收藏或加入歌单。": "YouTube Music tracks cannot be added to favorites or playlists yet.",
+  "插件默认不安装；安装与卸载作用于整个站点。连接权限和数据范围见插件说明。": "Plugins are not installed by default. Installation affects the entire site. See each plugin’s description for connection permissions and data scope.",
+  "安装作用于整个站点。请核对插件说明中的连接权限和数据范围；必需依赖需先安装。": "Installation affects the entire site. Review the plugin’s connection permissions and data scope. Install required dependencies first."
+});

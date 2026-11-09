@@ -29,3 +29,14 @@ test('requires authoritative language metadata for every initialized song', () =
   assert.equal(isValidMusicInitData(missingLanguage), false);
   assert.equal(isValidMusicInitData(invalidLanguage), false);
 });
+
+test('reopens favorites containing a trusted YT reference with unknown language', () => {
+  const mixed = structuredClone(validData);
+  mixed.default_playlist.songs.push({ id: 'yt:CnlMTBwsBHs', source: 'youtube',
+    sourceId: 'CnlMTBwsBHs', title: 'External song', language: null });
+  assert.equal(isValidMusicInitData(mixed), true);
+  mixed.default_playlist.songs[1].sourceId = 'another-id';
+  assert.equal(isValidMusicInitData(mixed), false);
+  mixed.default_playlist.songs[1] = { id: 'yt:invalid', source: 'youtube', sourceId: 'invalid', language: null };
+  assert.equal(isValidMusicInitData(mixed), false);
+});
