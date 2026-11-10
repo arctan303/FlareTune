@@ -82,8 +82,10 @@ async function fixture(t, options = {}) {
       bindings.find(binding => binding.name === 'MEDIA_BUCKET').bucket_name = config.r2_buckets[0].bucket_name;
       bindings.find(binding => binding.name === 'GATEWAY').service = config.services[0].service;
       options.mutateUploadedBindings?.(bindings);
-      return response({ success: true, result: { id: NEXT, resources: { bindings },
-        metadata: { annotations: { 'workers/tag': `plugin-${BUILD}` } } } });
+      const version = { id: NEXT, resources: { bindings }, metadata: { created_on: '2026-11-10T01:01:58Z' },
+        annotations: { 'workers/tag': `plugin-${BUILD}` } };
+      options.mutateUploadedVersion?.(version);
+      return response({ success: true, result: version });
     }
     if (url.endsWith(`/versions/${OLD}`)) return response({ success: true, result: { id: OLD, resources: { bindings: state.bindings } } });
     if (url.endsWith(`/versions/${FOREIGN}`)) return response({ success: true, result: { id: FOREIGN,
@@ -126,6 +128,26 @@ test('a lost callback response is retried idempotently without rolling back a co
   assert.equal(f.state.reports.some(row => row.status === 'rolled_back'), false);
   assert.equal((await f.execute()).status, 'deployed', 'a later retry only confirms a terminal task');
   assert.equal(f.state.uploads, 1);
+});
+
+test('provider version identity and top-level tag are required before any promotion', async t => {
+  const cases = [
+    ['missing tag', version => { delete version.annotations; }],
+    ['wrong tag', version => { version.annotations['workers/tag'] = `plugin-${FOREIGN}`; }],
+    ['wrong version', version => { version.id = FOREIGN; }],
+    ['legacy metadata-only tag', version => { version.metadata.annotations = version.annotations; delete version.annotations; }],
+    ['legacy correct tag cannot mask wrong top-level tag', version => {
+      version.metadata.annotations = { ...version.annotations }; version.annotations['workers/tag'] = `plugin-${FOREIGN}`;
+    }],
+  ];
+  for (const [label, mutateUploadedVersion] of cases) await t.test(label, async t => {
+    const f = await fixture(t, { mutateUploadedVersion });
+    await assert.rejects(f.execute(), { code: 'PLUGIN_DEPLOY_UPLOAD_INVALID' });
+    assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 0);
+    assert.equal(f.state.current.versions[0].version_id, OLD);
+    assert.equal(f.state.reports.some(row => row.status === 'deploying'), false);
+    assert.equal(f.state.reports.at(-1).status, 'failed');
+  });
 });
 
 test('an intervening deployment during the progress report is never promoted over or rolled back', async t => {

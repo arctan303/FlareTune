@@ -261,7 +261,7 @@ export async function deployPluginDelivery({ root = repositoryRoot, environment 
     receipt.nextVersionId = await uploadImpl(target, deployment, { environment });
     if (!uuid(receipt.nextVersionId)) fail('PLUGIN_DEPLOY_UPLOAD_INVALID');
     const version = await cloudflareRequest(target, `/versions/${receipt.nextVersionId}`, options);
-    if (version.id !== receipt.nextVersionId || version.metadata?.annotations?.['workers/tag'] !== `plugin-${deployment.buildId}`) fail('PLUGIN_DEPLOY_UPLOAD_INVALID');
+    if (version.id !== receipt.nextVersionId || version.annotations?.['workers/tag'] !== `plugin-${deployment.buildId}`) fail('PLUGIN_DEPLOY_UPLOAD_INVALID');
     if (workerVersionBindingsDigest(version) !== baselineBindings) fail('PLUGIN_DEPLOY_BINDINGS_MISMATCH');
     receipt.status = 'uploaded'; await saveRecovery(target, deployment, receipt);
     await checkDeliveryPlan(connection, deployment, { root, fetchImpl });
