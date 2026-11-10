@@ -24,12 +24,35 @@ test('CI builds only after immutable preparation and lock generation succeeded',
     runDeliveryImpl: async command => calls.push(command),
     runNpmImpl: async (_root, args) => calls.push(args.join(' ')) };
   assert.deepEqual(await runPluginCiChannel('build', options), { status: 'built' });
-  assert.deepEqual(calls, ['prepare', 'run plugins:lock', 'run build']);
+  assert.deepEqual(calls, ['prepare-current', 'run plugins:lock', 'run build']);
   calls.length = 0;
   await assert.rejects(runPluginCiChannel('build', { ...options, runDeliveryImpl: async () => {
     throw Object.assign(new Error('PLUGIN_BUILD_SUPERSEDED'), { code: 'PLUGIN_BUILD_SUPERSEDED' });
   } }), { code: 'PLUGIN_BUILD_SUPERSEDED' });
   assert.deepEqual(calls, []);
+});
+
+test('CI compile failure reports only its prepared frozen task and never a preflight failure or deployed replay', async () => {
+  const prepared = { buildId: '5a735ce2-2ceb-4a93-83b2-1937650da147', planDigest: 'a'.repeat(64), prepared: true };
+  const compileError = Object.assign(new Error('synthetic compile failure'), { code: 'PLUGIN_CI_COMMAND_FAILED' });
+  const reports = [];
+  const options = { environment, root: '/synthetic',
+    runDeliveryImpl: async command => { assert.equal(command, 'prepare-current'); return prepared; },
+    runNpmImpl: async (_root, args) => { if (args.join(' ') === 'run build') throw compileError; },
+    reportImpl: async (connection, plan, status) => {
+      assert.equal(connection.origin, environment.FLARETUNE_PLUGIN_SITE_URL);
+      reports.push({ buildId: plan.buildId, planDigest: plan.planDigest, status });
+    },
+  };
+  await assert.rejects(runPluginCiChannel('build', options), error => error === compileError);
+  assert.deepEqual(reports, [{ buildId: prepared.buildId, planDigest: prepared.planDigest, status: 'failed' }]);
+  reports.length = 0;
+  const preflightError = Object.assign(new Error('preflight conflict'), { code: 'PLUGIN_BUILD_IN_PROGRESS' });
+  await assert.rejects(runPluginCiChannel('build', { ...options, runDeliveryImpl: async () => { throw preflightError; } }), error => error === preflightError);
+  assert.deepEqual(reports, []);
+  await assert.rejects(runPluginCiChannel('build', { ...options, runDeliveryImpl: async () => ({ ...prepared, replay: true }) }), error => error === compileError);
+  assert.deepEqual(reports, []);
+  await assert.rejects(runPluginCiChannel('build', { ...options, reportImpl: async () => { throw new Error('lost failure report'); } }), error => error === compileError);
 });
 
 test('CI hands only the generated private config to controlled deploy and recovery', async () => {
@@ -58,14 +81,14 @@ test('named build controller reaches only the development target without mutatin
     assert.equal(effective.WORKERS_CI_BRANCH, 'codex/plugin-host-dev-20261108');
   };
   const options = { environment: providerEnvironment, root: '/synthetic',
-    runDeliveryImpl: async (_command, options) => { checkEnvironment(options.environment); calls.push('prepare'); },
+    runDeliveryImpl: async (command, options) => { checkEnvironment(options.environment); calls.push(command); },
     runNpmImpl: async (_root, args, effective) => { checkEnvironment(effective); calls.push(args.join(' ')); },
     prepareConfigImpl: async options => { checkEnvironment(options.environment); calls.push('metadata'); return { configPath: '/synthetic/dev.json' }; },
     deployImpl: async options => { checkEnvironment(options.environment); assert.equal(options.buildWorkerName, 'flaretune-plugin-build'); calls.push(options.recover ? 'recover' : 'deploy'); return { ok: true }; } };
   await runPluginCiChannel('build', options);
   await runPluginCiChannel('deploy', options);
   await runPluginCiChannel('recover', options);
-  assert.deepEqual(calls, ['prepare', 'run plugins:lock', 'run build', 'metadata', 'deploy', 'metadata', 'recover']);
+  assert.deepEqual(calls, ['prepare-current', 'run plugins:lock', 'run build', 'metadata', 'deploy', 'metadata', 'recover']);
   assert.equal(providerEnvironment.WRANGLER_CI_OVERRIDE_NAME, 'flaretune-plugin-build');
   assert.equal(providerEnvironment.WRANGLER_CI_MATCH_TAG, 'c'.repeat(32));
 });

@@ -18,6 +18,14 @@ const knownKeys = (input, keys) => input && typeof input === 'object' && !Array.
   && Object.keys(input).every(key => keys.includes(key));
 const timedOut = build => build && ACTIVE_PLUGIN_BUILDS.has(build.status) && Date.now() - build.updatedAt > PLUGIN_BUILD_TIMEOUT;
 const active = build => build && ACTIVE_PLUGIN_BUILDS.has(build.status) && !timedOut(build) && !build.resultUnknown;
+const validHost = value => knownKeys(value, ['version', 'sourceDigest'])
+  && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value.version || '')
+  && value.version.split('.').every(part => Number.isSafeInteger(Number(part)))
+  && /^[a-f0-9]{64}$/.test(value.sourceDigest || '');
+const compareHostVersion = (a, b) => {
+  const previous = b.split('.').map(Number), next = a.split('.').map(Number);
+  return next[0] - previous[0] || next[1] - previous[1] || next[2] - previous[2];
+};
 
 async function boundedJson(response, maxBytes = 524288) {
   if (Number(response.headers.get('Content-Length')) > maxBytes) fail('PLUGIN_SOURCE_TOO_LARGE', 400);
@@ -52,16 +60,18 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       return { revision: Number(row.revision), value };
     } catch { fail('PLUGIN_DELIVERY_STATE_INVALID', 503); }
   }
-  async function save(env, record, value, { session, actor = 'plugin-build' } = {}) {
+  async function save(env, record, value, { session, actor = 'plugin-build', registryRevision } = {}) {
     const now = Date.now();
     const serialized = JSON.stringify(value);
     if (new TextEncoder().encode(serialized).byteLength > 1000000) fail('PLUGIN_SOURCE_TOO_LARGE', 400);
     const result = await env.DB.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
       SELECT ?,?,1,?,? WHERE COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?
+      ${registryRevision !== undefined ? 'AND COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?' : ''}
       ${session ? `AND ${sessionPredicate}` : ''}
       ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,revision=instance_settings.revision+1,
         updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
       .bind(PLUGIN_DELIVERY_KEY, serialized, now, session?.account.accountId || actor, PLUGIN_DELIVERY_KEY, record.revision,
+        ...(registryRevision !== undefined ? [REGISTRY_KEY, registryRevision] : []),
         ...(session ? sessionBindings(session, now, true) : [])).run();
     if (Number(result?.meta?.changes) !== 1) {
       if (session) await requirePluginSession(env, session, true);
@@ -320,6 +330,49 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       ? { buildId: build.previousDeployment.buildId, planDigest: build.previousDeployment.planDigest } : null,
     ...(build.workerName ? { target: { workerName: build.workerName } } : {}) };
   }
+  async function upgradeState(env, record) {
+    if (!validHost(host)) fail('PLUGIN_BUILD_HOST_UNKNOWN', 503);
+    const registryRevision = Number((await env.DB.prepare('SELECT revision FROM instance_settings WHERE key=?').bind(REGISTRY_KEY).first())?.revision || 0);
+    const plugins = (await runningFor(env, record)).map(snapshotPlugin);
+    const after = Number((await env.DB.prepare('SELECT revision FROM instance_settings WHERE key=?').bind(REGISTRY_KEY).first())?.revision || 0);
+    if (after !== registryRevision) fail('PLUGIN_DELIVERY_CHANGED');
+    return { schemaVersion: 1, revision: record.revision, registryRevision, host, plugins,
+      runningDigest: await sha256(canonicalPluginPlan({ host, plugins })),
+      pending: record.value.desired !== null
+        && canonicalPluginPlan({ host, plugins: record.value.desired.map(snapshotPlugin) }) !== canonicalPluginPlan({ host, plugins }),
+      build: record.value.build ? { id: record.value.build.id, planDigest: record.value.build.planDigest,
+        status: record.value.build.status, host: record.value.build.snapshot?.host,
+        resultUnknown: Boolean(timedOut(record.value.build) || record.value.build.resultUnknown) } : null };
+  }
+  async function upgrade(env, request, input) {
+    const record = await pipeline(env, request);
+    const state = await upgradeState(env, record);
+    if (input === undefined) return state;
+    if (!knownKeys(input, ['revision', 'registryRevision', 'fromHost', 'runningDigest', 'host'])
+      || !validRevision(input.revision) || !validRevision(input.registryRevision)
+      || !validHost(input.fromHost) || !validHost(input.host)
+      || !/^[a-f0-9]{64}$/.test(input.runningDigest || '')) fail('invalid_input', 400);
+    if (input.revision !== state.revision || input.registryRevision !== state.registryRevision
+      || canonicalPluginManifest(input.fromHost) !== canonicalPluginManifest(host)
+      || input.runningDigest !== state.runningDigest) fail('PLUGIN_DELIVERY_CHANGED');
+    assertEditable(record);
+    if (state.pending) fail('PLUGIN_UPGRADE_PENDING_CHANGES');
+    if (canonicalPluginManifest(input.host) === canonicalPluginManifest(host)) fail('PLUGIN_HOST_UNCHANGED');
+    if (compareHostVersion(input.host.version, host.version) < 0) fail('PLUGIN_HOST_DOWNGRADE_UNSUPPORTED');
+    if (state.plugins.some(row => row.source.type !== 'artifact')) fail('PLUGIN_UPGRADE_ARTIFACT_REQUIRED');
+    validateSelection(state.plugins);
+    const now = Date.now(), buildId = crypto.randomUUID();
+    const planDigest = await sha256(canonicalPluginPlan({ host: input.host, plugins: state.plugins }));
+    const value = clone(record.value);
+    value.running = await runningFor(env, record);
+    value.desired = clone(value.running);
+    value.build = { id: buildId, planDigest, kind: 'host-upgrade', status: 'queued', createdAt: now, updatedAt: now, error: null,
+      registryRevision: state.registryRevision, previousHost: clone(host), previousDeployment: deployment,
+      previousBuilds: registry.manifests.map(row => ({ id: row.id, sourceDigest: registry.getBuildDigest(row.id) })),
+      snapshot: { schemaVersion: 1, buildId, planDigest, host: clone(input.host), plugins: state.plugins } };
+    await save(env, record, value, { registryRevision: state.registryRevision });
+    return snapshot(env, request);
+  }
   async function report(env, request, input) {
     const record = await pipeline(env, request); const build = record.value.build;
     if (!knownKeys(input, ['buildId', 'planDigest', 'status']) || !['building', 'deploying', 'rolling_back', 'activation_pending', 'failed', 'rolled_back', 'deployed'].includes(input.status)
@@ -342,7 +395,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     } else if (input.status === 'rolled_back') {
       if (!build.rollbackStarted) fail('PLUGIN_BUILD_CHANGED');
       if (canonicalPluginManifest(deployment) !== canonicalPluginManifest(build.previousDeployment)
-        || canonicalPluginManifest(host) !== canonicalPluginManifest(build.snapshot.host)
+        || canonicalPluginManifest(host) !== canonicalPluginManifest(build.previousHost || build.snapshot.host)
         || canonicalPluginManifest(registry.manifests.map(row => ({ id: row.id, sourceDigest: registry.getBuildDigest(row.id) }))) !== canonicalPluginManifest(build.previousBuilds)) fail('PLUGIN_ROLLBACK_NOT_CONFIRMED');
       value.build.status = 'failed'; value.build.error = 'PLUGIN_BUILD_ROLLED_BACK'; value.build.resultUnknown = false;
     } else if (input.status === 'activation_pending' || (input.status === 'failed' && ['deploying', 'rolling_back', 'activation_pending'].includes(build.status))) {
@@ -413,6 +466,13 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       let saved = {};
       try { saved = JSON.parse(previous?.value_json || '{}'); } catch { /* Invalid state receives a new epoch. */ }
       const installed = desired.has(id);
+      // Host upgrades inherit installation records as well as package bytes.
+      // Registry/build fingerprints already invalidate old invocations; there
+      // is no install/uninstall operation that should rotate an epoch here.
+      if (record.value.build.kind === 'host-upgrade') {
+        if (installed !== (saved.installed === true)) fail('PLUGIN_DELIVERY_CHANGED');
+        continue;
+      }
       const epoch = installed && saved.installed && /^[0-9a-f-]{36}$/.test(saved.epoch || '') ? saved.epoch : crypto.randomUUID();
       if (!installed && saved.installed !== true) continue;
       statements.push(env.DB.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by) VALUES (?,?,1,?,'plugin-build')
@@ -422,7 +482,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     try { await env.DB.batch(statements); } catch { fail('PLUGIN_BUILD_APPLY_FAILED'); }
     return { ok: true, status: 'deployed' };
   }
-  return Object.freeze({ get, configure, addSource, refreshSource, removeSource, select, discard, resolveBuild, startBuild, snapshot, report });
+  return Object.freeze({ get, configure, addSource, refreshSource, removeSource, select, discard, resolveBuild, startBuild, snapshot, upgrade, report });
 }
 
 export const pluginDelivery = createPluginDelivery();

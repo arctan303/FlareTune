@@ -24,10 +24,8 @@ export function deliveryPlanDigest({ host, plugins }) {
   return sha256(canonicalPluginPlan({ host, plugins }));
 }
 
-export function validateDeliverySnapshot(snapshot) {
-  if (!plain(snapshot) || snapshot.schemaVersion !== 1 || typeof snapshot.buildId !== 'string'
-    || !/^[a-f0-9-]{36}$/.test(snapshot.buildId) || !digest(snapshot.planDigest)
-    || !plain(snapshot.host) || !ownKeys(snapshot.host, ['version', 'sourceDigest'])
+export function validateDeliveryPlan(snapshot) {
+  if (!plain(snapshot) || !plain(snapshot.host) || !ownKeys(snapshot.host, ['version', 'sourceDigest'])
     || !/^\d+\.\d+\.\d+$/.test(snapshot.host.version) || !digest(snapshot.host.sourceDigest)
     || !Array.isArray(snapshot.plugins) || snapshot.plugins.length > 32) fail('PLUGIN_SNAPSHOT_INVALID');
   const ids = new Set();
@@ -46,6 +44,13 @@ export function validateDeliverySnapshot(snapshot) {
   }
   const manifests = validatePluginManifests(snapshot.plugins.map(entry => entry.manifest));
   for (const entry of snapshot.plugins) if (!resolvePluginAvailability(manifests, [...ids], entry.id).available) fail('PLUGIN_PLAN_INCOMPATIBLE');
+  return snapshot;
+}
+
+export function validateDeliverySnapshot(snapshot) {
+  if (!plain(snapshot) || snapshot.schemaVersion !== 1 || typeof snapshot.buildId !== 'string'
+    || !/^[a-f0-9-]{36}$/.test(snapshot.buildId) || !digest(snapshot.planDigest)) fail('PLUGIN_SNAPSHOT_INVALID');
+  validateDeliveryPlan(snapshot);
   if (deliveryPlanDigest(snapshot) !== snapshot.planDigest) fail('PLUGIN_PLAN_DIGEST_MISMATCH');
   return snapshot;
 }

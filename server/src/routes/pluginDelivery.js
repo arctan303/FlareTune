@@ -32,6 +32,8 @@ export async function handlePluginBuild(request, path, env, json, { delivery = p
   if (!path.startsWith('/api/plugin-build/')) return null;
   try {
     if (path === '/api/plugin-build/snapshot' && request.method === 'GET') return json(await delivery.snapshot(env, request));
+    if (path === '/api/plugin-build/upgrade' && ['GET', 'POST'].includes(request.method)) return json(await delivery.upgrade(env, request,
+      request.method === 'POST' ? await readBoundedJson(request) : undefined));
     if (path === '/api/plugin-build/report' && request.method === 'POST') return json(await delivery.report(env, request, await readBoundedJson(request)));
     return json({ error: 'not_found' }, 404);
   } catch (error) { return failure(error, json); }

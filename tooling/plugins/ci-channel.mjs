@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deliveryConnection, runDeliveryCommand } from './delivery.mjs';
+import { deliveryConnection, reportDelivery, runDeliveryCommand } from './delivery.mjs';
 import { deployPluginDelivery } from './delivery-deploy.mjs';
 import { prepareDevelopmentBuildConfig } from './dev-build-config.mjs';
 
@@ -44,7 +44,7 @@ async function runNpm(root, args, environment) {
 
 export async function runPluginCiChannel(command, { root = rootDirectory, environment = process.env,
   runDeliveryImpl = runDeliveryCommand, runNpmImpl = runNpm,
-  prepareConfigImpl = prepareDevelopmentBuildConfig, deployImpl = deployPluginDelivery } = {}) {
+  prepareConfigImpl = prepareDevelopmentBuildConfig, deployImpl = deployPluginDelivery, reportImpl = reportDelivery } = {}) {
   pluginCiContext(environment);
   const buildWorkerName = environment.WRANGLER_CI_OVERRIDE_NAME === buildController ? buildController : undefined;
   // A dedicated Builds controller has no application bindings or traffic. Its
@@ -55,9 +55,20 @@ export async function runPluginCiChannel(command, { root = rootDirectory, enviro
       WRANGLER_CI_MATCH_TAG: environment.FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG };
   }
   if (command === 'build') {
-    await runDeliveryImpl('prepare', { root, environment });
-    await runNpmImpl(root, ['run', 'plugins:lock'], environment);
-    await runNpmImpl(root, ['run', 'build'], environment);
+    let prepared;
+    try {
+      prepared = await runDeliveryImpl('prepare-current', { root, environment });
+      await runNpmImpl(root, ['run', 'plugins:lock'], environment);
+      await runNpmImpl(root, ['run', 'build'], environment);
+    } catch (error) {
+      // Preparation failures cannot fail somebody else's old task. Compilation
+      // failures after a reservation belong only to that frozen build ID.
+      if (prepared && !prepared.replay && /^[a-f0-9-]{36}$/.test(prepared.buildId || '')
+        && /^[a-f0-9]{64}$/.test(prepared.planDigest || '')) {
+        await reportImpl(deliveryConnection(environment), prepared, 'failed').catch(() => {});
+      }
+      throw error;
+    }
     return { status: 'built' };
   }
   if (command === 'deploy' || command === 'recover') {

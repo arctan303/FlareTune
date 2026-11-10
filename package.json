@@ -22,6 +22,8 @@
     "plugins:lock": "node tooling/plugins/verify.mjs --update",
     "plugins:verify": "node tooling/plugins/verify.mjs",
     "plugins:prepare": "node tooling/plugins/delivery.mjs prepare",
+    "plugins:prepare-current": "node tooling/plugins/delivery.mjs prepare-current",
+    "plugins:prepare-host-upgrade": "node tooling/plugins/delivery.mjs prepare-host-upgrade",
     "plugins:seed": "node tooling/plugins/seed.mjs bootstrap",
     "plugins:hydrate": "node tooling/plugins/seed.mjs hydrate",
     "plugins:ci-build": "node tooling/plugins/ci-channel.mjs build",
