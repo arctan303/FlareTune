@@ -97,7 +97,7 @@ export default function PluginDeliveryView({ delivery }) {
         <SettingsToggle label={t('变更后自动构建')} checked={data.settings.mode === 'auto'} disabled={locked}
           info={t('仅跟随管理员确认的安装、更新和卸载；个人配置不触发构建。')}
           onChange={event => change('', 'PUT', { mode: event.target.checked ? 'auto' : 'manual' })} />
-        <a href="https://github.com/arctan303/FlareTune/blob/main/guide/plugin-deployment.md" target="_blank" rel="noreferrer" className="inline-block text-[var(--accent)] hover:underline">{t('查看构建配置指南')}</a>
+        <a href="https://github.com/arctan303/FlareTune/blob/codex/plugin-host-dev-20261108/guide/plugin-deployment.md" target="_blank" rel="noreferrer" className="inline-block text-[var(--accent)] hover:underline">{t('查看构建配置指南')}</a>
       </div>
     </SettingsSection>
     <PluginDeliveryStatus delivery={delivery} />
