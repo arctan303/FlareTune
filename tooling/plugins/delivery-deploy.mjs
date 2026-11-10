@@ -221,14 +221,16 @@ async function restorePrevious(target, connection, deployment, receipt, options)
 }
 
 export async function deployPluginDelivery({ root = repositoryRoot, environment = process.env, fetchImpl = fetch,
-  readConfigImpl = wranglerConfig, uploadImpl = uploadWorkerVersion, sleepImpl = pause, recover = false } = {}) {
+  readConfigImpl = wranglerConfig, uploadImpl = uploadWorkerVersion, sleepImpl = pause, recover = false, buildWorkerName } = {}) {
   const connection = deliveryConnection(environment);
   const target = await deploymentTarget({ root, environment, readConfigImpl });
   const deployment = await readPreparedDeployment(root);
   const options = { fetchImpl, sleepImpl };
   let snapshot = await fetchDeliverySnapshot(connection, options);
   await checkDeliveryPlan(connection, deployment, { root, fetchImpl });
-  if (snapshot.target?.workerName && snapshot.target.workerName !== target.workerName) fail('PLUGIN_DEPLOY_TARGET_MISMATCH');
+  const expectedBuildWorker = buildWorkerName ?? target.workerName;
+  if (typeof expectedBuildWorker !== 'string' || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(expectedBuildWorker)
+    || (snapshot.target?.workerName && snapshot.target.workerName !== expectedBuildWorker)) fail('PLUGIN_DEPLOY_TARGET_MISMATCH');
   if (snapshot.buildId !== deployment.buildId || snapshot.planDigest !== deployment.planDigest) fail('PLUGIN_BUILD_SUPERSEDED');
   if (snapshot.buildStatus === 'deployed') {
     // A completed database transaction may outlive a lost HTTP response or CI

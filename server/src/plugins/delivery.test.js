@@ -69,6 +69,64 @@ test('source URLs reject local destinations and deploy hooks reject arbitrary ho
   assert.throws(() => validatePluginDirectory({ schemaVersion: 1, id: 'source', name: 'Source', plugins: [{ manifest: manifest(), artifact: { url: 'https://public.example.com/p.json', sha256: 'wrong' } }] }));
 });
 
+test('real workerd source and Hook requests accept success and reject redirects without following them', { timeout: 45000 }, async t => {
+  const { Miniflare, convertV4MiniflareOptions } = await import('miniflare');
+  const requests = []; let redirectUpstream = false;
+  const directory = { schemaVersion: 1, id: 'third', name: 'Third', plugins: [{
+    manifest: manifest('third-party'), artifact: { url: 'https://packages.example.net/third.json', sha256: 'c'.repeat(64) },
+  }] };
+  const mf = new Miniflare(convertV4MiniflareOptions({ workers: [{ name: 'plugin-delivery-transport',
+    compatibilityDate: '2026-09-23', modules: true,
+    script: `export default { async fetch(request) {
+      const { url, init } = await request.json();
+      try {
+        const response = await fetch(url, { ...init, signal: AbortSignal.timeout(10000) });
+        return Response.json({ status: response.status, body: await response.text(),
+          headers: [...response.headers] });
+      } catch (error) { return Response.json({ transportError: error.message }); }
+    } };`,
+    outboundService: request => {
+      requests.push({ url: request.url, method: request.method });
+      const body = request.method === 'POST' ? { success: true, result: { build_uuid: 'runtime-build-id' } } : directory;
+      return Response.json(body, redirectUpstream ? { status: 302,
+        headers: { Location: 'https://untrusted.example.net/must-not-follow' } } : {});
+    },
+  }] }));
+  t.after(() => mf.dispose());
+  const fetchImpl = async (url, init) => {
+    assert.equal(init.credentials, 'omit');
+    assert.ok(init.signal instanceof AbortSignal);
+    const { signal, ...serializable } = init;
+    // Preserve the production RequestInit across the test boundary; rebuild
+    // only AbortSignal, which cannot be serialized between Node and workerd.
+    const result = await (await mf.dispatchFetch('http://local.test/forward', { method: 'POST',
+      body: JSON.stringify({ url, init: serializable }) })).json();
+    assert.equal(result.transportError, undefined, 'production RequestInit must be accepted by real workerd');
+    return new Response(result.body, { status: result.status, headers: result.headers });
+  };
+  const success = await app(t, { fetchImpl });
+  const added = await success.delivery.addSource(success.env, success.signed.session,
+    { revision: (await success.get()).revision, url: 'https://plugins.example.net/directory.json' });
+  assert.equal(added.sources.find(row => !row.official).status, 'ready');
+  await success.config({ deployHookUrl: hook, buildToken: token }); await success.select();
+  const queued = await success.build();
+  assert.equal(queued.build.status, 'queued'); assert.equal(queued.build.providerBuildId, 'runtime-build-id');
+
+  redirectUpstream = true;
+  const redirected = await app(t, { fetchImpl });
+  await assert.rejects(redirected.delivery.addSource(redirected.env, redirected.signed.session,
+    { revision: (await redirected.get()).revision, url: 'https://plugins.example.net/redirect.json' }),
+  { code: 'PLUGIN_SOURCE_UNAVAILABLE' });
+  assert.equal((await redirected.get()).sources.length, 1, 'redirect does not add a source');
+  await redirected.config({ deployHookUrl: hook, buildToken: token }); await redirected.select();
+  const rejected = await redirected.build();
+  assert.equal(rejected.build.status, 'failed'); assert.equal(rejected.build.error, 'PLUGIN_BUILD_TRIGGER_FAILED');
+  assert.equal(rejected.build.providerBuildId, null, 'a success-shaped redirect body cannot authorize a build');
+  assert.equal((await redirected.registry.readInstallation(redirected.env, 'sample')).installed, false);
+  assert.equal(requests.length, 4, 'neither source nor Hook follows a redirect');
+  assert.ok(requests.every(row => !row.url.includes('untrusted.example.net')));
+});
+
 test('manual selection is pending, batches changes and never activates or triggers until build requested', async t => {
   const f = await app(t, { manifests: [manifest(), manifest('second')] });
   let status = await f.select();
@@ -108,7 +166,7 @@ test('automatic mode triggers only explicit selection, freezes its snapshot and 
   await f.config({ mode: 'auto', deployHookUrl: hook, buildToken: token }); assert.equal(f.calls.length, 0);
   const status = await f.select();
   assert.equal(status.build.status, 'queued'); assert.equal(f.calls.length, 1);
-  assert.equal(f.calls[0][0], hook); assert.equal(f.calls[0][1].redirect, 'error');
+  assert.equal(f.calls[0][0], hook); assert.equal(f.calls[0][1].redirect, 'manual');
   const snapshot = await f.delivery.snapshot(f.env, authorized());
   assert.equal(snapshot.buildId, status.build.id); assert.deepEqual(snapshot.host, host); assert.equal(snapshot.plugins[0].id, 'sample');
   await assert.rejects(f.select(false), { code: 'PLUGIN_BUILD_IN_PROGRESS' });

@@ -103,6 +103,30 @@ async function fixture(t, options = {}) {
   return { root, state, config, execute, fetchImpl };
 }
 
+test('an explicit build controller never changes the actual deployment resource', async t => {
+  const f = await fixture(t);
+  f.state.snapshot.target = { workerName: 'synthetic-build-controller' };
+  const result = await f.execute({ buildWorkerName: 'synthetic-build-controller' });
+  assert.equal(result.status, 'deployed');
+  assert.equal(f.state.uploads, 1);
+  assert.equal(f.state.promotions.length, 1);
+  const providerCalls = f.state.calls.filter(row => row.url.startsWith('https://api.cloudflare.com/'));
+  assert.ok(providerCalls.length > 0);
+  assert.ok(providerCalls.every(row => row.url.includes('/workers/scripts/synthetic-worker/')));
+  assert.ok(providerCalls.every(row => !row.url.includes('/workers/scripts/synthetic-build-controller/')));
+});
+
+test('missing, foreign or invalid build controller identity cannot authorize promotion', async t => {
+  for (const buildWorkerName of [undefined, 'foreign-controller', '../synthetic-build-controller', ['synthetic-build-controller']]) {
+    const f = await fixture(t);
+    f.state.snapshot.target = { workerName: 'synthetic-build-controller' };
+    await assert.rejects(f.execute({ buildWorkerName }), { code: 'PLUGIN_DEPLOY_TARGET_MISMATCH' });
+    assert.equal(f.state.uploads, 0);
+    assert.equal(f.state.promotions.length, 0);
+    assert.equal(f.state.calls.filter(row => row.url.startsWith('https://api.cloudflare.com/')).length, 0);
+  }
+});
+
 test('controlled deployment records the actual baseline, uploads without promotion and confirms the same task', async t => {
   const f = await fixture(t);
   const result = await f.execute();

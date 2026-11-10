@@ -8,6 +8,7 @@ import { prepareDevelopmentBuildConfig } from './dev-build-config.mjs';
 const rootDirectory = fileURLToPath(new URL('../../', import.meta.url));
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const defaultBranch = 'codex/plugin-host-dev-20261108';
+const buildController = 'flaretune-plugin-build';
 
 export function pluginCiContext(environment = process.env) {
   const branch = environment.FLARETUNE_PLUGIN_BUILD_BRANCH || defaultBranch;
@@ -19,6 +20,12 @@ export function pluginCiContext(environment = process.env) {
   deliveryConnection(environment);
   if (environment.FLARETUNE_PLUGIN_WORKER_NAME !== 'flaretune-dev'
     || environment.FLARETUNE_PLUGIN_SITE_URL !== 'https://tune-dev.arcinks.com') fail('PLUGIN_DEPLOY_TARGET_MISMATCH');
+  const providerWorker = environment.WRANGLER_CI_OVERRIDE_NAME;
+  if (providerWorker && providerWorker !== 'flaretune-dev'
+    && !(providerWorker === buildController && branch === defaultBranch)) fail('PLUGIN_DEPLOY_TARGET_MISMATCH');
+  if (providerWorker === buildController && !/^[a-f0-9]{32}$/.test(environment.FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG || '')) {
+    fail('PLUGIN_DEPLOY_TARGET_MISMATCH');
+  }
   return { branch };
 }
 
@@ -39,6 +46,14 @@ export async function runPluginCiChannel(command, { root = rootDirectory, enviro
   runDeliveryImpl = runDeliveryCommand, runNpmImpl = runNpm,
   prepareConfigImpl = prepareDevelopmentBuildConfig, deployImpl = deployPluginDelivery } = {}) {
   pluginCiContext(environment);
+  const buildWorkerName = environment.WRANGLER_CI_OVERRIDE_NAME === buildController ? buildController : undefined;
+  // A dedicated Builds controller has no application bindings or traffic. Its
+  // reviewed exact branch deploys only to the existing development instance;
+  // the generic deployment/configuration guards still receive that exact target.
+  if (environment.WRANGLER_CI_OVERRIDE_NAME === buildController) {
+    environment = { ...environment, WRANGLER_CI_OVERRIDE_NAME: 'flaretune-dev',
+      WRANGLER_CI_MATCH_TAG: environment.FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG };
+  }
   if (command === 'build') {
     await runDeliveryImpl('prepare', { root, environment });
     await runNpmImpl(root, ['run', 'plugins:lock'], environment);
@@ -47,7 +62,7 @@ export async function runPluginCiChannel(command, { root = rootDirectory, enviro
   }
   if (command === 'deploy' || command === 'recover') {
     const { configPath } = await prepareConfigImpl({ root, environment });
-    return deployImpl({ root, environment: { ...environment,
+    return deployImpl({ root, ...(buildWorkerName ? { buildWorkerName } : {}), environment: { ...environment,
       FLARETUNE_PLUGIN_WRANGLER_CONFIG: configPath, FLARETUNE_PLUGIN_WRANGLER_ENV: '' }, recover: command === 'recover' });
   }
   fail('PLUGIN_BUILD_COMMAND_INVALID');

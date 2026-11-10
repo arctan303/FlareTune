@@ -161,7 +161,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     return publicState(env, await save(env, record, value, { session }));
   }
   async function fetchDirectory(url) {
-    const response = await fetchImpl(url, { method: 'GET', redirect: 'error', credentials: 'omit',
+    const response = await fetchImpl(url, { method: 'GET', redirect: 'manual', credentials: 'omit',
       headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) });
     if (!response.ok) fail(response.status === 404 ? 'PLUGIN_SOURCE_UNPUBLISHED' : 'PLUGIN_SOURCE_UNAVAILABLE', 502);
     try { return validatePluginDirectory(await boundedJson(response)); }
@@ -278,7 +278,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     let providerBuildId = null; let workerName = null; let triggerError = null;
     try {
       await requirePluginSession(env, session, true);
-      const response = await fetchImpl(validateDeployHookUrl(secrets.deployHookUrl), { method: 'POST', redirect: 'error', credentials: 'omit',
+      const response = await fetchImpl(validateDeployHookUrl(secrets.deployHookUrl), { method: 'POST', redirect: 'manual', credentials: 'omit',
         headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) });
       const body = await boundedJson(response, 32768);
       if (!response.ok || body.success !== true || typeof body.result?.build_uuid !== 'string'

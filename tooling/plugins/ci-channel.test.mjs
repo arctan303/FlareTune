@@ -46,3 +46,44 @@ test('CI hands only the generated private config to controlled deploy and recove
   assert.deepEqual(await runPluginCiChannel('recover', options), { recover: true });
   assert.deepEqual(calls, ['metadata', 'deploy', 'metadata', 'deploy']);
 });
+
+test('named build controller reaches only the development target without mutating its provider environment', async () => {
+  const providerEnvironment = { ...environment, WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build',
+    WRANGLER_CI_MATCH_TAG: 'c'.repeat(32), FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG: 'd'.repeat(32) };
+  const calls = [];
+  const checkEnvironment = effective => {
+    assert.equal(effective.WRANGLER_CI_OVERRIDE_NAME, 'flaretune-dev');
+    assert.equal(effective.WRANGLER_CI_MATCH_TAG, 'd'.repeat(32));
+    assert.equal(effective.FLARETUNE_PLUGIN_WORKER_NAME, 'flaretune-dev');
+    assert.equal(effective.WORKERS_CI_BRANCH, 'codex/plugin-host-dev-20261108');
+  };
+  const options = { environment: providerEnvironment, root: '/synthetic',
+    runDeliveryImpl: async (_command, options) => { checkEnvironment(options.environment); calls.push('prepare'); },
+    runNpmImpl: async (_root, args, effective) => { checkEnvironment(effective); calls.push(args.join(' ')); },
+    prepareConfigImpl: async options => { checkEnvironment(options.environment); calls.push('metadata'); return { configPath: '/synthetic/dev.json' }; },
+    deployImpl: async options => { checkEnvironment(options.environment); assert.equal(options.buildWorkerName, 'flaretune-plugin-build'); calls.push(options.recover ? 'recover' : 'deploy'); return { ok: true }; } };
+  await runPluginCiChannel('build', options);
+  await runPluginCiChannel('deploy', options);
+  await runPluginCiChannel('recover', options);
+  assert.deepEqual(calls, ['prepare', 'run plugins:lock', 'run build', 'metadata', 'deploy', 'metadata', 'recover']);
+  assert.equal(providerEnvironment.WRANGLER_CI_OVERRIDE_NAME, 'flaretune-plugin-build');
+  assert.equal(providerEnvironment.WRANGLER_CI_MATCH_TAG, 'c'.repeat(32));
+});
+
+test('unrecognized controllers, alternate controller branches and controller deployment targets are rejected before work', async () => {
+  for (const change of [
+    { WRANGLER_CI_OVERRIDE_NAME: 'some-other-worker' },
+    { WRANGLER_CI_OVERRIDE_NAME: 'flaretune' },
+    { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build' },
+    { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG: 'invalid-tag' },
+    { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', WORKERS_CI_BRANCH: 'codex/other', FLARETUNE_PLUGIN_BUILD_BRANCH: 'codex/other' },
+    { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', FLARETUNE_PLUGIN_WORKER_NAME: 'flaretune-plugin-build' },
+  ]) for (const command of ['build', 'deploy', 'recover']) {
+    let called = false;
+    await assert.rejects(runPluginCiChannel(command, { environment: { ...environment, ...change },
+      runDeliveryImpl: async () => { called = true; }, runNpmImpl: async () => { called = true; },
+      prepareConfigImpl: async () => { called = true; }, deployImpl: async () => { called = true; } }),
+    { code: 'PLUGIN_DEPLOY_TARGET_MISMATCH' });
+    assert.equal(called, false);
+  }
+});
