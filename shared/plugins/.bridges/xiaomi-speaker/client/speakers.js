@@ -1,1 +1,1 @@
-export * from "../../../.delivery/xiaomi-speaker/863c7bf35e24fb71baa43da9d579823577d173f7d62a3b115ad28cb7ec7730e6/client/speakers.js";
+export * from "../../../.delivery/xiaomi-speaker/d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8/client/speakers.js";
