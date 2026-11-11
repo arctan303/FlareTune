@@ -2,9 +2,18 @@
 
 [简体中文](plugin-deployment.md) · [English](plugin-deployment.en.md)
 
-> **Release and upgrade status:** the current stable release is **1.2.1**. The plugin-capable API2 host and delivery channel described here have development-channel validation; this does not mean a stock 1.2.1 installation includes them. The 1.3.0 plugin milestone, including the new API3 host capabilities and three 0.2.0 AI packages, remains a **local candidate**, not a released upgrade. Preservation of existing data and settings still requires an actual 1.2.1-to-candidate upgrade test. A maintainer-specific manual reinstall exception is not a general upgrade procedure or a promise of lossless upgrades for other installations.
+> **1.3.0 preparation status:** this guide starts with a new installation. The candidate includes the API3 plugin host and independent business packages, and has not been formally released. The stable release remains **1.2.1**; the official catalog has not yet been updated to this candidate. This work provides no 1.2.1 upgrade procedure or old-data preservation guarantee. Controlled host-upgrade APIs and recovery remain available for an existing plugin-capable host. The new lyric source chain and YT language and translation settings are outside 1.3.0.
 
-This guide covers plugin catalogs, a dedicated build channel, activation, host upgrades and recovery. Configure both your site and Cloudflare build environment before using the channel. A repository, a saved trigger URL or a successful build alone does not prove that installation works. For an existing installation, first follow the backup and upgrade precautions in the [deployment guide](deployment.en.md), and verify the recovery procedure for your own resources.
+This guide covers plugin catalogs, a dedicated build channel, activation, host upgrades and recovery. Configure both your site and Cloudflare build environment before using the channel. A repository, a saved trigger URL or a successful build alone does not prove that installation works.
+
+## Start with a new instance
+
+1. Follow [Deployment and setup](deployment.en.md) to create a new Worker, empty D1 database and private R2 bucket, verify `SETUP_SECRET` and create the first administrator. Do not use fresh setup to overwrite an existing instance.
+2. Open Sources and deployment and configure this site's dedicated build channel below. Packages compiled into the release snapshot are not automatically installed or enabled.
+3. Choose the plugins you need under Plugin list → Discover plugins. Assistant requires AI Gateway. Lyrics Workbench works independently; its AI assistance needs the gateway. Confirm the selection, complete a build and deployment, then reload the page.
+4. For AI, add a provider connection in Gateway settings, then choose the provider, model, vision capability and generation options in Assistant or Lyrics Workbench settings. If the model section shows Complete plugin update, use it to initialize that plugin's configuration before Configure profile. A new installation does not fill in keys or choose a paid service for you.
+
+An administrator links one YouTube Music account for the site. Results use the existing search, artist/album details and player. The Worker streams audio from upstream; site favorites, playlists and statistics store references rather than importing the audio into the local library. Install Roam, Xiaomi speaker and other features as needed, then configure connections and personal settings in the corresponding plugin.
 
 ## Management and permissions
 
@@ -17,7 +26,7 @@ Members can use only installed plugins available to their role and manage their 
 
 ## Add a plugin source
 
-The official source is preconfigured. Its catalog and six plugin packages have been published. An unavailable or unpublished source is shown as not ready. Administrators can add a public HTTPS URL for a third-party JSON catalog, then refresh or remove that source.
+The official source is preconfigured. Its public catalog still contains the earlier six packages; this 1.3.0 candidate has not been added to the official main catalog. An unavailable or unpublished source is shown as not ready, and a local-cache build does not establish public download availability. Administrators can add a public HTTPS URL for a third-party JSON catalog, then refresh or remove that source.
 
 A catalog uses `schemaVersion: 1`, with `id`, `name` and a `plugins` array. Each entry contains a `manifest` and `artifact: { url, sha256 }`. A manifest declares a stable `id`, a three-part `version`, `hostApiVersion`, `apiVersion`, name, description, icon, and `pages`/`entries` arrays. Refreshing discovers versions; it does not update installed code. Removing a source does not uninstall its running plugins.
 
@@ -25,7 +34,7 @@ The [official catalog](https://raw.githubusercontent.com/arctan303/FlareTune-Plu
 
 ### Package format and SDK boundaries
 
-Current official packages use UTF-8 JSON **schema2**, understood by the SDK2 host, with `manifest.hostApiVersion` at least 2. The package manifest must exactly match the catalog version selected for installation. Schema1 and the SDK1 baseline remain supported; old packages do not automatically gain new interfaces.
+Packages use UTF-8 JSON **schema2**. Their manifests must exactly match the selected catalog version. The 1.3.0 candidate host provides API3 and continues accepting API1/API2 packages and the schema1 baseline. Older packages do not automatically gain new interfaces. Check current public packages separately from this candidate.
 
 ```json
 {
@@ -40,7 +49,7 @@ Current official packages use UTF-8 JSON **schema2**, understood by the SDK2 hos
 
 This illustrates the package structure, not a complete installable manifest. Include `apiVersion`, name, description, icon, `pages`, `entries` and other required declarations. Declare supported and default locales, localized metadata and page labels. Roles are `admin` and `member`. Declare service and settings pages separately; a plugin with settings only does not need a service sidebar.
 
-The local API3 candidate does not change artifact schema2. Its new AI Gateway, Assistant and Lyrics Workbench packages are version 0.2.0 and require host API3. New consumers require Gateway `^0.2.0`; the new gateway retains service API1 compatibility for older consumers. An API2 host cannot run packages requiring API3. These candidate changes are not installed by refreshing the catalog or following the API2 examples above.
+The planned candidate uses AI Gateway 0.2.1, Assistant 0.2.0 and Lyrics Workbench 0.2.1, all requiring host API3. YouTube Music 0.1.1, Roam 0.1.1 and Xiaomi speaker 1.1.1 retain their declared compatibility; the final release seed and combination lock are authoritative. New AI consumers require Gateway `^0.2.0`, and the gateway keeps service API1 compatibility for older consumers. An API2 host cannot run packages requiring API3. Refreshing the catalog or following the package-format example does not install or publish these candidates.
 
 Plugin authors must observe these boundaries:
 
@@ -158,13 +167,13 @@ npm run plugins:deploy
 
 Replace the first command with `npm run plugins:prepare-host-upgrade` when the operation is explicitly restricted to upgrading the host. Retain the channel's credentials, target, Wrangler configuration and recovery receipt. Other deployments must not substitute the maintainer-pinned `plugins:ci-*` wrappers.
 
-The protocol inherits exact installed package IDs, versions, immutable URLs, source ownership and SHA. It does not fetch latest versions, update plugins or reinstall removed packages. Seed may restore verified caches, not change the inherited combination. Settings, encrypted credentials and business data stay in the original database; installation epochs/revisions are retained. The protocol does not export/copy settings or use uninstall/reinstall to simulate an upgrade. These are protocol guarantees to test against the actual starting version, not evidence that a general 1.2.1 upgrade has passed.
+The protocol inherits exact installed package IDs, versions, immutable URLs, source ownership and SHA. It does not fetch latest versions, update plugins or reinstall removed packages. Seed may restore verified caches, not change the inherited combination. Settings, encrypted credentials and business data stay in the original database; installation epochs/revisions are retained. The protocol does not export/copy settings or use uninstall/reinstall to simulate an upgrade. This reference applies to an already plugin-capable host; the new-installation scope does not extend its supported starting versions.
 
 Pending selections, another active plan or an unknown result prevent a new upgrade. Resolve them first; do not merge or discard them silently. CI may resume the same reserved new-host task. Once in `deploying`, `activation_pending` or `rolling_back`, follow recovery checks. Pre-reservation checkout/compatibility failures do not report against an old build; later package/build failures report only the reserved new task. After traffic may have changed, establish the actual deployment and D1 result rather than assuming failure left the old host serving.
 
 Completion requires the real new host and combination metadata to match the frozen plan, complete binding checks and successful D1 activation. A host rollback must also prove that the recorded `previousHost` actually serves again. New code cannot claim to be the old host in a `rolled_back` report. Code rollback does not revert configuration or data changes.
 
-If GET is unavailable, the tool returns `PLUGIN_HOST_UPGRADE_UNAVAILABLE`; it does not fall back to seed. A controlled bridge must separately deploy only the exact running packages, verify all bindings, honestly retain `pluginDeployment=null`, and preserve D1 installation records and configuration. Record bridge deployment separately from a later upgrade to a genuinely different host. A bridge succeeding does not validate the subsequent upgrade, and no universal bridge procedure from stock 1.2.1 is claimed here.
+If GET is unavailable, the tool returns `PLUGIN_HOST_UPGRADE_UNAVAILABLE`; it does not fall back to seed. A controlled bridge must separately deploy only the exact running packages, verify all bindings, honestly retain `pluginDeployment=null`, and preserve D1 installation records and configuration. Record bridge deployment separately from a later upgrade to a genuinely different host. A bridge succeeding does not validate the subsequent upgrade. This is retained protocol reference, not a fresh-installation step or a general historical-version migration procedure.
 
 ## When plugin changes take effect
 

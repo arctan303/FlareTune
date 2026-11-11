@@ -4,7 +4,7 @@ This development feature supports Xiaomi Smart Speaker Play **L05B** and library
 
 ## Connect and play
 
-1. Xiaomi speaker is not installed by default. An administrator first installs it at **Settings → Administration → Plugins → Xiaomi speaker**. Each user then opens **Settings → Plugins in the personal section → Xiaomi speaker → Account connection**, reads the authorization notice and connects their own Xiaomi account.
+1. Xiaomi speaker is not installed by default. An administrator selects it under **Plugin list → Discover plugins** and applies the build. Each user then opens the installed Xiaomi speaker plugin's **Account connection** page, reads the authorization notice and connects their own Xiaomi account.
 2. Scan with the Xiaomi account that owns the speaker and confirm on your phone. QR codes last about five minutes. Retry the authorization check after a connection failure, or generate a new QR code after expiry.
 3. Open **Speaker output** in the player or track menu, select an L05B and enable output. Paused local playback stays paused; otherwise the current track is sent.
 4. Select tracks, skip, pause/resume and edit the existing queue normally. The browser chooses the next track and the speaker follows. Only MP3 is supported; there is no transcoding.

@@ -8,7 +8,7 @@ FlareTune runs its web player, accounts and library service on Cloudflare Worker
 
 **[Try the live demo](https://flaretune.arcinks.com)** · [Deploy your library](#deploy-your-library) · [User guide](guide/using-flaretune.en.md) · [Changelog](CHANGELOG.en.md)
 
-> **Release and upgrade notice:** the current stable release is **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**. The **1.3.0 plugin milestone remains a local candidate and has not been released**. Preservation of existing data and settings still requires an actual 1.2.1-to-candidate upgrade test; lossless upgrades have not been established for general deployments. A maintainer-specific manual reinstall exception is not an upgrade procedure for everyone. See [Plugin sources and deployment](guide/plugin-deployment.en.md) ([简体中文](guide/plugin-deployment.md)) for host versions, pinned packages, build setup and recovery boundaries.
+> **1.3.0 preparation status:** this branch prepares the plugin milestone for **new installations** and has not been formally released. The current stable release remains **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**. Initialize accounts and a library first, then install optional plugins. This work provides no 1.2.1 upgrade procedure or guarantee that an existing installation's data and settings survive an upgrade. The official plugin catalog has not yet been updated to this candidate. See [Plugin sources and deployment](guide/plugin-deployment.en.md) ([简体中文](guide/plugin-deployment.md)) for capabilities, pinned packages and build setup. The new lyric source chain and YT language and translation settings are outside 1.3.0.
 
 ## Try it with music
 
@@ -21,6 +21,7 @@ The demo needs no sign-in and uses music licensed for public redistribution. Pla
 - **Personal collections**: account favorites and playlists are stored by your instance and available across devices. Recent listening history stays in the current browser.
 - **Start with your files**: upload through the web, manage metadata, artwork and lyrics, or use the [ingestion device](tooling/ingest-agent/README.en.md) to scan and review a local collection before importing it.
 - **Optional music assistant**: configure your own model provider to let “Little A” help find music, answer library questions and organize playlists. The library and player work without AI.
+- **Install what you need**: administrators manage AI Gateway, Assistant, Lyrics Workbench, Roam, Xiaomi speaker and YouTube Music through the plugin list. Music sources share the existing search and player. YT tracks can join this site's favorites, playlists and play statistics while their audio stays upstream. Configure a build channel to apply plugins; see the [plugin guide](guide/plugin-deployment.en.md).
 - **Make it comfortable**: five interface languages, light and dark themes, background and player preferences, plus optional [Google sign-in](guide/google-login.en.md) and [Subsonic clients](guide/subsonic.en.md).
 
 ## Why deploy this way?
@@ -36,6 +37,7 @@ The core deployment needs no extra server. AI, Google sign-in and third-party ly
 1. Prepare a Cloudflare account with R2 enabled. Use the wizard to create or bind a Worker, an empty D1 database and a private R2 bucket.
 2. Set and securely save a random `SETUP_SECRET` of at least 32 characters.
 3. Open the deployed URL, verify the secret, create the first administrator and import your music.
+4. For optional features, configure a build channel in Sources and deployment, then install the required plugins from Plugin list. Installation does not link third-party accounts or fill in AI credentials for you.
 
 Cloudflare R2 Standard includes **10 GB-month of free storage each month**, a starting point for a small private library. Workers, D1 and storage operations have separate allowances. Staying within free usage depends on total account usage, requests and optional services; see [allowances and costs](guide/deployment.en.md#free-allowances-and-costs). You need a Cloudflare account with R2 enabled, initial setup, and audio you have the right to use.
 

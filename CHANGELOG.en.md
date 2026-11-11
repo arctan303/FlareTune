@@ -2,6 +2,38 @@
 
 [简体中文](CHANGELOG.md)
 
+## 1.3.0 — 2026-11-11
+
+**Preparation draft; not formally released.** This plugin milestone starts with a new installation. Final candidate tests, package distribution and release acceptance remain pending. This changelog does not change the stable release or live demo.
+
+### Plugins and build delivery
+
+- Split AI Gateway, Assistant, Lyrics Workbench, Roam, Xiaomi speaker and YouTube Music into independent plugins with declared pages, roles, configuration scope and dependencies. Administrators install and manage them in Plugin list; members use installed features available to their role.
+- Publishable source and immutable artifacts live in the independent FlareTune-Plugins repository, with pinned commits, SHA256 and a shared client/server combination lock. Schema2 supports bundled dependencies, public service modules and restricted Wasm assets. Host API3 retains compatibility with API1/API2 packages.
+- Add Sources and deployment and a dedicated build channel. Manual mode can combine selections into one build; automatic mode builds after an explicit code-combination confirmation. Catalog refreshes, publisher updates and ordinary configuration saves do not install code automatically.
+- Freeze exact build targets, validate packages and complete Worker bindings, and enable plugins only after deployment metadata and D1 activation agree. Failure, unknown results, retry and discard remain distinct, with controlled rollback and task recovery. Existing plugin-capable hosts can inherit exact running packages, sources and installation epochs without replacing them with seed defaults.
+
+### AI configuration and administration
+
+- AI Gateway owns provider connections, keys, protocols and model discovery. Assistant and Lyrics Workbench each save their model, vision declaration, temperature and other generation options, sharing providers without sharing model choices. Revisions, provider snapshots and a neutral usage index coordinate saves; keys never return to the browser.
+- AI services, shared storage and image reads retain live account, installation, configuration and provider checks before and after operations. Model or connection changes do not silently reuse an invalid vision declaration. Provider deletion and consumer configuration saves validate one another.
+- Refresh plugin lists and overviews with consistent summaries, main actions, edit dialogs and bottom danger areas. Move optional explanation into contextual tips while retaining loading, errors, roles, confirmations and keyboard access.
+- Use workspace presentation for current lyrics and candidate pages, fixing excess space before the lyrics, and edit lyric AI settings in a dialog. YT connection settings retain status summaries and main connection actions with a separate disconnect area. Gateway and third-party lyric-source deletion and Xiaomi unlinking move to their respective bottom danger areas; QR authorization stays intact.
+
+### Music sources, collections and output
+
+- Add optional YouTube Music through the existing search, songs, artist/album details, queue and player, with one administrator-linked YT account per site. Worker audio and artwork proxies support Range seeking without importing audio into R2 or local library management. Available native synchronized lyrics load automatically.
+- YT tracks can join this site's favorites and ordinary personal playlists, mix with local tracks and contribute to site play statistics. External references are scoped by source and account, with deduplicated valid-play counts. Synchronizing the YouTube account's own favorites and playlists remains deferred.
+- Roam contributes personal radio and queue continuation to the existing category page; ordinary category browsing works without the plugin. Uninstallation and account changes retire old callbacks while preserving the ordinary active queue.
+- Xiaomi L05B MP3 output uses the browser queue and one volume control. The browser stays muted during speaker output and volume targets the device. Fix unexpected local playback after retirement, uninstallation, external takeover or a delayed queue continuation, and stale volume acknowledgements overwriting newer input.
+
+### Fixes, installation and scope
+
+- Reduce duplicate administration headings and explanation with shared tips and Cancel/Save actions. Fix unlocalized immersive-player lyric status, translation-icon sizing and related silent-exit state.
+- Prepare host and ingest-tool version 1.3.0. Initialize a new instance with empty D1 and private R2, then configure the plugin build channel and required account/AI connections. This work provides no 1.2.1 upgrade path or lossless-upgrade guarantee. Exact combination inheritance and failure recovery remain available for existing plugin-capable hosts.
+- The official main catalog has not yet been updated to this candidate. Final release seed and locks determine package versions and hashes. No formal tag, Release or npm stable package has been created.
+- The new ordered lyric source chain, unified asynchronous translation, YT metadata language/region and native-translation target settings belong to a later version. Device, real-iOS, mainland-network and long-term authorization support remains bounded by the relevant guides and actual evidence.
+
 ## 1.2.1 — 2026-10-17
 
 ### Added

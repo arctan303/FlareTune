@@ -4,7 +4,7 @@
 
 These guides are for users and instance administrators. The root [README](../README.en.md) introduces the project.
 
-The current stable release is **1.2.1**. The 1.3.0 plugin milestone remains a local candidate; preservation of data and settings after an actual 1.2.1 upgrade still needs validation. Maintainer-specific test exceptions do not apply to every deployment. See [Plugin sources and deployment](plugin-deployment.en.md) ([简体中文](plugin-deployment.md)) for procedures and recovery boundaries.
+This branch prepares **new installations for the 1.3.0 plugin milestone**. It has not been formally released; the stable release remains **1.2.1**. Initialize a new instance, then install optional plugins. No 1.2.1 upgrade procedure or data-preservation guarantee is provided. The official catalog has not yet been updated to this candidate; the new lyric source chain and YT language and translation settings come later. See [Plugin sources and deployment](plugin-deployment.en.md) ([简体中文](plugin-deployment.md)) for installation, builds and recovery reference for an existing plugin-capable host.
 
 Start with the [live demo](https://flaretune.arcinks.com): listen, try playlists and explore full settings without signing in. Then follow the [deployment guide](deployment.en.md) to create your private library. [Demo details](demo.en.md) explain browser data, fixed assistant replies and music licenses.
 

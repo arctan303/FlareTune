@@ -4,6 +4,8 @@
 
 Try the player and full settings in the [live demo](https://flaretune.arcinks.com) before deploying your own library. The demo uses publicly licensed music; your installation needs your own audio and stores data separately from the [demo](demo.en.md).
 
+This branch prepares 1.3.0 for a new Worker, empty D1 database and private R2 bucket. It has not been formally released and provides no 1.2.1 upgrade procedure. After initialization, configure a [plugin build channel](plugin-deployment.en.md) and install optional features; the official catalog update for this candidate is still pending. General maintenance reference for existing instances below does not validate or guarantee a 1.2.1-to-candidate upgrade.
+
 ## Free allowances and costs
 
 The core uses Workers, D1 and private R2, without a VPS. These Cloudflare allowances were checked on 2026-10-12 and apply across the account, including other applications:
