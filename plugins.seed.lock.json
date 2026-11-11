@@ -3,7 +3,7 @@
   "plugins": [
     {
       "id": "ai-gateway",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "manifest": {
         "apiVersion": 1,
         "capabilityRoles": [
@@ -126,13 +126,13 @@
           "ja",
           "ko"
         ],
-        "version": "0.2.0"
+        "version": "0.2.1"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/ffc640872054a7321ed1266e3a6c0f0215f104ae/artifacts/ai-gateway/0.2.0/ac560ef1febc7e56b30059c929fc36892f486510afc0a5c055ebdc38e504890a.json",
-        "sha256": "ac560ef1febc7e56b30059c929fc36892f486510afc0a5c055ebdc38e504890a"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/85da560411652dd65020b52b0533d7d248150db9/artifacts/ai-gateway/0.2.1/7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5.json",
+        "sha256": "7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5"
       }
     },
     {
@@ -355,13 +355,13 @@
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/ffc640872054a7321ed1266e3a6c0f0215f104ae/artifacts/assistant/0.2.0/589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d.json",
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/85da560411652dd65020b52b0533d7d248150db9/artifacts/assistant/0.2.0/589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d.json",
         "sha256": "589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d"
       }
     },
     {
       "id": "lyrics-workbench",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "manifest": {
         "apiVersion": 1,
         "capabilityRoles": [
@@ -526,6 +526,7 @@
             "label": "当前歌词",
             "labelKey": "current",
             "playerPlacement": "sidebar",
+            "presentation": "workspace",
             "roles": [
               "admin",
               "member"
@@ -552,6 +553,7 @@
             "label": "候选歌词",
             "labelKey": "candidates",
             "playerPlacement": "sidebar",
+            "presentation": "workspace",
             "roles": [
               "admin",
               "member"
@@ -581,13 +583,13 @@
           "ja",
           "ko"
         ],
-        "version": "0.2.0"
+        "version": "0.2.1"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/ffc640872054a7321ed1266e3a6c0f0215f104ae/artifacts/lyrics-workbench/0.2.0/65a28f2231ccabaef2bc0bb1fd0896ff4aecae56ec0beefe4595a7bc77d8f12d.json",
-        "sha256": "65a28f2231ccabaef2bc0bb1fd0896ff4aecae56ec0beefe4595a7bc77d8f12d"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/85da560411652dd65020b52b0533d7d248150db9/artifacts/lyrics-workbench/0.2.1/05713589cf4358dd6f103fbbb9239dd638d04b62c6bedf7cdf36a6630f8f2b2d.json",
+        "sha256": "05713589cf4358dd6f103fbbb9239dd638d04b62c6bedf7cdf36a6630f8f2b2d"
       }
     },
     {
@@ -675,13 +677,13 @@
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/2664573041a9cf246de0baa773de107c639de340/artifacts/roam/0.1.1/ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd.json",
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/85da560411652dd65020b52b0533d7d248150db9/artifacts/roam/0.1.1/ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd.json",
         "sha256": "ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd"
       }
     },
     {
       "id": "xiaomi-speaker",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "manifest": {
         "apiVersion": 1,
         "capabilities": {
@@ -835,18 +837,18 @@
           "ja",
           "ko"
         ],
-        "version": "1.1.0"
+        "version": "1.1.1"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/38c4278eaec7f09d77cce1f3ea2f143b901a35ea/artifacts/xiaomi-speaker/1.1.0/863c7bf35e24fb71baa43da9d579823577d173f7d62a3b115ad28cb7ec7730e6.json",
-        "sha256": "863c7bf35e24fb71baa43da9d579823577d173f7d62a3b115ad28cb7ec7730e6"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/85da560411652dd65020b52b0533d7d248150db9/artifacts/xiaomi-speaker/1.1.1/d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8.json",
+        "sha256": "d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8"
       }
     },
     {
       "id": "youtube-music",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "manifest": {
         "apiVersion": 1,
         "capabilities": {
@@ -943,13 +945,13 @@
           "ja",
           "ko"
         ],
-        "version": "0.1.0"
+        "version": "0.1.1"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/38c4278eaec7f09d77cce1f3ea2f143b901a35ea/artifacts/youtube-music/0.1.0/39f9be73cfa5d46f2e7d132e8891097d633e0a8082276992ac894e35dd9a4b99.json",
-        "sha256": "39f9be73cfa5d46f2e7d132e8891097d633e0a8082276992ac894e35dd9a4b99"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/85da560411652dd65020b52b0533d7d248150db9/artifacts/youtube-music/0.1.1/79e97e83389120859535eb0c4b8797bc4f40ffa6095a81d5f56451b54cb13c0c.json",
+        "sha256": "79e97e83389120859535eb0c4b8797bc4f40ffa6095a81d5f56451b54cb13c0c"
       }
     }
   ]
