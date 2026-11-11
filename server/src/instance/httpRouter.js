@@ -16,6 +16,7 @@ import { handleLocalAccountMusicRoute } from '../routes/localAccountMusic.js';
 import { handleLocalMusicDiscoveryRoute } from '../routes/localMusicDiscovery.js';
 import { handleLocalAlbumReadRoute } from '../routes/localAlbumRead.js';
 import { handleLocalMetadataReadRoute } from '../routes/localMetadataRead.js';
+import { handleLyricSourceRoute } from '../routes/lyricSourceRoutes.js';
 import { handleLocalCatalogAdminRoute } from '../routes/localCatalogAdmin.js';
 import { handleLocalCatalogMediaRoute } from '../routes/localCatalogMedia.js';
 import { handleLocalIngestDevicesRoute } from '../routes/localIngestDevices.js';
@@ -90,9 +91,10 @@ function attachCors(response, origin) {
 
 export async function handleApi(request, env, path, ctx) {
   if (path === '/api/auth/recovery') return json({ error: 'not_found' }, 404);
-  if (path === '/api/lyrics' || path.startsWith('/api/lyrics/workspace/')
+  if (path === '/api/lyrics' || path === '/api/lyrics/translation' || path.startsWith('/api/lyrics/workspace/')
     || path.startsWith('/api/account/plugins/lyrics-workbench/workspace/')) {
-    env = { ...env, DB: createLyricsInvocationDatabase(env.DB, request.signal, { exhaustedCode: 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' }) };
+    env = { ...env, DB: createLyricsInvocationDatabase(env.DB, request.signal,
+      { settlementReserve: 6, exhaustedCode: 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' }) };
   }
   const cacheSchema = (request.method === 'GET'
     && !['/api/health', '/api/instance/status'].includes(path)
@@ -328,6 +330,9 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
     const accountMusic = await handleLocalAccountMusicRoute(request, new URL(request.url), env.DB,
       {}, session, { externalReferences: true, ...source?.youtubeAccountMusicDependencies?.(env, session, ctx) });
     if (accountMusic) return accountMusic;
+    const lyricSourceRoute = await handleLyricSourceRoute(request, new URL(request.url), env, session, ctx,
+      { ...source?.createLyricDependencies?.(env, session, ctx) });
+    if (lyricSourceRoute) return lyricSourceRoute;
     const metadata = await handleLocalMetadataReadRoute(request, new URL(request.url), env.DB,
       {}, actorAccountId, env, { ctx, session, ...source?.createLyricDependencies?.(env, session, ctx) });
     if (metadata) return metadata;

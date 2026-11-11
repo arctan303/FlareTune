@@ -983,4 +983,10 @@ export default Object.freeze({
   "至少提供 name 或 description。": "Provide at least a name or description.",
   "收藏歌单不可改名。": "The Favorites playlist cannot be renamed.",
   "每个歌单最多保存 500 首歌曲。": "Each playlist can contain up to 500 songs.",
+  "歌词来源顺序": "Lyric source order",
+  "上移“{name}”": "Move “{name}” up",
+  "下移“{name}”": "Move “{name}” down",
+  "正在加载…": "Loading…",
+  "歌词请求暂时无法完成，请重试。": "The lyric request could not be completed. Please try again.",
+  "歌词翻译请求失败，请重试。": "The lyric translation request failed. Please try again."
 });

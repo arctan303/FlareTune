@@ -2,7 +2,7 @@ import { compiledPluginManifests } from '../../../shared/plugins/catalog.js';
 import { pluginBuilds } from '../../../shared/plugins/build.generated.js';
 import { pluginDeployment } from '../../../shared/plugins/delivery.generated.js';
 import { deliveryPluginModules } from './delivery.generated.js';
-import { canonicalPluginManifest, getRequiredDependents, resolvePluginAvailability, validatePluginManifests, isPluginVisibleToRole } from '../../../shared/plugins/manifest.js';
+import { canonicalPluginManifest, getRequiredDependents, resolvePluginAvailability, validatePluginManifests, isPluginVisibleToRole, normalizePluginUiLanguage } from '../../../shared/plugins/manifest.js';
 import { pluginFail as fail, requirePluginSession, sessionBindings, sessionPredicate, sha256 } from './common.js';
 import { preparePluginMigrations } from './migrations.js';
 
@@ -15,7 +15,8 @@ const readValue = row => {
   let value;
   try { value = JSON.parse(row?.value_json || '{}'); } catch { /* Corrupt settings fail closed. */ }
   const installed = value?.installed === true && validEpoch(value.epoch);
-  return { installed, revision: Number(row?.revision || 0), epoch: installed ? value.epoch : null };
+  return { installed, revision: Number(row?.revision || 0), epoch: installed ? value.epoch : null,
+    ...(typeof value?.uiLanguage === 'string' ? { uiLanguage: normalizePluginUiLanguage(value.uiLanguage) } : {}) };
 };
 const freeze = value => {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -170,7 +171,7 @@ export function createPluginRegistry({ manifests = compiledPluginManifests, modu
     pluginIds.forEach(visit);
     return result;
   }
-  async function setInstalled(env, session, pluginId, input) {
+  async function setInstalled(env, session, pluginId, input, { uiLanguage } = {}) {
     await requirePluginSession(env, session, true);
     const manifest = known(pluginId);
     if (!input || typeof input.installed !== 'boolean' || !Number.isSafeInteger(input.revision) || input.revision < 0
@@ -223,7 +224,9 @@ export function createPluginRegistry({ manifests = compiledPluginManifests, modu
       .bind(plan.key, JSON.stringify({ completed: plan.completed }), now, owner));
     statements.push(env.DB.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by) VALUES (?,?,1,?,?)
       ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,revision=instance_settings.revision+1,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
-      .bind(installationKey(pluginId), JSON.stringify({ installed: input.installed, epoch }), now, owner));
+      .bind(installationKey(pluginId), JSON.stringify({ installed: input.installed, epoch,
+        ...((input.installed && !current.installed && uiLanguage !== undefined) || current.uiLanguage
+          ? { uiLanguage: input.installed && !current.installed && uiLanguage !== undefined ? normalizePluginUiLanguage(uiLanguage) : current.uiLanguage } : {}) }), now, owner));
     try { await env.DB.batch(statements); }
     catch {
       await requirePluginSession(env, session, true);

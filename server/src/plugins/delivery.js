@@ -1,7 +1,7 @@
 import { pluginRegistry, REGISTRY_KEY, installationKey } from './registry.js';
 import * as buildMetadata from '../../../shared/plugins/build.generated.js';
 import * as deliveryMetadata from '../../../shared/plugins/delivery.generated.js';
-import { canonicalPluginManifest, resolvePluginAvailability } from '../../../shared/plugins/manifest.js';
+import { canonicalPluginManifest, resolvePluginAvailability, normalizePluginUiLanguage } from '../../../shared/plugins/manifest.js';
 import { ACTIVE_PLUGIN_BUILDS, OFFICIAL_PLUGIN_SOURCE, PLUGIN_BUILD_TIMEOUT, canonicalPluginPlan, pluginSelectionChanges,
   validateDeployHookUrl, validatePluginDirectory, validatePublicHttpsUrl } from '../../../shared/plugins/delivery.js';
 import { pluginFail as fail, requirePluginSession, sessionBindings, sessionPredicate, sha256 } from './common.js';
@@ -219,7 +219,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       if (!availability.available) fail('PLUGIN_SELECTION_INCOMPATIBLE', 409, { availability });
     }
   }
-  async function select(env, session, input) {
+  async function select(env, session, input, { uiLanguage = 'en' } = {}) {
     const record = await administrator(env, session, input, ['pluginId', 'installed', 'sourceId', 'version', 'trustCode']);
     assertEditable(record);
     if (typeof input.pluginId !== 'string' || typeof input.installed !== 'boolean') fail('invalid_input', 400);
@@ -245,6 +245,9 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     }
     desired.sort((a, b) => a.id.localeCompare(b.id)); validateSelection(desired);
     const value = clone(record.value); value.desired = desired;
+    if (input.installed && !running.some(row => row.id === input.pluginId)) {
+      value.installationLanguages = { ...value.installationLanguages, [input.pluginId]: normalizePluginUiLanguage(uiLanguage) };
+    }
     const saved = await save(env, record, value, { session });
     if (value.mode === 'auto' && pluginSelectionChanges(running, desired).length) return startBuild(env, session, { revision: saved.revision });
     return publicState(env, saved);
@@ -278,6 +281,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     const registryRevision = Number((await env.DB.prepare('SELECT revision FROM instance_settings WHERE key=?').bind(REGISTRY_KEY).first())?.revision || 0);
     const value = clone(record.value); value.running = running;
     value.build = { id: buildId, planDigest, status: 'triggering', createdAt: now, updatedAt: now, error: null,
+      installationLanguages: clone(value.installationLanguages || {}),
       registryRevision, previousDeployment: deployment, previousBuilds: registry.manifests.map(row => ({ id: row.id, sourceDigest: registry.getBuildDigest(row.id) })),
       snapshot: { schemaVersion: 1, buildId, planDigest, host, plugins } };
     if (!secrets.deployHookUrl || !secrets.buildToken) {
@@ -477,7 +481,10 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       if (!installed && saved.installed !== true) continue;
       statements.push(env.DB.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by) VALUES (?,?,1,?,'plugin-build')
         ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,revision=instance_settings.revision+1,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
-        .bind(installationKey(id), JSON.stringify({ installed, epoch }), now));
+        .bind(installationKey(id), JSON.stringify({ installed, epoch,
+          ...(installed && !saved.installed
+            ? { uiLanguage: normalizePluginUiLanguage(record.value.build.installationLanguages?.[id] || saved.uiLanguage) }
+            : saved.uiLanguage ? { uiLanguage: normalizePluginUiLanguage(saved.uiLanguage) } : {}) }), now));
     }
     try { await env.DB.batch(statements); } catch { fail('PLUGIN_BUILD_APPLY_FAILED'); }
     return { ok: true, status: 'deployed' };

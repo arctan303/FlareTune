@@ -10,6 +10,12 @@ const access = value => ['authenticated', 'admin'].includes(value);
 const text = value => typeof value === 'string' && value.trim().length > 0 && value.length <= 512;
 const slots = new Set(['sidebar.primary', 'sidebar.settings.admin', 'sidebar.secondary', 'menu.song', 'menu.player']);
 const locales = new Set(['zh', 'zh-Hant', 'en', 'ja', 'ko']);
+export const normalizePluginUiLanguage = value => {
+  const language = String(value || '').split(',')[0].trim();
+  if (/^zh-(?:Hant|TW|HK)/iu.test(language)) return 'zh-Hant';
+  const primary = language.split('-')[0].toLowerCase();
+  return locales.has(primary) ? primary : 'en';
+};
 const validRoles = value => Array.isArray(value) && value.length > 0 && value.length <= 2
   && value.every(role => ['admin', 'member'].includes(role)) && new Set(value).size === value.length;
 const messageKey = value => typeof value === 'string' && /^[a-zA-Z][a-zA-Z0-9_.-]{0,127}$/.test(value);

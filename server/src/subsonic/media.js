@@ -1,6 +1,6 @@
 import { serveMediaObject, resolveMediaObjectKey } from '../routes/media.js';
 import { lyricArtifactStoreForEnv } from '../services/lyricAssetWorkflow.js';
-import { readPlaybackLyrics } from '../services/playbackLyrics.js';
+import { readLyricsFromChain } from '../services/lyricSourceChain.js';
 import { findSong, catalog } from './library.js';
 import { required, reject } from './response.js';
 import { structuredLyrics } from './lyrics.js';
@@ -56,7 +56,7 @@ export async function media(method, p, request, env, executionContext, accountId
     const row = method === 'getLyricsBySongId' ? await findSong(db, required(p, 'id'))
       : await findLyricSong(p, db, env);
     if (!row) return { lyrics: {} };
-    const read = await readPlaybackLyrics({ env, db, song: row, accountId, executionContext, signal: request.signal,
+    const read = await readLyricsFromChain({ env, db, song: row, accountId, executionContext, signal: request.signal,
       deps: { subsonicPrincipal } });
     if (read.state === 'song_deleted') reject(70, 'Song was not found');
     const artifact = read.artifact;

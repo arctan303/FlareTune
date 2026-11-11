@@ -68,7 +68,8 @@ export async function handleSubsonic(request, env, executionContext) {
     const match = /^\/rest\/([A-Za-z0-9]+)(?:\.view)?$/.exec(url.pathname);
     if (!match) reject(70, 'Endpoint was not found');
     method = match[1];
-    if (['getLyrics', 'getLyricsBySongId'].includes(method)) env = { ...env, DB: createLyricsInvocationDatabase(env.DB, request.signal, { exhaustedCode: 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' }) };
+    if (['getLyrics', 'getLyricsBySongId'].includes(method)) env = { ...env, DB: createLyricsInvocationDatabase(env.DB, request.signal,
+      { settlementReserve: 6, exhaustedCode: 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' }) };
     if (request.method === 'HEAD' && !['stream', 'download', 'getCoverArt', 'getCoverArt2'].includes(method)) reject(0, 'HEAD is only supported for media');
     // Subsonic mutates through GET: writes must validate the current structure.
     const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: !MUTATIONS.has(method), executionContext });

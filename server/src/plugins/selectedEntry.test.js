@@ -18,7 +18,7 @@ test('selected entry receives the live registry, execution context and source de
     return { fetchNativeDocument: source };
   } }, [manifest.id]: { createHandler(env, session, options) {
     assert.equal(options.registry, registry); assert.equal(options.executionContext, executionContext);
-    assert.equal(options.dependencies.fetchNativeDocument, source);
+    assert.equal(options.dependencies.fetchNativeDocument, undefined, 'lyric sources are independent; cross-plugin native callback is removed');
     return async ({ context }) => { await context.requireRoles(['admin']); called++; return json({ selected: true }); };
   } } };
   const path = '/api/account/plugins/external-sample/read';

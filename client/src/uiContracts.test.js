@@ -630,7 +630,8 @@ test('identity-aware song reads include credentials and rely on the global sessi
   assert.doesNotMatch(lyrics, /songUrl/);
   assert.match(lyrics, /songLanguageHasLyrics\(currentSong\?\.language\)/);
   assert.match(lyrics, /const url = `\$\{getApiBaseUrl\(\)\}\/api\/lyrics\?songId=/);
-  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include', cache: 'no-store', signal: requestOptions\.signal \}\)/);
+  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include', cache: 'no-store', signal: requestOptions\.signal, headers:/);
+  assert.match(lyrics, /'Accept-Language': getLocale\(\)/);
   assert.doesNotMatch(lyrics, /\/api\/lyrics\/translation|source=/);
   assert.match(artistPhotos, /api\/artist-photo\?name=[\s\S]{0,120}credentials: 'include'/);
   // Decode sharing, concurrency and timeout behaviour are exercised by

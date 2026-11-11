@@ -18,18 +18,16 @@ import { songLanguageHasLyrics } from '../../constants/language';
 import { useFullscreenTransition } from '../../hooks/useFullscreenTransition.js';
 import { usePlayerAutoHide } from '../../hooks/usePlayerAutoHide.js';
 import { requestLyricsTranslationCompletion } from '../../hooks/useLyricsFetcher.js';
-import { usePluginAvailable } from '../../hooks/usePluginAvailable.js';
 import './classic-player.css';
 import './classic-mobile.css';
 import './classic-desktop.css';
 
 export default function MobileClassicPlayer({ instantEnter = false, mobileVisual = 'classic' }) {
-    const lyricsAiAvailable = usePluginAvailable('lyrics-workbench', 'ai');
     const {
         currentSong, isPlaying, isBuffering, togglePlay, playNext, playPrev,
         playMode, handleModeChange,
         lyrics, currentLyricIndex, audioRef,
-        translationEnabled, translationAvailable, translationState, toggleTranslation,
+        translationEnabled, translationAvailable, translationSupported, translationError, translationState, toggleTranslation,
         setTranslationEnabled,
         isLyricsLoading,
         lyricSyncMode,
@@ -48,6 +46,8 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         audioRef: state.audioRef,
         translationEnabled: state.translationEnabled,
         translationAvailable: state.translationAvailable,
+        translationSupported: state.translationSupported,
+        translationError: state.translationError,
         translationState: state.translationState,
         toggleTranslation: state.toggleTranslation,
         setTranslationEnabled: state.setTranslationEnabled,
@@ -65,7 +65,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         visualMotionPhase,
         setVisualMotionPhase,
         authenticated,
-        canManageLyrics,
     } = useUIStore(useShallow((state) => ({
         isFullScreen: state.isFullScreen,
         setIsFullScreen: state.setIsFullScreen,
@@ -77,7 +76,6 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         visualMotionPhase: state.visualMotionPhase,
         setVisualMotionPhase: state.setVisualMotionPhase,
         authenticated: Boolean(state.authSession?.authenticated),
-        canManageLyrics: state.authSession?.user?.role === 'admin',
     })));
 
     const coverUrl = resolveCoverUrl(currentSong?.cover_url || '');
@@ -285,29 +283,28 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         touchStartRef.current = null;
     };
 
-    const translationPending = translationState === 'pending';
-    const translationReady = translationState === 'ready' && translationAvailable;
+    const translationPending = translationState === 'pending' && translationEnabled;
+    const translationReady = translationState === 'ready';
     const translationStatusMessage = translationPending
         ? '正在补全歌词翻译'
         : translationReady
             ? '歌词翻译已就绪'
             : translationState === 'failed'
-                ? '歌词翻译补全失败，可以点击重试'
+                ? translationError?.message || '歌词翻译补全失败，可以点击重试'
                 : '';
     const handleTranslationAction = React.useCallback(() => {
-        if (translationPending) return;
-        if (translationReady) {
+        if (!translationSupported) return;
+        if (translationReady || translationState === 'pending') {
             toggleTranslation();
             return;
         }
-        if (!canManageLyrics || !lyricsAiAvailable) return;
         setTranslationEnabled(true);
         void requestLyricsTranslationCompletion({
             songId: currentSong?.id,
             authenticated,
             notify: showToast,
         });
-    }, [authenticated, canManageLyrics, lyricsAiAvailable, currentSong?.id, setTranslationEnabled, toggleTranslation, translationPending, translationReady]);
+    }, [authenticated, translationSupported, translationState, currentSong?.id, setTranslationEnabled, toggleTranslation, translationReady]);
 
     const lyricsScrollerProps = {
         lyrics,
@@ -315,7 +312,7 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
         audioRef,
         isLyricsLoading,
         translationEnabled,
-        canTranslate: translationState !== 'unavailable' && ((canManageLyrics && lyricsAiAvailable) || translationReady),
+        canTranslate: translationSupported,
         translationState,
         toggleTranslation: handleTranslationAction,
         volume,
@@ -385,6 +382,9 @@ export default function MobileClassicPlayer({ instantEnter = false, mobileVisual
             }}
             onTransitionEnd={handleStageTransitionEnd}
         >
+            {translationEnabled && translationState === 'failed' && translationError?.message && (
+                <div role="alert" className="absolute top-20 left-1/2 -translate-x-1/2 z-[70] max-w-[calc(100%_-_2rem)] rounded-xl bg-black/80 px-4 py-2 text-xs text-white">{translationError.message}</div>
+            )}
             <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
                 {t(translationStatusMessage)}
             </span>

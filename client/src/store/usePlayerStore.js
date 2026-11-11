@@ -33,6 +33,10 @@ export const usePlayerStore = create(
                   lyricsStatus: 'loading',
                   currentLyricIndex: 0,
                   translationAvailable: false,
+                  translationSupported: false,
+                  lyricsResultRef: null,
+                  lyricSourceId: null,
+                  translationError: null,
                   translationState: 'unavailable',
                   translationStartedAt: null,
                   resolvedLyricSource: null,
@@ -168,6 +172,10 @@ export const usePlayerStore = create(
                   currentSong: song,
                   isLyricsLoading: true,
                   translationAvailable: false,
+                  translationSupported: false,
+                  lyricsResultRef: null,
+                  lyricSourceId: null,
+                  translationError: null,
                   translationState: 'unavailable',
                   translationStartedAt: null,
                   resolvedLyricSource: null,
@@ -219,6 +227,10 @@ export const usePlayerStore = create(
               lyricsStatus: 'idle',
               currentLyricIndex: 0,
               translationAvailable: false,
+              translationSupported: false,
+              lyricsResultRef: null,
+              lyricSourceId: null,
+              translationError: null,
               translationState: 'unavailable',
               translationStartedAt: null,
               resolvedLyricSource: null,
@@ -310,7 +322,11 @@ export const usePlayerStore = create(
           lyricSyncMode: snapshot.syncMode,
           lyricOffsetMs: Number.isInteger(snapshot.offsetMs) ? snapshot.offsetMs : 0,
           translationAvailable: Boolean(snapshot.translationAvailable),
-          translationState: ['unavailable', 'missing', 'pending', 'ready', 'failed'].includes(snapshot.translationState)
+          translationSupported: Boolean(snapshot.translationSupported),
+          lyricsResultRef: snapshot.resultRef || null,
+          lyricSourceId: snapshot.sourceId || null,
+          translationError: snapshot.translationError || null,
+          translationState: ['unavailable', 'missing', 'idle', 'pending', 'ready', 'failed', 'not_needed'].includes(snapshot.translationState)
               ? snapshot.translationState
               : 'unavailable',
           translationStartedAt: Number.isFinite(Date.parse(snapshot.translationStartedAt))
@@ -329,6 +345,10 @@ export const usePlayerStore = create(
                   ? lyricsRefreshRevision + 1
                   : 1,
               translationAvailable: false,
+              translationSupported: false,
+              lyricsResultRef: null,
+              lyricSourceId: null,
+              translationError: null,
               translationState: 'unavailable',
               translationStartedAt: null,
           });
@@ -339,16 +359,26 @@ export const usePlayerStore = create(
       setCurrentLyricIndex: makeSetter('currentLyricIndex'),
 
       translationAvailable: false,
+      translationSupported: false,
+      lyricsResultRef: null,
+      lyricSourceId: null,
+      translationError: null,
       setTranslationAvailable: makeSetter('translationAvailable'),
+      setTranslationSupported: makeSetter('translationSupported'),
+      setLyricsResultRef: makeSetter('lyricsResultRef'),
+      setLyricSourceId: makeSetter('lyricSourceId'),
+      setTranslationError: makeSetter('translationError'),
 
       translationState: 'unavailable',
       setTranslationState: makeSetter('translationState'),
 
       translationStartedAt: null,
       setTranslationStartedAt: makeSetter('translationStartedAt'),
-      setTranslationSnapshot: ({ available, state, startedAt }) => set({
+      setTranslationSnapshot: ({ available, supported, state, startedAt, error }) => set({
+          ...(supported === undefined ? {} : { translationSupported: Boolean(supported) }),
+          ...(error === undefined ? {} : { translationError: error }),
           translationAvailable: Boolean(available),
-          translationState: ['unavailable', 'missing', 'pending', 'ready', 'failed'].includes(state)
+          translationState: ['unavailable', 'missing', 'idle', 'pending', 'ready', 'failed', 'not_needed'].includes(state)
               ? state
               : 'unavailable',
           translationStartedAt: Number.isFinite(Date.parse(startedAt))

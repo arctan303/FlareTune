@@ -109,11 +109,12 @@ test('untimed plain lyric lines cannot seek or advertise a clickable cursor', ()
   assert.match(source, /onClick=\{canSeek \? \(\) => handleLineClick\(lrc\.time\) : undefined\}/);
 });
 
-test('classic translation action exposes the shared five-state waiting contract', () => {
+test('classic translation action exposes provider state while allowing the display preference to change', () => {
   assert.match(source, /translationState/);
   assert.match(source, /data-translation-state=\{resolvedTranslationState\}/);
   assert.match(source, /aria-busy=\{translationPending \|\| undefined\}/);
-  assert.match(source, /disabled=\{translationPending\}/);
+  assert.doesNotMatch(source, /disabled=\{translationPending\}/);
+  assert.match(source, /translationPending = resolvedTranslationState === 'pending' && translationEnabled/);
   assert.match(source, /data-active=\{translationReady && translationEnabled\}/);
   assert.match(source, /resolvedTranslationState === 'failed'/);
 

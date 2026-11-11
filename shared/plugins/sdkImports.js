@@ -31,6 +31,7 @@ export const pluginSdkImports = Object.freeze({
   "@flaretune/plugin-sdk/server/lyric-assets": Object.freeze({"target":"server/src/plugins/sdk/lyric-assets.js","side":"server"}),
   "@flaretune/plugin-sdk/server/lyric-workflow": Object.freeze({"target":"server/src/plugins/sdk/lyric-workflow.js","side":"server"}),
   "@flaretune/plugin-sdk/server/lyric-document": Object.freeze({"target":"server/src/plugins/sdk/lyric-document.js","side":"server"}),
+  "@flaretune/plugin-sdk/server/lyric-source": Object.freeze({"target":"server/src/plugins/sdk/lyric-source.js","side":"server"}),
   "@flaretune/plugin-sdk/server/lyric-parsing": Object.freeze({"target":"server/src/plugins/sdk/lyric-parsing.js","side":"server"}),
   "@flaretune/plugin-sdk/server/lyric-sources": Object.freeze({"target":"server/src/plugins/sdk/lyric-sources.js","side":"server"}),
   "@flaretune/plugin-sdk/server/lyric-resolution": Object.freeze({"target":"server/src/plugins/sdk/lyric-resolution.js","side":"server"}),

@@ -6,6 +6,14 @@ export const LEGACY_LYRIC_SOURCES = Object.freeze({ kugou: 'custom_krc', netease
 export const lyricSourceLabel = source => LYRIC_SOURCE_LABELS[LEGACY_LYRIC_SOURCES[source] || source] || '某歌词源';
 export const storedLyricTranslationLanguage = translation => translation?.language
   || (['custom_krc', 'custom_lrc', 'kugou', 'netease', 'ai'].includes(translation?.source) ? 'zh' : null);
+// The existing zh target means simplified Chinese; zh-Hant is separate.
+// Known locale aliases may match, without relabeling untagged older assets.
+export const LYRIC_TRANSLATION_TARGETS = Object.freeze(['zh', 'zh-Hant', 'en', 'ja', 'ko', 'ru', 'es', 'fr', 'de', 'sv', 'vi', 'yue', 'it', 'th', 'pt']);
+export const isValidLyricTranslationTarget = value => LYRIC_TRANSLATION_TARGETS.includes(value);
+const chineseScript = value => ['zh', 'zh-CN', 'zh-Hans'].includes(value) ? 'Hans'
+  : ['zh-Hant', 'zh-TW', 'zh-HK'].includes(value) ? 'Hant' : null;
+export const lyricTranslationLanguageMatches = (actual, target) => actual === target
+  || chineseScript(actual) !== null && chineseScript(actual) === chineseScript(target);
 export const isCustomLyricSourceId = id => typeof id === 'string'
   && (/^lyric_[a-f0-9]{32}$/u.test(id) || ['custom_krc', 'custom_lrc'].includes(id));
 export const isLyricSourceId = id => id === 'lrclib' || isCustomLyricSourceId(id);
@@ -45,7 +53,7 @@ export function normalizeLyricSources(value) {
       if (config[field] === '' && !config.enabled) continue;
       config[field] = validateLyricEndpoint(config[field]);
     }
-    if (id !== 'lrclib' && !['zh', 'en', 'ja', 'ko', 'es', 'fr', 'de', 'pt', 'ru', 'it', 'vi', 'th', 'sv', 'yue'].includes(config.translationLanguage)) throw new Error('LYRIC_SOURCES_INVALID');
+    if (id !== 'lrclib' && !isValidLyricTranslationTarget(config.translationLanguage)) throw new Error('LYRIC_SOURCES_INVALID');
     result[id] = config;
   }
   return result;

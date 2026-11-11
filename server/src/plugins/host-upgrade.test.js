@@ -18,12 +18,12 @@ const report = (plan, status) => ({ buildId: plan.buildId, planDigest: plan.plan
 const raw = (f, key) => f.sqlite.prepare('SELECT * FROM instance_settings WHERE key=?').get(key);
 const saved = f => JSON.parse(raw(f, PLUGIN_DELIVERY_KEY).value_json);
 
-async function app(t, { installed = true, workspace = false } = {}) {
+async function app(t, { installed = true, workspace = false, uiLanguage } = {}) {
   const f = await fixture(); t.after(() => f.close());
   const manifests = [manifest('sample'), manifest('disabled')];
   const sources = Object.fromEntries(manifests.map(row => [row.id, workspace ? { type: 'workspace', id: 'workspace', sourceDigest: 'b'.repeat(64) } : source(row.id)]));
   const registry = createPluginRegistry({ manifests, builds: manifests.map(row => ({ id: row.id, sourceDigest: 'b'.repeat(64) })), deployment: null });
-  if (installed) await registry.setInstalled(f.env, f.signed.session, 'sample', { installed: true, revision: 0 });
+  if (installed) await registry.setInstalled(f.env, f.signed.session, 'sample', { installed: true, revision: 0 }, { uiLanguage });
   await registry.setInstalled(f.env, f.signed.session, 'disabled', { installed: false, revision: 0 });
   const deployment = { buildId: 'd177b3b8-6df5-49df-9bdd-4054d24c2ca6', planDigest: 'f'.repeat(64), host: oldHost,
     plugins: manifests.map(({ id, version }) => ({ id, version, source: sources[id] })) };
@@ -89,6 +89,20 @@ test('cross-host activation inherits only installed exact packages and preserves
   assert.deepEqual((await nextContext.storage.get('account', 'preferences')).value, { style: 'personal', enabled: false });
   await next.delivery.report(f.env, request(), report(plan, 'deployed'));
   assert.deepEqual(raw(f, installationKey('sample')), beforeRows.find(row => row.key === installationKey('sample')));
+});
+
+test('host upgrade preserves installation UI language and its complete record without reapplying stale selection language', async t => {
+  const f = await app(t, { uiLanguage: 'zh-Hant' });
+  const before = raw(f, installationKey('sample')), disabled = raw(f, installationKey('disabled'));
+  assert.equal(JSON.parse(before.value_json).uiLanguage, 'zh-Hant');
+  const value = saved(f); value.installationLanguages = { sample: 'ko', disabled: 'ja' };
+  f.sqlite.prepare('UPDATE instance_settings SET value_json=? WHERE key=?').run(JSON.stringify(value), PLUGIN_DELIVERY_KEY);
+  const plan = await f.reserve();
+  const next = f.upgraded(plan);
+  await next.delivery.report(f.env, request(), report(plan, 'deployed'));
+  assert.deepEqual(raw(f, installationKey('sample')), before, 'host-only upgrades retain language, epoch, revision and update metadata');
+  assert.deepEqual(raw(f, installationKey('disabled')), disabled);
+  assert.equal((await next.registry.readInstallation(f.env, 'sample')).uiLanguage, 'zh-Hant');
 });
 
 test('an empty installed combination upgrades without enabling distribution packages', async t => {

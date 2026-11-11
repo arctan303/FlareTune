@@ -8,6 +8,7 @@ import { createLyricsWorkbenchHandler } from './handler.js';
 import { createPluginServiceLease } from '../services.js';
 import { createMemoryLyricStore, makeReadyArtifact, makeLyricDocument } from '../../test/lyricAssetFixtures.js';
 import { readPlaybackLyrics } from '../../services/playbackLyrics.js';
+import { DEFAULT_LYRIC_AI_CONFIG } from '../../utils/lyricAiConfig.js';
 
 const BUILD = 'd'.repeat(64);
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -138,9 +139,13 @@ test('workbench settings and source settings retain CAS and administrator-only a
 test('ordinary playback without the optional plugins preserves saved assets and never starts AI; installed plugins enable member automatic AI', async t => {
   const f = await app(t); const member = await f.signIn('member'); let calls = 0;
   const tasks = [];
+  const lyricConfig = { ...DEFAULT_LYRIC_AI_CONFIG, completionEnabled: true,
+    automaticCompletionEnabled: true, targetLanguage: 'zh' };
   const deps = { session: member.session, registry: f.registry, store: f.store,
+    loadLyricAiConfig: async () => lyricConfig,
     readOrCreateLyricArtifact: async () => f.store.get('s1'),
     aiDeps: { registry: f.registry, reserveDailyQuota: async () => true,
+      getAIAssistantConfig: async () => lyricConfig,
       createGatewayClient: async params => {
         const lease = await createPluginServiceLease({ ...params, providerId: 'ai-gateway', registry: f.registry });
         assert.deepEqual(params.configuration, { slot: 'ai-model' });

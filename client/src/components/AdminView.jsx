@@ -17,6 +17,7 @@ import AccountRow from './AdminAccountRow.jsx';
 import { Field, inputClass, buttonClass } from './AdminSettingsFields.jsx';
 import IngestDevicesPanel from './IngestDevicesPanel.jsx';
 import { GoogleAdminSettings } from './GoogleLogin.jsx';
+import LyricsSourceOrderSettings from './LyricsSourceOrderSettings.jsx';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 import {
   adminErrorMessage, createManagedAccount, getAdminOverview, parseExactHttpsOrigins,
@@ -428,6 +429,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                 {setting('cors.allowed_origins', t("精确 HTTPS Origin（每行一个）"), t("例如 https://music.example.com；不接受通配符、路径或末尾斜杠。"), true)}
               </SettingsEditDialog>}
 
+              <LyricsSourceOrderSettings key={`lyrics-${authSession.user.accountId}`} session={authSession} />
               <GoogleAdminSettings key={authSession.user.accountId} session={authSession} />
               <IngestDevicesPanel />
               <Section title={t("运行概况")}>

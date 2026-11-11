@@ -61,7 +61,7 @@ function createLease({ env, session, identity, installations, roles, diagnose })
     const row = await env.DB.prepare(`SELECT c.*,a.role AS current_role FROM account_credentials c
       JOIN accounts a ON a.account_id=c.account_id WHERE c.account_id=? AND ${predicate}`)
       .bind(identity.accountId, ...bindings()).first();
-    if (row && isUsableCredentialMaterial(row)) return;
+    if (row && isUsableCredentialMaterial(row)) return { accountId: identity.accountId, role: row.current_role };
     await diagnose();
     pluginFail('PLUGIN_SERVICE_RETIRED', 409);
   }
@@ -91,9 +91,15 @@ function createLease({ env, session, identity, installations, roles, diagnose })
   return { assertCurrent, guardedDb };
 }
 
-export async function createPluginOperationLease({ env, session, pluginId, context, registry = pluginRegistry, admin = false }) {
+export async function createPluginOperationLease({ env, session, pluginId, context, registry = pluginRegistry, admin = false,
+  requestIdentity }) {
   assertContext(session, context, pluginId);
-  const identity = context?.identity || await requirePluginSession(env, session, admin);
+  // A host request may already have resolved its identity. This is only a
+  // query hint: the combined session/credentials/role/epoch predicate below
+  // still checks current database authority before returning any capability.
+  if (requestIdentity && (session?.mode !== 'normal' || requestIdentity.accountId !== session?.account?.accountId
+    || !['admin', 'member'].includes(requestIdentity.role))) pluginFail('forbidden', 403);
+  const identity = context?.identity || requestIdentity || await requirePluginSession(env, session, admin);
   if (admin && identity.role !== 'admin') pluginFail('forbidden', 403);
   const manifest = registry.manifests.find(item => item.id === pluginId);
   if (manifest && !isPluginVisibleToRole(manifest, identity.role)) pluginFail('forbidden', 403);
@@ -101,8 +107,8 @@ export async function createPluginOperationLease({ env, session, pluginId, conte
   const roles = ['admin', 'member'].filter(role => (!admin || role === 'admin') && isPluginVisibleToRole(manifest, role));
   const lease = createLease({ env, session, identity, installations, roles,
     diagnose: () => diagnoseLease(env, registry, session, manifest, installations, admin) });
-  await lease.assertCurrent();
-  return Object.freeze({ identity, ...lease });
+  const currentIdentity = await lease.assertCurrent();
+  return Object.freeze({ identity: currentIdentity, plugin: Object.freeze({ id: pluginId, epoch: installations.get(pluginId) }), ...lease });
 }
 
 // Only trusted compiled consumers choose this capability. Page roles on the

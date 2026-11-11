@@ -38,6 +38,40 @@ test('compiled plugin is absent by default; only an explicit administrator insta
   assert.notEqual((await readInstallation(f.env)).epoch, epoch, 'a new installation has a new authority generation');
 });
 
+test('a new plugin installation captures its UI language and same-installation updates preserve it', async t => {
+  const f = await app(t);
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: true, revision: 0 }, { uiLanguage: 'ja-JP' });
+  const initial = await readInstallation(f.env), readSaved = () => JSON.parse(f.sqlite
+    .prepare('SELECT value_json FROM instance_settings WHERE key=?').get(INSTALLATION_KEY).value_json);
+  assert.equal(initial.uiLanguage, 'ja'); assert.equal(readSaved().uiLanguage, 'ja');
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: true, revision: 1 }, { uiLanguage: 'ko-KR' });
+  assert.equal((await readInstallation(f.env)).uiLanguage, 'ja');
+  assert.equal((await readInstallation(f.env)).epoch, initial.epoch);
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: false, revision: 2 }, { uiLanguage: 'en' });
+  assert.equal(readSaved().uiLanguage, 'ja', 'uninstall retains metadata without treating another UI language as a reinstall');
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: true, revision: 3 }, { uiLanguage: 'ko-KR' });
+  const reinstalled = await readInstallation(f.env);
+  assert.equal(reinstalled.uiLanguage, 'ko'); assert.notEqual(reinstalled.epoch, initial.epoch);
+});
+
+test('legacy installed metadata stays unlabelled while an unknown new UI language safely becomes English', async t => {
+  const f = await app(t);
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: true, revision: 0 });
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: true, revision: 1 }, { uiLanguage: 'ja' });
+  assert.equal(Object.hasOwn(await readInstallation(f.env), 'uiLanguage'), false);
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: false, revision: 2 });
+  await setInstalled(f.env, f.signed.session, 'xiaomi-speaker', { installed: true, revision: 3 }, { uiLanguage: 'unknown' });
+  assert.equal((await readInstallation(f.env)).uiLanguage, 'en');
+});
+
+test('the real installation HTTP action captures UI language from request metadata', async t => {
+  const f = await app(t);
+  const response = await f.api('admin/plugins/xiaomi-speaker', 'PUT', { installed: true, revision: 0 }, f.signed,
+    { 'Accept-Language': 'zh-Hant-TW' });
+  assert.equal(response.status, 200);
+  assert.equal((await readInstallation(f.env)).uiLanguage, 'zh-Hant');
+});
+
 test('plugin mutation validates input, CSRF/account intent and revision without partial changes', async t => {
   const f = await app(t);
   for (const body of [{ installed: true }, { installed: 1, revision: 0 }, { installed: true, revision: -1 },

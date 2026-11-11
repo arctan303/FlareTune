@@ -13,163 +13,9 @@ import {
   requestLyricsTranslationCompletion,
 } from './useLyricsFetcher.js';
 
-const canonicalPayload = ({
-  source = 'custom_krc',
-  translation = ['现在 我们脱下鞋子', '走向海边'],
-  translationState = translation ? 'ready' : 'missing',
-  translationStartedAt = null,
-  songId = 'song-1',
-} = {}) => ({
-  code: 200,
-  data: {
-    version: 2,
-    source,
-    format: source === 'custom_krc' ? 'krc' : 'lrc',
-    syncMode: source === 'custom_krc' ? 'word' : 'line',
-    lines: [
-      {
-        time: 1,
-        endTime: 2,
-        text: '僕らは今靴を脱ぐ',
-        words: [
-          { text: '僕ら', startTime: 1, endTime: 1.25 },
-          { text: 'は今靴を脱ぐ', startTime: 1.25, endTime: 2 },
-        ],
-      },
-      { time: 2, endTime: 3, text: '海へ歩く' },
-    ],
-    translation: translation ? {
-      source: 'custom_krc',
-      originalTextHash: 'hash-1',
-      lines: translation,
-    } : null,
-    translationAvailable: Boolean(translation),
-    translationState,
-    translationStartedAt,
-    offsetMs: 50,
-    provenance: { matchedTitle: '歌', matchedArtist: '歌手' },
-    updatedAt: '2026-09-10T00:00:00.000Z',
-    songId,
-  },
-});
-
-const makeResponse = (payload, status = 200) => ({
-  ok: status >= 200 && status < 300,
-  status,
-  json: async () => payload,
-});
-
-function createPlayerHarness(currentSong) {
-  const state = {
-    currentSong,
-    lyricsRefreshRevision: 0,
-    lyrics: [],
-    lyricsStatus: 'idle',
-    translationAvailable: false,
-    translationState: 'unavailable',
-    translationStartedAt: null,
-    resolvedLyricSource: null,
-    lyricFormat: 'none',
-    lyricSyncMode: 'none',
-    lyricOffsetMs: 0,
-    currentLyricIndex: 0,
-    isLyricsLoading: false,
-    documentSnapshotCount: 0,
-  };
-  for (const [method, key] of Object.entries({
-    setLyrics: 'lyrics',
-    setLyricsStatus: 'lyricsStatus',
-    setTranslationAvailable: 'translationAvailable',
-    setTranslationState: 'translationState',
-    setTranslationStartedAt: 'translationStartedAt',
-    setResolvedLyricSource: 'resolvedLyricSource',
-    setLyricFormat: 'lyricFormat',
-    setLyricSyncMode: 'lyricSyncMode',
-    setLyricOffsetMs: 'lyricOffsetMs',
-    setCurrentLyricIndex: 'currentLyricIndex',
-    setIsLyricsLoading: 'isLyricsLoading',
-  })) {
-    state[method] = (value) => { state[key] = value; };
-  }
-  state.setTranslationSnapshot = ({ available, state: translationState, startedAt }) => {
-    state.translationAvailable = Boolean(available);
-    state.translationState = translationState;
-    state.translationStartedAt = startedAt;
-  };
-  state.setLyricsDocumentSnapshot = (snapshot) => {
-    state.documentSnapshotCount += 1;
-    state.lyrics = snapshot.lyrics;
-    state.lyricsStatus = snapshot.status;
-    state.resolvedLyricSource = snapshot.source;
-    state.lyricFormat = snapshot.format;
-    state.lyricSyncMode = snapshot.syncMode;
-    state.lyricOffsetMs = snapshot.offsetMs;
-    state.translationAvailable = snapshot.translationAvailable;
-    state.translationState = snapshot.translationState;
-    state.translationStartedAt = snapshot.translationStartedAt;
-  };
-  return { state, getPlayerState: () => state };
-}
-
-function createFakeTimerClock(initialNow) {
-  let clock = initialNow;
-  let nextId = 0;
-  const timers = new Map();
-  const setTimer = (callback, delay = 0) => {
-    const id = ++nextId;
-    timers.set(id, {
-      callback,
-      dueAt: clock + Math.max(0, Number(delay) || 0),
-    });
-    return id;
-  };
-  const clearTimer = (id) => timers.delete(id);
-  const advance = async (elapsedMs) => {
-    const target = clock + elapsedMs;
-    while (true) {
-      const next = [...timers.entries()]
-        .filter(([, timer]) => timer.dueAt <= target)
-        .sort((left, right) => left[1].dueAt - right[1].dueAt || left[0] - right[0])[0];
-      if (!next) break;
-      const [id, timer] = next;
-      timers.delete(id);
-      clock = timer.dueAt;
-      timer.callback();
-      await Promise.resolve();
-      await Promise.resolve();
-    }
-    clock = target;
-    await Promise.resolve();
-    await Promise.resolve();
-  };
-  return {
-    now: () => clock,
-    setTimer,
-    clearTimer,
-    advance,
-    timers,
-  };
-}
-
-const cloneLyrics = (lyrics) => lyrics.map((line) => ({
-  ...line,
-  ...(Array.isArray(line.words) ? { words: line.words.map((word) => ({ ...word })) } : {}),
-}));
-
-const seedHarnessDocument = (harness, result, lyrics = cloneLyrics(result.lyrics)) => {
-  Object.assign(harness.state, {
-    lyrics,
-    lyricsStatus: result.status,
-    resolvedLyricSource: result.source,
-    lyricFormat: result.format,
-    lyricSyncMode: result.syncMode,
-    lyricOffsetMs: result.offsetMs,
-    translationAvailable: result.translationAvailable,
-    translationState: result.translationState,
-    translationStartedAt: result.translationStartedAt,
-  });
-  return lyrics;
-};
+import {
+  canonicalPayload, cloneLyrics, createFakeTimerClock, createPlayerHarness, makeResponse, seedHarnessDocument,
+} from './useLyricsFetcher.test-fixtures.js';
 
 test('request identity is one song asset and ignores old viewer/source dimensions', () => {
   const song = { id: 'same / song' };
@@ -537,6 +383,8 @@ test('translation completion requires login and coalesces repeated administrator
   const song = { id: 'translate-me' };
   const harness = createPlayerHarness(song);
   harness.state.translationState = 'missing';
+  harness.state.lyricsResultRef = 'signed-completion-result';
+  harness.state.translationSupported = true;
   let writes = 0;
   const messages = [];
   const guest = await requestLyricsTranslationCompletion({
@@ -575,23 +423,6 @@ test('translation completion requires login and coalesces repeated administrator
   release();
   await Promise.all([first, second]);
   assert.equal(harness.state.translationStartedAt, '2026-09-11T00:00:00.000Z');
-});
-
-test('late translation completion cannot modify or notify a new owner reusing the same cached song', async () => {
-  for (const failure of [false, true]) {
-    const song = { id: `same-owner-fixture-${failure}` }, harness = createPlayerHarness(song), notices = [];
-    harness.state.translationState = 'missing'; harness.state.playbackOwnershipGeneration = 1;
-    let settle;
-    const pending = requestLyricsTranslationCompletion({ songId: song.id, authenticated: true,
-      getPlayerState: harness.getPlayerState, notify: value => notices.push(value),
-      completeTranslation: () => new Promise((resolve, reject) => { settle = () => failure
-        ? reject(new Error('Old session failed')) : resolve({ data: { status: 'not_needed' } }); }) });
-    harness.state.playbackOwnershipGeneration = 2;
-    harness.state.translationState = 'ready'; harness.state.translationAvailable = true;
-    settle(); await pending;
-    assert.equal(harness.state.translationState, 'ready'); assert.equal(harness.state.translationAvailable, true);
-    assert.deepEqual(notices, []);
-  }
 });
 
 test('translation polling uses the server start window, pauses while hidden and refreshes on return', async () => {
@@ -677,8 +508,8 @@ test('translation polling performs one final read at the server deadline and the
   );
   await fakeTime.advance(500);
   assert.equal(loads, 1);
-  assert.equal(harness.state.translationState, 'failed');
-  assert.equal(harness.state.translationStartedAt, null);
+  assert.equal(harness.state.translationState, 'pending');
+  assert.equal(harness.state.translationStartedAt, startedAt);
   assert.equal(fakeTime.timers.size, 0);
 });
 
@@ -713,8 +544,8 @@ test('translation polling has a hard deadline when a read ignores abort and neve
   assert.equal(signal.aborted, false);
   await fakeTime.advance(28_000);
   assert.equal(signal.aborted, true, 'the independent deadline aborts the active read');
-  assert.equal(harness.state.translationState, 'failed');
-  assert.equal(harness.state.translationStartedAt, null);
+  assert.equal(harness.state.translationState, 'pending');
+  assert.equal(harness.state.translationStartedAt, startedAt);
   assert.equal(fakeTime.timers.size, 0, 'no polling remains after the hard deadline');
 });
 
@@ -766,14 +597,14 @@ test('translation polling ignores an abort-insensitive read that settles after t
   await fakeTime.advance(2_000);
   await fakeTime.advance(28_000);
   assert.equal(signal.aborted, true);
-  assert.equal(harness.state.translationState, 'ready', 'an existing translation survives timeout');
-  assert.equal(harness.state.translationStartedAt, null);
+  assert.equal(harness.state.translationState, 'pending', 'the server status is retained after polling ends');
+  assert.equal(harness.state.translationStartedAt, startedAt);
   assert.equal(harness.state.lyrics[0].translation, '旧译文一');
   release();
   await Promise.resolve();
   await Promise.resolve();
-  assert.equal(harness.state.translationState, 'ready');
-  assert.equal(harness.state.translationStartedAt, null);
+  assert.equal(harness.state.translationState, 'pending');
+  assert.equal(harness.state.translationStartedAt, startedAt);
   assert.equal(harness.state.lyrics[0].translation, '旧译文一', 'the aborted loader cannot apply its late document');
   assert.equal(harness.state.documentSnapshotCount, 0);
   assert.equal(fakeTime.timers.size, 0, 'the late settlement cannot restart polling');

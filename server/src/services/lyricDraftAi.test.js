@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { completeLyricDraft as completeRaw } from './lyricDraftAi.js';
 import { testLyricsAiDeps } from '../plugins/lyrics-workbench/test-support.js';
-const completeLyricDraft = args => completeRaw({ ...args, deps: testLyricsAiDeps(args.deps) });
+import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
+const completeLyricDraft = args => completeRaw({ ...args, deps: testLyricsAiDeps({
+  loadLyricAiConfig: async db => ({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', ...await args.deps?.getAIAssistantConfig?.(db) }),
+  ...args.deps,
+}) });
 import { makeSong } from '../test/lyricAssetFixtures.js';
 
 test('AI completes an imported draft without persisting lyrics or song language', async () => {

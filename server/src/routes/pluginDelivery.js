@@ -18,7 +18,8 @@ export async function handlePluginDelivery(request, path, env, session, json, { 
       const input = await readBoundedJson(request);
       return json(await delivery[source[2] ? 'refreshSource' : 'removeSource'](env, session, source[1], input));
     }
-    if (path === '/api/admin/plugin-delivery/selection' && request.method === 'PUT') return json(await delivery.select(env, session, await readBoundedJson(request)));
+    if (path === '/api/admin/plugin-delivery/selection' && request.method === 'PUT') return json(await delivery.select(env, session, await readBoundedJson(request),
+      { uiLanguage: request.headers.get('Accept-Language') || 'en' }));
     if (path === '/api/admin/plugin-delivery/build' && request.method === 'POST') return json(await delivery.startBuild(env, session, await readBoundedJson(request)));
     if (path === '/api/admin/plugin-delivery/build/resolve' && request.method === 'POST') return json(await delivery.resolveBuild(env, session, await readBoundedJson(request)));
     if (path === '/api/admin/plugin-delivery/discard' && request.method === 'POST') return json(await delivery.discard(env, session, await readBoundedJson(request)));

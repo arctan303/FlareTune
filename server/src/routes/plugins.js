@@ -35,7 +35,8 @@ export async function handlePluginApi(request, path, env, session, json, {
     if (match) {
       const [, scope, pluginId, relativePath = ''] = match;
       if (scope === 'admin' && relativePath === '' && request.method === 'PUT') {
-        return json(await registry.setInstalled(env, session, pluginId, await readBoundedJson(request)));
+        return json(await registry.setInstalled(env, session, pluginId, await readBoundedJson(request),
+          { uiLanguage: request.headers.get('Accept-Language') || 'en' }));
       }
       const context = await createPluginContext({ env, session, pluginId, registry });
       if (scope === 'admin' && context.identity.role !== 'admin') return json({ error: 'forbidden' }, 403);
@@ -50,6 +51,9 @@ export async function handlePluginApi(request, path, env, session, json, {
       }
       const sourceDependencies = Object.assign({}, ...Object.values(modules).map(module =>
         typeof module.createLyricDependencies === 'function' ? module.createLyricDependencies(env, session, executionContext) : {}));
+      // Music identity resolution remains a host capability; a lyric source's
+      // native fetching callback is not another lyric source's dependency.
+      delete sourceDependencies.fetchNativeDocument;
       const handler = handlers ? handlers[pluginId]
         : typeof modules[pluginId]?.createHandler === 'function' ? modules[pluginId].createHandler(env, session, {
           registry, executionContext, dependencies: { ctx: executionContext, session, ...sourceDependencies },

@@ -117,11 +117,11 @@ html.dark .player-console__lyric {
   pointer-events: none;
 }
 
-.player-dock .lyrics-translation-action[data-translation-state='pending'] {
+.player-dock .lyrics-translation-action[data-translation-state='pending'][aria-busy='true'] {
   cursor: wait;
 }
 
-.player-dock .lyrics-translation-action[data-translation-state='pending']::after {
+.player-dock .lyrics-translation-action[data-translation-state='pending'][aria-busy='true']::after {
   animation: lyrics-translation-breathe 1.6s ease-in-out infinite;
 }
 

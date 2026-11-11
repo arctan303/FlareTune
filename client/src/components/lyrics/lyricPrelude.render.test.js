@@ -109,8 +109,32 @@ test('the fullscreen translation action shows only the shared 14px Languages ico
       'aria-hidden="true"', 'focusable="false"']) assert.ok(button[1].includes(attribute), `${translationState}: ${attribute}`);
     assert.equal(button[1].replace(/<[^>]+>/g, '').trim(), '', `${translationState}: no visible glyph text`);
     assert.match(button[0], /aria-label="[^"]+"/);
-    assert.equal(/\sdisabled=""/.test(button[0]), translationState === 'pending');
+    assert.equal(/\sdisabled=""/.test(button[0]), false, 'the display preference can change while translation is pending');
+    assert.equal(/aria-busy="true"/.test(button[0]), translationState === 'pending');
   }
+});
+
+test('a pending translation only advertises loading while the viewer shows translation', () => {
+  for (const translationEnabled of [false, true]) {
+    const markup = renderToStaticMarkup(React.createElement(LyricsScroller, {
+      lyrics: lyricsAt(4.5, 'line'), currentLyricIndex: 0, lyricSyncMode: 'line', currentSong: song,
+      translationEnabled, canTranslate: true, translationState: 'pending',
+      audioRef: { current: audio }, volume: 0.8, isFullScreen: true,
+    }));
+    const button = markup.match(/<button[^>]*lyrics-translation-action[^>]*>/)?.[0];
+    assert.ok(button);
+    assert.equal(button.includes('aria-busy="true"'), translationEnabled);
+    assert.doesNotMatch(button, /\sdisabled=""/);
+  }
+});
+
+test('the fullscreen translation control follows the declared capability despite existing translated text', () => {
+  const markup = renderToStaticMarkup(React.createElement(LyricsScroller, {
+    lyrics: lyricsAt(4.5, 'line'), currentLyricIndex: 0, lyricSyncMode: 'line', currentSong: song,
+    translationEnabled: true, canTranslate: false, translationState: 'ready',
+    audioRef: { current: audio }, volume: 0.8, isFullScreen: true,
+  }));
+  assert.doesNotMatch(markup, /<button[^>]*lyrics-translation-action/);
 });
 
 test('a single synchronized lyric stays visible and no-lyrics placeholders keep the metadata view', () => {

@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fixture, PASSWORD } from './test-support.js';
 import { authenticate, subsonicPrincipalForAccount } from './credentials.js';
-import { createSubsonicPluginServiceLease } from './pluginAuthority.js';
+import { createSubsonicPluginServiceLease, isSubsonicPluginServiceLeaseForPrincipal } from './pluginAuthority.js';
 import { pluginRegistry } from '../plugins/registry.js';
 import { md5 } from './md5.js';
 import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
+import { createLyricSources, selectLyricSource } from '../services/lyricSourceChain.js';
+import { createLyricDocument } from '../utils/lyricDocument.js';
 
 const payload = async response => (await response.json())['subsonic-response'];
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
@@ -27,7 +29,7 @@ async function setup(t, installed = true) {
   const f = await fixture(); t.after(f.close);
   const member = await f.signIn('member'); await f.enable(member);
   f.sqlite.prepare(`INSERT OR REPLACE INTO instance_settings(key,value_json,revision,updated_at,updated_by)
-    VALUES ('lyrics.ai',?,1,1,'test')`).run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG,
+    VALUES ('lyrics.ai',?,1,1,'test')`).run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh',
     completionEnabled: true, automaticCompletionEnabled: true }));
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
   const saved = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines: [{ time: 1, text: 'Hello' }] });
@@ -62,9 +64,31 @@ function enforceBindingBudget(db, maximum) {
   return calls;
 }
 
+test('lyric source authority accepts a genuine Subsonic lease under the consumer-configuration host contract', async t => {
+  const f = await setup(t), principal = await f.principal(), lease = await f.lease(principal);
+  assert.equal(isSubsonicPluginServiceLeaseForPrincipal(lease, principal, f.env), true);
+  assert.equal(isSubsonicPluginServiceLeaseForPrincipal(lease, principal, { ...f.env, DB: {} }), false);
+  assert.equal(isSubsonicPluginServiceLeaseForPrincipal({ ...lease }, principal, f.env), false);
+  let registered = false;
+  const sources = await createLyricSources({ env: f.env, deps: {
+    subsonicPrincipal: principal,
+    store: { get: async () => ({ state: 'missing' }) },
+    modules: { 'lyrics-workbench': { createLyricSource({ dependencies }) {
+      dependencies.registerServiceAuthority(lease);
+      registered = true;
+      return { id: 'lyrics-workbench', claim: () => true,
+        resolve: async () => ({ quality: 'good', document: createLyricDocument({ source: 'manual', format: 'plain',
+          lines: [{ text: 'Synthetic source authority integration' }] }), translation: { supported: false, state: 'unavailable' } }) };
+    } } },
+  } });
+  const result = await selectLyricSource({ sources, order: ['lyrics-workbench'], song: { id: 's1' } });
+  assert.equal(registered, true);
+  assert.equal(result.source.id, 'lyrics-workbench');
+});
+
 async function compactLyrics(f, lineCount) {
   f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'")
-    .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, model: 'deepseek-flash' }));
+    .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash' }));
   const modelKey = 'plugin.data.lyrics-workbench.instance.ai-model';
   const selected = f.sqlite.prepare('SELECT value_json,revision FROM instance_settings WHERE key=?').get(modelKey);
   const value = JSON.parse(selected.value_json);
@@ -217,7 +241,7 @@ test('144-line compact translation and its one JSON retry complete within the fu
       const result = await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
         executionContext: { waitUntil: task => tasks.push(task) } }));
       assert.equal(result.status, 'ok'); await Promise.all(tasks);
-      assert.equal(upstreamCalls, retry ? 10 : 9); assert.equal(artifact(f).translation?.lines.length, 144);
+      assert.equal(upstreamCalls, retry ? 9 : 8); assert.equal(artifact(f).translation?.lines.length, 144);
       assert.equal(artifact(f).aiCompletion, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
       assert.ok(calls.length <= 50); t.diagnostic(`144 lines${retry ? ' with JSON retry' : ''}: ${calls.length}/50 D1 bindings`);
     } finally { upstream.mock.restore(); }
@@ -248,7 +272,7 @@ test('multi-batch AI with JSON retry and upstream waiting reserves failed settle
   calls.length = 0; tasks.length = 0; const priorCalls = upstreamCalls;
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, options))).status, 'ok');
   await Promise.all(tasks);
-  assert.equal(upstreamCalls - priorCalls, 9); assert.equal(artifact(f).translation?.lines.length, 144);
+  assert.equal(upstreamCalls - priorCalls, 8); assert.equal(artifact(f).translation?.lines.length, 144);
   assert.equal(artifact(f).aiCompletion, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`next invocation retry completes: ${calls.length}/50 D1 bindings`);
 });
@@ -262,7 +286,7 @@ test('ordinary 176 and 200-line compact lyrics fully complete within the entire 
       assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
         executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
       await Promise.all(tasks);
-      assert.equal(upstreamCalls, Math.ceil(length / 16)); assert.equal(artifact(f).translation?.lines.length, length);
+      assert.equal(upstreamCalls, Math.ceil(length / 20)); assert.equal(artifact(f).translation?.lines.length, length);
       assert.equal(artifact(f).aiCompletion, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
       assert.ok(calls.length <= 50); t.diagnostic(`${length} lines fully complete: ${calls.length}/50 D1 bindings`);
     } finally { upstream.mock.restore(); }
@@ -271,8 +295,12 @@ test('ordinary 176 and 200-line compact lyrics fully complete within the entire 
 
 test('Subsonic mixed not-needed compact batches retain the final completion request before settling', async t => {
   const f = await setup(t), tasks = []; await compactLyrics(f, 32); let upstream = 0;
+  const saved = artifact(f), song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
+  const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
+    saved.original.lines.map((line, index) => index < 20 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
+  f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
   t.mock.method(globalThis, 'fetch', async (input, options) => ++upstream === 1
-    ? Response.json({ choices: [{ message: { content: JSON.stringify({ songLanguage: 'en', discardLineIndices: [], notNeeded: true }) } }] })
+    ? Response.json({ choices: [{ message: { content: JSON.stringify({ songLanguage: 'zh', discardLineIndices: [], notNeeded: true }) } }] })
     : batchReply(options));
   const calls = enforceBindingBudget(f.db, 50);
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
@@ -288,7 +316,7 @@ test('larger compact lyrics exceeding the request budget finish as failed withou
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
   await Promise.all(tasks);
-  assert.equal(upstreamCalls, 13); assert.equal(artifact(f).translation, null);
+  assert.equal(upstreamCalls, 11); assert.equal(artifact(f).translation, null);
   assert.equal(artifact(f).aiCompletion?.status, 'failed'); assert.equal(artifact(f).aiCompletion.errorCode, 'request_budget_exhausted');
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
   assert.ok(calls.length <= 50); t.diagnostic(`224 lines settle without partial save: ${calls.length}/50 D1 bindings`);

@@ -1,5 +1,6 @@
 import { instanceRequest, InstanceApiError } from '../instance/api.js';
 import { runtimeFetch, isDemoRuntime } from './runtimeFetch.js';
+import { getLocale } from '../i18n/index.js';
 
 export function pluginsRequest(session, { admin = false, id, installed, revision, signal, fetchImpl = runtimeFetch } = {}) {
   if (isDemoRuntime) return Promise.reject(new InstanceApiError(403, 'PLUGIN_DEMO_DISABLED'));
@@ -10,6 +11,6 @@ export function pluginsRequest(session, { admin = false, id, installed, revision
     ...(writing ? { body: { installed, revision } } : {}),
     csrfToken: session.csrfToken, expectedAccountId: session.user.accountId,
     fetchImpl: (url, init) => fetchImpl(url, { ...init, signal,
-      headers: { ...init.headers, 'X-FlareTune-Expected-Account': session.user.accountId } }),
+      headers: { ...init.headers, 'Accept-Language': getLocale(), 'X-FlareTune-Expected-Account': session.user.accountId } }),
   });
 }

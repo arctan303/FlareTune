@@ -12,6 +12,7 @@ import { createLyricDraftReceipt } from '../services/lyricDraftReceipt.js';
 import { LyricSourceError } from '../services/lyricSourceLoader.js';
 import { structuredLyrics } from '../subsonic/lyrics.js';
 import { resolveLyricTranslationState } from '../services/lyricAssetWorkflow.js';
+import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
 import {
   createMemoryLyricStore,
   createMemoryR2Bucket,
@@ -381,6 +382,7 @@ test('timeline shift bakes legacy offset into shared word timing exactly once', 
 });
 
 test('timeline shift keeps an in-flight AI completion attached to unchanged lyric text', async () => {
+  const lyricConfig = { ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh' };
   const pending = { status: 'pending', updatedAt: '2026-09-25T00:00:00.000Z' };
   const store = createMemoryLyricStore(makeReadyArtifact({ aiCompletion: pending }));
   const response = await route(request(path('/timeline'), 'PATCH', { deltaMs: 250, etag: 'etag-1' }), { store });
@@ -392,9 +394,10 @@ test('timeline shift keeps an in-flight AI completion attached to unchanged lyri
     env: {}, db: {}, song: makeSong(), store,
     startedAt: pending.updatedAt, textHash: 'a'.repeat(64),
     deps: {
+      lyricConfig,
       now: () => Date.parse('2026-09-25T00:01:00.000Z'),
       reserveDailyQuota: async () => true,
-      getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test', systemPrompt: '' }),
+      getAIAssistantConfig: async () => ({ ...lyricConfig, model: 'test', systemPrompt: '' }),
       askAI: async () => ({ translations: [{ unitId: 0, text: '你好' }] }),
     },
   });

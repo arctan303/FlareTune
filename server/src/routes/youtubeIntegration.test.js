@@ -13,7 +13,8 @@ test('search retains same local and YT recording, uses independent source offset
   const result = (await response.json()).data;
   assert.deepEqual(result.songs.map(s => s.id), ['local', song.id]);
   assert.equal(result.hasMore, true); assert.equal(result.nextOffset, 20);
-  assert.equal(params.hl, 'en'); assert.equal(params.offset, 0); assert.equal(params.limit, 20);
+  assert.equal(params.hl, undefined, 'omitting hl preserves the independently configured metadata language');
+  assert.equal(params.offset, 0); assert.equal(params.limit, 20);
 });
 test('disabled plugin preserves original local response; failed YT requests retain local with safe warning', async () => {
   const getAccess = async () => { throw Object.assign(new Error('private error data'), { code: 'PLUGIN_NOT_INSTALLED' }); };

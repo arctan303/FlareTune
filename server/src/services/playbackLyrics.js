@@ -100,29 +100,15 @@ export async function readPlaybackLyrics({ env, db, song, accountId, executionCo
   if (read.artifact?.status !== 'ready') throw new PlaybackLyricsError('Lyric asset is not ready');
   let lyricConfig = null;
   if (aiLease) {
-    try { lyricConfig = await loadLyricAiConfig(aiLease.guardedDb(db)); }
+    try { lyricConfig = await (deps.loadLyricAiConfig || loadLyricAiConfig)(aiLease.guardedDb(db)); }
     catch { aiLease = null; aiStore = null; }
   }
   const { targetLanguage, processingKey, completionEnabled: configuredCompletion, automaticCompletionEnabled } = lyricConfig
     ? { ...lyricConfig, processingKey: lyricAiProcessingKey(lyricConfig) } : await playbackLyricPreferences(db);
   let completionEnabled = configuredCompletion && Boolean(aiLease);
-  let projected = projectLyricArtifact(read.artifact, { song, targetLanguage });
-  for (let attempt = 0; aiStore && read.artifact.translation && !projected.translationAvailable; attempt += 1) {
-    if (attempt >= 3) throw new PlaybackLyricsError('Lyric asset changed during translation update');
-    const updatedAt = new Date((deps.now || Date.now)()).toISOString();
-    let cleared;
-    try {
-      cleared = await aiStore.putIfMatch(song.id, {
-        ...read.artifact, translation: null, aiCompletion: null, updatedAt,
-      }, read.etag, { automation: read.automation });
-    } catch {
-      aiLease = null; aiStore = null; completionEnabled = false;
-      read = await store.get(song.id); break;
-    }
-    read = cleared.state === 'updated' ? { ...cleared, state: 'found' } : await store.get(song.id);
-    if (read.state !== 'found' || read.artifact?.status !== 'ready') throw new PlaybackLyricsError('Lyric asset is not ready');
-    projected = projectLyricArtifact(read.artifact, { song, targetLanguage });
-  }
+  // A target-language preference is a read projection, not permission to delete
+  // a previously saved translation. Replacement happens only after completion.
+  const projected = projectLyricArtifact(read.artifact, { song, targetLanguage });
   const needsAutomaticAi = completionEnabled && automaticCompletionEnabled
     && shouldAiCompleteLyrics(read.artifact.original, song, { targetLanguage })
     && !projected.translationAvailable
@@ -152,7 +138,10 @@ export async function readPlaybackLyrics({ env, db, song, accountId, executionCo
     }
   }
   const currentLyrics = projectLyricArtifact(read.artifact, { song, targetLanguage });
-  return { ...read, lyrics: !completionEnabled && !currentLyrics.translationAvailable
+  const lyrics = !completionEnabled && !currentLyrics.translationAvailable
     ? { ...currentLyrics, translationState: 'unavailable', translationStartedAt: null }
-    : currentLyrics };
+    : currentLyrics;
+  return { ...read, lyrics: { ...lyrics, targetLanguage,
+    translationSupported: Boolean(currentLyrics.translationAvailable || completionEnabled
+      && shouldAiCompleteLyrics(read.artifact.original, song, { targetLanguage })) } };
 }

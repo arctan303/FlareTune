@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canonicalPluginManifest, getRequiredDependents, resolvePluginAvailability, satisfiesPluginVersion, validatePluginManifests,
-  canAccessPluginDeclaration, isPluginVisibleToRole, HOST_PLUGIN_API_VERSION } from './manifest.js';
+  canAccessPluginDeclaration, isPluginVisibleToRole, HOST_PLUGIN_API_VERSION, normalizePluginUiLanguage } from './manifest.js';
 import { compiledPluginManifests } from './catalog.js';
 
 const manifest = (id, extra = {}) => ({ id, version: '1.2.0', hostApiVersion: 1, apiVersion: 1,
@@ -20,6 +20,28 @@ test('API3 capabilities preserve API1/2 packages and service slots require bound
     { ...dependency, serviceConfigurations: { provider: ['foreign.key'] } },
     { ...dependency, serviceConfigurations: { provider: Array.from({ length: 17 }, (_, i) => `model-${i}`) } },
   ]) assert.throws(() => validatePluginManifests([manifest('consumer', extra)]));
+});
+
+test('host API 3 preserves existing API 1 and 2 packages and rejects newer minimum requirements', () => {
+  assert.equal(HOST_PLUGIN_API_VERSION, 3);
+  for (const hostApiVersion of [1, 2, 3]) {
+    const item = manifest('compatible', { hostApiVersion });
+    assert.equal(resolvePluginAvailability([item], ['compatible'], 'compatible').available, true);
+  }
+  const future = manifest('future', { hostApiVersion: 4 });
+  assert.equal(resolvePluginAvailability([future], ['future'], 'future').reason, 'host_incompatible');
+});
+
+test('installation UI language normalizes the five supported languages and safe regional aliases', () => {
+  for (const [input, expected] of [
+    ['en', 'en'], ['zh', 'zh'], ['zh-Hant', 'zh-Hant'], ['ja', 'ja'], ['ko', 'ko'],
+    ['en-US,en;q=0.9', 'en'], ['zh-CN', 'zh'], ['zh-TW', 'zh-Hant'], ['zh-HK', 'zh-Hant'],
+    ['ja-JP', 'ja'], ['ko-KR', 'ko'], ['JA-jp', 'ja'], ['ZH-CN', 'zh'], ['KO', 'ko'],
+    [' zh-Hant-TW ', 'zh-Hant'],
+  ]) assert.equal(normalizePluginUiLanguage(input), expected, String(input));
+  for (const input of ['unknown', 'fr', 'de-DE', '', null, undefined, 42, {}, 'auto']) {
+    assert.equal(normalizePluginUiLanguage(input), 'en', String(input));
+  }
 });
 
 test('roles are exact, legacy declarations map consistently and instance settings stay administrator-only', () => {

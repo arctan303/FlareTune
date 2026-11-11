@@ -145,17 +145,19 @@ test('mobile lyric pane keeps its slide-in and slide-out animations', () => {
   assert.doesNotMatch(readFileSync(new URL("./classic-mobile.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
-test('MobileClassicPlayer routes missing translation clicks through the member completion action', () => {
+test('MobileClassicPlayer routes translation through the declared source capability and unified action', () => {
     const src = readClassicPlayer();
     assert.match(src, /requestLyricsTranslationCompletion/);
     assert.match(src, /authenticated: Boolean\(state\.authSession\?\.authenticated\)/);
     assert.match(src, /translationState: state\.translationState/);
-    assert.match(src, /canTranslate: translationState !== 'unavailable'/);
+    assert.match(src, /canTranslate: translationSupported/);
+    assert.match(src, /translationSupported: state\.translationSupported/);
+    assert.doesNotMatch(src, /lyricsAiAvailable|canManageLyrics|usePluginAvailable/);
     assert.match(src, /translationState,[\s\S]*toggleTranslation: handleTranslationAction/);
     assert.match(src, /role="status" aria-live="polite" aria-atomic="true"/);
     assert.match(src, /translationState === 'failed'[\s\S]*歌词翻译补全失败，可以点击重试/);
-    assert.match(src, /if \(translationPending\) return;/);
-    assert.match(src, /if \(translationReady\) \{[\s\S]*toggleTranslation\(\)/);
+    assert.match(src, /if \(!translationSupported\) return;/);
+    assert.match(src, /if \(translationReady \|\| translationState === 'pending'\) \{[\s\S]*toggleTranslation\(\)/);
     assert.match(src, /setTranslationEnabled\(true\)/);
 });
 
@@ -169,7 +171,7 @@ test('desktop classic toolbar keeps the shared 14px translation icon while other
 
 test('classic translation pending animation stays on the outer ring and failed state is visible', () => {
     const css = readClassicCss();
-    assert.match(css, /lyrics-translation-action\[data-translation-state='pending'\]::after[\s\S]*animation: lyrics-translation-breathe/);
-    assert.doesNotMatch(css, /lyrics-translation-action\[data-translation-state='pending'\]\s*\{[^}]*animation:/);
+    assert.match(css, /lyrics-translation-action\[data-translation-state='pending'\]\[aria-busy='true'\]::after[\s\S]*animation: lyrics-translation-breathe/);
+    assert.doesNotMatch(css, /lyrics-translation-action\[data-translation-state='pending'\](?:\[aria-busy='true'\])?\s*\{[^}]*animation:/);
     assert.match(css, /lyrics-translation-action\[data-translation-state='failed'\]::before[\s\S]*content: '!'/);
 });

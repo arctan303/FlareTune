@@ -1,5 +1,6 @@
 import { instanceRequest, InstanceApiError } from '../instance/api.js';
 import { runtimeFetch, isDemoRuntime } from './runtimeFetch.js';
+import { getLocale } from '../i18n/index.js';
 
 export function pluginDeliveryRequest(session, path = '', { method = 'GET', body, signal, fetchImpl = runtimeFetch } = {}) {
   if (isDemoRuntime || !session?.authenticated || session.user?.role !== 'admin') {
@@ -8,7 +9,7 @@ export function pluginDeliveryRequest(session, path = '', { method = 'GET', body
   return instanceRequest(`admin/plugin-delivery${path}`, {
     method, body, csrfToken: session.csrfToken, expectedAccountId: session.user.accountId,
     fetchImpl: (url, init) => fetchImpl(url, { ...init, signal,
-      headers: { ...init.headers, 'X-FlareTune-Expected-Account': session.user.accountId } }),
+      headers: { ...init.headers, 'Accept-Language': getLocale(), 'X-FlareTune-Expected-Account': session.user.accountId } }),
   });
 }
 

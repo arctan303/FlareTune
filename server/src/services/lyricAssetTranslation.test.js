@@ -13,8 +13,13 @@ import {
 } from '../test/lyricAssetFixtures.js';
 
 import { testLyricsAiDeps } from '../plugins/lyrics-workbench/test-support.js';
-const beginLyricAssetAiCompletion = args => beginRaw({ ...args, deps: testLyricsAiDeps(args.deps) });
-const runLyricAssetAiCompletion = args => runRaw({ ...args, deps: testLyricsAiDeps(args.deps) });
+import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
+const configuredTestDeps = (deps = {}) => testLyricsAiDeps({
+  loadLyricAiConfig: async db => ({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', ...await deps.getAIAssistantConfig?.(db) }),
+  ...deps,
+});
+const beginLyricAssetAiCompletion = args => beginRaw({ ...args, deps: configuredTestDeps(args.deps) });
+const runLyricAssetAiCompletion = args => runRaw({ ...args, deps: configuredTestDeps(args.deps) });
 const STARTED_AT = '2026-09-10T00:00:00.000Z';
 const FINISHED_AT = Date.parse('2026-09-10T00:01:00.000Z');
 
@@ -53,7 +58,7 @@ function successDeps(overrides = {}) {
   };
 }
 
-function multiBatchPendingArtifact(lineCount) {
+function multiBatchPendingArtifact(lineCount, targetRange = []) {
   const base = pendingArtifact();
   return pendingArtifact({
     original: {
@@ -61,7 +66,7 @@ function multiBatchPendingArtifact(lineCount) {
       syncMode: 'line',
       lines: Array.from({ length: lineCount }, (_, index) => ({
         time: index,
-        text: `Foreign lyric ${index}`,
+        text: index >= targetRange[0] && index < targetRange[1] ? `这是第${index}句歌词` : `Foreign lyric ${index}`,
       })),
     },
   });
@@ -156,7 +161,7 @@ test('current DeepSeek models complete bounded JSON batches with context and all
       reserveDailyQuota: async()=>{reservations++;return true;},
       askAI: async messages=>{batches.push(JSON.parse(messages.at(-1).content));return translatedBatch(messages);} }),
   });
-  assert.deepEqual(batches.map(batch=>batch.units.length), [16,16,16,3]);
+  assert.deepEqual(batches.map(batch=>batch.units.length), [20,20,11]);
   assert.ok(batches[1].context.before.length>0 && batches[1].context.after.length>0);
   assert.equal(reservations,1);
   assert.deepEqual(store.current().translation.lines, Array.from({length:51},(_,i)=>'译文'+i));
@@ -284,7 +289,7 @@ test('instance target language controls the Worker prompt and stored translation
         translateLyrics: true, detectLanguage: false, referenceExistingTranslation: false,
       }),
       askAI: async (messages) => {
-        assert.match(messages[0].content, /日语/u);
+        assert.match(messages[0].content, /Japanese/u);
         return { translations: [{ unitId: 0, text: 'こんにちは' }] };
       },
     }),
@@ -464,7 +469,9 @@ test('AI cleanup refuses to leave only the song title and artist', async () => {
 });
 
 test('manual AI request still identifies a song whose lyrics need no translation', async () => {
-  const store = createMemoryLyricStore(pendingArtifact());
+  const original = pendingArtifact();
+  original.original.lines[0].text = '你好世界';
+  const store = createMemoryLyricStore(original);
   const changes = [];
   await runLyricAssetAiCompletion({
     env: {}, db: {}, song: makeSong({ language: 'en' }), store,
@@ -768,7 +775,7 @@ test('a concurrent fresh-pending winner is returned as an idempotent result', as
 });
 
 test('a first-batch notNeeded result is retried after another batch proves translation is needed', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(121));
+  const store = createMemoryLyricStore(multiBatchPendingArtifact(121, [0, 120]));
   let calls = 0;
   const prompts = [];
   const result = await runLyricAssetAiCompletion({
@@ -793,7 +800,7 @@ test('a first-batch notNeeded result is retried after another batch proves trans
 });
 
 test('a middle-batch notNeeded result cannot create a partial translation artifact', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(241));
+  const store = createMemoryLyricStore(multiBatchPendingArtifact(241, [120, 240]));
   let calls = 0;
   const result = await runLyricAssetAiCompletion({
     env: {}, db: {}, song: makeSong(), store,
@@ -815,7 +822,7 @@ test('a middle-batch notNeeded result cannot create a partial translation artifa
 });
 
 test('all notNeeded batches clear pending without creating a translation', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(121));
+  const store = createMemoryLyricStore(multiBatchPendingArtifact(121, [0, 121]));
   let calls = 0;
   const result = await runLyricAssetAiCompletion({
     env: {}, db: {}, song: makeSong(), store,
@@ -831,7 +838,7 @@ test('all notNeeded batches clear pending without creating a translation', async
 });
 
 test('an unresolved mixed batch fails safely instead of writing incomplete translation lines', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(121));
+  const store = createMemoryLyricStore(multiBatchPendingArtifact(121, [0, 120]));
   let calls = 0;
   await runLyricAssetAiCompletion({
     env: {}, db: {}, song: makeSong(), store,

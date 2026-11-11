@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { getApiBaseUrl } from '../utils.js';
 import { usePlayerStore } from '../store/usePlayerStore.js';
 import { songLanguageHasLyrics } from '../constants/language.js';
-import { getPluginContribution } from '../plugins/contributions.js';
+import { requestLyricTranslation } from '../services/lyricsApi.js';
+import { getLocale } from '../i18n/index.js';
 import { authenticatedFetch } from '../services/authenticatedFetch.js';
 import { isLyricSourceId, LEGACY_LYRIC_SOURCES } from '../../../shared/lyricSources.js';
 
@@ -15,16 +16,12 @@ const ERROR_LYRICS = [{ time: 0, text: '歌词加载失败' }];
 const LYRICS_RETRY_DELAYS_MS = [1_500, 3_000];
 const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/;
 const VALID_SYNC_MODES = new Set(['word', 'line', 'none']);
-const validResolvedSource = source => isLyricSourceId(source) || source === 'manual' || source === 'youtube' || Object.hasOwn(LEGACY_LYRIC_SOURCES, source);
-const VALID_TRANSLATION_STATES = new Set(['unavailable', 'missing', 'pending', 'ready', 'failed']);
+const validResolvedSource = source => isLyricSourceId(source) || source === 'manual' || source === 'youtube'
+    || /^plugin:[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(source || '') || Object.hasOwn(LEGACY_LYRIC_SOURCES, source);
+const VALID_TRANSLATION_STATES = new Set(['unavailable', 'missing', 'idle', 'pending', 'ready', 'failed', 'not_needed']);
 const TRANSLATION_POLL_INTERVAL_MS = 2_000;
 const TRANSLATION_POLL_WINDOW_MS = 30_000;
 const pendingTranslationCompletions = new Map();
-const completePluginTranslation = songId => {
-    const complete = getPluginContribution('lyrics-workbench', 'translation-completion')?.actions.complete;
-    if (!complete) return Promise.reject(Object.assign(new Error('歌词工作台尚未安装或 AI 功能不可用。'), { code: 'PLUGIN_DEPENDENCY_UNAVAILABLE' }));
-    return complete(songId);
-};
 
 const waitForLyricsRetry = (delayMs, signal) => new Promise((resolve) => {
     if (signal?.aborted) { resolve(); return; }
@@ -91,15 +88,17 @@ export const normalizeLyricsResult = (value) => {
     if (placeholder && (!validStatus || status === 'ready')) status = 'unavailable';
     else if (!validStatus) status = 'ready';
     const noLyrics = placeholder || ['none', 'unavailable', 'error'].includes(status);
-    const translationAvailable = !noLyrics && hasTranslation(lyrics);
+    const translationAvailable = !noLyrics && (typeof value?.translationAvailable === 'boolean'
+        ? value.translationAvailable : hasTranslation(lyrics));
     const requestedTranslationState = VALID_TRANSLATION_STATES.has(value?.translationState)
         ? value.translationState
         : null;
     const translationState = noLyrics
         ? 'unavailable'
-        : requestedTranslationState === 'ready' && !translationAvailable
-            ? 'missing'
-            : requestedTranslationState || (translationAvailable ? 'ready' : 'unavailable');
+        : requestedTranslationState || (translationAvailable ? 'ready' : 'unavailable');
+    const translationSupported = !noLyrics && (typeof value?.translationSupported === 'boolean'
+        ? value.translationSupported
+        : translationAvailable || Boolean(value?.resultRef) && ['idle', 'missing', 'pending', 'failed'].includes(translationState));
     const translationStartedAt = translationState === 'pending'
         && Number.isFinite(Date.parse(value?.translationStartedAt))
         ? new Date(value.translationStartedAt).toISOString()
@@ -113,8 +112,13 @@ export const normalizeLyricsResult = (value) => {
         rawLrc: value?.rawLrc || '',
         tlyric: translationAvailable ? (value?.tlyric || '') : '',
         translationAvailable,
+        translationSupported,
         translationState,
         translationStartedAt,
+        translationError: typeof value?.translationError?.message === 'string'
+            ? { ...value.translationError } : null,
+        resultRef: typeof value?.resultRef === 'string' ? value.resultRef : null,
+        sourceId: typeof value?.sourceId === 'string' ? value.sourceId : null,
         offsetMs: Number.isInteger(value?.offsetMs) ? value.offsetMs : 0,
         provenance: value?.provenance && typeof value.provenance === 'object'
             ? { ...value.provenance }
@@ -176,8 +180,12 @@ export const createLyricsResultFromResponse = (payload, responseStatus = 200) =>
         rawLrc: data.lrc || '',
         tlyric: data.tlyric || '',
         translationAvailable: Boolean(data.translationAvailable),
-        translationState: data.translationState,
+        translationSupported: data.translation?.supported,
+        translationState: data.translation?.state || data.translationState,
         translationStartedAt: data.translationStartedAt,
+        translationError: data.translation?.error,
+        resultRef: data.resultRef,
+        sourceId: data.sourceId,
         offsetMs: data.offsetMs,
         provenance: data.provenance,
         updatedAt: data.updatedAt,
@@ -189,15 +197,16 @@ export const fetchLyricsAsset = async (song, options = {}) => {
     const requestOptions = options && typeof options === 'object' ? options : {};
     const requestKey = getLyricsRequestKey(song);
     const requestEpoch = getLyricsCacheEpoch(song?.id);
-    const shouldDedupe = requestOptions.dedupe !== false && !requestOptions.signal;
+    const shouldDedupe = requestOptions.dedupe !== false && !requestOptions.signal && !requestOptions.resultRef;
     const pendingRequest = shouldDedupe ? pendingLyricsRequests.get(requestKey) : null;
     if (pendingRequest?.epoch === requestEpoch) return pendingRequest.promise;
 
     const request = (async () => {
-        const url = `${getApiBaseUrl()}/api/lyrics?songId=${encodeURIComponent(song.id)}`;
+        const url = `${getApiBaseUrl()}/api/lyrics?songId=${encodeURIComponent(song.id)}`
+            + (requestOptions.resultRef ? `&resultRef=${encodeURIComponent(requestOptions.resultRef)}` : '');
         const response = requestOptions.signal
-            ? await authenticatedFetch(url, { credentials: 'include', cache: 'no-store', signal: requestOptions.signal })
-            : await authenticatedFetch(url, { credentials: 'include' });
+            ? await authenticatedFetch(url, { credentials: 'include', cache: 'no-store', signal: requestOptions.signal, headers: { 'Accept-Language': getLocale() } })
+            : await authenticatedFetch(url, { credentials: 'include', headers: { 'Accept-Language': getLocale() } });
         const payload = await response.json().catch(() => {
             const error = new Error('Invalid lyric response');
             error.status = response.status;
@@ -224,6 +233,8 @@ const setTranslationSnapshot = (state, snapshot) => {
     state.setTranslationAvailable(snapshot.available);
     state.setTranslationState?.(snapshot.state);
     state.setTranslationStartedAt?.(snapshot.startedAt);
+    state.setTranslationSupported?.(snapshot.supported);
+    state.setTranslationError?.(snapshot.error || null);
 };
 
 const mergeTranslationIntoExistingLyrics = (existingLyrics, incomingLyrics, { allowClear = false } = {}) => {
@@ -295,8 +306,12 @@ const applyLyricsDocumentSnapshot = (
         syncMode: result.syncMode,
         offsetMs: result.offsetMs,
         translationAvailable: result.translationAvailable,
+        translationSupported: result.translationSupported,
         translationState: result.translationState,
         translationStartedAt: result.translationStartedAt,
+        translationError: result.translationError,
+        resultRef: result.resultRef,
+        sourceId: result.sourceId,
     });
 };
 
@@ -310,6 +325,7 @@ export function createLyricsTranslationPoller({
     songId,
     lyricsRefreshRevision,
     startedAt,
+    resultRef = null,
     loadDocument,
     getPlayerState = usePlayerStore.getState,
     documentTarget = typeof document === 'undefined' ? null : document,
@@ -329,6 +345,7 @@ export function createLyricsTranslationPoller({
         const state = getPlayerState();
         return String(state.currentSong?.id) === String(songId)
             && state.lyricsRefreshRevision === lyricsRefreshRevision
+            && (!resultRef || state.lyricsResultRef === resultRef)
             && state.translationState === 'pending'
             ? state
             : null;
@@ -354,18 +371,13 @@ export function createLyricsTranslationPoller({
         clearScheduled();
         clearDeadline();
         cancelActiveRequest();
-        const state = getMatchingPendingState();
-        if (!state) return;
-        setTranslationSnapshot(state, {
-            available: Boolean(state.translationAvailable),
-            state: state.translationAvailable ? 'ready' : 'failed',
-            startedAt: null,
-        });
+        // Legacy responses have no stable result reference. Stop their bounded
+        // polling without inventing a failure that the source never reported.
     };
     const schedule = () => {
         clearScheduled();
         if (!isCurrentPending() || !isVisible()) return;
-        const remaining = getTranslationPollRemaining(startedAt, now());
+        const remaining = resultRef ? Number.POSITIVE_INFINITY : getTranslationPollRemaining(startedAt, now());
         timer = setTimer(() => void poll(remaining <= intervalMs), Math.min(intervalMs, remaining));
     };
     const poll = async (finalRead = false) => {
@@ -383,7 +395,7 @@ export function createLyricsTranslationPoller({
         }
         if (generation !== requestGeneration) return;
         if (!isCurrentPending()) return;
-        if (finalRead || getTranslationPollRemaining(startedAt, now()) <= 0) {
+        if (!resultRef && (finalRead || getTranslationPollRemaining(startedAt, now()) <= 0)) {
             expire();
             return;
         }
@@ -393,7 +405,7 @@ export function createLyricsTranslationPoller({
         clearScheduled();
         cancelActiveRequest();
         if (!isVisible() || !isCurrentPending()) return;
-        void poll(getTranslationPollRemaining(startedAt, now()) <= 0);
+        void poll(!resultRef && getTranslationPollRemaining(startedAt, now()) <= 0);
     };
     const stop = () => {
         stopped = true;
@@ -405,19 +417,19 @@ export function createLyricsTranslationPoller({
 
     documentTarget?.addEventListener?.('visibilitychange', handleVisibilityChange);
     schedule();
-    const deadlineRemaining = getTranslationPollRemaining(startedAt, now());
+    const deadlineRemaining = resultRef ? Number.POSITIVE_INFINITY : getTranslationPollRemaining(startedAt, now());
     if (deadlineRemaining <= 0) {
         expire();
-    } else {
+    } else if (!resultRef) {
         deadlineTimer = setTimer(expire, deadlineRemaining);
     }
-    return { stop, pollNow: () => poll(getTranslationPollRemaining(startedAt, now()) <= 0) };
+    return { stop, pollNow: () => poll(!resultRef && getTranslationPollRemaining(startedAt, now()) <= 0) };
 }
 
 export async function requestLyricsTranslationCompletion({
     songId,
     authenticated,
-    completeTranslation = completePluginTranslation,
+    completeTranslation = requestLyricTranslation,
     getPlayerState = usePlayerStore.getState,
     notify = () => {},
     now = Date.now,
@@ -430,27 +442,42 @@ export async function requestLyricsTranslationCompletion({
     }
     const current = getPlayerState();
     if (String(current.currentSong?.id) !== normalizedSongId) return { state: 'ignored' };
+    if (!current.lyricsResultRef || current.translationSupported === false) return { state: 'unavailable' };
+    if (current.translationState === 'ready') return { state: 'ready' };
     if (current.translationState === 'pending') return { state: 'pending' };
     const ownership = current.playbackOwnershipGeneration;
-    const requestKey = `${normalizedSongId}:${ownership}`;
+    const resultRef = current.lyricsResultRef;
+    const revision = current.lyricsRefreshRevision;
+    const requestKey = `${normalizedSongId}:${ownership}:${resultRef}`;
     const belongsToPlayback = latest => String(latest.currentSong?.id) === normalizedSongId
-        && latest.playbackOwnershipGeneration === ownership;
+        && latest.playbackOwnershipGeneration === ownership
+        && latest.lyricsRefreshRevision === revision
+        && latest.lyricsResultRef === resultRef;
     const duplicate = pendingTranslationCompletions.get(requestKey);
     if (duplicate) return duplicate;
 
     const previousAvailable = Boolean(current.translationAvailable);
     setTranslationSnapshot(current, {
         available: previousAvailable,
+        supported: current.translationSupported,
         state: 'pending',
         startedAt: new Date(now()).toISOString(),
+        error: null,
     });
     const request = (async () => {
         try {
-            const response = await completeTranslation(normalizedSongId);
+            const response = await completeTranslation(resultRef);
             const responseState = response?.data?.status;
             const serverStartedAt = response?.data?.translationStartedAt ?? response?.data?.startedAt;
             const latest = getPlayerState();
             if (!belongsToPlayback(latest)) return { state: responseState || 'pending' };
+            if (response?.data?.version === 2) {
+                const result = createLyricsResultFromResponse(response);
+                if (latest.lyrics?.length && !hasSameOriginalDocument(latest, result)) return { state: 'ignored' };
+                applyLyricsDocumentSnapshot(latest, result);
+                if (result.translationState === 'failed' && result.translationError?.message) notify(result.translationError.message);
+                return { state: result.translationState };
+            }
             if (responseState === 'not_needed') {
                 setTranslationSnapshot(latest, { available: false, state: 'unavailable', startedAt: null });
                 return { state: 'unavailable' };
@@ -470,6 +497,7 @@ export async function requestLyricsTranslationCompletion({
                     available: Boolean(latest.translationAvailable),
                     state: latest.translationAvailable ? 'ready' : 'failed',
                     startedAt: null,
+                    error: { code: error?.code || 'translation_request_failed', message: error?.message || '歌词翻译请求失败，请重试。' },
                 });
             }
             if (belongsToPlayback(latest)) notify(error?.message || '歌词翻译补全提交失败');
@@ -500,7 +528,9 @@ export async function loadLyricsDocumentIntoStore({
         store().setLyricFormat('none');
         store().setLyricSyncMode('none');
         store().setLyricOffsetMs(0);
-        setTranslationSnapshot(store(), { available: false, state: 'unavailable', startedAt: null });
+        setTranslationSnapshot(store(), { available: false, supported: false, state: 'unavailable', startedAt: null, error: null });
+        store().setLyricsResultRef?.(null);
+        store().setLyricSourceId?.(null);
     };
 
     if (!currentSong) {
@@ -519,11 +549,13 @@ export async function loadLyricsDocumentIntoStore({
         resetDocumentMetadata();
     }
 
-    const requestIdentity = { songId: currentSong.id, lyricsRefreshRevision };
+    const requestIdentity = { songId: currentSong.id, lyricsRefreshRevision,
+        ownership: store().playbackOwnershipGeneration };
     const isCurrent = () => (
         !isCancelled()
         && !signal?.aborted
         && store().currentSong?.id === requestIdentity.songId
+        && store().playbackOwnershipGeneration === requestIdentity.ownership
         && (requestIdentity.lyricsRefreshRevision === null
             || store().lyricsRefreshRevision === requestIdentity.lyricsRefreshRevision)
     );
@@ -556,6 +588,11 @@ export async function loadLyricsDocumentIntoStore({
         }
         if (!isCurrent()) return null;
         const currentState = store();
+        if (preserveExisting && currentState.lyricsResultRef && !hasSameOriginalDocument(currentState, result)) {
+            // Polling owns the selected result; a later chain result must not
+            // replace its body or attach translation to a different document.
+            return result;
+        }
         const syncQuality = { none: 0, line: 1, word: 2 };
         if (preserveExisting && currentState.lyrics?.length > 0
             && (syncQuality[result.syncMode] ?? 0) > (syncQuality[currentState.lyricSyncMode] ?? 0)) {
@@ -589,6 +626,13 @@ export async function loadLyricsDocumentIntoStore({
             store().setLyrics(ERROR_LYRICS);
             store().setLyricsStatus('error');
             resetDocumentMetadata();
+        } else if (error?.name !== 'AbortError' && Number(error?.status) >= 400) {
+            setTranslationSnapshot(store(), {
+                available: Boolean(store().translationAvailable),
+                supported: store().translationSupported,
+                state: 'failed', startedAt: null,
+                error: { code: error.code || error.reason || 'translation_read_failed', message: error.message },
+            });
         }
         return null;
     } finally {
@@ -601,6 +645,9 @@ export function useLyricsFetcher({ enabled = true } = {}) {
     const lyricsRefreshRevision = usePlayerStore((state) => state.lyricsRefreshRevision);
     const translationState = usePlayerStore((state) => state.translationState);
     const translationStartedAt = usePlayerStore((state) => state.translationStartedAt);
+    const translationSupported = usePlayerStore((state) => state.translationSupported);
+    const translationEnabled = usePlayerStore((state) => state.translationEnabled);
+    const resultRef = usePlayerStore((state) => state.lyricsResultRef);
     const resolvedHasLyrics = songLanguageHasLyrics(currentSong?.language);
 
     useEffect(() => {
@@ -616,22 +663,29 @@ export function useLyricsFetcher({ enabled = true } = {}) {
     }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision]);
 
     useEffect(() => {
-        if (!enabled || !currentSong || translationState !== 'pending' || !translationStartedAt) return undefined;
+        if (!enabled || !currentSong || translationState !== 'pending' || (!resultRef && !translationStartedAt)) return undefined;
         const poller = createLyricsTranslationPoller({
             songId: currentSong.id,
             lyricsRefreshRevision,
             startedAt: translationStartedAt,
+            resultRef,
             loadDocument: (signal) => loadLyricsDocumentIntoStore({
                 currentSong,
                 resolvedHasLyrics,
                 lyricsRefreshRevision,
                 preserveExisting: true,
-                fetchLyrics: (song) => fetchLyricsAsset(song, { signal, dedupe: false }),
+                fetchLyrics: (song) => fetchLyricsAsset(song, { signal, resultRef, dedupe: false }),
                 isCancelled: () => signal.aborted,
                 reportError: () => {},
             }),
         });
         return poller.stop;
-    }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision, translationStartedAt, translationState]);
+    }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision, translationStartedAt, translationState, resultRef]);
+
+    useEffect(() => {
+        if (!enabled || !currentSong || !translationEnabled || !translationSupported || !resultRef
+            || !['idle', 'missing'].includes(translationState)) return;
+        void requestLyricsTranslationCompletion({ songId: currentSong.id, authenticated: true });
+    }, [currentSong, enabled, translationEnabled, translationSupported, translationState, resultRef]);
 
 }

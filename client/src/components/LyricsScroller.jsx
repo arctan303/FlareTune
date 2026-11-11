@@ -34,7 +34,7 @@ export default function LyricsScroller({
     const [focusedLyricIndex, setFocusedLyricIndex] = React.useState(null);
     const iconStrokeWidth = 1.75;
     const resolvedTranslationState = translationState || (canTranslate ? 'ready' : 'unavailable');
-    const translationPending = resolvedTranslationState === 'pending';
+    const translationPending = resolvedTranslationState === 'pending' && translationEnabled;
     const translationReady = resolvedTranslationState === 'ready';
     usePlayerInteractionLock(surfaceVisible && isVolumePanelOpen);
 
@@ -488,7 +488,6 @@ export default function LyricsScroller({
                             type="button"
                             aria-label={translationPending ? t("歌词翻译补全中") : translationReady ? t("切换歌词翻译") : t("补全歌词翻译")}
                             aria-busy={translationPending || undefined}
-                            disabled={translationPending}
                             data-active={translationReady && translationEnabled}
                             data-translation-state={resolvedTranslationState}
                             onClick={(e) => {

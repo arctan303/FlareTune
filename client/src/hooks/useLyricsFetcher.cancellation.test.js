@@ -23,6 +23,9 @@ function createHarness({ failFirst = false } = {}) {
   state.setLyricsDocumentSnapshot = (snapshot) => {
     state.lyrics = snapshot.lyrics; state.lyricsStatus = snapshot.status;
     state.translationState = snapshot.translationState;
+    state.translationSupported = snapshot.translationSupported;
+    state.lyricsResultRef = snapshot.resultRef;
+    state.lyricSourceId = snapshot.sourceId;
   };
   const store = (selector) => selector(state);
   store.getState = () => state;
@@ -36,17 +39,23 @@ function createHarness({ failFirst = false } = {}) {
     effects[index] = { deps, cleanup: create() };
   } };
   const requests = [];
+  const translationRequests = [];
   const modules = {
     react,
     '../../../shared/lyricSources.js': lyricSources,
     '../utils.js': { getApiBaseUrl: () => '' },
     '../store/usePlayerStore.js': { usePlayerStore: store },
     '../constants/language.js': { songLanguageHasLyrics },
+    '../i18n/index.js': { getLocale: () => 'en' },
     '../utils/lyricTimeline.js': { getLyricVocalStart },
     '../services/localLyricsWorkspaceApi.js': { lyricsWorkspaceApi: {} },
+    '../services/lyricsApi.js': { requestLyricTranslation: async ref => {
+      translationRequests.push(ref);
+      return { data: { status: 'started', translationStartedAt: new Date().toISOString() } };
+    } },
     '../services/authenticatedFetch.js': { authenticatedFetch(url, options) {
       return new Promise((resolve, reject) => {
-        const request = { url, signal: options.signal, resolve, reject };
+        const request = { url, signal: options.signal, headers: options.headers, credentials: options.credentials, resolve, reject };
         requests.push(request);
         options.signal?.addEventListener('abort', () => reject(new DOMException('cancelled', 'AbortError')), { once: true });
         if (failFirst && requests.length === 1) reject(Object.assign(new Error('temporary'), { status: 503 }));
@@ -59,7 +68,7 @@ function createHarness({ failFirst = false } = {}) {
   }).code;
   new Function('require', 'module', 'exports', code)((name) => modules[name], module, module.exports);
   return {
-    state, requests,
+    state, requests, translationRequests,
     render(enabled = true) { cursor = 0; module.exports.useLyricsFetcher({ enabled }); },
     unmount() { effects.forEach((effect) => effect?.cleanup?.()); },
     load: module.exports.loadLyricsDocumentIntoStore,
@@ -71,12 +80,48 @@ const response = (text) => ({ status: 200, json: async () => ({ code: 200, data:
   lines: [{ time: 0, text }], translationState: 'unavailable',
 } }) });
 
+test('a retained show-translation preference requests the selected source through its signed result', async () => {
+  const harness = createHarness();
+  harness.state.translationEnabled = true;
+  harness.render();
+  harness.requests[0].resolve({ status: 200, json: async () => ({ code: 200, data: {
+    version: 2, source: 'plugin:example', sourceId: 'example', resultRef: 'opaque-source-result',
+    format: 'lrc', syncMode: 'line', lines: [{ time: 0, text: 'Original lyrics' }],
+    translation: { supported: true, state: 'idle', lines: [] }, translationAvailable: false,
+  } }) });
+  await flush();
+  harness.render();
+  await flush();
+  assert.deepEqual(harness.translationRequests, ['opaque-source-result']);
+  assert.equal(harness.state.translationState, 'pending');
+  harness.render();
+  assert.equal(harness.translationRequests.length, 1);
+  harness.unmount();
+});
+
+test('showing translation does not request a source that declares no capability', async () => {
+  const harness = createHarness();
+  harness.state.translationEnabled = true;
+  harness.render();
+  harness.requests[0].resolve({ status: 200, json: async () => ({ code: 200, data: {
+    version: 2, source: 'manual', resultRef: 'no-capability', format: 'lrc', syncMode: 'line',
+    lines: [{ time: 0, text: 'Original', translation: 'Existing text' }],
+    translation: { supported: false, state: 'idle', lines: [] }, translationAvailable: true,
+  } }) });
+  await flush(); harness.render(); await flush();
+  assert.equal(harness.state.translationSupported, false);
+  assert.deepEqual(harness.translationRequests, []);
+  harness.unmount();
+});
+
 test('global lyric consumer survives fullscreen changes and aborts only its superseded song request', async () => {
   const harness = createHarness();
   harness.render();
   assert.equal(harness.requests.length, 1);
   const first = harness.requests[0];
   assert.ok(first.signal instanceof AbortSignal);
+  assert.equal(first.headers['Accept-Language'], 'en');
+  assert.equal(first.credentials, 'include');
   harness.state.isFullScreen = false;
   harness.render();
   assert.equal(first.signal.aborted, false);

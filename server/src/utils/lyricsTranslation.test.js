@@ -139,7 +139,7 @@ test('quality prompt is versioned, separates context, and requests only lyric un
   });
   const payload = JSON.parse(messages[1].content);
 
-  assert.equal(getTranslationPromptVersion(), 'lyrics-zh-cn-v5-contextual-polish');
+  assert.equal(getTranslationPromptVersion(), 'lyrics-target-v6-contextual-polish');
   assert.match(messages[0].content, /信、达、雅/);
   assert.match(messages[0].content, /只翻译 units/);
   assert.match(messages[0].content, /\{"notNeeded":true\}/);

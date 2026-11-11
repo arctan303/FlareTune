@@ -19,7 +19,6 @@ import PlayerBarLyricPreview from './playerbar/PlayerBarLyricPreview.jsx';
 import ScrollingText from './playerbar/ScrollingText.jsx';
 import { useShallow } from 'zustand/react/shallow';
 import { requestLyricsTranslationCompletion } from '../hooks/useLyricsFetcher.js';
-import { usePluginAvailable } from '../hooks/usePluginAvailable.js';
 import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js';
 import { useFavoriteSongAction } from '../hooks/useFavoriteSongAction.js';
 import './fullscreen/player-interactions.css';
@@ -56,6 +55,8 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
         lyricSyncMode,
         translationEnabled,
         translationAvailable,
+        translationSupported,
+        translationError,
         translationState,
         toggleTranslation,
         setTranslationEnabled,
@@ -72,6 +73,8 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
         lyricSyncMode: state.lyricSyncMode,
         translationEnabled: state.translationEnabled,
         translationAvailable: state.translationAvailable,
+        translationSupported: state.translationSupported,
+        translationError: state.translationError,
         translationState: state.translationState,
         toggleTranslation: state.toggleTranslation,
         setTranslationEnabled: state.setTranslationEnabled,
@@ -90,7 +93,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
         immersiveControlsPinned,
         immersiveControlsVisible,
         authenticated,
-        canManageLyrics,
     } = useUIStore(useShallow((state) => ({
         isFullScreen: state.isFullScreen,
         isFullScreenClosing: state.isFullScreenClosing,
@@ -100,7 +102,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
         immersiveControlsPinned: state.immersiveControlsPinned,
         immersiveControlsVisible: state.immersiveControlsVisible,
         authenticated: Boolean(state.authSession?.authenticated),
-        canManageLyrics: state.authSession?.user?.role === 'admin',
     })));
     const { glassMaterial } = useThemeStore(useShallow((state) => ({
         glassMaterial: state.glassMaterial,
@@ -151,33 +152,30 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
     const isSidebarPlayer = !activeFullScreen && placement === 'sidebar';
     const isPlacementExit = !activeFullScreen && transition?.from === 'dock' && transition.phase === 'exit';
     const isHidden = (activeFullScreen && (!isDesktop || !isImmersiveMode)) || isSidebarPlayer || isPlacementExit;
-    const lyricsAiAvailable = usePluginAvailable('lyrics-workbench', 'ai');
-    const showTranslationButton = translationState !== 'unavailable'
-        && (translationState === 'ready' || (canManageLyrics && lyricsAiAvailable));
-    const translationPending = translationState === 'pending';
-    const translationReady = translationState === 'ready' && translationAvailable;
+    const showTranslationButton = translationSupported;
+    const translationPending = translationState === 'pending' && translationEnabled;
+    const translationReady = translationState === 'ready';
     const translationStatusMessage = translationPending
         ? '正在补全歌词翻译'
         : translationReady
             ? '歌词翻译已就绪'
             : translationState === 'failed'
-                ? '歌词翻译补全失败，可以点击重试'
+                ? translationError?.message || '歌词翻译补全失败，可以点击重试'
                 : '';
     const handleTranslationAction = React.useCallback((event) => {
         event?.stopPropagation?.();
-        if (translationPending) return;
-        if (translationReady) {
+        if (!translationSupported) return;
+        if (translationReady || translationState === 'pending') {
             toggleTranslation();
             return;
         }
-        if (!canManageLyrics || !lyricsAiAvailable) return;
         setTranslationEnabled(true);
         void requestLyricsTranslationCompletion({
             songId: currentSong?.id,
             authenticated,
             notify: showToast,
         });
-    }, [authenticated, canManageLyrics, lyricsAiAvailable, currentSong?.id, setTranslationEnabled, toggleTranslation, translationPending, translationReady]);
+    }, [authenticated, translationSupported, translationState, currentSong?.id, setTranslationEnabled, toggleTranslation, translationReady]);
     
     if (!currentSong) return null;
 
@@ -313,7 +311,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
                                                 ? t("歌词翻译补全失败，重试")
                                                 : t("补全歌词翻译")}
                                     aria-busy={translationPending || undefined}
-                                    disabled={translationPending}
                                     data-active={translationReady && translationEnabled}
                                     data-translation-state={translationState}
                                     onClick={handleTranslationAction}
@@ -337,6 +334,9 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
                                         <span aria-hidden="true" className="lyrics-translation-action__warning">!</span>
                                     )}
                                 </button>
+                            )}
+                            {translationEnabled && translationState === 'failed' && translationError?.message && (
+                                <span role="alert" className="absolute bottom-full right-0 mb-3 max-w-xs rounded-xl bg-[var(--surface)] border border-[var(--line)] px-3 py-2 text-xs text-[var(--ink)] shadow-lg">{translationError.message}</span>
                             )}
                             <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
                                 {t(translationStatusMessage)}

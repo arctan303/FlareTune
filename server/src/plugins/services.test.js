@@ -83,3 +83,27 @@ test('bulk setup retains exact consumer role, normal-session and context ownersh
   } };
   await assert.rejects(service({ ...f, registry, admin: true }, adminContext), { code: 'forbidden' });
 });
+
+test('a request identity hint saves one query but never bypasses live session or installation authority', async t => {
+  const f = setup(t), calls = countBindings(f.db);
+  const requestIdentity = { accountId: f.session.account.accountId, role: f.session.account.role };
+  const lease = await createPluginOperationLease({ ...f, pluginId: 'assistant', requestIdentity });
+  assert.equal(calls(), 2, 'one installation snapshot and one combined live predicate');
+  await assert.rejects(createPluginOperationLease({ ...f, pluginId: 'assistant',
+    requestIdentity: { ...requestIdentity, accountId: 'account-B' } }), { code: 'forbidden' });
+  await assert.rejects(createPluginOperationLease({ ...f, pluginId: 'assistant', requestIdentity,
+    session: { ...f.session, mode: 'password-change' } }), { code: 'forbidden' });
+  f.sqlite.prepare('UPDATE account_sessions SET revoked_at=? WHERE token_hash=?').run(Date.now(), f.session.tokenHash);
+  await assert.rejects(lease.assertCurrent(), { code: 'forbidden' });
+  await assert.rejects(createPluginOperationLease({ ...f, pluginId: 'assistant', requestIdentity }), { code: 'forbidden' });
+});
+
+test('operation identity and role checks use the current database role after a stale administrator hint', async t => {
+  const f = setup(t);
+  const requestIdentity = { accountId: f.session.account.accountId, role: 'admin' };
+  const session = { ...f.session, account: { ...f.session.account, role: 'admin' } };
+  const lease = await createPluginOperationLease({ ...f, session, pluginId: 'assistant', requestIdentity });
+  assert.equal(lease.identity.role, 'member');
+  assert.equal((await lease.assertCurrent()).role, 'member');
+  await assert.rejects(createPluginOperationLease({ ...f, session, pluginId: 'assistant', requestIdentity, admin: true }), { code: 'forbidden' });
+});

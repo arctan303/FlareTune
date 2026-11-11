@@ -142,6 +142,29 @@ test('manual selection is pending, batches changes and never activates or trigge
   assert.equal(status.pending.length, 0);
 });
 
+test('selection freezes new-install UI language through build activation while retaining existing installation language', async t => {
+  const f = await app(t, { manifests: [manifest(), manifest('second')] });
+  await f.registry.setInstalled(f.env, f.signed.session, 'sample', { installed: true, revision: 0 }, { uiLanguage: 'ja' });
+  const original = await f.registry.readInstallation(f.env, 'sample');
+  await f.config({ deployHookUrl: hook, buildToken: token });
+  await f.delivery.select(f.env, f.signed.session, { revision: (await f.get()).revision,
+    pluginId: 'second', installed: true }, { uiLanguage: 'ko-KR' });
+  const persisted = () => JSON.parse(f.sqlite.prepare('SELECT value_json FROM instance_settings WHERE key=?')
+    .get(PLUGIN_DELIVERY_KEY).value_json);
+  assert.equal(persisted().installationLanguages.second, 'ko');
+  await f.build();
+  assert.equal(persisted().build.installationLanguages.second, 'ko');
+  const snapshot = await f.delivery.snapshot(f.env, authorized());
+  Object.assign(f.deployment, { buildId: snapshot.buildId, planDigest: snapshot.planDigest, host,
+    plugins: snapshot.plugins.map(({ id, version, source }) => ({ id, version, source })) });
+  await f.delivery.report(f.env, authorized(), { buildId: snapshot.buildId, planDigest: snapshot.planDigest, status: 'deployed' });
+  assert.equal((await f.registry.readInstallation(f.env, 'second')).uiLanguage, 'ko');
+  const retained = await f.registry.readInstallation(f.env, 'sample');
+  assert.equal(retained.uiLanguage, 'ja'); assert.equal(retained.epoch, original.epoch);
+  await f.delivery.report(f.env, authorized(), { buildId: snapshot.buildId, planDigest: snapshot.planDigest, status: 'deployed' });
+  assert.equal((await f.registry.readInstallation(f.env, 'second')).uiLanguage, 'ko', 'duplicate acknowledgements do not relabel an installation');
+});
+
 test('compiled official packages retain their artifact provenance and existing administrator installation epoch', async t => {
   const source={type:'artifact',id:'official',url:'https://packages.example.net/sample.json',sha256:'c'.repeat(64)};
   const f=await app(t,{sources:{sample:source}});
