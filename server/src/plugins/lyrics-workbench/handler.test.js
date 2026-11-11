@@ -87,7 +87,8 @@ test('Gateway uninstall during an external AI save source check prevents the raw
     songStillExists: async () => { if (afterReply && ++checks === 2) { entered.resolve(); await released.promise; } return true; },
     aiDeps: { reserveDailyQuota: async () => true, createGatewayClient: async params => {
       const lease = await createPluginServiceLease({ ...params, providerId: 'ai-gateway', registry: f.registry });
-      return { config: params.legacyConfig, assertCurrent: lease.assertCurrent, guardedDb: lease.guardedDb,
+      assert.deepEqual(params.configuration, { slot: 'ai-model' });
+      return { config: { provider: 'deepseek', model: 'fixture-model', generationOptions: { temperature: 0.2 } }, assertCurrent: lease.assertCurrent, guardedDb: lease.guardedDb,
         ask: async () => { asked.resolve(); await reply.promise; return { translations: [{ unitId: 0, text: 'Late translation' }] }; } };
     } } });
   await f.install(); await f.install('ai-gateway');
@@ -103,7 +104,8 @@ test('Gateway retirement during manual AI cannot commit a translation or inferre
   f = await app(t, { aiDeps: { reserveDailyQuota: async () => true,
     createGatewayClient: async params => {
       const lease = await createPluginServiceLease({ ...params, providerId: 'ai-gateway', registry: f.registry });
-      return { config: params.legacyConfig, assertCurrent: lease.assertCurrent, guardedDb: lease.guardedDb,
+      assert.deepEqual(params.configuration, { slot: 'ai-model' });
+      return { config: { provider: 'deepseek', model: 'fixture-model', generationOptions: { temperature: 0.2 } }, assertCurrent: lease.assertCurrent, guardedDb: lease.guardedDb,
         ask: async () => { entered.resolve(); return reply.promise; } };
     } } });
   await f.install(); await f.install('ai-gateway');
@@ -141,7 +143,8 @@ test('ordinary playback without the optional plugins preserves saved assets and 
     aiDeps: { registry: f.registry, reserveDailyQuota: async () => true,
       createGatewayClient: async params => {
         const lease = await createPluginServiceLease({ ...params, providerId: 'ai-gateway', registry: f.registry });
-        return { config: params.legacyConfig, assertCurrent: lease.assertCurrent, guardedDb: lease.guardedDb,
+        assert.deepEqual(params.configuration, { slot: 'ai-model' });
+        return { config: { provider: 'deepseek', model: 'fixture-model', generationOptions: { temperature: 0.2 } }, assertCurrent: lease.assertCurrent, guardedDb: lease.guardedDb,
           ask: async () => { calls++; return { translations: [{ unitId: 0, text: '你好' }] }; } };
       } } };
   const read = () => readPlaybackLyrics({ env: f.env, db: f.db, song: { id: 's1', language: 'en' },

@@ -17,6 +17,9 @@ async function app(t, length = 144) {
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(saved.artifact)), type: 'application/json' });
   f.env.DEEPSEEK_API_KEY = 'fixture-key';
   for (const id of ['lyrics-workbench', 'ai-gateway']) await pluginRegistry.setInstalled(f.env, f.signed.session, id, { installed: true, revision: 0 });
+  const initialized = await f.api('admin/plugins/lyrics-workbench/model/initialize', 'POST', { expectedRevision: 0 }, f.signed,
+    { 'X-FlareTune-Plugin-Build': pluginRegistry.getBuildDigest('lyrics-workbench') });
+  assert.equal(initialized.status, 200, await initialized.clone().text());
   const tasks = [], calls = []; let nativeLimit = 0;
   const prepare = f.db.prepare.bind(f.db), batch = f.db.batch.bind(f.db);
   const spend = method => { calls.push(method); if (calls.length > 50) { nativeLimit++; throw new Error('D1 native Free binding limit'); } };
@@ -120,7 +123,7 @@ test('members can invoke shared AI but not draft AI; a draft administrator downg
   const g = await app(t, 16), batch = g.db.batch.bind(g.db); let downgraded = false;
   g.db.batch = async statements => {
     const before = g.db.queries.length, result = await batch(statements);
-    if (!downgraded && g.db.queries.slice(before).some(sql => sql.includes('ai_feature_assignments'))) {
+    if (!downgraded && g.db.queries.slice(before).some(sql => sql.includes('SELECT value_json,revision FROM instance_settings WHERE key=?'))) {
       downgraded = true; g.sqlite.prepare("UPDATE accounts SET role='member' WHERE account_id=?").run(g.owner);
     }
     return result;

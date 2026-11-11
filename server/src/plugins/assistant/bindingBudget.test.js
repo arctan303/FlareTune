@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture as directFixture } from '../../routes/localAssistant.fixture.js';
 import { fixture as httpFixture } from '../../subsonic/test-support.js';
-import { assistantBuildHeaders } from './test-support.js';
+import { assistantBuildHeaders, prepareAssistantModelFixture } from './test-support.js';
 import { chatWithAssistantTools } from './handler.js';
 
 function countBindings(db, ceiling = 50) {
@@ -40,6 +40,7 @@ test('a full authenticated HTTP stream stays within 50 D1 binding calls', async 
   const f = await httpFixture(); t.after(() => f.close());
   for (const id of ['ai-gateway', 'assistant']) f.sqlite.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
     VALUES (?,?,1,1,?)`).run(`plugin.installation.${id}`, JSON.stringify({ installed: true, epoch: crypto.randomUUID() }), f.owner);
+  prepareAssistantModelFixture(f.sqlite, { accountId: f.owner });
   f.env.DEEPSEEK_API_KEY = 'test-private-key';
   const original = globalThis.fetch; t.after(() => { globalThis.fetch = original; });
   globalThis.fetch = async () => new Response(
@@ -58,6 +59,7 @@ test('a real HTTP network stream saves a resumable failure before 50 and can con
   const f = await httpFixture(); t.after(() => f.close());
   for (const id of ['ai-gateway', 'assistant']) f.sqlite.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
     VALUES (?,?,1,1,?)`).run(`plugin.installation.${id}`, JSON.stringify({ installed: true, epoch: crypto.randomUUID() }), f.owner);
+  prepareAssistantModelFixture(f.sqlite, { accountId: f.owner });
   f.env.DEEPSEEK_API_KEY = 'test-private-key';
   const original = globalThis.fetch; t.after(() => { globalThis.fetch = original; });
   let first = true;

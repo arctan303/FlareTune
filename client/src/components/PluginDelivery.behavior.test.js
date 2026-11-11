@@ -21,7 +21,7 @@ function subject(file, exportName = 'default') {
       './PluginConfirmDialog.jsx': 'confirmation', './PluginDeliveryView.jsx': { PluginDeliveryStatus: 'delivery-status' },
       '../hooks/usePluginDelivery.js': { activePluginBuild }, '../services/pluginDelivery.js': { deliveryErrorMessage: error => error } }, globals: { crypto },
   });
-  return { ...harness, data, delivery, writes, view: () => harness.render({ delivery, renderLinks: () => 'links', renderOverviewLink: () => 'overview' }) };
+  return { ...harness, data, delivery, writes, view: (props = {}) => harness.render({ delivery, renderLinks: () => 'links', renderOverviewLink: () => 'overview', ...props }) };
 }
 
 test('discovery installs only after confirmation and does not change the running list', async () => {
@@ -48,6 +48,28 @@ test('the installed list offers newer versions only and locks selection during b
   s.data.build = { status: 'building' };
   assert.equal(button(s.view(), '更新插件').props.disabled, true);
   assert.equal(button(s.view(), '卸载插件').props.disabled, true);
+  s.unmount();
+});
+
+test('catalog identity links retain source/version and compact uninstall remains named and confirmed', async () => {
+  const s = subject('./PluginCatalogView.jsx');
+  s.data.running = [row('1.1.0')]; s.data.desired = [row('1.1.0')];
+  const identities = [], primaryOptions = [];
+  const tree = s.view({ renderOverviewLink: (entry, props) => {
+    identities.push(entry);
+    return { type: 'a', props: { href: `/plugins/${entry.id}/overview?source=${entry.sourceId}&version=${entry.version}`, ...props, children: [props.children] } };
+  }, renderLinks: (_id, options) => { primaryOptions.push(options); return 'links'; } });
+  const link = nodes(tree).find(node => node.type === 'a');
+  assert.match(link.props.href, /source=workspace&version=1\.1\.0/);
+  assert.match(text(link), /Test plugin/); assert.match(text(link), /Fixture/);
+  assert.equal(identities[0].version, '1.1.0'); assert.equal(primaryOptions[0].compact, true);
+  const uninstall = button(tree, '卸载插件');
+  assert.equal(uninstall.props['aria-label'], '卸载插件');
+  assert.equal(uninstall.props.title, '卸载插件');
+  uninstall.props.onClick(); assert.deepEqual(s.writes, []);
+  await nodes(s.view()).find(node => node.type === 'confirmation').props.onConfirm();
+  assert.deepEqual(s.writes, [['/selection', 'PUT', { pluginId: 'test-plugin', installed: false, sourceId: 'workspace', version: '1.1.0', trustCode: true }]]);
+  assert.equal(s.data.running[0].version, '1.1.0');
   s.unmount();
 });
 

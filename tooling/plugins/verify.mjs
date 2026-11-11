@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { compiledPluginManifests } from '../../shared/plugins/catalog.js';
 import { canonicalPluginManifest, HOST_PLUGIN_API_VERSION } from '../../shared/plugins/manifest.js';
 import { createPluginHostBuild, collectPluginHostSources } from './host-identity.mjs';
+import { assertNoDevSourceOverride } from './dev-source.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const digest = data => createHash('sha256').update(data).digest('hex');
@@ -37,6 +38,7 @@ export async function createPluginLock() {
   return { schemaVersion: 1, hostApiVersion: HOST_PLUGIN_API_VERSION, host, plugins };
 }
 export async function verifyPluginLock({ update = false } = {}) {
+  await assertNoDevSourceOverride(root);
   const lock = await createPluginLock();
   const lockPath = resolve(root, 'plugins.lock.json');
   const metadata = lock.plugins.map(({ sources, source, ...entry }) => entry);

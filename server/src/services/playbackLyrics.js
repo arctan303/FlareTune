@@ -136,7 +136,9 @@ export async function readPlaybackLyrics({ env, db, song, accountId, executionCo
   if (needsAutomaticAi) {
     try {
       const started = await (deps.beginCompletion || beginLyricAssetAiCompletion)({
-        env, db: aiLease.guardedDb(db), song, store: aiStore, actorAccountId: accountId, force: true, targetLanguage, automatic: true,
+        // The consumer binds this store to the saved model and the same lease.
+        // Passing aiStore would layer the old lease-only guard around it again.
+        env, db: aiLease.guardedDb(db), song, store, actorAccountId: accountId, force: true, targetLanguage, automatic: true,
         deps: { ...deps.aiDeps, session: deps.session, consumerContext: deps.consumerContext,
           subsonicPrincipal: deps.subsonicPrincipal, aiLease, lyricConfig, registry: deps.registry, signal },
       });

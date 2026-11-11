@@ -42,9 +42,14 @@ function r2() {
 async function call(db, path, { accountId = 'owner', method = 'GET', bucket, deps } = {}) {
   const request = new Request(`https://flaretune.test${path}`, { method });
   const env = bucket ? { MEDIA_BUCKET: bucket } : {};
+  const aiDeps = testLyricsAiDeps(deps?.aiDeps);
+  // Playback already supplies the loaded lyric policy to the consumer. Arrange
+  // that same policy in the isolated Gateway fake before it receives the new
+  // saved-selection request, which carries no legacyConfig payload.
+  if (deps?.aiDeps) await aiDeps.loadLyricAiConfig(db, { getLegacy: aiDeps.getAIAssistantConfig });
   return handleLocalMetadataReadRoute(request, new URL(request.url), db, { 'X-Test': 'metadata' }, accountId, env,
     { ...deps, session: { mode: 'normal', account: { accountId, role: 'member' } }, createAiLease: testLyricsAiLease,
-      aiDeps: testLyricsAiDeps(deps?.aiDeps) });
+      aiDeps });
 }
 
 test('route is closed without a normal local account and only handles canonical paths', async () => {

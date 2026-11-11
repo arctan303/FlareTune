@@ -13,6 +13,7 @@ export const pluginSdkImports = Object.freeze({
   "@flaretune/plugin-sdk/client/typewriter": Object.freeze({"target":"client/src/aiResponseTypewriter.js","side":"client"}),
   "@flaretune/plugin-sdk/server/admin-common": Object.freeze({"target":"server/src/plugins/sdk/admin-common.js","side":"server"}),
   "@flaretune/plugin-sdk/server/service-leases": Object.freeze({"target":"server/src/plugins/sdk/service-leases.js","side":"server"}),
+  "@flaretune/plugin-sdk/server/service-config": Object.freeze({"target":"server/src/plugins/sdk/service-config.js","side":"server"}),
   "@flaretune/plugin-sdk/server/plugin-common": Object.freeze({"target":"server/src/plugins/sdk/plugin-common.js","side":"server"}),
   "@flaretune/plugin-sdk/server/subsonic-principal": Object.freeze({"target":"server/src/plugins/sdk/subsonic-principal.js","side":"server"}),
   "@flaretune/plugin-sdk/server/http-security": Object.freeze({"target":"server/src/plugins/sdk/http-security.js","side":"server"}),

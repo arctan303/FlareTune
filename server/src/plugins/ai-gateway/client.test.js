@@ -65,7 +65,7 @@ test('credential resolution stays in Gateway and only safe config/model identity
   assert.doesNotMatch(client.identity, /private-key/);
   assert.ok(Object.isFrozen(client.config));
   await client.chat([{ role: 'user', content: 'hi' }], [], { enableThinking: false });
-  assert.equal(execution.key, 'gateway-db-private-key');
+  assert.equal(execution.key, undefined, 'public executor injection cannot receive gateway credentials');
   assert.equal(execution.config.enableThinking, false);
   await assert.rejects(client.chat([], [], { provider: 'openai' }), { code: 'PLUGIN_SERVICE_OVERRIDE_FORBIDDEN' });
 });

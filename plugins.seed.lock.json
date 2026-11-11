@@ -3,7 +3,7 @@
   "plugins": [
     {
       "id": "ai-gateway",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "manifest": {
         "apiVersion": 1,
         "capabilityRoles": [
@@ -13,7 +13,7 @@
         "defaultLocale": "en",
         "description": "AI 渠道、模型、协议和密钥管理，为已安装的 AI 插件提供调用能力。",
         "entries": [],
-        "hostApiVersion": 2,
+        "hostApiVersion": 3,
         "icon": "settings",
         "id": "ai-gateway",
         "messages": {
@@ -126,18 +126,18 @@
           "ja",
           "ko"
         ],
-        "version": "0.1.0"
+        "version": "0.2.0"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/38c4278eaec7f09d77cce1f3ea2f143b901a35ea/artifacts/ai-gateway/0.1.0/9f39d67f73327c1e07b1947139025fad61357a24284c77417443656748c9a6ca.json",
-        "sha256": "9f39d67f73327c1e07b1947139025fad61357a24284c77417443656748c9a6ca"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/ffc640872054a7321ed1266e3a6c0f0215f104ae/artifacts/ai-gateway/0.2.0/ac560ef1febc7e56b30059c929fc36892f486510afc0a5c055ebdc38e504890a.json",
+        "sha256": "ac560ef1febc7e56b30059c929fc36892f486510afc0a5c055ebdc38e504890a"
       }
     },
     {
       "id": "assistant",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "manifest": {
         "apiVersion": 1,
         "capabilityRoles": [
@@ -148,7 +148,8 @@
         "defaultLocale": "en",
         "dependencies": {
           "ai-gateway": {
-            "apiVersion": 1
+            "apiVersion": 1,
+            "version": "^0.2.0"
           }
         },
         "description": "通过对话查询音乐、控制播放并管理本人的记忆和歌单。",
@@ -195,7 +196,7 @@
             "slot": "sidebar.secondary"
           }
         ],
-        "hostApiVersion": 2,
+        "hostApiVersion": 3,
         "icon": "message",
         "id": "assistant",
         "messages": {
@@ -337,6 +338,11 @@
             "scope": "instance"
           }
         ],
+        "serviceConfigurations": {
+          "ai-gateway": [
+            "ai-model"
+          ]
+        },
         "supportedLocales": [
           "zh",
           "zh-Hant",
@@ -344,18 +350,18 @@
           "ja",
           "ko"
         ],
-        "version": "0.1.0"
+        "version": "0.2.0"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/38c4278eaec7f09d77cce1f3ea2f143b901a35ea/artifacts/assistant/0.1.0/b3a525ddeb5181f92979537589af397638ebb3bb5597aa091beb25b3af12ea93.json",
-        "sha256": "b3a525ddeb5181f92979537589af397638ebb3bb5597aa091beb25b3af12ea93"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/ffc640872054a7321ed1266e3a6c0f0215f104ae/artifacts/assistant/0.2.0/589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d.json",
+        "sha256": "589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d"
       }
     },
     {
       "id": "lyrics-workbench",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "manifest": {
         "apiVersion": 1,
         "capabilityRoles": [
@@ -409,7 +415,7 @@
             "slot": "sidebar.secondary"
           }
         ],
-        "hostApiVersion": 2,
+        "hostApiVersion": 3,
         "icon": "lyrics",
         "id": "lyrics-workbench",
         "messages": {
@@ -507,7 +513,8 @@
             "apiVersion": 1,
             "features": [
               "ai"
-            ]
+            ],
+            "version": "^0.2.0"
           }
         },
         "pages": [
@@ -562,6 +569,11 @@
             "scope": "instance"
           }
         ],
+        "serviceConfigurations": {
+          "ai-gateway": [
+            "ai-model"
+          ]
+        },
         "supportedLocales": [
           "zh",
           "zh-Hant",
@@ -569,13 +581,13 @@
           "ja",
           "ko"
         ],
-        "version": "0.1.0"
+        "version": "0.2.0"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/38c4278eaec7f09d77cce1f3ea2f143b901a35ea/artifacts/lyrics-workbench/0.1.0/745740774823f8ba39e439e32bffc25c41dfff1788af591ead91ab86e13b430c.json",
-        "sha256": "745740774823f8ba39e439e32bffc25c41dfff1788af591ead91ab86e13b430c"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/ffc640872054a7321ed1266e3a6c0f0215f104ae/artifacts/lyrics-workbench/0.2.0/65a28f2231ccabaef2bc0bb1fd0896ff4aecae56ec0beefe4595a7bc77d8f12d.json",
+        "sha256": "65a28f2231ccabaef2bc0bb1fd0896ff4aecae56ec0beefe4595a7bc77d8f12d"
       }
     },
     {

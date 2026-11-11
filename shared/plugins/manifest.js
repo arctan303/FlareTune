@@ -1,4 +1,4 @@
-export const HOST_PLUGIN_API_VERSION = 2;
+export const HOST_PLUGIN_API_VERSION = 3;
 const identifier = value => typeof value === 'string' && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value) && value.length <= 80;
 const versionParts = value => {
   if (typeof value !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) return null;
@@ -157,6 +157,18 @@ export function validatePluginManifests(manifests) {
       entries.add(entry.id);
     }
     const features = new Set();
+    if (manifest.serviceConfigurations !== undefined) {
+      if (!plain(manifest.serviceConfigurations) || Object.keys(manifest.serviceConfigurations).length > 16) invalid();
+      let count = 0;
+      for (const [providerId, configurations] of Object.entries(manifest.serviceConfigurations)) {
+        if (!identifier(providerId) || providerId === manifest.id
+          || (!Object.hasOwn(manifest.dependencies || {}, providerId) && !Object.hasOwn(manifest.optionalDependencies || {}, providerId))
+          || !Array.isArray(configurations) || !configurations.length || configurations.length > 16
+          || configurations.some(slot => !identifier(slot)) || new Set(configurations).size !== configurations.length) invalid();
+        count += configurations.length;
+      }
+      if (count > 32) invalid();
+    }
     for (const key of ['dependencies', 'optionalDependencies']) {
       if (manifest[key] === undefined) continue;
       if (!plain(manifest[key])) invalid();

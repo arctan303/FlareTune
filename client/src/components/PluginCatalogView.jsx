@@ -2,7 +2,6 @@ import React from 'react';
 import { t, useLocale } from '../i18n/index.js';
 import { localizePlugin } from '../plugins/registry.js';
 import SelectControl from './SelectControl.jsx';
-import SettingsSection from './SettingsSection.jsx';
 import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import PluginConfirmDialog from './PluginConfirmDialog.jsx';
 import { PluginDeliveryStatus } from './PluginDeliveryView.jsx';
@@ -50,23 +49,32 @@ export default function PluginCatalogView({ delivery, renderLinks, renderOvervie
       const availableUpdate = data.catalog.filter(item => item.id === row.id && item.sourceId === row.sourceId && item.version !== row.version
         && compareVersions(item.version, row.version) > 0).sort((a, b) => compareVersions(b.version, a.version))[0];
       const availabilityNode = current && renderAvailability ? renderAvailability(row.id) : null;
-      return <SettingsSection key={`${row.sourceId}:${row.id}:${row.version}`} title={plugin.name}
-        meta={`${row.version} · ${row.sourceId === 'workspace' ? t('当前部署') : row.sourceName}`}
-        description={plugin.description}
-        action={<SettingsActions>
-          {current && renderLinks(row.id)}
-          {renderOverviewLink(row)}
+      return <section key={`${row.sourceId}:${row.id}:${row.version}`} className="plugin-catalog-card wallpaper-content-surface">
+        <div className="plugin-catalog-card__header">
+          {renderOverviewLink(row, { presentation: 'summary', className: 'plugin-catalog-card__summary', children: <>
+            <div className="plugin-catalog-card__identity">
+              <h2>{plugin.name}</h2>
+              <span className="plugin-catalog-card__meta">{row.version}{' · '}{row.sourceId === 'workspace' ? t('当前部署') : row.sourceName}</span>
+            </div>
+            <p className="plugin-catalog-card__description">{plugin.description}</p>
+          </> })}
+          <SettingsActions className="plugin-catalog-card__actions">
+          {current && renderLinks(row.id, { compact: true })}
           {tab === 'installed' ? <>
             {availableUpdate && <SettingsButton disabled={locked || !!changed} onClick={() => setConfirmation({ row: availableUpdate, operation: 'update' })}>{t('更新插件')}</SettingsButton>}
-            <SettingsButton variant="danger" disabled={locked || !target} onClick={() => setConfirmation({ row, operation: 'uninstall' })}>{t('卸载插件')}</SettingsButton>
+            <SettingsButton variant="danger" className="plugin-icon-action" aria-label={t('卸载插件')} title={t('卸载插件')} disabled={locked || !target} onClick={() => setConfirmation({ row, operation: 'uninstall' })}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg>
+              <span className="sr-only">{t('卸载插件')}</span>
+            </SettingsButton>
           </> : current ? <span className="px-2 text-xs font-medium text-[var(--muted)]">{t('已安装')}</span> : <SettingsButton variant="primary" disabled={locked || selected}
             onClick={() => setConfirmation({ row, operation: running ? 'update' : 'install' })}>{t(selected ? '已加入待应用变更' : running ? '更新插件' : '安装插件')}</SettingsButton>}
-        </SettingsActions>}>
-        {(changed || availabilityNode) && <div className="space-y-2 text-sm text-[var(--muted)]">
+          </SettingsActions>
+        </div>
+        {(changed || availabilityNode) && <div className="plugin-catalog-card__state space-y-2 text-sm text-[var(--muted)]">
           {changed && <p role="status" className="text-xs font-medium text-[var(--accent)]">{t(changed.operation === 'uninstall' ? '待卸载' : changed.operation === 'update' ? '待更新' : '待安装')}</p>}
           {availabilityNode}
         </div>}
-      </SettingsSection>;
+      </section>;
     })}
     {!rows.length && <p role="status" className="text-sm text-[var(--muted)]">{t(tab === 'installed' ? '暂无已安装插件，可前往发现插件。' : '此来源暂无可发现的插件，请到来源与部署刷新目录。')}</p>}
     {confirmation && <PluginConfirmDialog installed={confirmation.operation === 'uninstall'} operation={confirmation.operation} deferred

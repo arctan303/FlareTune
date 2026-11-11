@@ -8,6 +8,8 @@ FlareTune runs its web player, accounts and library service on Cloudflare Worker
 
 **[Try the live demo](https://flaretune.arcinks.com)** · [Deploy your library](#deploy-your-library) · [User guide](guide/using-flaretune.en.md) · [Changelog](CHANGELOG.en.md)
 
+> **Release and upgrade notice:** the current stable release is **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**. The **1.3.0 plugin milestone remains a local candidate and has not been released**. Preservation of existing data and settings still requires an actual 1.2.1-to-candidate upgrade test; lossless upgrades have not been established for general deployments. A maintainer-specific manual reinstall exception is not an upgrade procedure for everyone. See [Plugin sources and deployment](guide/plugin-deployment.en.md) ([简体中文](guide/plugin-deployment.md)) for host versions, pinned packages, build setup and recovery boundaries.
+
 ## Try it with music
 
 The demo needs no sign-in and uses music licensed for public redistribution. Play, search, roam, favorite tracks and edit personal playlists. Favorites, history and preferences stay in your browser. A simulated administrator opens the same full pages and settings as a real installation. Local preferences such as language and appearance can be changed; administrative configuration can be inspected. Send assistant messages and receive a fixed demo reply without calling a model. See [demo details and licenses](guide/demo.en.md).
@@ -46,6 +48,7 @@ Initial database setup runs inside the application; no manual migration command 
 | [User guide](guide/using-flaretune.en.md) | Playback, roaming, playlists, assistant and preferences |
 | [Administration](guide/administration.en.md) | Library, accounts, instance configuration and data |
 | [Deployment](guide/deployment.en.md) | Installation, allowances, secrets, backups and upgrades |
+| [Plugin sources and deployment](guide/plugin-deployment.en.md) | Permissions, pinned versions, build channels, host upgrades and recovery |
 | [Demo](guide/demo.en.md) | Browser data, full settings, fixed assistant replies and music sources |
 | [Local development](guide/local-development.en.md) | React/Vite/Workers development and checks |
 | [All docs](guide/README.en.md) | User, administrator and client documentation |

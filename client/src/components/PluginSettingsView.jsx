@@ -19,9 +19,9 @@ const navigate = (event, route) => {
   if (event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
   event.preventDefault(); syncBrowserHistory(formatPath(route));
 };
-export function PluginLink({ route, children, className = '' }) {
+export function PluginLink({ route, children, className = '', presentation = 'button', ...props }) {
   return <a href={formatPath(route)} onClick={event => navigate(event, route)}
-    className={'settings-button no-underline ' + className}>{children}</a>;
+    {...props} className={(presentation === 'button' ? 'settings-button ' : '') + 'no-underline ' + className}>{children}</a>;
 }
 
 export const pluginAvailabilityMessage = reason => ({
@@ -96,14 +96,16 @@ export default function PluginSettingsView({ route, session }) {
   if (!session?.authenticated) return <p role="alert">{t('请先登录后使用插件。')}</p>;
   if (denied) return <p role="alert">{t('仅管理员可管理站点插件。')}</p>;
   const title = plugin ? selected?.labelKey ? selected.label : t(selected?.label || '概览') : t(section === 'delivery' ? '来源与部署' : '插件列表');
-  const links = (item, state) => {
+  const links = (item, state, { compact = false } = {}) => {
     const itemPages = getPluginPages(item, { isAdmin, installed: true, available: state?.available, authenticated: true });
     const service = itemPages.find(page => page.kind === 'service');
     const settings = itemPages.find(page => page.kind === 'settings' && page.id !== 'overview');
     if (!service && !settings) return null;
     return <>
-      {service && <PluginLink route={detailRoute(item.id, service.id)}>{t('打开')}</PluginLink>}
-      {settings && <PluginLink route={detailRoute(item.id, settings.id)}>{t('设置')}</PluginLink>}
+      {service && <PluginLink route={detailRoute(item.id, service.id)} className="settings-button--primary">{t('打开')}</PluginLink>}
+      {settings && <PluginLink route={detailRoute(item.id, settings.id)} className={compact ? 'plugin-icon-action' : ''} aria-label={t('设置')} title={t('设置')}>
+        {compact ? <><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.6 2.4-2 .9-2.2-.7L3 9.4 4.6 11v2L3 14.6l2.2 3.8 2.2-.7 2 .9.6 2.4h4l.6-2.4 2-.9 2.2.7 2.2-3.8-1.6-1.6v-2L21 9.4l-2.2-3.8-2.2.7-2-.9L14 3z" /><circle cx="12" cy="12" r="3" /></svg><span className="sr-only">{t('设置')}</span></> : t('设置')}
+      </PluginLink>}
     </>;
   };
   const entries = resource.plugins.filter(entry => entry.installed)
@@ -122,8 +124,8 @@ export default function PluginSettingsView({ route, session }) {
             : <>
               {section === 'delivery' ? <PluginDeliveryView key={session.user.accountId + session.csrfToken} delivery={delivery} />
                 : <PluginCatalogView key={session.user.accountId + session.csrfToken} delivery={delivery}
-                  renderOverviewLink={entry => <PluginLink route={{ ...detailRoute(entry.id), catalogSource: entry.sourceId, catalogVersion: entry.version }}>{t('查看插件')}</PluginLink>}
-                  renderLinks={id => links(getPlugin(id), availabilityFor(id))}
+                  renderOverviewLink={(entry, props = {}) => <PluginLink route={{ ...detailRoute(entry.id), catalogSource: entry.sourceId, catalogVersion: entry.version }} {...props}>{props.children || t('查看插件')}</PluginLink>}
+                  renderLinks={(id, options) => links(getPlugin(id), availabilityFor(id), options)}
                   renderAvailability={id => { const item = getPlugin(id); return item ? <PluginAvailability plugin={item} availability={availabilityFor(id)} /> : null; }} />}
               {delivery.error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(delivery.error)}</p>}
             </>
@@ -133,36 +135,40 @@ export default function PluginSettingsView({ route, session }) {
                   ? <PluginContentBoundary key={[plugin.id, selected.id, row?.revision, row?.version, session.user.accountId, session.csrfToken].join(':')}
                     plugin={plugin} page={selected} section={selected.id} session={session} revision={row?.revision} version={row?.version} />
                   : <p role="alert">{t(!installed || !availability?.available ? pluginAvailabilityMessage(availability?.reason || 'not_installed') : '你没有访问此插件页面的权限。')}</p>
-                  : <SettingsSection title={metadataText(plugin, 'name')}>
-                    <div className="space-y-3 text-sm leading-relaxed text-[var(--muted)]">
+                  : <div className="plugin-overview">
+                    <SettingsSection title={metadataText(plugin, 'name')} className="plugin-overview__intro"
+                      meta={<><span className="plugin-overview__version"><span className="sr-only">{t('版本')}{' '}</span>{plugin.version}</span><span className="plugin-overview__status">{t(installed ? '已安装' : '未安装')}</span></>}
+                      action={installed && <SettingsActions>
+                        {links(plugin, availability)}
+                        {isAdmin && availability?.reason === 'data_migration_required' && <SettingsButton variant="primary" disabled={resource.busy || !row} onClick={() => setConfirm('upgrade')}>{t('完成插件更新')}</SettingsButton>}
+                      </SettingsActions>}>
+                      <div className="space-y-3 text-sm leading-relaxed text-[var(--muted)]">
                       <p>{metadataText(plugin, 'description')}</p>
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2">
-                        <dt>{t('版本')}</dt><dd>{plugin.version}</dd>
-                        <dt>{t('宿主 API')}</dt><dd>{'v' + plugin.hostApiVersion}</dd>
-                        <dt>{t('内部标识')}</dt><dd className="break-all">{plugin.id}</dd>
-                        <dt>{t('支持语言')}</dt><dd>{plugin.supportedLocales?.map(id => UI_LANGUAGES.find(language => language.id === id)?.name || id).join('、') || t('未声明')}</dd>
-                        <dt>{t('来源')}</dt><dd className="min-w-0 break-all">{deliveryRow?.sourceId && deliveryRow.sourceId !== 'workspace' ? deliveryRow.sourceName : t('当前部署')}
-                          {deliveryRow?.sourceId && deliveryRow.sourceId !== 'workspace' && <p className="mt-1 text-xs">{delivery.data?.sources.find(source => source.id === deliveryRow.sourceId)?.url || deliveryRow.source.url}</p>}</dd>
-                      </dl>
-                      <p>{t(installed ? '已安装' : '未安装')}</p>
                       {plugin.localization?.fallback && <p role="status">{t('此插件暂不支持当前界面语言，已使用默认语言。')}</p>}
-                      <PluginAvailability plugin={plugin} availability={availability} />
-                    </div>
-                    {(installed || isAdmin) && <SettingsActions className="mt-4">
-                      {installed && links(plugin, availability)}
-                      {isAdmin && installed && availability?.reason === 'data_migration_required' && <SettingsButton variant="primary" disabled={resource.busy || !row} onClick={() => setConfirm('upgrade')}>{t('完成插件更新')}</SettingsButton>}
-                      {isAdmin && <SettingsButton variant={installed ? 'danger' : 'primary'} disabled={resource.busy || delivery.busy || !delivery.data || activePluginBuild(delivery.data?.build) || delivery.data?.build?.resultUnknown} onClick={() => setConfirm(installed ? 'uninstall' : 'install')}>{t(installed ? '卸载插件' : '安装插件')}</SettingsButton>}
-                    </SettingsActions>}
-                    {isAdmin && !!delivery.data?.pending.length && <div className="mt-5"><PluginDeliveryStatus delivery={delivery} /></div>}
-                  </SettingsSection>
+                      </div>
+                      {isAdmin && !installed && <SettingsActions className="mt-4"><SettingsButton variant="primary" disabled={resource.busy || delivery.busy || !delivery.data || activePluginBuild(delivery.data?.build) || delivery.data?.build?.resultUnknown} onClick={() => setConfirm('install')}>{t('安装插件')}</SettingsButton></SettingsActions>}
+                    </SettingsSection>
+                    <dl className="plugin-overview__metadata">
+                      <div><dt>{t('宿主 API')}</dt><dd className="plugin-overview__code">{'v' + plugin.hostApiVersion}</dd></div>
+                      <div><dt>{t('内部标识')}</dt><dd className="plugin-overview__code">{plugin.id}</dd></div>
+                      <div><dt>{t('来源')}</dt><dd>{deliveryRow?.sourceId && deliveryRow.sourceId !== 'workspace' ? deliveryRow.sourceName : t('当前部署')}
+                        {deliveryRow?.sourceId && deliveryRow.sourceId !== 'workspace' && <p className="mt-1 text-xs text-[var(--muted)]">{delivery.data?.sources.find(source => source.id === deliveryRow.sourceId)?.url || deliveryRow.source.url}</p>}</dd></div>
+                      <div><dt>{t('支持语言')}</dt><dd>{plugin.supportedLocales?.length ? <ul className="plugin-overview__locales">{plugin.supportedLocales.map(id => <li key={id}>{UI_LANGUAGES.find(language => language.id === id)?.name || id}</li>)}</ul> : t('未声明')}</dd></div>
+                    </dl>
+                    {(availability?.available === false || Object.keys(plugin.dependencies || {}).length > 0 || Object.keys(availability?.optionalFeatures || {}).length > 0) && <div className="plugin-overview__availability"><PluginAvailability plugin={plugin} availability={availability} /></div>}
+                    {isAdmin && !!delivery.data?.pending.length && <PluginDeliveryStatus delivery={delivery} />}
+                    {isAdmin && installed && <SettingsSection title={t('卸载插件')} className="plugin-overview__danger"
+                      description={t('卸载将在构建并部署成功后生效，并保留插件数据和配置。')}
+                      action={<SettingsButton variant="danger" disabled={resource.busy || delivery.busy || !delivery.data || activePluginBuild(delivery.data?.build) || delivery.data?.build?.resultUnknown} onClick={() => setConfirm('uninstall')}>{t('卸载插件')}</SettingsButton>} />}
+                  </div>
                 : <div className="space-y-4">
                   {entries.map(entry => {
                     const item = localizePlugin(getPlugin(entry.id), locale), state = availabilityFor(entry.id);
-                    return <SettingsSection key={entry.id} title={metadataText(item, 'name')}
+                    return <SettingsSection key={entry.id} title={metadataText(item, 'name')} className="plugin-catalog-card"
                       meta={`${t(entry.installed ? '已安装' : '未安装')} · ${entry.version}`}
                       description={metadataText(item, 'description')}
                       action={<SettingsActions>
-                        {entry.installed && links(item, state)}
+                        {entry.installed && links(item, state, { compact: true })}
                         <PluginLink route={detailRoute(entry.id)}>{t('查看插件')}</PluginLink>
                       </SettingsActions>}>
                       {entry.installed && <PluginAvailability plugin={item} availability={state} />}

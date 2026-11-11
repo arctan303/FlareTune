@@ -1,6 +1,6 @@
 import { UserImageError, getOwnImageSlot, uploadOwnImage, setOwnImageSlot, readOwnImage, readImageBody, cleanupOwnImages } from '../services/userImages.js';
 import { readBoundedJson } from '../instance/httpSecurity.js';
-import { assistantImagePolicy } from '../services/assistantImages.js';
+import { createAssistantImageAccess } from '../services/assistantImages.js';
 import { createPluginContext } from '../plugins/context.js';
 import { pluginRegistry } from '../plugins/registry.js';
 import { createPluginServiceLease } from '../plugins/services.js';
@@ -14,17 +14,19 @@ export async function handleUserImages(request, url, db, bucket, session, { env,
   try {
     const upload = path.match(/^\/api\/account\/images\/upload\/(avatar|playlist|chat)$/);
     if (upload && request.method === 'POST') {
-      let lease;
+      let lease, images;
       if (upload[1] === 'chat') {
         const pluginEnv = env || { DB: db, MEDIA_BUCKET: bucket };
         const authority = context || await createPluginContext({ env: pluginEnv, session, pluginId: 'assistant', registry });
         const build = registry.getBuildDigest('assistant');
         if (!build || request.headers.get('X-FlareTune-Plugin-Build') !== build) return json({ error: 'PLUGIN_BUILD_MISMATCH' }, 409);
         lease = await createPluginServiceLease({ env: pluginEnv, session, consumerId: 'assistant', providerId: 'ai-gateway', consumerContext: authority, registry });
-        db = lease.guardedDb(db);
-        if (!(await assistantImagePolicy(db)).enabled) throw new UserImageError('assistant_images_disabled', 403);
+        images = await createAssistantImageAccess({ env: pluginEnv, session, consumerContext: authority, serviceLease: lease, registry });
+        db = images.db;
+        if (!(await images.policy()).enabled) throw new UserImageError('assistant_images_disabled', 403);
       }
       const result = await uploadOwnImage(db, bucket, owner, upload[1], await readImageBody(request));
+      if (images && !(await images.policy()).enabled) throw new UserImageError('assistant_images_disabled', 403);
       await lease?.assertCurrent();
       return json(result, 201);
     }

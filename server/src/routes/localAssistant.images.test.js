@@ -7,13 +7,15 @@ import { uploadOwnImage, cleanupOwnImages } from '../services/userImages.js';
 import { createAiProfile, assignAiProfile } from '../instanceAdmin/aiProfiles.js';
 import { chatAI } from '../services/ai.js';
 import { KNOWN_MIGRATIONS } from '../instance/schemaManifest.js';
-import { saveAiFeatureModel } from '../instanceAdmin/aiProviders.js';
+import { initializeConsumerModel, saveConsumerModel } from '../../../shared/plugins/.api/ai-gateway/server/consumer-model.js';
+import { createPluginContext } from '../plugins/context.js';
 function bytes() {
   const b = new Uint8Array(26); const v = new DataView(b.buffer);
   b.set(new TextEncoder().encode('RIFF')); v.setUint32(4,18,true); b.set(new TextEncoder().encode('WEBPVP8L'),8); v.setUint32(16,5,true); b[20]=47; v.setUint32(21,31|(31<<14),true); return b;
 }
 async function setup(protocol = 'chat_completions') {
-  const f = fixture(); f.sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0010_user_images.sql', import.meta.url),'utf8'));
+  const f = fixture({ modelInitialized: false }); f.sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0010_user_images.sql', import.meta.url),'utf8'));
+  f.sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0011_ai_feature_models.sql', import.meta.url),'utf8'));
   f.sqlite.exec("UPDATE accounts SET role = 'admin' WHERE account_id = 'account-A'");
   const migration = KNOWN_MIGRATIONS.find(m => m.version === 2);
   f.sqlite.prepare("INSERT INTO ft_migrations(version,name,checksum,stage,state,started_at,completed_at) VALUES (?,?,?,?,'completed',1,1)")
@@ -24,37 +26,42 @@ async function setup(protocol = 'chat_completions') {
     .run(Buffer.alloc(16,1).toString('base64url'),Buffer.alloc(32,2).toString('base64url'));
   const objects = new Map();
   const bucket = { async put(key,value) { objects.set(key,value); }, async get(key) { return objects.has(key) ? { body: objects.get(key), arrayBuffer: async () => objects.get(key).buffer } : null; }, async delete(key) { objects.delete(key); } };
-  const env = { SETUP_SECRET: 'image-fixture-secret-at-least-32-characters', MEDIA_BUCKET: bucket };
+  const env = { DB: f.db, SETUP_SECRET: 'image-fixture-secret-at-least-32-characters', MEDIA_BUCKET: bucket };
   const profile = await createAiProfile(f.db,'account-A',{ name:'Vision fixture', source:'custom', protocol, baseUrl:'https://models.example/v1', model:'fixture', apiKey:'fake-only', supportsImages:true },env);
   await assignAiProfile(f.db,'account-A','assistant',profile.id,0);
+  const session = f.session('account-A'), context = await createPluginContext({ env, session, pluginId: 'assistant' });
+  const modelRequest = { env, session, context, consumerId: 'assistant' };
+  await initializeConsumerModel(modelRequest, { expectedRevision: 0 });
   f.sqlite.prepare("INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by) VALUES ('assistant.images_enabled','true',1,1,'account-A')").run();
   const route = (body, chat, owner='account-A', method='POST', path='/api/ai/chat') => {
     const request = f.request(path,method,body);
-    return handleLocalAssistantRoute(request,new URL(request.url),f.db,{},f.session(owner),env,{ chat });
+    return handleLocalAssistantRoute(request,new URL(request.url),f.db,{},f.session(owner),env, chat === chatAI ? {} : { chat });
   };
-  return { ...f, env, profile, bucket, objects, route, image: owner => uploadOwnImage(f.db,bucket,owner || 'account-A','chat',bytes()) };
+  return { ...f, env, profile, bucket, objects, modelRequest, route, image: owner => uploadOwnImage(f.db,bucket,owner || 'account-A','chat',bytes()) };
 }
 const events = async r => (await r.text()).split('\n\n').filter(x=>x.startsWith('data: ')).map(x=>JSON.parse(x.slice(6)));
 const body = (revision, imageIds = [], message = '看图') => ({ revision, image_ids:imageIds, message, client_message_id:crypto.randomUUID(), enable_thinking:false });
 const countImages = m => m.flatMap(x => Array.isArray(x.content) ? x.content : []).filter(x=>x.type==='image_url').length;
 const reply = async () => ({ type:'content',content:'收到' });
-test('changing model on the same provider during a tool round strips images from the in-flight old model', async () => {
+test('changing the saved model during a tool round retires the old image request before another provider call', async () => {
   const f = await setup();
   try {
-    f.sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0011_ai_feature_models.sql', import.meta.url), 'utf8'));
     const image = await f.image(); let round = 0;
     const result = await events(await f.route(body(0, [image.id]), async messages => {
       if (round++ === 0) {
         assert.equal(countImages(messages), 1);
         // Both old/new models declared vision. Revision, not just Boolean,
         // prevents the old request from continuing with historical pixels.
-        await saveAiFeatureModel(f.db, 'account-A', { feature: 'assistant', providerId: f.profile.id,
+        await saveConsumerModel(f.modelRequest, { providerId: f.profile.id,
           providerRevision: 1, expectedRevision: 1, model: 'different-vision-model', supportsImages: true }, f.env);
         return { type: 'function_calls', functionCalls: [{ id: 'clock', name: 'current_time', args: {} }] };
       }
-      assert.equal(countImages(messages), 0); return reply();
+      assert.fail('An old consumer configuration must not make a second request');
     }));
-    assert.equal(round, 2); assert.ok(result.some(item => item.type === 'done'));
+    assert.equal(round, 1); assert.equal(result.some(item => item.type === 'done'), false);
+    assert.equal(f.sqlite.prepare('SELECT status FROM music_chat_turns').get().status, 'failed');
+    const saved = JSON.parse(f.sqlite.prepare("SELECT value_json FROM instance_settings WHERE key='plugin.data.assistant.instance.ai-model'").get().value_json);
+    assert.equal(saved.selection.supportsImages, false);
   } finally { f.sqlite.close(); }
 });
 test('image-only submission persists references, replays original blocks and isolates another account', async () => {
@@ -89,7 +96,9 @@ test('gate is rechecked after a tool round, and a non-vision profile cannot rece
     }
     assert.equal(countImages(messages),0); return reply();
   })); assert.equal(round,2); assert.ok(result.some(x=>x.type==='done'));
-  f.sqlite.exec(`UPDATE instance_settings SET value_json = 'true' WHERE key = 'assistant.images_enabled'; UPDATE instance_settings SET value_json = 'false' WHERE key LIKE 'ai.images.%'`);
+  f.sqlite.exec(`UPDATE instance_settings SET value_json = 'true' WHERE key = 'assistant.images_enabled';
+    UPDATE instance_settings SET value_json=json_set(value_json,'$.selection.supportsImages',json('false')),revision=revision+1
+    WHERE key='plugin.data.assistant.instance.ai-model'`);
   assert.equal((await f.route(body(2,[image.id]),reply)).status,403);
   await events(await f.route(body(2,[],'继续'),async messages => { assert.equal(countImages(messages),0); return reply(); })); f.sqlite.close();
 });

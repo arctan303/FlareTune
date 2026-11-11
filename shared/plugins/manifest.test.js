@@ -7,6 +7,21 @@ import { compiledPluginManifests } from './catalog.js';
 const manifest = (id, extra = {}) => ({ id, version: '1.2.0', hostApiVersion: 1, apiVersion: 1,
   name: id, description: 'Synthetic plugin', icon: 'box', pages: [], entries: [], ...extra });
 
+test('API3 capabilities preserve API1/2 packages and service slots require bounded declared dependencies', () => {
+  assert.equal(HOST_PLUGIN_API_VERSION, 3);
+  for (const hostApiVersion of [1, 2, 3]) {
+    assert.equal(resolvePluginAvailability([manifest('compatible', { hostApiVersion })], ['compatible'], 'compatible').available, true);
+  }
+  const dependency = { dependencies: { provider: { apiVersion: 1 } } };
+  validatePluginManifests([manifest('consumer', { ...dependency, serviceConfigurations: { provider: ['ai-model'] } })]);
+  for (const extra of [
+    { serviceConfigurations: { provider: ['ai-model'] } },
+    { ...dependency, serviceConfigurations: { provider: ['ai-model','ai-model'] } },
+    { ...dependency, serviceConfigurations: { provider: ['foreign.key'] } },
+    { ...dependency, serviceConfigurations: { provider: Array.from({ length: 17 }, (_, i) => `model-${i}`) } },
+  ]) assert.throws(() => validatePluginManifests([manifest('consumer', extra)]));
+});
+
 test('roles are exact, legacy declarations map consistently and instance settings stay administrator-only', () => {
   assert.equal(canAccessPluginDeclaration({ access: 'authenticated' }, 'member'), true);
   assert.equal(canAccessPluginDeclaration({ access: 'authenticated' }, 'admin'), true);

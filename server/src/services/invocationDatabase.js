@@ -1,3 +1,4 @@
+import { registerDatabaseWrapper } from './databaseIdentity.js';
 const budgets = new WeakMap();
 const rawStatement = Symbol('invocationStatement');
 
@@ -35,6 +36,7 @@ export function createInvocationDatabase(database, signal, {
     batch(statements) { spend(); return database.batch(statements.map(statement => statement[rawStatement] || statement)); },
   });
   budgets.set(db, budget);
+  registerDatabaseWrapper(db, database);
   return db;
 }
 

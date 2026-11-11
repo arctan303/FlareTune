@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { handleLocalAssistantRoute } from './localAssistant.js';
 import { fixture } from './localAssistant.fixture.js';
 import { assignAiProfile, createAiProfile } from '../instanceAdmin/aiProfiles.js';
 import { KNOWN_MIGRATIONS } from '../instance/schemaManifest.js';
 import { executeLocalManagePlaylist } from '../tools/localManagePlaylist.js';
 import { songDetailsTool } from '../tools/songDetails.js';
+import { initializeConsumerModel } from '../../../shared/plugins/.api/ai-gateway/server/consumer-model.js';
+import { createPluginContext } from '../plugins/context.js';
 
 const chatBody = (revision = 0, clientId = 'turn-1') => ({
   revision, client_message_id: clientId, message: '你好', enable_thinking: false, context: {},
@@ -47,9 +50,10 @@ test('bootstrap reads local assistant config and never exposes persona, rules or
   } finally { sqlite.close(); }
 });
 
-test('assistant chat uses the assigned model profile and its credential', async () => {
-  const { sqlite, db, request, session } = fixture();
+test('assistant chat uses the imported model profile and Gateway-owned transport credential', async t => {
+  const { sqlite, db, request, session } = fixture({ modelInitialized: false });
   try {
+    sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0011_ai_feature_models.sql', import.meta.url), 'utf8'));
     sqlite.exec(`INSERT INTO accounts (account_id, username, display_name, role, status, created_at, updated_at)
       VALUES ('admin', 'owner', 'Owner', 'admin', 'active', 1, 1);`);
     sqlite.prepare(`INSERT INTO account_credentials (account_id, kdf, kdf_version,
@@ -61,23 +65,29 @@ test('assistant chat uses the assigned model profile and its credential', async 
       VALUES (?, ?, ?, ?, 'completed', 1, 1)`).run(migration.version, migration.name,
       migration.checksum, migration.stage);
     sqlite.exec(`UPDATE ft_instance SET schema_version = 2, initialized_at = 1 WHERE id = 1`);
-    const env = { SETUP_SECRET: 's'.repeat(48), DEEPSEEK_API_KEY: 'legacy-key' };
+    const env = { DB: db, SETUP_SECRET: 's'.repeat(48), DEEPSEEK_API_KEY: 'legacy-key' };
     const profile = await createAiProfile(db, 'admin', { name: '聊天', provider: 'openai',
       model: 'custom-chat', baseUrl: 'https://api.example.test/v1', apiKey: 'profile-secret' }, env);
     await assignAiProfile(db, 'admin', 'assistant', profile.id, 0);
+    const adminSession = session('admin');
+    const context = await createPluginContext({ env, session: adminSession, pluginId: 'assistant' });
+    const imported = await initializeConsumerModel({ env, session: adminSession, context, consumerId: 'assistant' }, { expectedRevision: 0 });
+    assert.equal(imported.value.selection.model, 'custom-chat');
     const seen = [];
+    t.mock.method(globalThis, 'fetch', async (url, options) => {
+      seen.push({ url: String(url), headers: new Headers(options.headers), body: JSON.parse(options.body) });
+      return new Response('data: {"choices":[{"delta":{"content":"已连接"}}]}\n\ndata: [DONE]\n\n',
+        { headers: { 'Content-Type': 'text/event-stream' } });
+    });
     const req = request('/api/ai/chat', 'POST', chatBody());
     const response = await handleLocalAssistantRoute(req, new URL(req.url), db, {},
-      session('account-A'), env, { chat: async (messages, tools, config, aiEnv) => {
-        seen.push({ config, aiEnv });
-        return { type: 'content', content: '已连接' };
-      } });
+      session('account-A'), env);
     assert.equal(response.status, 200);
-    await response.text();
-    assert.equal(seen[0].config.model, 'custom-chat');
-    assert.equal(seen[0].config.provider, 'openai');
-    assert.equal(seen[0].aiEnv.OPENAI_API_KEY, 'profile-secret');
-    assert.equal(seen[0].aiEnv.OPENAI_BASE_URL, 'https://api.example.test/v1');
+    assert.match(await response.text(), /"type":"done"/);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].body.model, 'custom-chat');
+    assert.equal(seen[0].headers.get('Authorization'), 'Bearer profile-secret');
+    assert.equal(seen[0].url, 'https://api.example.test/v1/chat/completions');
   } finally { sqlite.close(); }
 });
 
@@ -99,7 +109,7 @@ test('thread and chat are scoped by account_id with idempotent revisions', async
     assert.equal(aiCalls.length, 1);
     assert.deepEqual(aiCalls[0].tools.map((tool) => tool.function.name), availableToolNames);
     assert.match(aiCalls[0].messages[0].content, /不编造/);
-    assert.equal(aiCalls[0].env.DEEPSEEK_API_KEY, 'test-secret');
+    assert.deepEqual(aiCalls[0].env, {});
     const thread = (await (await route('/api/ai/thread', 'GET')).json()).thread;
     assert.equal(thread.revision, 2);
     assert.deepEqual(thread.messages.map(({ role, content }) => [role, content]), [
@@ -612,7 +622,7 @@ test('invalid requests and missing key fail closed without reserving a turn', as
     const req = request('/api/ai/chat', 'POST', chatBody());
     const noKey = await handleLocalAssistantRoute(req, new URL(req.url), db, {}, session('account-A'), {});
     assert.equal(noKey.status, 503);
-    assert.equal((await noKey.json()).error, 'ai_provider_unconfigured');
+    assert.equal((await noKey.json()).error, 'AI_PROVIDER_UNCONFIGURED');
     let unauthenticatedProviderCalls = 0;
     const limited = await handleLocalAssistantRoute(req, new URL(req.url), db, {},
       { mode: 'must_change_password', account: session('account-A').account },

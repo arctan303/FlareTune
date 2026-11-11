@@ -18,6 +18,11 @@ async function install(f, id, installed = true) {
   return pluginRegistry.setInstalled(f.env, f.signed.session, id,
     { installed, revision: (await pluginRegistry.readInstallation(f.env, id)).revision });
 }
+async function initializeWorkbenchModel(f) {
+  const response = await f.api('admin/plugins/lyrics-workbench/model/initialize', 'POST', { expectedRevision: 0 }, f.signed,
+    { 'X-FlareTune-Plugin-Build': pluginRegistry.getBuildDigest('lyrics-workbench') });
+  assert.equal(response.status, 200, await response.clone().text());
+}
 async function setup(t, installed = true) {
   const f = await fixture(); t.after(f.close);
   const member = await f.signIn('member'); await f.enable(member);
@@ -29,6 +34,7 @@ async function setup(t, installed = true) {
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(saved.artifact)), type: 'application/json' });
   f.env.DEEPSEEK_API_KEY = 'fixture-key';
   if (installed) for (const id of ['lyrics-workbench', 'ai-gateway']) await install(f, id);
+  if (installed) await initializeWorkbenchModel(f);
   const principal = async () => {
     const account = await authenticate(f.db, new URLSearchParams({ u: 'member', t: md5(`${PASSWORD}fixture-salt`), s: 'fixture-salt' }), f.env);
     return subsonicPrincipalForAccount(account);
@@ -59,6 +65,11 @@ function enforceBindingBudget(db, maximum) {
 async function compactLyrics(f, lineCount) {
   f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'")
     .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, model: 'deepseek-flash' }));
+  const modelKey = 'plugin.data.lyrics-workbench.instance.ai-model';
+  const selected = f.sqlite.prepare('SELECT value_json,revision FROM instance_settings WHERE key=?').get(modelKey);
+  const value = JSON.parse(selected.value_json);
+  value.selection.model = 'deepseek-flash';
+  f.sqlite.prepare('UPDATE instance_settings SET value_json=?,revision=revision+1 WHERE key=?').run(JSON.stringify(value), modelKey);
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
   const saved = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc',
     lines: Array.from({ length: lineCount }, (_, unitId) => ({ time: unitId, text: `I sing unique verse number ${unitId} under a blue sky` })) });
@@ -139,6 +150,7 @@ test('both Subsonic lyric endpoints keep original reads without plugins, and run
   await Promise.all(tasks); assert.equal(calls, 0); assert.equal(artifact(f).aiCompletion, null);
   assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS count FROM AI_Daily_Usage').get().count, 0);
   await install(f, 'ai-gateway');
+  await initializeWorkbenchModel(f);
   assert.equal((await payload(await f.rest('getLyrics', { id: 's1' }, options))).lyrics.value, 'Hello');
   await Promise.all(tasks); assert.equal(calls, 1); assert.equal(artifact(f).translation.lines[0], '你好');
   const refreshed = await payload(await f.rest('getLyricsBySongId', { id: 's1', enhanced: true }, options));

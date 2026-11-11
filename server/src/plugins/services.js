@@ -2,11 +2,17 @@ import { pluginRegistry, installationKey } from './registry.js';
 import { pluginFail, requirePluginSession, sessionPredicate, sessionBindings } from './common.js';
 import { isPluginVisibleToRole, satisfiesPluginVersion } from '../../../shared/plugins/manifest.js';
 import { isUsableCredentialMaterial } from '../instance/credentialFormat.js';
+import { databaseIdentity, registerDatabaseWrapper } from '../services/databaseIdentity.js';
 
 const rawStatement = Symbol('pluginServiceStatement');
 const guardedOwner = Symbol('pluginServiceOwner');
-const serviceLeases = new WeakSet();
+const serviceLeases = new WeakMap();
 export const isPluginServiceLease = value => serviceLeases.has(value);
+export const isPluginServiceLeaseForSession = (value, session, database, registry = pluginRegistry) => {
+  const owner = serviceLeases.get(value);
+  return Boolean(owner && session?.mode === 'normal' && owner.tokenHash === session?.tokenHash
+    && owner.accountId === session?.account?.accountId && owner.database === database && owner.registry === registry);
+};
 const credentialPredicate = `EXISTS(SELECT 1 FROM account_credentials credential WHERE credential.account_id=?
   AND credential.kdf='pbkdf2-sha256-chain' AND credential.kdf_version=2
   AND json_valid(credential.kdf_params_json) AND json_extract(credential.kdf_params_json,'$.iterations')=100000
@@ -60,6 +66,7 @@ function createLease({ env, session, identity, installations, roles, diagnose })
     pluginFail('PLUGIN_SERVICE_RETIRED', 409);
   }
   function guardedDb(db = env.DB) {
+    if (databaseIdentity(db) !== databaseIdentity(env.DB)) pluginFail('PLUGIN_SERVICE_CONTEXT_MISMATCH', 403);
     if (db[guardedOwner] === owner) return db;
     if (databases.has(db)) return databases.get(db);
     const guard = () => db.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM accounts a WHERE a.account_id=?
@@ -78,6 +85,7 @@ function createLease({ env, session, identity, installations, roles, diagnose })
         all: async () => (await batch([wrapper]))[0], run: async () => (await batch([wrapper]))[0] };
       return wrapper;
     }, batch });
+    registerDatabaseWrapper(wrapped, db);
     databases.set(db, wrapped); return wrapped;
   }
   return { assertCurrent, guardedDb };
@@ -121,5 +129,5 @@ export async function createPluginServiceLease({ env, session, consumerId, provi
   const service = Object.freeze({ identity: Object.freeze({ ...identity }),
     consumer: Object.freeze({ id: consumerId, epoch: consumerInstallation.epoch }),
     provider: Object.freeze({ id: providerId, epoch: providerInstallation.epoch }), ...lease });
-  serviceLeases.add(service); return service;
+  serviceLeases.set(service, { tokenHash: session.tokenHash, accountId: identity.accountId, database: env.DB, registry }); return service;
 }

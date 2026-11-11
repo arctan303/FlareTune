@@ -18,5 +18,6 @@ export { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 export { createAiResponseTypewriter, reconcileAiResponseContent } from '../aiResponseTypewriter.js';
 export { consumeSseJsonStream } from '../services/aiEventStream.js';
 export { default as ImagePreviewDialog } from '../components/ImagePreviewDialog.jsx';
+export { default as ServiceModelSettings } from '../components/ServiceModelSettings.jsx';
 export { default as PrivateCoverImage } from '../components/PrivateCoverImage.jsx';
 export { decodeUserImage, encodeUserImage } from '../services/imageProcessing.js';

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { fixture } from '../subsonic/test-support.js';
 import { pluginRegistry } from '../plugins/registry.js';
 import { handleLocalAssistantRoute } from './localAssistant.js';
-import { assistantBuildHeaders } from '../plugins/assistant/test-support.js';
+import { assistantBuildHeaders, prepareAssistantModelFixture } from '../plugins/assistant/test-support.js';
 
 test('assistant passes the real session to roam and emits instructions only while the plugin is available', async t => {
   for (const actor of ['owner', 'member']) for (const state of ['missing', 'installed', 'revoked']) {
@@ -13,6 +13,7 @@ test('assistant passes the real session to roam and emits instructions only whil
       const auth = actor === 'owner' ? f.signed : await f.signIn('member');
       await pluginRegistry.setInstalled(f.env, f.signed.session, 'ai-gateway', { installed: true, revision: 0 });
       await pluginRegistry.setInstalled(f.env, f.signed.session, 'assistant', { installed: true, revision: 0 });
+      prepareAssistantModelFixture(f.sqlite, { accountId: f.owner });
       if (state !== 'missing') await pluginRegistry.setInstalled(f.env, f.signed.session, 'roam', { installed: true, revision: 0 });
       const request = new Request('https://test.example/api/ai/chat', { method: 'POST',
         headers: { 'Content-Type': 'application/json', ...assistantBuildHeaders() }, body: JSON.stringify({ revision: 0,

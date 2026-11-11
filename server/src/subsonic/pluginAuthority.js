@@ -2,8 +2,16 @@ import { subsonicAuthorityForPrincipal } from './credentials.js';
 import { pluginRegistry, installationKey } from '../plugins/registry.js';
 import { pluginFail } from '../plugins/common.js';
 import { isPluginVisibleToRole, satisfiesPluginVersion } from '../../../shared/plugins/manifest.js';
+import { databaseIdentity, registerDatabaseWrapper } from '../services/databaseIdentity.js';
 
 const leases = new WeakMap();
+const leaseOwners = new WeakMap();
+export const isSubsonicPluginServiceLeaseForPrincipal = (lease, principal, env, registry = pluginRegistry) => {
+  const owner = leaseOwners.get(lease);
+  if (!owner || owner.principal !== principal || owner.database !== env?.DB || owner.registry !== registry) return false;
+  subsonicAuthorityForPrincipal(principal, env);
+  return true;
+};
 const rawStatement = Symbol('subsonicPluginStatement');
 const guardedOwner = Symbol('subsonicPluginOwner');
 
@@ -44,6 +52,7 @@ export async function createSubsonicPluginServiceLease({ env, principal, consume
     if (!row) pluginFail('PLUGIN_SERVICE_RETIRED', 409);
   };
   const guardedDb = (db = env.DB) => {
+    if (databaseIdentity(db) !== databaseIdentity(env.DB)) pluginFail('PLUGIN_SERVICE_CONTEXT_MISMATCH', 403);
     if (db[guardedOwner] === owner) return db;
     if (databases.has(db)) return databases.get(db);
     const guard = () => {
@@ -62,6 +71,7 @@ export async function createSubsonicPluginServiceLease({ env, principal, consume
         all: async () => (await batch([wrapped]))[0], run: async () => (await batch([wrapped]))[0] };
       return wrapped;
     }, batch });
+    registerDatabaseWrapper(wrapper, db);
     databases.set(db, wrapper); return wrapper;
   };
   const lease = Object.freeze({ identity: authority.identity,
@@ -70,5 +80,6 @@ export async function createSubsonicPluginServiceLease({ env, principal, consume
   await assertCurrent();
   if (!leases.has(principal)) leases.set(principal, new WeakMap());
   leases.get(principal).set(registry, lease);
+  leaseOwners.set(lease, { principal, database: env.DB, registry });
   return lease;
 }

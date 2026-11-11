@@ -47,6 +47,9 @@ export async function createPluginContext({ env, session, pluginId, registry = p
     catch { fail('PLUGIN_DATA_CORRUPT', 503); }
   }
   async function set(scope, key, value, { revision } = {}) {
+    if (scope === 'instance' && Object.values(manifest.serviceConfigurations || {}).some(slots => slots.includes(key))) {
+      fail('PLUGIN_SERVICE_CONFIG_RESERVED', 403);
+    }
     const namespace = await authorize(scope, key);
     let serialized;
     try { serialized = JSON.stringify(value); } catch { fail('invalid_input', 400); }

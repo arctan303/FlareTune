@@ -4,7 +4,7 @@ import { createBackgroundModuleHarness, flushBackgroundAsync } from '../test/ful
 import * as registry from '../plugins/registry.js';
 
 const nodes = tree => tree && typeof tree === 'object' ? [tree, ...[tree.props?.children, tree.props?.action].flat(Infinity).flatMap(nodes)] : [];
-const text = node => typeof node === 'string' ? node : (node?.props?.children || []).flat(Infinity).map(text).join('');
+const text = node => typeof node === 'string' ? node : [node?.props?.children, node?.props?.meta].flat(Infinity).map(child => child === undefined ? '' : text(child)).join('');
 function pluginView({ admin = true, installed = false, manifests, locale = 'zh', translate = value => value } = {}) {
   const api = manifests ? registry.createPluginRegistry(manifests) : registry;
   const id = manifests?.[0].id || 'xiaomi-speaker';
@@ -157,5 +157,36 @@ test('catalog detail preserves the selected source and version through installat
   await nodes(subject.view(route)).find(node => node.type === 'confirm-dialog').props.onConfirm();
   assert.deepEqual(subject.deliveryWrites.at(-1), ['/selection', 'PUT', { pluginId: 'external', installed: true, sourceId: 'second-source', version: '2.0.0', trustCode: true }]);
   assert.match(text(subject.view({ ...route, catalogVersion: '9.0.0' })), /没有可访问/);
+  subject.unmount();
+});
+
+test('overview keeps configuration separate from the final uninstall region and exposes real language labels', () => {
+  const subject = pluginView({ installed: true });
+  const view = subject.view(), sections = nodes(view).filter(node => node.type === 'section');
+  const intro = sections.find(node => node.props.className === 'plugin-overview__intro');
+  const danger = sections.find(node => node.props.className === 'plugin-overview__danger');
+  assert.ok(intro); assert.ok(danger);
+  assert.equal(nodes(intro).some(node => node.type === 'button' && text(node) === '卸载插件'), false);
+  assert.ok(nodes(intro).some(node => node.type?.name === 'PluginLink' && node.props.route.pluginPage === 'connection'));
+  assert.equal(nodes(danger).filter(node => node.type === 'button').length, 1);
+  assert.equal(text(nodes(danger).find(node => node.type === 'button')), '卸载插件');
+  assert.match(danger.props.description, /构建并部署成功后生效/);
+  const labels = nodes(view).filter(node => node.type === 'li').map(text);
+  assert.ok(labels.includes('English'));
+  assert.match(text(view), new RegExp(registry.getPlugin('xiaomi-speaker').version.replaceAll('.', '\\.')));
+  subject.unmount();
+});
+
+test('availability presentation retains every required dependency, optional capability and failure message', () => {
+  const subject = pluginView();
+  const tree = subject.exports.PluginAvailability({ plugin: { dependencies: {
+    'dep-one': { apiVersion: 1, version: '^1.0.0' }, 'dep-two': { apiVersion: 2, version: '2.0.0' },
+  } }, availability: { available: false, reason: 'missing_dependency', optionalFeatures: {
+    first: { available: true }, second: { available: false },
+  } } });
+  assert.match(text(tree), /dep-one · API 1 · \^1\.0\.0/);
+  assert.match(text(tree), /dep-two · API 2 · 2\.0\.0/);
+  assert.match(text(tree), /first · 可用/); assert.match(text(tree), /second · 不可用/);
+  assert.ok(nodes(tree).some(node => node.props.role === 'status' && /所需依赖尚不可用/.test(text(node))));
   subject.unmount();
 });

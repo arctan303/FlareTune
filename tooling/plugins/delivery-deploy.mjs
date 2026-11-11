@@ -6,6 +6,7 @@ import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkDeliveryPlan, deliveryConnection, fetchDeliverySnapshot, readPreparedDeployment, reportDelivery } from './delivery.mjs';
 import { readBoundedResponse } from './assemble.mjs';
+import { assertNoDevSourceOverride } from './dev-source.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value);
@@ -20,6 +21,7 @@ async function wranglerConfig(args) {
 }
 
 export async function deploymentTarget({ root = repositoryRoot, environment = process.env, readConfigImpl = wranglerConfig } = {}) {
+  await assertNoDevSourceOverride(root);
   const workerName = environment.FLARETUNE_PLUGIN_WORKER_NAME;
   const accountId = environment.CLOUDFLARE_ACCOUNT_ID;
   const token = environment.CLOUDFLARE_API_TOKEN;

@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { assignAiProfile, createAiProfile, deleteAiProfile, listAiProfiles,
-  listAiModels, resolveAiFeature, updateAiProfile } from './aiProfiles.js';
+  listAiModels, updateAiProfile } from './aiProfiles.js';
+import { resolveAiFeature } from '../plugins/ai-gateway/privateProfile.fixture.js';
 import { KNOWN_MIGRATIONS } from '../instance/schemaManifest.js';
 
 function fixture() {

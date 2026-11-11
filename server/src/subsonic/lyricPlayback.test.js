@@ -153,6 +153,9 @@ test('member third-party playback follows both web automatic-AI switches and com
       for (const id of ['lyrics-workbench', 'ai-gateway']) await pluginRegistry.setInstalled(f.env, f.signed.session, id,
         { installed: true, revision: 0 });
       config(f, { completionEnabled, automaticCompletionEnabled });
+      const initialized = await f.api('admin/plugins/lyrics-workbench/model/initialize', 'POST', { expectedRevision: 0 }, f.signed,
+        { 'X-FlareTune-Plugin-Build': pluginRegistry.getBuildDigest('lyrics-workbench') });
+      assert.equal(initialized.status, 200, await initialized.clone().text());
       f.sqlite.exec("UPDATE Songs SET language='en' WHERE id='s1'");
       await saved(f, 's1'); f.env.DEEPSEEK_API_KEY = 'test-only-key';
       const tasks = []; let aiCalls = 0;

@@ -7,6 +7,7 @@ import { canonicalPluginManifest } from '../../shared/plugins/manifest.js';
 import { ACTIVE_PLUGIN_BUILDS } from '../../shared/plugins/delivery.js';
 import { createPluginHostBuild } from './host-identity.mjs';
 import { preparePluginSeed } from './seed.mjs';
+import { assertNoDevSourceOverride } from './dev-source.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 const fail = code => { const error = new Error(code); error.code = code; throw error; };
@@ -89,6 +90,7 @@ async function preparePlan(connection, snapshot, { root, fetchImpl, replay = fal
 }
 
 export async function prepareHostUpgrade({ root = repositoryRoot, environment = process.env, fetchImpl = fetch, current = false } = {}) {
+  await assertNoDevSourceOverride(root);
   const connection = deliveryConnection(environment);
   // Distribution locks include ignored immutable package files. A genuinely
   // cold CI checkout must restore those verified bytes before strict source
@@ -136,6 +138,7 @@ export async function prepareHostUpgrade({ root = repositoryRoot, environment = 
 }
 
 export async function runDeliveryCommand(command, { root = repositoryRoot, environment = process.env, fetchImpl = fetch, status } = {}) {
+  await assertNoDevSourceOverride(root);
   if (command === 'prepare-host-upgrade' || command === 'prepare-current') {
     return prepareHostUpgrade({ root, environment, fetchImpl, current: command === 'prepare-current' });
   }

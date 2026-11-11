@@ -1778,6 +1778,10 @@
     "publicKey": "server/images.js",
     "exports": [
       {
+        "name": "createAssistantImageAccess",
+        "kind": "function"
+      },
+      {
         "name": "assistantImagePolicy",
         "kind": "function"
       },

@@ -8,6 +8,8 @@ FlareTune 把网页播放器、账号与曲库服务放在 Cloudflare Workers，
 
 **[打开在线 Demo](https://flaretune.arcinks.com)** · [部署自己的曲库](#部署自己的曲库) · [使用指南](guide/using-flaretune.md) · [更新日志](CHANGELOG.md)
 
+> **版本与升级提示**：当前正式稳定版为 **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**；**1.3.0插件阶段仍为本地候选，尚未发布**。旧数据和配置能否从实际1.2.1升级后完整保留，仍需专项验收，尚未证明一般部署者无损升级；维护者测试实例的手动装回例外不是所有人的升级方案。插件宿主版本、固定包、构建通道与恢复边界见[插件来源与部署](guide/plugin-deployment.md)（[English](guide/plugin-deployment.en.md)）。
+
 ## 先听一会儿
 
 Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、收藏和个人歌单都能体验；收藏、历史及偏好只保存在当前浏览器。Demo 默认以模拟管理员展示与正式实例相同的完整页面和设置；语言、外观等本地偏好可修改，管理配置可展开查看。助手可以发送消息并接收固定示例回复，不调用真实模型。素材许可和具体边界见 [Demo 说明](guide/demo.md)。
@@ -46,6 +48,7 @@ Cloudflare R2 Standard 每月提供 **10 GB-month 免费存储额度**，可以�
 | [使用指南](guide/using-flaretune.md) | 播放、漫游、歌单、助手、语言与外观 |
 | [管理与维护](guide/administration.md) | 曲库、账号、实例配置与数据维护 |
 | [部署与初始化](guide/deployment.md) | 安装、免费额度、密钥、备份与升级 |
+| [插件来源与部署](guide/plugin-deployment.md) | 权限、固定版本、构建通道、宿主升级与失败恢复 |
 | [Demo](guide/demo.md) | 浏览器数据、完整设置、固定助手回复与素材来源 |
 | [本地开发](guide/local-development.md) | React/Vite/Workers 开发与验证 |
 | [全部文档](guide/README.md) | 用户、管理员和客户端文档索引 |

@@ -4,9 +4,23 @@ import { DatabaseSync } from 'node:sqlite';
 import { MIGRATION_BUNDLE } from '../instance/migrationBundle.generated.js';
 import { KNOWN_MIGRATIONS } from '../instance/schemaManifest.js';
 import { runKnownDatabaseUpgrade } from '../instance/upgradeDatabase.js';
-import { createAiProfile, updateAiProfile, assignAiProfile, resolveAiFeature } from './aiProfiles.js';
+import { createAiProfile, updateAiProfile, assignAiProfile } from './aiProfiles.js';
+import { resolveAiFeature } from '../plugins/ai-gateway/privateProfile.fixture.js';
 import { createAiProvider, updateAiProvider, deleteAiProvider, listAiProviders, listAiProviderModels, saveAiFeatureModel } from './aiProviders.js';
 import { assistantImagePolicy } from '../services/assistantImages.js';
+// Explicit test arrangement after the ownership change. Legacy mapping tests
+// still exercise its private resolver, then arrange the saved consumer state
+// that the new image policy requires; production never imports on a GET.
+async function configuredImagePolicy(db) {
+  const { config } = await resolveAiFeature(db, 'assistant', env, {});
+  const revision = config.featureRevision, providerBinding = 'fixture-connection';
+  const value = { schemaVersion: 1, selection: { providerId: config.profileId, model: config.model,
+    supportsImages: config.supportsImages, generationOptions: {}, providerBinding } };
+  await db.batch([db.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
+    VALUES ('plugin.data.assistant.instance.ai-model',?,?,1,'admin') ON CONFLICT(key) DO UPDATE
+    SET value_json=excluded.value_json,revision=excluded.revision`).bind(JSON.stringify(value), revision)]);
+  return assistantImagePolicy(db, { ...config, configurationRevision: revision, providerBinding });
+}
 
 const env = { SETUP_SECRET: 'provider-test-only-secret'.repeat(3) };
 function fixture(t, legacy = false) {
@@ -189,13 +203,13 @@ test('legacy profile edit cannot falsely report model/vision/options changes aft
     await assert.rejects(updateAiProfile(db, 'admin', old.id, { ...draft, ...patch }, 1, env), { code: 'ai_feature_configuration_required' });
   }
   assert.equal(sqlite.prepare('SELECT revision FROM ai_model_profiles').get().revision, 1);
-  assert.equal((await assistantImagePolicy(db)).enabled, true);
+  assert.equal((await configuredImagePolicy(db)).enabled, true);
   assert.equal((await resolveAiFeature(db, 'lyrics', env, {})).config.model, 'independent-model');
   await updateAiProfile(db, 'admin', old.id, { ...draft, name: 'Renamed', apiKey: 'replacement-fake' }, 1, env);
   assert.equal((await resolveAiFeature(db, 'assistant', env, {})).env.AI_PROFILE_API_KEY, 'replacement-fake');
   await saveAiFeatureModel(db, 'admin', { feature: 'assistant', providerId: old.id, providerRevision: 2,
     expectedRevision: 1, model: 'new-model', supportsImages: false }, env);
-  assert.equal((await assistantImagePolicy(db)).enabled, false);
+  assert.equal((await configuredImagePolicy(db)).enabled, false);
 });
 test('legacy edit CAS rejects a feature overlay created after its precheck', async t => {
   const { db, sqlite } = fixture(t);
@@ -222,9 +236,9 @@ test('pre-0011 legacy edits fail explicitly while assigned legacy text config re
 });
 test('vision is feature-specific and remains bounded by the global gate', async t => {
   const { db, sqlite } = fixture(t); const provider = await createAiProvider(db, 'admin', { source: 'deepseek', apiKey: 'fake' }, env);
-  await saveAiFeatureModel(db, 'admin', assign(provider), env); assert.equal((await assistantImagePolicy(db)).enabled, false);
+  await saveAiFeatureModel(db, 'admin', assign(provider), env); assert.equal((await configuredImagePolicy(db)).enabled, false);
   sqlite.exec("INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by) VALUES ('assistant.images_enabled','true',1,1,'admin')");
-  assert.equal((await assistantImagePolicy(db)).enabled, true);
+  assert.equal((await configuredImagePolicy(db)).enabled, true);
   await saveAiFeatureModel(db, 'admin', assign(provider, 'assistant', 'text', false, 1), env);
-  assert.equal((await assistantImagePolicy(db)).enabled, false); assert.equal((await assistantImagePolicy(db)).featureRevision, 2);
+  assert.equal((await configuredImagePolicy(db)).enabled, false); assert.equal((await configuredImagePolicy(db)).configurationRevision, 2);
 });
