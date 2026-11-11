@@ -3,7 +3,7 @@
   "hostApiVersion": 3,
   "host": {
     "version": "1.2.1",
-    "sourceDigest": "3f813952f570c31839c24c86632805ecd23815396c1a60ecd198146fe47dc93c"
+    "sourceDigest": "3354245549fad2c757d45ae711cbada6d662bb3ea264cdec6b391f78aab1af19"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ac560ef1febc7e56b30059c929fc36892f486510afc0a5c055ebdc38e504890a",
       "manifestDigest": "3e172987156558e7aeca97addf0395a401a34877cab2dbfb24a41185cd8f0f21",
-      "sourceDigest": "05fa148601b6d383021ea4fa4b1c565330a70e53ee076d363c7ec6fa5916b907",
+      "sourceDigest": "f662bf697222d31808499cb59dd8a9e4bf1014e01cdaa0ae752293860d110fe5",
       "sources": [
         {
           "path": "client/index.html",
@@ -857,7 +857,7 @@
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
-          "sha256": "b31a7460d0bcd31df50aab1414470e225f620de22ca20f6f231e8f026d8c324f"
+          "sha256": "650914dd3c85d2e7f1ffeccbb104244e80920edcb4274f2f2ce7026b2c9ad91f"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.test-fixtures.js",
@@ -3756,7 +3756,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "5ff301b05e5a61a95cba1bf030114c6e78be0809e8165285c9da1f1d6e0ec20f",
+      "sourceDigest": "0f06738d7a1c7d7a936e168bc54edb3338a88c8349eaaf2013d7f9215794b95c",
       "sources": [
         {
           "path": "client/index.html",
@@ -4600,7 +4600,7 @@
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
-          "sha256": "b31a7460d0bcd31df50aab1414470e225f620de22ca20f6f231e8f026d8c324f"
+          "sha256": "650914dd3c85d2e7f1ffeccbb104244e80920edcb4274f2f2ce7026b2c9ad91f"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.test-fixtures.js",
@@ -7779,7 +7779,7 @@
       "apiVersion": 1,
       "source": "artifact:official:abe10c1712f8ef602ec71268608111110589b72b5572f7a7659131b1a45fd276",
       "manifestDigest": "53557cc8044e31cd9d2951c2e6c9389b5cc3a25bdf7ca5ab814eccc9b7edc72b",
-      "sourceDigest": "272a98f919605c49e5eab5ac2ca991a8577fd5ea832dcd05ae5d1d3677aafa27",
+      "sourceDigest": "f85fdb4bf1182e09f4b3b252c249d1b77c285f587730ca0e4a783759e4ee230d",
       "sources": [
         {
           "path": "client/index.html",
@@ -8623,7 +8623,7 @@
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
-          "sha256": "b31a7460d0bcd31df50aab1414470e225f620de22ca20f6f231e8f026d8c324f"
+          "sha256": "650914dd3c85d2e7f1ffeccbb104244e80920edcb4274f2f2ce7026b2c9ad91f"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.test-fixtures.js",
@@ -11646,7 +11646,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "45eb2e4f1926f997ae70cf5d88f6959a21675e33b8f03bb4750d3b7209558a2a",
+      "sourceDigest": "962212c4dac0421d6761d8d0540dc022ee5dab88ab71680086c904738600e992",
       "sources": [
         {
           "path": "client/index.html",
@@ -12490,7 +12490,7 @@
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
-          "sha256": "b31a7460d0bcd31df50aab1414470e225f620de22ca20f6f231e8f026d8c324f"
+          "sha256": "650914dd3c85d2e7f1ffeccbb104244e80920edcb4274f2f2ce7026b2c9ad91f"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.test-fixtures.js",
@@ -15345,7 +15345,7 @@
       "apiVersion": 1,
       "source": "artifact:official:863c7bf35e24fb71baa43da9d579823577d173f7d62a3b115ad28cb7ec7730e6",
       "manifestDigest": "5d6b1c9a3648d862123719f33000417a1e6ce5530d55574d097dd560ea6d1835",
-      "sourceDigest": "a877e5c866ae1f28643b7d1f1cac5eed490682b0ffdf62433d6f35c88cb46e71",
+      "sourceDigest": "4f89ada51536c30a20fd1e433a63c6c994c12bb8b89d0fe2769c9a58dfc42cfc",
       "sources": [
         {
           "path": "client/index.html",
@@ -16189,7 +16189,7 @@
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
-          "sha256": "b31a7460d0bcd31df50aab1414470e225f620de22ca20f6f231e8f026d8c324f"
+          "sha256": "650914dd3c85d2e7f1ffeccbb104244e80920edcb4274f2f2ce7026b2c9ad91f"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.test-fixtures.js",
@@ -19052,7 +19052,7 @@
       "apiVersion": 1,
       "source": "artifact:official:4f37801da2e3aea2d45454939d2931e9fd4117a0658e22fec4360f6fb5dd8a0e",
       "manifestDigest": "c94043b46d6b4273539f596516160eb16dfd2baf6258acdf390744cc38ba9253",
-      "sourceDigest": "e9f78954a701569f4dff915ba9b4d49801eec1bb5658f41d0679e8fe1334d5df",
+      "sourceDigest": "8297ba91a1ed82363a6aef042fc78b81435b15ff169c535526d34eb3fb8b1d8a",
       "sources": [
         {
           "path": "client/index.html",
@@ -19896,7 +19896,7 @@
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
-          "sha256": "b31a7460d0bcd31df50aab1414470e225f620de22ca20f6f231e8f026d8c324f"
+          "sha256": "650914dd3c85d2e7f1ffeccbb104244e80920edcb4274f2f2ce7026b2c9ad91f"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.test-fixtures.js",
