@@ -68,7 +68,7 @@ test('locale claims require complete metadata, valid defaults and declared label
 test('compiled Xiaomi is pure shared data with personal pages and generic entry slots', () => {
   assert.equal(validatePluginManifests(compiledPluginManifests), compiledPluginManifests);
   const xiaomi = compiledPluginManifests.find(plugin => plugin.id === 'xiaomi-speaker');
-  assert.equal(xiaomi.version, '1.1.0'); assert.equal(xiaomi.dataVersion, 0);
+  assert.equal(xiaomi.version, '1.1.1'); assert.equal(xiaomi.dataVersion, 0);
   assert.deepEqual(xiaomi.pages.map(page => page.id), ['connection', 'devices', 'playback']);
   assert.ok(xiaomi.pages.every(page => page.access === 'authenticated'));
   assert.ok(xiaomi.entries.filter(entry => entry.slot.startsWith('menu.')).every(entry => entry.action === 'output'));

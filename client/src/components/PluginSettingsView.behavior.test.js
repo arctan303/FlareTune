@@ -55,7 +55,7 @@ test('administrators confirm a pending selection without activating the running 
   await nodes(subject.view()).find(node => node.type === 'confirm-dialog').props.onConfirm();
   await flushBackgroundAsync();
   assert.deepEqual(subject.writes, []);
-  assert.deepEqual(subject.deliveryWrites, [['/selection', 'PUT', { pluginId: 'xiaomi-speaker', installed: true, sourceId: 'workspace', version: '1.1.0', trustCode: true }]]);
+  assert.deepEqual(subject.deliveryWrites, [['/selection', 'PUT', { pluginId: 'xiaomi-speaker', installed: true, sourceId: 'workspace', version: '1.1.1', trustCode: true }]]);
   assert.equal(subject.resource.plugins[0].installed, false);
   assert.equal(nodes(subject.view()).some(node => node.type === 'confirm-dialog'), false);
   assert.equal(subject.calls.at(-1).options.admin, true);
@@ -134,7 +134,7 @@ test('data updates and uninstall stay explicit, and account or role changes reti
   assert.deepEqual(subject.writes, [['xiaomi-speaker', true, 2]]);
   nodes(subject.view()).find(node => node.type === 'button' && text(node) === '卸载插件').props.onClick();
   await nodes(subject.view()).find(node => node.type === 'confirm-dialog').props.onConfirm();
-  assert.deepEqual(subject.deliveryWrites.at(-1), ['/selection', 'PUT', { pluginId: 'xiaomi-speaker', installed: false, sourceId: 'workspace', version: '1.1.0', trustCode: true }]);
+  assert.deepEqual(subject.deliveryWrites.at(-1), ['/selection', 'PUT', { pluginId: 'xiaomi-speaker', installed: false, sourceId: 'workspace', version: '1.1.1', trustCode: true }]);
   nodes(subject.view()).find(node => node.type === 'button' && text(node) === '卸载插件').props.onClick();
   subject.session.user.accountId = 'B';
   subject.view(); assert.equal(nodes(subject.view()).some(node => node.type === 'confirm-dialog'), false);

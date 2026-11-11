@@ -214,7 +214,7 @@ test('workerd speaker HTTP flow persists encrypted D1 state and streams conditio
     assert.equal(upstream.calls.length, 0, 'CSRF rejection must precede any Xiaomi request');
 
     const availablePlugin = (await api('/api/admin/plugins')).data.plugins.find(plugin => plugin.id === 'xiaomi-speaker');
-    assert.deepEqual(pluginSummary(availablePlugin), { id: 'xiaomi-speaker', version: '1.1.0', installed: false, revision: 0 });
+    assert.deepEqual(pluginSummary(availablePlugin), { id: 'xiaomi-speaker', version: '1.1.1', installed: false, revision: 0 });
     assert.equal(availablePlugin.availability.reason, 'not_installed');
     assert.match(availablePlugin.manifestDigest, /^[a-f0-9]{64}$/);
     assert.match(availablePlugin.buildDigest, /^[a-f0-9]{64}$/);
@@ -225,7 +225,7 @@ test('workerd speaker HTTP flow persists encrypted D1 state and streams conditio
     assert.equal((await api('/api/admin/plugins/xiaomi-speaker', { method: 'PUT',
       body: { installed: true, revision: 0 }, expectedAccount: 'another-account', expected: 409 })).data.error, 'account_changed');
     const installedPlugin = (await api('/api/admin/plugins/xiaomi-speaker', { method: 'PUT', body: { installed: true, revision: 0 } })).data.plugin;
-    assert.deepEqual(pluginSummary(installedPlugin), { id: 'xiaomi-speaker', version: '1.1.0', installed: true, revision: 1 });
+    assert.deepEqual(pluginSummary(installedPlugin), { id: 'xiaomi-speaker', version: '1.1.1', installed: true, revision: 1 });
     assert.equal(installedPlugin.availability.available, true);
     for (const pluginBuild of [null, '0'.repeat(64)]) {
       assert.equal((await api('/api/account/plugins/xiaomi-speaker', { pluginBuild, expected: 409 })).data.error, 'PLUGIN_BUILD_MISMATCH');
