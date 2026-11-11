@@ -361,7 +361,7 @@
     },
     {
       "id": "lyrics-workbench",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "manifest": {
         "apiVersion": 1,
         "capabilityRoles": [
@@ -420,69 +420,124 @@
         "id": "lyrics-workbench",
         "messages": {
           "en": {
+            "aiCompletion": "AI completion",
             "assistant": "Assistant",
+            "automatic": "Translate automatically",
             "candidates": "Lyric candidates",
             "clear": "Clear conversation",
             "configuration": "Settings",
             "conversation": "Conversation",
             "current": "Current lyrics",
             "gateway": "AI gateway",
+            "lyricPreference": "Lyric preference",
             "lyrics": "Lyrics workspace",
+            "manual": "Manual only",
             "memory": "Memory",
             "name": "Lyrics workspace",
-            "tools": "Files and management"
+            "off": "Off",
+            "onlineDisabled": "Online lyric retrieval is disabled",
+            "onlineEnabled": "Fetch lyrics online",
+            "policy": "Lyric policy",
+            "preferLine": "Line timing is enough",
+            "preferWord": "Prefer word timing",
+            "tools": "Files and management",
+            "translationFailed": "Could not translate the lyrics. Please try again."
           },
           "ja": {
+            "aiCompletion": "AI 補完",
             "assistant": "アシスタント",
+            "automatic": "不足する翻訳を自動補完",
             "candidates": "歌詞候補",
             "clear": "会話を消去",
             "configuration": "設定",
             "conversation": "会話",
             "current": "現在の歌詞",
             "gateway": "AI ゲートウェイ",
+            "lyricPreference": "歌詞の優先設定",
             "lyrics": "歌詞ワークスペース",
+            "manual": "手動のみ",
             "memory": "メモリ",
             "name": "歌詞ワークスペース",
-            "tools": "ファイルと管理"
+            "off": "オフ",
+            "onlineDisabled": "オンライン歌詞取得は無効です",
+            "onlineEnabled": "オンラインで歌詞を取得",
+            "policy": "歌詞の設定",
+            "preferLine": "行ごとの同期で十分",
+            "preferWord": "単語ごとの同期を優先",
+            "tools": "ファイルと管理",
+            "translationFailed": "歌詞を翻訳できませんでした。再試行してください。"
           },
           "ko": {
+            "aiCompletion": "AI 보완",
             "assistant": "어시스턴트",
+            "automatic": "누락된 번역 자동 보완",
             "candidates": "가사 후보",
             "clear": "대화 지우기",
             "configuration": "설정",
             "conversation": "대화",
             "current": "현재 가사",
             "gateway": "AI 게이트웨이",
+            "lyricPreference": "가사 기본 설정",
             "lyrics": "가사 작업 공간",
+            "manual": "수동만",
             "memory": "메모리",
             "name": "가사 작업 공간",
-            "tools": "파일 및 관리"
+            "off": "끄기",
+            "onlineDisabled": "온라인 가사 가져오기가 꺼져 있습니다",
+            "onlineEnabled": "온라인 가사 가져오기",
+            "policy": "가사 정책",
+            "preferLine": "줄 동기화로 충분",
+            "preferWord": "단어 동기화 우선",
+            "tools": "파일 및 관리",
+            "translationFailed": "가사를 번역하지 못했습니다. 다시 시도해 주세요."
           },
           "zh": {
+            "aiCompletion": "AI 补全",
             "assistant": "助手",
+            "automatic": "自动补译",
             "candidates": "候选歌词",
             "clear": "清空对话",
             "configuration": "设置",
             "conversation": "对话",
             "current": "当前歌词",
             "gateway": "AI 网关",
+            "lyricPreference": "歌词偏好",
             "lyrics": "歌词工作台",
+            "manual": "仅手动",
             "memory": "记忆",
             "name": "歌词工作台",
-            "tools": "文件与管理"
+            "off": "关闭",
+            "onlineDisabled": "联网获取歌词已关闭",
+            "onlineEnabled": "联网获取歌词",
+            "policy": "歌词策略",
+            "preferLine": "逐行即可",
+            "preferWord": "逐字优先",
+            "tools": "文件与管理",
+            "translationFailed": "歌词翻译失败，请重试。"
           },
           "zh-Hant": {
+            "aiCompletion": "AI 補全",
             "assistant": "助手",
+            "automatic": "自動補譯",
             "candidates": "候選歌詞",
             "clear": "清空對話",
             "configuration": "設定",
             "conversation": "對話",
             "current": "目前歌詞",
             "gateway": "AI 閘道",
+            "lyricPreference": "歌詞偏好",
             "lyrics": "歌詞工作台",
+            "manual": "僅手動",
             "memory": "記憶",
             "name": "歌詞工作台",
-            "tools": "檔案與管理"
+            "off": "關閉",
+            "onlineDisabled": "連網取得歌詞已關閉",
+            "onlineEnabled": "連網取得歌詞",
+            "policy": "歌詞策略",
+            "preferLine": "逐行即可",
+            "preferWord": "逐字優先",
+            "tools": "檔案與管理",
+            "translationFailed": "歌詞翻譯失敗，請重試。"
           }
         },
         "metadata": {
@@ -526,6 +581,7 @@
             "label": "当前歌词",
             "labelKey": "current",
             "playerPlacement": "sidebar",
+            "presentation": "workspace",
             "roles": [
               "admin",
               "member"
@@ -552,6 +608,7 @@
             "label": "候选歌词",
             "labelKey": "candidates",
             "playerPlacement": "sidebar",
+            "presentation": "workspace",
             "roles": [
               "admin",
               "member"
@@ -581,13 +638,13 @@
           "ja",
           "ko"
         ],
-        "version": "0.2.0"
+        "version": "0.3.0"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/ffc640872054a7321ed1266e3a6c0f0215f104ae/artifacts/lyrics-workbench/0.2.0/65a28f2231ccabaef2bc0bb1fd0896ff4aecae56ec0beefe4595a7bc77d8f12d.json",
-        "sha256": "65a28f2231ccabaef2bc0bb1fd0896ff4aecae56ec0beefe4595a7bc77d8f12d"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/82db5d5e9120ac6bd1ffde67d22054b263bf1c47/artifacts/lyrics-workbench/0.3.0/abe10c1712f8ef602ec71268608111110589b72b5572f7a7659131b1a45fd276.json",
+        "sha256": "abe10c1712f8ef602ec71268608111110589b72b5572f7a7659131b1a45fd276"
       }
     },
     {
@@ -846,7 +903,7 @@
     },
     {
       "id": "youtube-music",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "manifest": {
         "apiVersion": 1,
         "capabilities": {
@@ -876,7 +933,7 @@
             "slot": "sidebar.settings.admin"
           }
         ],
-        "hostApiVersion": 2,
+        "hostApiVersion": 3,
         "icon": "music",
         "id": "youtube-music",
         "messages": {
@@ -943,13 +1000,13 @@
           "ja",
           "ko"
         ],
-        "version": "0.1.0"
+        "version": "0.2.0"
       },
       "source": {
         "type": "artifact",
         "id": "official",
-        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/38c4278eaec7f09d77cce1f3ea2f143b901a35ea/artifacts/youtube-music/0.1.0/39f9be73cfa5d46f2e7d132e8891097d633e0a8082276992ac894e35dd9a4b99.json",
-        "sha256": "39f9be73cfa5d46f2e7d132e8891097d633e0a8082276992ac894e35dd9a4b99"
+        "url": "https://raw.githubusercontent.com/arctan303/FlareTune-Plugins/82db5d5e9120ac6bd1ffde67d22054b263bf1c47/artifacts/youtube-music/0.2.0/4f37801da2e3aea2d45454939d2931e9fd4117a0658e22fec4360f6fb5dd8a0e.json",
+        "sha256": "4f37801da2e3aea2d45454939d2931e9fd4117a0658e22fec4360f6fb5dd8a0e"
       }
     }
   ]
