@@ -642,6 +642,7 @@ export async function loadLyricsDocumentIntoStore({
 
 export function useLyricsFetcher({ enabled = true } = {}) {
     const currentSong = usePlayerStore((state) => state.currentSong);
+    const playbackOwnershipGeneration = usePlayerStore((state) => state.playbackOwnershipGeneration);
     const lyricsRefreshRevision = usePlayerStore((state) => state.lyricsRefreshRevision);
     const translationState = usePlayerStore((state) => state.translationState);
     const translationStartedAt = usePlayerStore((state) => state.translationStartedAt);
@@ -660,7 +661,7 @@ export function useLyricsFetcher({ enabled = true } = {}) {
             signal: controller.signal,
         });
         return () => controller.abort();
-    }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision]);
+    }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision, playbackOwnershipGeneration]);
 
     useEffect(() => {
         if (!enabled || !currentSong || translationState !== 'pending' || (!resultRef && !translationStartedAt)) return undefined;
@@ -680,12 +681,12 @@ export function useLyricsFetcher({ enabled = true } = {}) {
             }),
         });
         return poller.stop;
-    }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision, translationStartedAt, translationState, resultRef]);
+    }, [currentSong, enabled, resolvedHasLyrics, lyricsRefreshRevision, translationStartedAt, translationState, resultRef, playbackOwnershipGeneration]);
 
     useEffect(() => {
         if (!enabled || !currentSong || !translationEnabled || !translationSupported || !resultRef
             || !['idle', 'missing'].includes(translationState)) return;
         void requestLyricsTranslationCompletion({ songId: currentSong.id, authenticated: true });
-    }, [currentSong, enabled, translationEnabled, translationSupported, translationState, resultRef]);
+    }, [currentSong, enabled, translationEnabled, translationSupported, translationState, resultRef, playbackOwnershipGeneration]);
 
 }
