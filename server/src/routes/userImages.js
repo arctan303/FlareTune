@@ -1,6 +1,6 @@
 import { UserImageError, getOwnImageSlot, uploadOwnImage, setOwnImageSlot, readOwnImage, readImageBody, cleanupOwnImages } from '../services/userImages.js';
 import { readBoundedJson } from '../instance/httpSecurity.js';
-import { createAssistantImageAccess } from '../services/assistantImages.js';
+import * as assistantImages from '../services/assistantImages.js';
 import { createPluginContext } from '../plugins/context.js';
 import { pluginRegistry } from '../plugins/registry.js';
 import { createPluginServiceLease } from '../plugins/services.js';
@@ -21,7 +21,19 @@ export async function handleUserImages(request, url, db, bucket, session, { env,
         const build = registry.getBuildDigest('assistant');
         if (!build || request.headers.get('X-FlareTune-Plugin-Build') !== build) return json({ error: 'PLUGIN_BUILD_MISMATCH' }, 409);
         lease = await createPluginServiceLease({ env: pluginEnv, session, consumerId: 'assistant', providerId: 'ai-gateway', consumerContext: authority, registry });
-        images = await createAssistantImageAccess({ env: pluginEnv, session, consumerContext: authority, serviceLease: lease, registry });
+        // A host upgrade inherits the exact installed package. API1 assistant
+        // packages expose only the legacy policy; the new package owns the
+        // configuration-bound access capability. Avoid a named import that
+        // would prevent the inherited old package from linking at all.
+        const createAccess = Reflect.get(assistantImages, 'createAssistantImageAccess');
+        if (typeof createAccess === 'function') {
+          images = await createAccess({ env: pluginEnv, session, consumerContext: authority, serviceLease: lease, registry });
+        } else {
+          const guardedDb = lease.guardedDb(pluginEnv.DB);
+          const policy = Reflect.get(assistantImages, 'assistantImagePolicy');
+          if (typeof policy !== 'function') throw new UserImageError('assistant_images_disabled', 403);
+          images = { db: guardedDb, policy: () => policy(guardedDb) };
+        }
         db = images.db;
         if (!(await images.policy()).enabled) throw new UserImageError('assistant_images_disabled', 403);
       }
