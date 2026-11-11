@@ -5,7 +5,11 @@ import { isSubsonicPluginServiceLeaseForPrincipal } from '../subsonic/pluginAuth
 import { pluginTablePrefix } from './migrations.js';
 import { registerDatabaseWrapper } from '../services/databaseIdentity.js';
 
-const mutations = new WeakMap(), guards = new WeakMap();
+const mutations = new WeakMap(), guards = new WeakMap(), configurationAssertions = new WeakMap();
+// Internal provenance only: public SDK callers can receive an assertion, but
+// cannot label an arbitrary function as a stronger gate for a service lease.
+export const isServiceConfigurationAssertionForLease = (assertion, lease) =>
+  typeof assertion === 'function' && Boolean(lease) && configurationAssertions.get(assertion) === lease;
 const rawStatement = Symbol('serviceConfigStatement');
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 const identifier = value => typeof value === 'string' && /^[a-zA-Z_][a-zA-Z0-9_]{0,79}$/.test(value);
@@ -180,7 +184,7 @@ export function bindServiceConfiguration(request, { slot = 'ai-model', revision,
     if (!dbs.has(db)) dbs.set(db, guardedDatabase(a.lease.guardedDb(db), predicates));
     return dbs.get(db);
   };
-  return Object.freeze({ guardedDb, async assertCurrent() {
+  const assertCurrent = async () => {
     try { await guardedDb().prepare('SELECT 1').first(); }
     catch (error) {
       if (/malformed JSON|service_configuration_changed/i.test(error.message || '')) {
@@ -188,7 +192,9 @@ export function bindServiceConfiguration(request, { slot = 'ai-model', revision,
       }
       throw error;
     }
-  } });
+  };
+  configurationAssertions.set(assertCurrent, a.lease);
+  return Object.freeze({ guardedDb, assertCurrent });
 }
 
 function resourceEntries(registry, providerId) {

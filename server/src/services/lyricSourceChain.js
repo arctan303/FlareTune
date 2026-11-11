@@ -9,6 +9,7 @@ import { guardStoreAuthority, storeAuthorityGuard } from './storeAuthority.js';
 import { updateDefinedSetting } from '../instanceAdmin/settings.js';
 import { subsonicAuthorityForPrincipal } from '../subsonic/credentials.js';
 import { isSubsonicPluginServiceLeaseForPrincipal } from '../subsonic/pluginAuthority.js';
+import { isServiceConfigurationAssertionForLease } from '../plugins/serviceConfig.js';
 import { isPluginVisibleToRole } from '../../../shared/plugins/manifest.js';
 import { applyLyricOffset } from './lyricResolution.js';
 
@@ -174,7 +175,7 @@ export async function createLyricSources({ env, db = env.DB, session, executionC
       // installation queries around every read in one candidate evaluation.
       const store = { ...guarded, get: (...args) => baseStore.get(...args),
         ...(baseStore.singleflight ? { singleflight: (...args) => baseStore.singleflight(...args) } : {}) };
-      const serviceAuthorities = new Set(), serviceStores = new Map();
+      const serviceAuthorities = new Set(), registeredServiceLeases = new Set(), serviceStores = new Map();
       const registerServiceAuthority = lease => {
         const authentic = deps.subsonicPrincipal
           ? isSubsonicPluginServiceLeaseForPrincipal(lease, deps.subsonicPrincipal, env, registry)
@@ -182,12 +183,15 @@ export async function createLyricSources({ env, db = env.DB, session, executionC
         if (!authentic || lease.consumer.id !== id || lease.consumer.epoch !== context.plugin.epoch
           || lease.identity.accountId !== context.identity.accountId) pluginFail('PLUGIN_SERVICE_CONTEXT_MISMATCH', 403);
         serviceAuthorities.add(lease.assertCurrent);
+        registeredServiceLeases.add(lease);
       };
       // A genuine service lease already pins this source epoch plus all
       // provider epochs. Compose that stronger live gate once, retaining the
       // source cancellation scope at the actual storage boundary.
       Object.defineProperty(store, storeAuthorityGuard, { value: assertion => {
-        if (!serviceAuthorities.has(assertion)) return guardStoreAuthority(guarded, assertion);
+        const ownedConfigurationGate = [...registeredServiceLeases]
+          .some(lease => isServiceConfigurationAssertionForLease(assertion, lease));
+        if (!serviceAuthorities.has(assertion) && !ownedConfigurationGate) return guardStoreAuthority(guarded, assertion);
         if (serviceStores.has(assertion)) return serviceStores.get(assertion);
         const check = async () => { scope.signal?.throwIfAborted(); await assertion(); scope.signal?.throwIfAborted(); };
         const composed = { ...guardStoreAuthority(baseStore, check) };

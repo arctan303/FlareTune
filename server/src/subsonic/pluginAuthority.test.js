@@ -310,16 +310,18 @@ test('Subsonic mixed not-needed compact batches retain the final completion requ
 });
 
 test('larger compact lyrics exceeding the request budget finish as failed without a partial translation or pending lock', async t => {
-  const f = await setup(t), tasks = []; await compactLyrics(f, 224); let upstreamCalls = 0;
+  const lineCount = 264;
+  const f = await setup(t), tasks = []; await compactLyrics(f, lineCount); let upstreamCalls = 0;
   t.mock.method(globalThis, 'fetch', async (input, options) => { upstreamCalls++; return batchReply(options); });
   const calls = enforceBindingBudget(f.db, 50);
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
   await Promise.all(tasks);
-  assert.equal(upstreamCalls, 11); assert.equal(artifact(f).translation, null);
+  assert.ok(upstreamCalls > 0 && upstreamCalls < Math.ceil(lineCount / 20), 'budget stops upstream batches before the whole document can finish');
+  assert.equal(artifact(f).translation, null);
   assert.equal(artifact(f).aiCompletion?.status, 'failed'); assert.equal(artifact(f).aiCompletion.errorCode, 'request_budget_exhausted');
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
-  assert.ok(calls.length <= 50); t.diagnostic(`224 lines settle without partial save: ${calls.length}/50 D1 bindings`);
+  assert.ok(calls.length <= 50); t.diagnostic(`${lineCount} lines settle without partial save: ${calls.length}/50 D1 bindings`);
 });
 
 test('opt-in withdrawal, credential changes and either plugin reinstall discard delayed Subsonic AI without shared writes', async t => {

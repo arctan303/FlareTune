@@ -6,7 +6,8 @@ import { createPluginContext } from './context.js';
 import { createPluginServiceLease } from './services.js';
 import { createInvocationDatabase } from '../services/invocationDatabase.js';
 import { createServiceConfigStore, createServiceConfigGuard, commitServiceConfiguration,
-  bindServiceConfiguration, listServiceResourceUses, createServiceResourceDeletionStore } from './serviceConfig.js';
+  bindServiceConfiguration, listServiceResourceUses, createServiceResourceDeletionStore,
+  isServiceConfigurationAssertionForLease } from './serviceConfig.js';
 
 const manifest = (id, extra = {}) => ({ id, name: id, description: id, icon: 'settings', version: '0.2.0',
   hostApiVersion: 3, apiVersion: 1, capabilityRoles: ['admin','member'], pages: [], entries: [], ...extra });
@@ -86,6 +87,17 @@ test('selection binding gates writes at both ends of a D1 transaction and rolls 
   assert.equal(f.sqlite.prepare("SELECT key FROM instance_settings WHERE key='business.write'").get(), undefined);
   f.sqlite.exec("UPDATE instance_settings SET revision=2 WHERE key='plugin.data.assistant.instance.ai-model'");
   await assert.rejects(binding.assertCurrent(), { code: 'PLUGIN_SERVICE_CONFIGURATION_CHANGED' });
+});
+
+test('bound configuration assertions have host provenance tied to the exact genuine service lease', async t => {
+  const f = await setup(t); await f.save();
+  const binding = bindServiceConfiguration(f.request, { revision: 1, guard: f.guard() });
+  assert.equal(isServiceConfigurationAssertionForLease(binding.assertCurrent, f.request.serviceLease), true);
+  assert.equal(isServiceConfigurationAssertionForLease(async () => binding.assertCurrent(), f.request.serviceLease), false);
+  assert.equal(isServiceConfigurationAssertionForLease(f.request.serviceLease.assertCurrent, f.request.serviceLease), false);
+  assert.equal(isServiceConfigurationAssertionForLease(binding.assertCurrent, { ...f.request.serviceLease }), false);
+  const other = await createPluginServiceLease({ ...f.request, providerId: 'ai-gateway', consumerContext: f.request.context });
+  assert.equal(isServiceConfigurationAssertionForLease(binding.assertCurrent, other), false);
 });
 
 test('members use saved config but cannot prepare or commit administrator mutations', async t => {
