@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pluginCiContext, runPluginCiChannel } from './ci-channel.mjs';
 
-const environment = { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'codex/plugin-host-dev-20261108',
+const environment = { WORKERS_CI: '1', WORKERS_CI_BRANCH: 'dev',
   FLARETUNE_PLUGIN_SITE_URL: 'https://tune-dev.arcinks.com', FLARETUNE_PLUGIN_WORKER_NAME: 'flaretune-dev',
   FLARETUNE_PLUGIN_BUILD_TOKEN: 'synthetic-build-token-for-testing-only' };
 
 test('dedicated CI accepts only its exact branch and development target', () => {
   assert.equal(pluginCiContext(environment).branch, environment.WORKERS_CI_BRANCH);
-  for (const change of [{ WORKERS_CI_BRANCH: 'dev' }, { WORKERS_CI: '0' },
+  for (const change of [{ WORKERS_CI_BRANCH: 'main' }, { WORKERS_CI_BRANCH: 'codex/plugin-host-dev-20261108' }, { WORKERS_CI: '0' },
     { FLARETUNE_PLUGIN_BUILD_BRANCH: 'codex/*' }, { FLARETUNE_PLUGIN_BUILD_BRANCH: 'codex/a..b' },
     { FLARETUNE_PLUGIN_BUILD_BRANCH: 'codex/.hidden' }, { FLARETUNE_PLUGIN_BUILD_BRANCH: 'codex/a.lock' },
     { FLARETUNE_PLUGIN_WORKER_NAME: 'flaretune' }, { FLARETUNE_PLUGIN_SITE_URL: 'https://other.example' }]) {
@@ -78,7 +78,7 @@ test('named build controller reaches only the development target without mutatin
     assert.equal(effective.WRANGLER_CI_OVERRIDE_NAME, 'flaretune-dev');
     assert.equal(effective.WRANGLER_CI_MATCH_TAG, 'd'.repeat(32));
     assert.equal(effective.FLARETUNE_PLUGIN_WORKER_NAME, 'flaretune-dev');
-    assert.equal(effective.WORKERS_CI_BRANCH, 'codex/plugin-host-dev-20261108');
+    assert.equal(effective.WORKERS_CI_BRANCH, 'dev');
   };
   const options = { environment: providerEnvironment, root: '/synthetic',
     runDeliveryImpl: async (command, options) => { checkEnvironment(options.environment); calls.push(command); },
@@ -100,6 +100,8 @@ test('unrecognized controllers, alternate controller branches and controller dep
     { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build' },
     { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG: 'invalid-tag' },
     { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', WORKERS_CI_BRANCH: 'codex/other', FLARETUNE_PLUGIN_BUILD_BRANCH: 'codex/other' },
+    { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', WORKERS_CI_BRANCH: 'codex/plugin-host-dev-20261108', FLARETUNE_PLUGIN_BUILD_BRANCH: 'codex/plugin-host-dev-20261108' },
+    { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', WORKERS_CI_BRANCH: 'main', FLARETUNE_PLUGIN_BUILD_BRANCH: 'main' },
     { WRANGLER_CI_OVERRIDE_NAME: 'flaretune-plugin-build', FLARETUNE_PLUGIN_WORKER_NAME: 'flaretune-plugin-build' },
   ]) for (const command of ['build', 'deploy', 'recover']) {
     let called = false;

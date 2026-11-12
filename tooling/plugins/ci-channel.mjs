@@ -7,7 +7,7 @@ import { prepareDevelopmentBuildConfig } from './dev-build-config.mjs';
 
 const rootDirectory = fileURLToPath(new URL('../../', import.meta.url));
 const fail = code => { throw Object.assign(new Error(code), { code }); };
-const defaultBranch = 'codex/plugin-host-dev-20261108';
+const defaultBranch = 'dev';
 const buildController = 'flaretune-plugin-build';
 
 export function pluginCiContext(environment = process.env) {

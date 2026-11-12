@@ -93,15 +93,15 @@ Hook URL本身带有触发权限，任何持有者都可触发对应构建，应
 
 当前仓库的`plugins:ci-build`和`plugins:ci-deploy`是维护者测试实例专用包装器。维护者已预先授权创建`flaretune-plugin-build`作为独立构建控制器：运行代码只返回404，无应用绑定，关闭workers.dev和preview公开入口；它负责Git连接、构建记录及Hook，实际应用代码和流量始终部署到`flaretune-dev`。创建、连接控制器是部署者的基础设施配置，不会在管理员安装插件时自动发生。
 
-控制器只连接固定分支`codex/plugin-host-dev-20261108`，Hook也选择同一分支。Cloudflare在preview关闭且Hook分支不匹配Builds分支时会以`12068`拒绝触发；仅在原dev触发器中加入按分支分发的shell命令不能消除此平台限制。使用分支与Hook匹配的独立控制器，保持原dev/main触发器和preview策略原样。
+控制器固定连接日常开发分支`dev`，Hook也选择`dev`。Cloudflare在preview关闭且Hook分支不匹配Builds分支时会以`12068`拒绝触发；仅修改构建脚本不能消除此平台限制。迁移时同时核对控制器分支、显式构建变量及原Hook目标，保留原Hook身份与秘密。应用Worker上遗留的直接Git构建入口须先通过“禁用构建”停止发布，避免同一次dev推送启动两条发布链；运行中的应用、绑定、已安装插件及生产main通道保持原样。
 
-控制器的Builds构建命令为`npm run plugins:ci-build`，部署命令为`npm run plugins:ci-deploy`。`plugins:ci-build`内部先执行`prepare-current`：同host继续已有计划，新host按本站运行组合预留升级，因此维护者向该受信固定分支推送新宿主时可自动继承已安装包；它不改变原dev触发器的命令或秘密。运行站点须支持下文升级协议；旧站不支持时先按受控协议桥处理，不能直接套用seed。配置以下六项构建变量：
+控制器的Builds构建命令为`npm run plugins:ci-build`，部署命令为`npm run plugins:ci-deploy`。`plugins:ci-build`内部先执行`prepare-current`：同host继续已有计划，新host按本站运行组合预留升级，因此dev推送新宿主时自动继承本站当前已安装包，不从发行seed恢复已卸载插件。运行站点须支持下文升级协议；旧站不支持时先按受控协议桥处理，不能直接套用seed。配置以下六项构建变量：
 
 | 变量 | 来源与用途 |
 | --- | --- |
 | `FLARETUNE_PLUGIN_SITE_URL` | 维护者测试站点的HTTPS纯origin，须匹配包装器固定的站点 |
 | `FLARETUNE_PLUGIN_WORKER_NAME` | 实际应用目标`flaretune-dev` |
-| `FLARETUNE_PLUGIN_BUILD_BRANCH` | 固定为`codex/plugin-host-dev-20261108` |
+| `FLARETUNE_PLUGIN_BUILD_BRANCH` | 固定为`dev` |
 | `CLOUDFLARE_ACCOUNT_ID` | 应用目标所属账户，须与真实部署配置一致 |
 | `FLARETUNE_PLUGIN_BUILD_TOKEN` | 与站内加密保存的构建访问密钥相同，存为控制器的构建秘密 |
 | `FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG` | 从实际应用Worker元数据的`tag`字段取得，用于核对应用身份；不是控制器的tag |

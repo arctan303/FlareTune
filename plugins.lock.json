@@ -3,7 +3,7 @@
   "hostApiVersion": 3,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "594a5da3b74b078359e5973b0230457e06e3c159fbebb8271a6c9e165d4fe4ce"
+    "sourceDigest": "52294f3b114735590f53ff8e6cdff80be6ca6809d3c8193393a2d122b7ed48ca"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "ed7790341fc82842ff156cef82248a081e9190cafe1fc54166ec0148b4af48c5",
+      "sourceDigest": "cee3b3b51626b97d4e433d3bcec20036af7d761a21fd0df9c2775ba2b9d51102",
       "sources": [
         {
           "path": "client/index.html",
@@ -389,7 +389,7 @@
         },
         {
           "path": "client/src/components/PluginDeliveryView.jsx",
-          "sha256": "4494896f9cbbc13349c45f227d9772886c37a49800396e4dce443a1cfdec7cee"
+          "sha256": "e1649de061a0a51c6b2e06b8543fd6253bd4bf7dadb994b3f119976159d6c806"
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
@@ -3669,7 +3669,7 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "87b71d08c6fc65f1207357ebd9028b3a48035188fd7fae7ceac13e35e38a4fb1"
+          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -3764,7 +3764,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "b68605bfe6dac0697c472bfa868609e677e2485a7bffc018b2b23eb0104f1252",
+      "sourceDigest": "3df25d1abdb25867f9363fc4e9e07a87063a94d5daa63410ec089b4a7c796d27",
       "sources": [
         {
           "path": "client/index.html",
@@ -4140,7 +4140,7 @@
         },
         {
           "path": "client/src/components/PluginDeliveryView.jsx",
-          "sha256": "4494896f9cbbc13349c45f227d9772886c37a49800396e4dce443a1cfdec7cee"
+          "sha256": "e1649de061a0a51c6b2e06b8543fd6253bd4bf7dadb994b3f119976159d6c806"
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
@@ -7692,7 +7692,7 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "87b71d08c6fc65f1207357ebd9028b3a48035188fd7fae7ceac13e35e38a4fb1"
+          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -7787,7 +7787,7 @@
       "apiVersion": 1,
       "source": "artifact:official:c02e265bfe797d993011648e0c8a5424e7b43829f9b540d849c5eafe6619dcf9",
       "manifestDigest": "58d79711ead9a562b0a432f4675b7612deb7fad14689abcf01f9ea6a9e8d95b1",
-      "sourceDigest": "84f7574e53447539fa1a9d8ddf341f506b0552e9166a033375a0976b2e816767",
+      "sourceDigest": "b294102c88b4c08e2d9fe3f21a6632a72c3a8951ed76b28e2609dab5f61a7b75",
       "sources": [
         {
           "path": "client/index.html",
@@ -8163,7 +8163,7 @@
         },
         {
           "path": "client/src/components/PluginDeliveryView.jsx",
-          "sha256": "4494896f9cbbc13349c45f227d9772886c37a49800396e4dce443a1cfdec7cee"
+          "sha256": "e1649de061a0a51c6b2e06b8543fd6253bd4bf7dadb994b3f119976159d6c806"
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
@@ -11559,7 +11559,7 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "87b71d08c6fc65f1207357ebd9028b3a48035188fd7fae7ceac13e35e38a4fb1"
+          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -11654,7 +11654,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "0d1b85dc9292d107d5e34185312145bced57976545c1b9f38aa3a37931c40d56",
+      "sourceDigest": "b56c9352c35179e775a7cc3d373838cba830b98c069b47a1a0608ec5d2b9fed8",
       "sources": [
         {
           "path": "client/index.html",
@@ -12030,7 +12030,7 @@
         },
         {
           "path": "client/src/components/PluginDeliveryView.jsx",
-          "sha256": "4494896f9cbbc13349c45f227d9772886c37a49800396e4dce443a1cfdec7cee"
+          "sha256": "e1649de061a0a51c6b2e06b8543fd6253bd4bf7dadb994b3f119976159d6c806"
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
@@ -15258,7 +15258,7 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "87b71d08c6fc65f1207357ebd9028b3a48035188fd7fae7ceac13e35e38a4fb1"
+          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -15353,7 +15353,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "0badba6a44f4b8916fa23ec994b9d3dc0efbe5e94d0e53aa9f2fecce566db043",
+      "sourceDigest": "eefb7c0c24ee9ec80316be8c290c9ef89c27a79f0dc15e25370b00b5c7766e9f",
       "sources": [
         {
           "path": "client/index.html",
@@ -15729,7 +15729,7 @@
         },
         {
           "path": "client/src/components/PluginDeliveryView.jsx",
-          "sha256": "4494896f9cbbc13349c45f227d9772886c37a49800396e4dce443a1cfdec7cee"
+          "sha256": "e1649de061a0a51c6b2e06b8543fd6253bd4bf7dadb994b3f119976159d6c806"
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
@@ -18965,7 +18965,7 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "87b71d08c6fc65f1207357ebd9028b3a48035188fd7fae7ceac13e35e38a4fb1"
+          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -19060,7 +19060,7 @@
       "apiVersion": 1,
       "source": "artifact:official:16a72a518fd2c8be872d12a53fe3c0d5278529eddebd5b62c685247bf2bf96ce",
       "manifestDigest": "8b13d1a2614f3098fcb4ba4207fa567135ceffeb9c44cd3c8bad7fddfeab558d",
-      "sourceDigest": "9bf7c5a9cec9758674541516bad6fea70f0dea507cd7cc71b4bc2f0c2dcdbdca",
+      "sourceDigest": "f1d06177e3449073d9992e7fc63c9a4ca1ae7a9b9f223665029d720ab761d643",
       "sources": [
         {
           "path": "client/index.html",
@@ -19436,7 +19436,7 @@
         },
         {
           "path": "client/src/components/PluginDeliveryView.jsx",
-          "sha256": "4494896f9cbbc13349c45f227d9772886c37a49800396e4dce443a1cfdec7cee"
+          "sha256": "e1649de061a0a51c6b2e06b8543fd6253bd4bf7dadb994b3f119976159d6c806"
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
@@ -22772,7 +22772,7 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "87b71d08c6fc65f1207357ebd9028b3a48035188fd7fae7ceac13e35e38a4fb1"
+          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
         },
         {
           "path": "tooling/plugins/compatibility.json",
