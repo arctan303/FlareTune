@@ -12,6 +12,7 @@ import { isSubsonicPluginServiceLeaseForPrincipal } from '../subsonic/pluginAuth
 import { isServiceConfigurationAssertionForLease } from '../plugins/serviceConfig.js';
 import { isPluginVisibleToRole } from '../../../shared/plugins/manifest.js';
 import { applyLyricOffset } from './lyricResolution.js';
+import { resolveLyricSong, lyricSongStillExists } from './playbackLyrics.js';
 
 export const DEFAULT_LYRIC_SOURCE_ORDER = Object.freeze(['lyrics-workbench', 'youtube-music', 'file']);
 export const LYRIC_ORDER_KEY = 'lyrics.source-order';
@@ -200,8 +201,11 @@ export async function createLyricSources({ env, db = env.DB, session, executionC
         serviceStores.set(assertion, composed); return composed;
       } });
       const source = await module.createLyricSource({ env, db, session, executionContext, context,
-        dependencies: { ...sourceDependencies, store, assertCurrent, registerServiceAuthority, assertReadScope: () => scope.signal?.throwIfAborted(), resolveSong: deps.resolveSong,
-          songStillExists: deps.songStillExists, subsonicPrincipal: deps.subsonicPrincipal } });
+        dependencies: { ...sourceDependencies, store, assertCurrent, registerServiceAuthority, assertReadScope: () => scope.signal?.throwIfAborted(),
+          // A source may evaluate library and external songs. Provider callbacks
+          // only own their virtual IDs; library existence stays with the host.
+          resolveSong: songId => resolveLyricSong(db, songId, deps),
+          songStillExists: songId => lyricSongStillExists(db, songId, deps), subsonicPrincipal: deps.subsonicPrincipal } });
       if (!source || source.id !== id || typeof source.claim !== 'function' || typeof source.resolve !== 'function') return null;
       if (source.enabled === false || typeof source.isEnabled === 'function' && !await source.isEnabled()) return null;
       active = { ...source, epoch: context.plugin.epoch, build: registry.getBuildDigest(id), assertCurrent };

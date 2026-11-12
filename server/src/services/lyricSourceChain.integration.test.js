@@ -6,11 +6,66 @@ import { createMemoryLyricStore } from '../test/lyricAssetFixtures.js';
 import { createLyricDocument } from '../utils/lyricDocument.js';
 import { buildReadyLyricArtifact, projectLyricArtifact } from './lyricAssetWorkflow.js';
 import { createLyricSources, fileLyricSource, readLyricsFromChain } from './lyricSourceChain.js';
+import { handleLocalMetadataReadRoute } from '../routes/localMetadataRead.js';
 
 const session = { account: { accountId: 'paired-owner', role: 'admin' }, tokenHash: 'paired-session', mode: 'normal' };
 const song = { id: 'yt:abcdefghijk', title: 'Fixture Song', artist: 'Fixture Singer', duration: 30, language: 'en' };
 const translatedLines = ['第一行译文', '第二行译文'];
 const originals = ['We sing beneath the evening sky', 'The stars will light our way back home'];
+
+test('library lyrics survive workbench adoption with virtual-provider-only callbacks', async t => {
+  const local = { ...song, id: 'library-song' };
+  const original = createLyricDocument({ source: 'kugou', format: 'krc',
+    lines: originals.map((text, index) => ({ text, time: index * 4 + 1, endTime: index * 4 + 3,
+      words: text.split(' ').map((word, n, words) => ({ text: word + (n < words.length - 1 ? ' ' : ''),
+        startTime: index * 4 + 1 + n * .2, endTime: index * 4 + 1.2 + n * .2 })) })),
+    providerMeta: { matchedTitle: local.title, matchedArtist: local.artist, matchedDuration: local.duration },
+  });
+  const artifact = (await buildReadyLyricArtifact(local, original)).artifact;
+  artifact.translation = { source: 'kugou', originalTextHash: artifact.textHash,
+    lines: translatedLines, updatedAt: artifact.updatedAt };
+  const store = createMemoryLyricStore(artifact);
+  const providerCalls = [];
+  const db = { prepare(sql) { return { bind(...args) { this.args = args; return this; },
+    async first() { return sql.includes('FROM Songs') && this.args[0] === local.id ? local : null; } }; } };
+  const env = { DB: db, SETUP_SECRET: 'local-library-integration-secret-at-least-32-characters' };
+  const deps = { session, store, modules: { 'lyrics-workbench': deliveryPluginModules['lyrics-workbench'] },
+    registry: pluginRegistry, requireSession: async () => session.account,
+    createContext: async ({ pluginId }) => ({ identity: session.account, plugin: { id: pluginId, epoch: 'local-fixture' },
+      assertCurrent: async () => {} }),
+    loadSettings: async () => ({ onlineEnabled: false, lyricPreference: 'word', targetLanguage: 'zh',
+      completionEnabled: false, automaticCompletionEnabled: false }),
+    resolveSong: async id => { providerCalls.push(['resolve', id]); return id === song.id ? song : null; },
+    songStillExists: async id => { providerCalls.push(['exists', id]); return id === song.id; },
+  };
+  t.mock.method(globalThis, 'fetch', async () => assert.fail('Saved library lyrics must not require external I/O'));
+  const url = new URL('https://fixture.invalid/api/lyrics?songId=' + local.id);
+  const response = await handleLocalMetadataReadRoute(new Request(url), url, db, {}, session.account.accountId, env, deps);
+  assert.equal(response.status, 200, JSON.stringify(await response.clone().json()));
+  const payload = await response.json();
+  assert.equal(payload.data.sourceId, 'lyrics-workbench');
+  assert.equal(payload.data.syncMode, 'word');
+  assert.deepEqual(payload.data.lines.map(line => line.text), originals);
+  assert.ok(store.calls.put > 0, 'the previously unassessed asset completes actual adoption');
+  assert.deepEqual(store.current().original, artifact.original);
+  assert.deepEqual(store.current().translation, artifact.translation);
+  assert.deepEqual(providerCalls, [], 'virtual-provider callbacks never decide library identity');
+
+  const sources = await createLyricSources({ env, db, session, deps: { ...deps,
+    modules: { 'callback-probe': { createLyricSource: ({ dependencies }) => ({ id: 'callback-probe', claim: () => true,
+      async resolve() {
+        assert.equal(await dependencies.resolveSong(local.id), local);
+        assert.equal(await dependencies.songStillExists(local.id), true);
+        assert.equal(await dependencies.resolveSong('missing-library-song'), null);
+        assert.equal(await dependencies.songStillExists('missing-library-song'), false);
+        assert.deepEqual(await dependencies.resolveSong(song.id), song);
+        assert.equal(await dependencies.songStillExists(song.id), true);
+        assert.equal(await dependencies.songStillExists('yt:missing1234'), false);
+        return null;
+      } }) } }, registry: { getBuildDigest: () => 'callback-probe-build' } } });
+  await sources[0].claim(local); await sources[0].resolve(local, {});
+  assert.deepEqual(providerCalls, [['resolve', song.id], ['exists', song.id], ['exists', 'yt:missing1234']]);
+});
 
 // This is the normalized YT provider boundary, not a mock workbench source.
 // The assembled package, host SDK projection, chain selection and shared-file
