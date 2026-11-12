@@ -2115,9 +2115,12 @@ html[data-page-hidden='true'] .editorial-card__marquee-row {
     background: transparent;
   }
 
-  .app-sidebar {
+  /* This drawer overlays page text, so its reading surface stays opaque. */
+  .app-sidebar,
+  .music-shell[data-has-wallpaper='true'] .app-sidebar {
     position: absolute;
     width: min(286px, calc(100vw - 44px));
+    background: var(--surface);
     padding: 18px 18px 18px;
     visibility: hidden;
     pointer-events: none;
