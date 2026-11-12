@@ -37,6 +37,7 @@ export const deliveryErrorMessage = error => ({
   PLUGIN_SELECTION_INCOMPATIBLE: '所选插件组合的宿主或依赖版本不兼容。',
   PLUGIN_SOURCE_INVALID: '插件源格式无效。',
   PLUGIN_SOURCE_CONFLICT: '插件来源冲突，请检查已安装插件的原始来源。',
+  PLUGIN_VERSION_NOT_NEWER: '只能选择同来源的更高版本；相同版本不能替换包内容。',
   invalid_input: '请检查输入内容和链接格式。',
   forbidden: '仅管理员可管理来源与部署。',
 }[error?.code || error] || '插件操作失败，请刷新后重试。');

@@ -21,6 +21,7 @@ import { usePrivateMediaImage } from '../hooks/usePrivateMediaSource.js';
 import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
 import CatalogSkeleton from './catalog/CatalogSkeleton.jsx';
+import CatalogReadState from './catalog/CatalogReadState.jsx';
 import SectionHeading from './catalog/SectionHeading.jsx';
 import { hasPreviewOverflow } from './catalog/previewVisibility.js';
 import PageBackButton from './PageBackButton.jsx';
@@ -81,12 +82,15 @@ export default function ArtistDetailView({
 
   const [fetchedSongs, setFetchedSongs] = useState([]);
   const artistGenerationRef = useRef(0);
+  const songsOwnerRef = useRef(null);
   const [songsStatus, setSongsStatus] = useState('loading');
+  const [retryVersion, setRetryVersion] = useState(0);
+  const retryArtist = () => setRetryVersion(value => value + 1);
   const [artistPage, setArtistPage] = useState({ hasMore: false, total: 0, loadingMore: false });
   const localAlbumResults = useCatalogPage('albums', { artist: artistName,
-    limit: currentSubView === 'albums' ? 50 : 10, enabled: !isYouTubeArtist });
+    limit: currentSubView === 'albums' ? 50 : 10, enabled: !isYouTubeArtist, recoverable: true });
   const albumResults = isYouTubeArtist
-    ? { items: profile?.albums || [], status: songsStatus, hasMore: false, total: profile?.albums?.length ?? 0 }
+    ? { items: profile?.albums || [], status: songsStatus, hasMore: false, total: profile?.albums?.length ?? 0, retry: retryArtist }
     : localAlbumResults;
 
   // Use the artist endpoint so the full view is not capped by the first search page.
@@ -95,7 +99,10 @@ export default function ArtistDetailView({
     const name = artistKey.trim();
     if (!name) return;
     const controller = new AbortController();
-    setFetchedSongs([]);
+    const owner = `${artistKey}:${isYouTubeArtist ? sourceRevision : 0}`;
+    if (songsOwnerRef.current !== owner) setFetchedSongs([]);
+    songsOwnerRef.current = owner;
+    setArtistPage(previous => ({ ...previous, error: false, loadingMore: false }));
     setSongsStatus('loading');
     readArtist(name, { signal: controller.signal })
       .then((data) => {
@@ -107,12 +114,12 @@ export default function ArtistDetailView({
       })
       .catch((error) => { if (error.name !== 'AbortError' && !controller.signal.aborted && generation === artistGenerationRef.current && (!isYouTubeArtist || sourceRevision === getMusicSourcesRevision())) { console.warn('获取歌手歌曲失败:', error); setSongsStatus('error'); } });
     return () => controller.abort();
-  }, [artistKey, isYouTubeArtist ? sourceRevision : 0]);
+  }, [artistKey, isYouTubeArtist ? sourceRevision : 0, retryVersion]);
 
   const loadMoreArtistSongs = async () => {
     if (!artistPage.hasMore || artistPage.loadingMore) return;
     const generation = artistGenerationRef.current;
-    setArtistPage((previous) => ({ ...previous, loadingMore: true }));
+    setArtistPage((previous) => ({ ...previous, loadingMore: true, error: false }));
     try {
       const data = await readArtist(artistKey, { offset: fetchedSongs.length });
       if ((generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
@@ -120,7 +127,7 @@ export default function ArtistDetailView({
       setArtistPage({ hasMore: data.hasMore, total: data.total, loadingMore: false });
     } catch {
       if ((generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
-      setArtistPage((previous) => ({ ...previous, loadingMore: false }));
+      setArtistPage((previous) => ({ ...previous, loadingMore: false, error: true }));
     }
   };
 
@@ -137,6 +144,10 @@ export default function ArtistDetailView({
   }, [artist?.songs, fetchedSongs, isYouTubeArtist, profile]);
 
   const albums = albumResults.items;
+  const songFailure = (songsStatus === 'error' || artistPage.error) && <div role="alert" className="app-inline-notice mb-4">
+    <span>{t('歌曲加载失败')}</span>
+    <button type="button" className="app-section-link" onClick={artistPage.error ? loadMoreArtistSongs : retryArtist} disabled={artistPage.loadingMore}>{t('重试')}</button>
+  </div>;
   const openAlbum = (album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }));
 
   // 获取歌手高清写真
@@ -270,6 +281,7 @@ export default function ArtistDetailView({
           </div>
 
           {/* 全量歌曲列表 */}
+          {songs.length > 0 && songFailure}
           {songs.length > 0 ? (
             <div className="full-song-grid">
               {songs.map((song) => (
@@ -291,7 +303,7 @@ export default function ArtistDetailView({
           ) : songsStatus === 'loading' ? (
             <CatalogSkeleton type="songs" overview={false} trackGridClassName="full-song-grid" />
           ) : songsStatus === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
+            songFailure
           ) : (
             <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
               <span>{t("该歌手暂无可播放歌曲")}</span>
@@ -320,20 +332,12 @@ export default function ArtistDetailView({
           </div>
 
           {/* 全量专辑网格 */}
-          {albums.length > 0 ? (
+          <CatalogReadState resource={albumResults} type="albums" emptyLabel={t('该歌手暂无收录专辑')}>
             <>
               <AlbumPreviewGrid albums={albums} maxRows={Infinity} onOpen={openAlbum} />
-              {albumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={albumResults.loadMore} disabled={albumResults.loadingMore}>{albumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
+              {albumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={albumResults.loadMore} disabled={albumResults.loadingMore || albumResults.refreshing}>{albumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
             </>
-          ) : albumResults.status === 'loading' ? (
-            <CatalogSkeleton type="albums" overview={false} />
-          ) : albumResults.status === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("专辑加载失败")}</p>
-          ) : (
-            <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
-              <span>{t("该歌手暂无收录专辑")}</span>
-            </div>
-          )}
+          </CatalogReadState>
         </div>
       </div>
     );
@@ -377,6 +381,8 @@ export default function ArtistDetailView({
 
         {/* 右侧：迷你播放控制钮 (仅滚动后淡入) */}
         <div
+          aria-hidden={!isScrolled || undefined}
+          inert={!isScrolled ? '' : undefined}
           className={`pointer-events-auto flex items-center gap-2 transition-all duration-300 ${
             isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'
           }`}
@@ -490,6 +496,7 @@ export default function ArtistDetailView({
               }) ? () => navigateSubView('songs') : null} />
           </div>
 
+          {visibleSongs.length > 0 && songFailure}
           {visibleSongs.length > 0 ? (
             <SongColumnShelf key={artistName} label={t("歌曲")} onOverflowChange={setSongScrollOverflow}>
               {visibleSongs.map((song) => (
@@ -510,7 +517,7 @@ export default function ArtistDetailView({
           ) : songsStatus === 'loading' ? (
             <CatalogSkeleton type="songs" />
           ) : songsStatus === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
+            songFailure
           ) : (
             <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
               <span>{t("该歌手暂无可播放歌曲")}</span>
@@ -530,9 +537,9 @@ export default function ArtistDetailView({
                 }) ? () => navigateSubView('albums') : null} />
             </div>
 
-            {albums.length > 0 ? <AlbumPreviewGrid albums={visibleAlbums} onOpen={openAlbum}
-              onVisibleCountChange={setAlbumVisibleCount} /> : albumResults.status === 'loading' ? <CatalogSkeleton type="albums" />
-                : <p role="alert" className="text-sm text-[var(--muted)]">{t('专辑加载失败')}</p>}
+            <CatalogReadState resource={albumResults} type="albums" overview>
+              <AlbumPreviewGrid albums={visibleAlbums} onOpen={openAlbum} onVisibleCountChange={setAlbumVisibleCount} />
+            </CatalogReadState>
           </section>
         )}
       </div>

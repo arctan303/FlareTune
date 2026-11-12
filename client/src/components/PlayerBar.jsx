@@ -239,6 +239,10 @@ export default function PlayerBar({ motionProfile = 'full', activePage, activeRo
                             : `group h-[74px] cursor-pointer p-2 pr-4 ${getGlassClasses()}`
                     }`}
                 >
+                    {!isExpanded && <button type="button"
+                        aria-label={t("打开《{p0}》的全屏播放器", { p0: currentSong.title || t("当前歌曲") })}
+                        onClick={event => { event.stopPropagation(); setIsFullScreen(true); }}
+                        className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[var(--accent)]" />}
                     {!isExpanded && (
                         <div className="player-console__progress pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-[22px]">
                             <div className="pointer-events-auto w-full">

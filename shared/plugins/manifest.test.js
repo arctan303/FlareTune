@@ -1,11 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canonicalPluginManifest, getRequiredDependents, resolvePluginAvailability, satisfiesPluginVersion, validatePluginManifests,
-  canAccessPluginDeclaration, isPluginVisibleToRole, HOST_PLUGIN_API_VERSION, normalizePluginUiLanguage } from './manifest.js';
+  canAccessPluginDeclaration, comparePluginVersions, isPluginVisibleToRole, HOST_PLUGIN_API_VERSION, normalizePluginUiLanguage } from './manifest.js';
 import { compiledPluginManifests } from './catalog.js';
 
 const manifest = (id, extra = {}) => ({ id, version: '1.2.0', hostApiVersion: 1, apiVersion: 1,
   name: id, description: 'Synthetic plugin', icon: 'box', pages: [], entries: [], ...extra });
+
+test('plugin release ordering is numeric in every component and rejects versions outside the manifest grammar', () => {
+  for (const [a, b, expected] of [
+    ['1.10.0', '1.9.9', 1], ['2.0.0', '10.0.0', -1], ['1.0.12', '1.0.2', 1],
+    ['0.0.0', '0.0.0', 0], ['3.4.5', '3.4.5', 0],
+    ['9007199254740991.0.0', '9007199254740990.999.999', 1],
+  ]) {
+    assert.equal(comparePluginVersions(a, b), expected, `${a} / ${b}`);
+    assert.equal(comparePluginVersions(b, a), expected === 0 ? 0 : -expected);
+  }
+  for (const value of ['', '1.2', '1.2.3.4', '01.2.3', '1.02.3', '1.2.03', 'v1.2.3',
+    '1.2.3-beta', '1.2.3+build', '1.2.-3', '1.2.3 ', '9007199254740992.0.0', null, 123, {}]) {
+    assert.throws(() => comparePluginVersions(value, '1.2.3'), { code: 'PLUGIN_MANIFEST_INVALID' });
+    assert.throws(() => comparePluginVersions('1.2.3', value), { code: 'PLUGIN_MANIFEST_INVALID' });
+  }
+});
 
 test('API3 capabilities preserve API1/2 packages and service slots require bounded declared dependencies', () => {
   assert.equal(HOST_PLUGIN_API_VERSION, 3);
@@ -85,6 +101,46 @@ test('locale claims require complete metadata, valid defaults and declared label
     assert.throws(() => validatePluginManifests([{ ...base, ...patch }]), { code: 'PLUGIN_MANIFEST_INVALID' });
   }
   assert.throws(() => validatePluginManifests([manifest('legacy', { messages: { en: {} } })]), { code: 'PLUGIN_MANIFEST_INVALID' });
+});
+
+test('introductions are optional bounded plain-text paragraphs for legacy and localized packages without an API change', () => {
+  assert.equal(HOST_PLUGIN_API_VERSION, 3);
+  for (const hostApiVersion of [1, 2, 3]) {
+    const legacy = manifest('legacy', { hostApiVersion });
+    assert.equal(validatePluginManifests([legacy])[0], legacy);
+    assert.equal(legacy.introduction, undefined);
+    const withIntroduction = { ...legacy, introduction: ['First paragraph', '<p>Literal text, not executable markup.</p>'] };
+    assert.equal(resolvePluginAvailability([withIntroduction], ['legacy'], 'legacy').available, true);
+    assert.equal(withIntroduction.description, legacy.description);
+  }
+  const paragraph = '文'.repeat(1500);
+  const localized = manifest('localized', { introduction: ['Legacy fallback'], supportedLocales: ['en', 'zh'], defaultLocale: 'en', metadata: {
+    en: { name: 'Example', description: 'English summary', introduction: Array(6).fill(paragraph) },
+    zh: { name: '示例', description: '中文摘要' },
+  } });
+  assert.equal(validatePluginManifests([localized])[0], localized);
+  assert.equal(localized.metadata.zh.introduction, undefined, 'existing localized packages need no introduction in every locale');
+});
+
+test('introduction validation rejects malformed legacy and localized paragraphs while retaining existing metadata contracts', () => {
+  const localized = manifest('localized', { supportedLocales: ['en'], defaultLocale: 'en', metadata: {
+    en: { name: 'Example', description: 'Existing summary' },
+  } });
+  const invalidIntroductions = [null, {}, 'single paragraph', [], Array(7).fill('Paragraph'), [''], ['  \n\t'], ['文'.repeat(1501)],
+    [12], [false], [null], [{ html: '<p>Not text</p>' }], [() => 'executable'], new Array(1), ['Valid', {}]];
+  for (const introduction of invalidIntroductions) {
+    assert.throws(() => validatePluginManifests([manifest('legacy', { introduction })]), { code: 'PLUGIN_MANIFEST_INVALID' });
+    assert.throws(() => validatePluginManifests([{ ...localized, metadata: {
+      en: { ...localized.metadata.en, introduction },
+    } }]), { code: 'PLUGIN_MANIFEST_INVALID' });
+  }
+  for (const metadata of [{ description: '' }, { name: '' }, { description: 'x'.repeat(513) }]) {
+    assert.throws(() => validatePluginManifests([{ ...localized, metadata: {
+      en: { ...localized.metadata.en, introduction: ['Valid introduction'], ...metadata },
+    } }]), { code: 'PLUGIN_MANIFEST_INVALID' });
+  }
+  assert.throws(() => validatePluginManifests([manifest('oversized', { introduction: Array(6).fill('x'.repeat(1500)),
+    extraData: 'x'.repeat(65536) })]), { code: 'PLUGIN_MANIFEST_INVALID' }, 'the existing whole-manifest size limit still applies');
 });
 
 test('compiled Xiaomi is pure shared data with personal pages and generic entry slots', () => {

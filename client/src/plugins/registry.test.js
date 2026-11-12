@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getPlugin, getPlugins, getPluginSections, createPluginRegistry, getPluginEntryRoute, localizePlugin } from './registry.js';
+import { getPlugin, getPlugins, getPluginSections, createPluginRegistry, getPluginEntryRoute, getPrimaryPluginSettingsPageId, localizePlugin } from './registry.js';
 
 test('compiled selected packages declare compatibility and capabilities without installing themselves', () => {
   const plugin = getPlugin('xiaomi-speaker');
@@ -103,6 +103,65 @@ test('localized labels preserve plugin identity and fall back to the plugin defa
   assert.equal(fallback.name, english.name); assert.equal(plugin.name, '小米音箱');
   const legacy = localizePlugin(fixture, 'ja');
   assert.equal(legacy.name, 'Reading room'); assert.equal(legacy.supportedLocales, undefined);
+});
+
+test('optional introductions preserve old packages and legacy plain text without claiming an undeclared language', () => {
+  assert.equal(localizePlugin(null, 'zh'), null);
+  const legacy = localizePlugin(fixture, 'ja');
+  assert.deepEqual(legacy.introduction, []); assert.equal(legacy.introductionLocale, null);
+  assert.deepEqual(legacy.localization, { locale: 'ja', fallback: false });
+  const paragraphs = ['Use <literal> text as written.', 'A second paragraph.'];
+  const withIntroduction = localizePlugin({ ...fixture, introduction: paragraphs }, 'zh');
+  assert.deepEqual(withIntroduction.introduction, paragraphs); assert.equal(withIntroduction.introductionLocale, null);
+  assert.equal(withIntroduction.name, fixture.name); assert.equal(withIntroduction.description, fixture.description);
+  assert.deepEqual(withIntroduction.localization, { locale: 'zh', fallback: false });
+  assert.notEqual(withIntroduction.introduction, paragraphs, 'localized presentation does not expose the manifest array for mutation');
+});
+
+test('introductions choose the requested resource then default then legacy without changing existing localization semantics', () => {
+  const plugin = { ...fixture, introduction: ['Legacy introduction'], supportedLocales: ['en', 'zh', 'ja'], defaultLocale: 'en',
+    metadata: {
+      en: { name: 'Reading room', description: 'English summary', introduction: ['English first paragraph', 'English second paragraph'] },
+      zh: { name: '阅览室', description: '中文摘要', introduction: ['中文介绍'] },
+      ja: { name: '閲覧室', description: '日本語の概要' },
+    } };
+  const api = createPluginRegistry([plugin]);
+  const chinese = localizePlugin(api.getPlugin(plugin.id), 'zh');
+  assert.deepEqual(chinese.introduction, ['中文介绍']); assert.equal(chinese.introductionLocale, 'zh');
+  assert.equal(chinese.name, '阅览室'); assert.equal(chinese.description, '中文摘要');
+  assert.deepEqual(chinese.localization, { locale: 'zh', fallback: false });
+  const japanese = localizePlugin(api.getPlugin(plugin.id), 'ja');
+  assert.deepEqual(japanese.introduction, plugin.metadata.en.introduction); assert.equal(japanese.introductionLocale, 'en');
+  assert.equal(japanese.description, '日本語の概要'); assert.deepEqual(japanese.localization, { locale: 'ja', fallback: false });
+  const unsupported = localizePlugin(api.getPlugin(plugin.id), 'ko');
+  assert.deepEqual(unsupported.introduction, plugin.metadata.en.introduction); assert.equal(unsupported.introductionLocale, 'en');
+  assert.deepEqual(unsupported.localization, { locale: 'en', fallback: true });
+  const withoutDefaultIntroduction = { ...plugin, metadata: { ...plugin.metadata, en: { name: 'Reading room', description: 'English summary' } } };
+  const legacyFallback = localizePlugin(withoutDefaultIntroduction, 'ja');
+  assert.deepEqual(legacyFallback.introduction, ['Legacy introduction']); assert.equal(legacyFallback.introductionLocale, null);
+  assert.equal(legacyFallback.description, '日本語の概要'); assert.deepEqual(legacyFallback.localization, { locale: 'ja', fallback: false });
+  const noIntroduction = { ...withoutDefaultIntroduction };
+  delete noIntroduction.introduction;
+  assert.deepEqual(localizePlugin(noIntroduction, 'ja').introduction, []);
+  assert.equal(localizePlugin(noIntroduction, 'ja').introductionLocale, null);
+});
+
+test('the primary settings page is the first declaration even when it is not visible to the active role', () => {
+  const adminSettings = { id: 'site-settings', kind: 'settings', roles: ['admin'], scope: 'instance', label: 'Site settings', icon: 'settings' };
+  const memberSettings = { id: 'personal-settings', kind: 'settings', roles: ['member'], scope: 'account', label: 'Personal settings', icon: 'settings' };
+  const plugin = { ...fixture, pages: [fixture.pages[0], adminSettings, memberSettings], entries: [] };
+  const api = createPluginRegistry([plugin]);
+  assert.equal(getPrimaryPluginSettingsPageId(plugin), 'site-settings');
+  assert.equal(getPrimaryPluginSettingsPageId(api.getPlugin(plugin.id)), 'site-settings');
+  assert.deepEqual(api.getPluginPages(plugin.id, { installed: true, role: 'member' }).map(page => page.id), ['overview', 'browse', 'personal-settings']);
+  assert.deepEqual(api.getPluginPages(plugin.id, { installed: true, role: 'admin' }).map(page => page.id), ['overview', 'browse', 'site-settings']);
+  assert.deepEqual(api.getPluginPages(plugin.id, { installed: false, role: 'member' }).map(page => page.id), ['overview']);
+  assert.deepEqual(api.getPluginPages(plugin.id, { installed: true, authenticated: false }), []);
+  assert.equal(getPrimaryPluginSettingsPageId(fixture), null); assert.equal(getPrimaryPluginSettingsPageId(null), null);
+  const privatePlugin = { ...plugin, id: 'private-plugin', pages: [adminSettings] };
+  const privateApi = createPluginRegistry([privatePlugin]);
+  assert.equal(getPrimaryPluginSettingsPageId(privateApi.getPlugin('private-plugin')), 'site-settings');
+  assert.deepEqual(privateApi.getPluginPages('private-plugin', { installed: true, role: 'member' }), []);
 });
 
 test('member-only pages do not grant administrators service access and administrator-only plugins do not expose member overviews', () => {

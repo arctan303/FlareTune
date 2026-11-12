@@ -44,6 +44,7 @@ function artistFixture() {
       'lucide-react':{Play:'icon',Pause:'icon',ListPlus:'icon'},
       './LazyImage.jsx':'image','./TrackRow.jsx':'track','./catalog/SongColumnShelf.jsx':'shelf',
       './catalog/AlbumPreviewGrid.jsx':'albums','./catalog/CatalogSkeleton.jsx':'skeleton',
+      './catalog/CatalogReadState.jsx':'read-state',
       './catalog/SectionHeading.jsx':'heading','./PageBackButton.jsx':'back',
       '../utils.js':{hydrateSong:song=>song},
       '../hooks/useArtistPhotos.js':{getArtistPhotoApiBase:()=>'',ARTIST_PHOTO_CACHE:new Map(),preloadAndDecodeImage:async()=>{}},

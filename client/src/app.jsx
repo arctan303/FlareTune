@@ -33,6 +33,8 @@ import { selectHasRenderableWallpaper, useWallpaperStore } from './store/useWall
 import { toShellAuthSession } from './instance/state.js';
 import { parsePathname, parseAppLocation, formatPath, syncBrowserHistory, ensureHistoryScrollEntry, restoreSidebarWorkspaceAfterRejectedBack, SUPPORTED_PAGES, isLyricsWorkspaceRoute } from './utils/navigation.js';
 import DrawerErrorBoundary from './components/drawers/DrawerErrorBoundary.jsx';
+import DrawerFallbackSurface from './components/drawers/DrawerFallbackSurface.jsx';
+import { musicOverviewNeedsBootstrap } from './utils/musicPageState.js';
 
 const retryDynamicImport = (importer, retries = 2, delayMs = 600) => async () => {
     try {
@@ -514,6 +516,8 @@ export default function App({ validatedSession }) {
         || isBackgroundDrawerOpen || isAccountPlaylistOpen || isAddToPlaylistOpen;
     const modalOpen = isFullScreen || secondaryModalOpen;
     const anyOpen = modalOpen || isViewingPlaylist || isViewingAdmin;
+    const needsMusicBootstrap = musicOverviewNeedsBootstrap({ activePage, activeRoute, isViewingAdmin, isArtistDrawerOpen });
+    const hasMusicData = myPlaylists.length > 0;
 
     useEffect(() => {
         if (anyOpen && !prevAnyOpen.current) {
@@ -563,22 +567,27 @@ export default function App({ validatedSession }) {
             <div className="app-workspace relative flex min-h-0 flex-1" aria-hidden={modalOpen ? true : undefined} inert={modalOpen ? '' : undefined}>
                 <AppSidebar activePage={activePage} activeRoute={activeRoute} onNavigate={handleNavigate} />
                 <main className="app-main flex-1 min-h-0 flex flex-col relative overflow-hidden">
-                    {loadError ? (
+                    {needsMusicBootstrap && loadError && !hasMusicData ? (
                         <div className="h-full flex items-center justify-center px-6 pt-[var(--header-height,62px)]" role="alert">
                             <div className="state-panel state-panel--error max-w-md px-8 py-7 text-center">
                                 <h2 className="mb-2 text-lg font-semibold">{t("音乐库暂时不可用")}</h2>
-                                <p className="state-panel__copy mb-5 text-sm">{loadError}</p>
+                                <p className="state-panel__copy mb-5 text-sm">{t(loadError)}</p>
                                 <button type="button" onClick={retryMusicData} className="primary-button px-5 py-2 text-sm font-semibold">{t("重新加载")}</button>
                             </div>
                         </div>
-                    ) : isLoading && myPlaylists.length === 0 ? (
+                    ) : needsMusicBootstrap && isLoading && !hasMusicData ? (
                         <div className="h-full flex items-center justify-center px-6 pt-[var(--header-height,62px)]" role="status" aria-label={t("正在加载音乐库")}>
                             <div className="state-panel state-panel--loading w-full max-w-sm px-8 py-7">
                                 <p className="state-panel__copy text-sm">{t("正在加载音乐库")}</p>
                                 <div className="state-skeleton mt-5" aria-hidden="true"><i></i><i></i><i></i></div>
                             </div>
                         </div>
-                    ) : (
+                    ) : <>
+                        {needsMusicBootstrap && hasMusicData && (loadError || isLoading) && <div role={loadError ? 'alert' : 'status'} className="mx-6 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">
+                            <p>{t(loadError || '正在加载音乐库')}</p>
+                            {loadError && <button type="button" onClick={retryMusicData} className="secondary-button px-4 py-2 text-xs font-semibold">{t('重新加载')}</button>}
+                        </div>}
+                        <div className="min-h-0 flex-1">
                         <MainContent
                             myPlaylists={myPlaylists}
                             likedSongs={likedSongs}
@@ -592,7 +601,8 @@ export default function App({ validatedSession }) {
                             selectTheme={selectTheme}
                             scrollContainerRef={contentScrollRef}
                         />
-                    )}
+                        </div>
+                    </>}
                 </main>
             </div>
             <div
@@ -605,18 +615,18 @@ export default function App({ validatedSession }) {
                 {playbackSessionReady && <PlayerBar motionProfile={motionProfile} activePage={activePage} activeRoute={activeRoute} />}
                 {playbackSessionReady && isFullScreen && <FullscreenPlayerSurface loader={loadFullScreenPlayer} motionProfile={motionProfile} onClose={closeFullScreenPlayer} />}
             </div>
-            <DrawerErrorBoundary title={t("播放列表")} isOpen={isPlaylistOpen} onClose={() => useUIStore.getState().setIsPlaylistOpen(false)}>
-              <Suspense fallback={null}>
+            <DrawerErrorBoundary title={t("播放列表")} isOpen={isPlaylistOpen} isFullScreen={isFullScreen} panelClassName="sm:w-[380px]" onClose={() => useUIStore.getState().setIsPlaylistOpen(false)}>
+              <Suspense fallback={<DrawerFallbackSurface title={t('播放列表')} isOpen={isPlaylistOpen} isFullScreen={isFullScreen} onClose={() => useUIStore.getState().setIsPlaylistOpen(false)} />}>
                    {hasOpenedPlaylistDrawer && <PlaylistDrawer motionProfile={motionProfile} />}
               </Suspense>
             </DrawerErrorBoundary>
-            <DrawerErrorBoundary title={t("背景设置")} isOpen={isBackgroundDrawerOpen} onClose={() => useUIStore.getState().setIsBackgroundDrawerOpen(false)}>
-              <Suspense fallback={null}>
+            <DrawerErrorBoundary title={t("背景设置")} isOpen={isBackgroundDrawerOpen} isFullScreen={isFullScreen} panelClassName="sm:w-[480px]" onClose={() => useUIStore.getState().setIsBackgroundDrawerOpen(false)}>
+              <Suspense fallback={<DrawerFallbackSurface title={t('背景设置')} isOpen={isBackgroundDrawerOpen} isFullScreen={isFullScreen} panelClassName="sm:w-[480px]" onClose={() => useUIStore.getState().setIsBackgroundDrawerOpen(false)} />}>
                    {authenticated && hasOpenedBackgroundDrawer && <BackgroundDrawer />}
               </Suspense>
             </DrawerErrorBoundary>
-             <DrawerErrorBoundary title={t("个人歌单")} isOpen={isAccountPlaylistOpen} onClose={() => useUIStore.getState().setIsAccountPlaylistOpen(false)}>
-               <Suspense fallback={null}>
+             <DrawerErrorBoundary title={t("个人歌单")} isOpen={isAccountPlaylistOpen} isFullScreen={isFullScreen} panelClassName="sm:w-[440px]" onClose={() => useUIStore.getState().setIsAccountPlaylistOpen(false)}>
+               <Suspense fallback={<DrawerFallbackSurface title={t('个人歌单')} isOpen={isAccountPlaylistOpen} isFullScreen={isFullScreen} panelClassName="sm:w-[440px]" onClose={() => useUIStore.getState().setIsAccountPlaylistOpen(false)} />}>
                     {authenticated && hasOpenedAccountPlaylistDrawer && <AccountPlaylistDrawer />}
                </Suspense>
              </DrawerErrorBoundary>

@@ -34,6 +34,7 @@ function mainContent(available) {
     '../utils/topArtists.js': { deriveTopArtists: () => [] },
     '../services/dailyRecommendations.js': { createDailyRecommendationPlaylist: () => ({}) },
     '../plugins/contributions.js': { usePluginContribution: (_id, _slot, fallback) => available ? { available: true, actions: {} } : fallback },
+    '../hooks/usePluginAvailable.js': { usePluginAvailable: () => false },
     './RetainedPage.jsx': ({ active, children }) => active ? children : null,
     ...Object.fromEntries(['SearchView', 'PlaylistDetailView', 'AllPlaylistsView', 'HomeOverview', 'PlayHistoryView', 'PlayStatsDetailView',
       'SettingsView', 'ArtistDetailView', 'AlbumDetailView', 'CatalogBrowserView', 'RoamBrowseView', 'PageBackButton']

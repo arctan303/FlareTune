@@ -1,0 +1,18 @@
+export default Object.freeze({
+  'AI 辅助': 'AI assistance',
+  '搜索歌曲': 'Search songs',
+  '暂无歌手': 'No artists found',
+  '暂无专辑': 'No albums found',
+  '漫游控制': 'Roam controls',
+  '重置将退出该账号的所有会话；本人下次登录必须修改临时密码。': 'Resetting signs this account out of every session. The owner must change the temporary password at the next sign-in.',
+  '曲库数据加载失败，请重试。': 'Library data could not be loaded. Try again.',
+  '正在更新曲库数据…': 'Updating library data…',
+  '所有用户共用译文；更改语言不会转换已有译文。': 'Translations are shared by all users. Changing the language does not convert existing translations.',
+  '对话历史暂时无法载入，请重试。': 'Conversation history could not be loaded. Try again.',
+  '正在加载对话…': 'Loading conversation…',
+  '正在更新歌词…': 'Updating lyrics…',
+  '初始化验证已失效，请重新验证密钥。': 'Setup verification has expired. Verify the setup key again.',
+  '重新验证密钥': 'Verify the key again',
+  '拖拽或用上下方向键调整排序': 'Drag or use the up and down arrow keys to reorder',
+  '调整 {p0} 排序，使用上下方向键移动': 'Reorder {p0} with the up and down arrow keys',
+});

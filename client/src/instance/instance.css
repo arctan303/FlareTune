@@ -285,7 +285,7 @@ html.dark .instance-login__backdrop-text {
   min-height: 48px;
   margin-top: 22px;
   border-radius: var(--radius-card, 12px);
-  background: var(--accent, #0284c7);
+  background: var(--accent-fill, #0369a1);
   box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--accent, #0284c7) 45%, transparent),
               inset 0 1px 0 rgba(255, 255, 255, 0.2);
   font-size: 15px;
@@ -294,7 +294,7 @@ html.dark .instance-login__backdrop-text {
 }
 
 .instance-page--login .instance-primary:hover:not(:disabled) {
-  background: var(--accent-strong, #0369a1);
+  background: var(--accent-fill-hover, #075985);
   box-shadow: 0 6px 20px -2px color-mix(in srgb, var(--accent, #0284c7) 55%, transparent),
               inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transform: translateY(-1.5px);
@@ -304,7 +304,7 @@ html.dark .instance-login__backdrop-text {
   transform: translateY(0) scale(0.99);
 }
 
-html.dark .instance-page--login .instance-primary { color: var(--page, #09090b); }
+html.dark .instance-page--login .instance-primary { color: var(--accent-contrast, #082f49); }
 
 /* 分割线与 Google 按钮 */
 .instance-login__divider {
@@ -472,13 +472,13 @@ html.dark .instance-page--login .instance-primary { color: var(--page, #09090b);
 
 .instance-primary {
   margin-top: 26px;
-  background: var(--accent, #0284c7);
+  background: var(--accent-fill, #0369a1);
   color: var(--accent-contrast, #ffffff);
   box-shadow: 0 10px 24px -18px color-mix(in srgb, var(--accent, #0284c7) 90%, transparent);
 }
 
 .instance-primary:hover:not(:disabled) {
-  background: var(--accent-strong, #0369a1);
+  background: var(--accent-fill-hover, #075985);
   box-shadow: 0 14px 28px -18px color-mix(in srgb, var(--accent, #0284c7) 95%, transparent);
   transform: translateY(-1px);
 }

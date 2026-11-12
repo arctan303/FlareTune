@@ -21,6 +21,7 @@ import { rejectDuplicateDecisionAfterCheckFailure } from '../utils/duplicateInge
 import IngestDeviceSource from './IngestDeviceSource.jsx';
 import PrivateCoverImage from './PrivateCoverImage.jsx';
 import { runDeviceJob as deviceJob } from '../services/ingestDeviceApi.js';
+import { useModalFocus } from '../hooks/useModalFocus.js';
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'wav', 'ogg', 'm4a', 'aac', 'wma']);
 const COVER_EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -110,6 +111,8 @@ export default function AdminSongCreatePage() {
   const fileInput = React.useRef(null);
   const titleInput = React.useRef(null);
   const returnFocus = React.useRef(null);
+  const editorModalRef = React.useRef(null);
+  const reviewModalRef = React.useRef(null);
   const editing = pageActive ? entries.find((entry) => entry.key === editingId) : null;
   const reviewing = pageActive ? entries.find((entry) => entry.key === reviewingId) : null;
   const activeUpload = entries.find((entry) => entry.key === activeUploadId);
@@ -151,27 +154,6 @@ export default function AdminSongCreatePage() {
   const showView = (nextView) => {
     setView(nextView);
   };
-
-  React.useEffect(() => {
-    if (!editingId || !pageActive) return undefined;
-    const frame = requestAnimationFrame(() => titleInput.current?.focus());
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape' && !savingRef.current) closeEditor();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      cancelAnimationFrame(frame);
-      document.removeEventListener('keydown', onKeyDown);
-      returnFocus.current?.focus?.();
-    };
-  }, [editingId, pageActive]);
-
-  React.useEffect(() => {
-    if (!reviewingId || !pageActive) return undefined;
-    const onKeyDown = (event) => { if (event.key === 'Escape') setReviewingId(null); };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [reviewingId, pageActive]);
 
   const openEditor = (key) => {
     if (savingRef.current) return;
@@ -241,6 +223,10 @@ export default function AdminSongCreatePage() {
       refreshLaterQueueMatches(entriesRef.current.findIndex((item) => item.key === entry.key) + 1);
     }
   };
+  useModalFocus({ active: Boolean(editing), modalRef: editorModalRef, initialFocusRef: titleInput,
+    onClose: closeEditor, busy: saving });
+  useModalFocus({ active: Boolean(reviewing), modalRef: reviewModalRef,
+    onClose: () => setReviewingId(null) });
 
   const readEntry = async (entry) => {
     try {
@@ -842,7 +828,7 @@ export default function AdminSongCreatePage() {
 
       {reviewing && createPortal(<>
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xs" onClick={() => setReviewingId(null)} />
-        <section role="dialog" aria-modal="true" aria-label={t('核对重复歌曲：{title}', { title: reviewing.draft.title })}
+        <section ref={reviewModalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t('核对重复歌曲：{title}', { title: reviewing.draft.title })}
           className="fixed left-1/2 top-1/2 z-[101] flex max-h-[88dvh] w-[min(94vw,760px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xl">
           <div className="border-b border-[var(--line)] px-5 py-4"><h2 className="font-bold">{t("核对疑似重复")}</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">{t("按当前歌曲逐首选择；替换保留原歌曲 ID 和歌单引用，旧媒体文件保留。")}</p></div>
@@ -883,7 +869,7 @@ export default function AdminSongCreatePage() {
       {editing && createPortal(<>
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xs"
           onClick={() => { if (!saving) closeEditor(); }} />
-        <section role="dialog" aria-modal="true" aria-label={t('编辑 {title}', { title: editing.draft.title })}
+        <section ref={editorModalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t('编辑 {title}', { title: editing.draft.title })}
           className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(88dvh,760px)] w-[min(92vw,620px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xl">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--line)] px-5 py-4">
             <div>

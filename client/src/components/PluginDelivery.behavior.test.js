@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { createBackgroundModuleHarness, flushBackgroundAsync } from '../test/fullscreenBackgroundHarness.js';
 import { activePluginBuild } from '../hooks/usePluginDelivery.js';
 import { localizePlugin } from '../plugins/registry.js';
+import * as catalog from '../plugins/catalog.js';
 
 const nodes = tree => tree && typeof tree === 'object' ? [tree, ...[tree.props?.children, tree.props?.action].flat(Infinity).flatMap(nodes)] : [];
 const text = node => typeof node === 'string' ? node : (node?.props?.children || []).flat(Infinity).map(text).join('');
 const button = (tree, label) => nodes(tree).find(node => node.type === 'button' && text(node) === label);
 const row = (version = '1.0.0') => ({ id: 'test-plugin', version, sourceId: 'workspace', sourceName: 'Current deployment',
-  manifest: { id: 'test-plugin', version, name: 'Test plugin', description: 'Fixture', pages: [], entries: [] } });
+  manifest: { id: 'test-plugin', version, hostApiVersion: 1, apiVersion: 1, icon: 'box', dataVersion: 0, name: 'Test plugin', description: 'Fixture', pages: [], entries: [] } });
 function subject(file, exportName = 'default') {
   const writes = [], data = { revision: 1, settings: { mode: 'manual', hookConfigured: true, buildTokenConfigured: true },
     sources: [{ id: 'official', name: 'FlareTune', official: true, url: 'https://plugins.flaretune.dev/repository.json', status: 'unpublished' }],
@@ -16,7 +17,7 @@ function subject(file, exportName = 'default') {
   const delivery = { data, busy: false, error: '', action: async (...args) => { writes.push(structuredClone(args)); return data; } };
   const harness = createBackgroundModuleHarness({ file: new URL(file, import.meta.url), exportName,
     modules: { '../i18n/index.js': { t: key => key, useLocale: () => 'zh' },
-      '../plugins/registry.js': { localizePlugin }, './SelectControl.jsx': 'select', './SettingsSection.jsx': 'section', './SettingsEditDialog.jsx': 'dialog',
+      '../plugins/registry.js': { localizePlugin }, '../plugins/catalog.js': catalog, './SelectControl.jsx': 'select', './SettingsSection.jsx': 'section', './SettingsEditDialog.jsx': 'dialog',
       './SettingsControls.jsx': { SettingsButton: 'button', SettingsActions: 'actions', SettingsToggle: 'toggle' },
       './PluginConfirmDialog.jsx': 'confirmation', './PluginDeliveryView.jsx': { PluginDeliveryStatus: 'delivery-status' },
       '../hooks/usePluginDelivery.js': { activePluginBuild }, '../services/pluginDelivery.js': { deliveryErrorMessage: error => error } }, globals: { crypto },

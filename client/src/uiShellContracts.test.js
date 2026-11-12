@@ -260,7 +260,11 @@ test('an empty account playlist uses a compact actionable state without changing
 
   assert.match(detail, /isPersonalPlaylist \? \([\s\S]{0,900}className="local-playlist-empty mt-6"/);
   assert.match(detail, /账号歌单还是空的/);
-  assert.match(detail, /onClick=\{onOpenAssistant\}[\s\S]{0,180}前往助手挑歌/);
+  // Optional assistant availability and the search fallback are exercised by
+  // MediaRecovery.behavior.test.js, including the actual action callbacks.
+  assert.match(detail, /local-playlist-empty__action/);
+  assert.match(main, /assistantAvailable=\{assistantAvailable\}/);
+  assert.match(main, /onOpenSearch=\{\(\) => onNavigate\('search'\)\}/);
   assert.match(main, /onOpenAssistant=\{\(\) => onNavigate\('assistant'\)\}/);
   assert.match(detail, /\) : \(\s*<section className="state-panel mt-6 p-8 text-center"/);
 });

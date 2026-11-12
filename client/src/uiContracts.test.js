@@ -349,7 +349,8 @@ test('account playlists and shared plugin transport retain independent Host owne
   assert.match(addToPlaylistModal, /playlist\.kind === 'favorite'/);
   assert.match(addToPlaylistModal, /accountShelf\?\.items/);
   assert.match(addToPlaylistModal, /playlist\.songCount \|\| 0/);
-  assert.match(search, /\{songs\.length > 0 && \(/);
+  // Result loading, empty and failure rendering is exercised by
+  // catalog/CatalogReadState.behavior.test.js rather than a JSX spelling.
   assert.match(readSource('./components/PlayerControls.jsx'), /toggleFavorite\(currentSong, event\)/);
   assert.doesNotMatch(moreMenu, /setIsAiReviewOpen|data-ai-entry|助手/);
   assert.match(favoriteAction, /accountPlaylistsStore\.getState\(\)\.removeSong/);

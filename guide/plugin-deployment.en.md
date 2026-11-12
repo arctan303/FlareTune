@@ -15,6 +15,8 @@ Open the **Plugins** group in the settings sidebar:
 
 Members can use only installed plugins available to their role and manage their own settings. Installation applies to the whole site. Plugins with service pages may provide a functional sidebar; Roam retains the main sidebar and category browsing page. Service sidebars contain functional pages and actions. Overview and site configuration remain in plugin management, and Back follows the actual entry point and page hierarchy.
 
+Plugin management uses a **Plugin settings** sidebar heading with Overview, the primary Settings page and any derived pages. Overview explains the purpose and prerequisites without repeating the Settings action. Roles and data scopes still follow the plugin declarations.
+
 ## Add a plugin source
 
 The official source is preconfigured. Its catalog and six plugin packages have been published. An unavailable or unpublished source is shown as not ready. Administrators can add a public HTTPS URL for a third-party JSON catalog, then refresh or remove that source.
@@ -39,6 +41,8 @@ Current official packages use UTF-8 JSON **schema2**, understood by the SDK2 hos
 ```
 
 This illustrates the package structure, not a complete installable manifest. Include `apiVersion`, name, description, icon, `pages`, `entries` and other required declarations. Declare supported and default locales, localized metadata and page labels. Roles are `admin` and `member`. Declare service and settings pages separately; a plugin with settings only does not need a service sidebar.
+
+The updated host supports optional plain-text paragraphs in `metadata[locale].introduction`, with a top-level `introduction` fallback. Packages that omit them retain their `description`. An introduction contains 1–6 nonempty paragraphs of at most 1500 UTF-16 code units each; the complete manifest remains limited to 64 KiB. HTML and Markdown are not parsed. Keep the list description short and explain the purpose, actual capabilities, prerequisites, first step and limits in the introduction. Missing localized introductions fall back to the default language, then the top-level content. Upgrade an existing test site's host before delivering these new packages, and publish new package versions rather than replacing bytes under an existing version.
 
 The local API3 candidate does not change artifact schema2. Its new AI Gateway, Assistant and Lyrics Workbench packages are version 0.2.0 and require host API3. New consumers require Gateway `^0.2.0`; the new gateway retains service API1 compatibility for older consumers. An API2 host cannot run packages requiring API3. These candidate changes are not installed by refreshing the catalog or following the API2 examples above.
 

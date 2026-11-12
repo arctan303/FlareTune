@@ -31,6 +31,105 @@ async function app(t, options = {}) {
   return { ...f, delivery, registry, calls, deployment, get, config, select, build };
 }
 
+const release = (version, digest = 'c', extra = {}) => ({ manifest: manifest('sample', { version, ...extra }),
+  artifact: { url: `https://plugins.publisher.com/sample-${version}.json`, sha256: digest.repeat(64) } });
+async function versionedApp(t, { installed = true, releases = [release('3.0.0', 'd'), release('1.9.0', 'a'), release('2.0.0', 'b'), release('2.0.1', 'c')] } = {}) {
+  const runningRelease = release('2.0.0', 'b');
+  const source = { type: 'artifact', id: 'official', ...runningRelease.artifact };
+  const directory = { schemaVersion: 1, id: 'publisher', name: 'Fixture releases', plugins: releases };
+  const f = await app(t, { manifests: [runningRelease.manifest], sources: { sample: source },
+    fetchImpl: async (_url, options) => options.method === 'GET' ? Response.json(directory)
+      : Response.json({ success: true, result: { build_uuid: 'synthetic-build-id' } }) });
+  if (installed) await f.registry.setInstalled(f.env, f.signed.session, 'sample', { installed: true, revision: 0 });
+  await f.delivery.refreshSource(f.env, f.signed.session, 'official', { revision: 0 });
+  return f;
+}
+const rawDelivery = f => f.sqlite.prepare('SELECT value_json,revision,updated_at,updated_by FROM instance_settings WHERE key=?').get(PLUGIN_DELIVERY_KEY);
+const selection = version => ({ sourceId: 'official', version, trustCode: true });
+
+for (const mode of ['manual', 'auto']) test(`ordinary ${mode} selection rejects older releases without changing delivery or triggering a Hook`, async t => {
+  const f = await versionedApp(t);
+  await f.config({ mode, deployHookUrl: hook, buildToken: token });
+  const before = rawDelivery(f), installation = await f.registry.readInstallation(f.env, 'sample'), calls = f.calls.length;
+  await assert.rejects(f.select(true, selection('1.9.0')), { code: 'PLUGIN_VERSION_NOT_NEWER' });
+  assert.deepEqual(rawDelivery(f), before);
+  assert.deepEqual(await f.registry.readInstallation(f.env, 'sample'), installation);
+  assert.equal(f.calls.length, calls);
+  const state = await f.get(); assert.equal(state.running[0].version, '2.0.0'); assert.equal(state.desired[0].version, '2.0.0');
+});
+
+for (const mode of ['manual', 'auto']) test(`same-version exact ${mode} reselection is a no-op and keeps original CAS and trust checks`, async t => {
+  const f = await versionedApp(t);
+  await f.config({ mode, deployHookUrl: hook, buildToken: token });
+  const before = rawDelivery(f), calls = f.calls.length;
+  const result = await f.select(true, selection('2.0.0'));
+  assert.equal(result.revision, before.revision); assert.deepEqual(result.pending, []);
+  assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+  await assert.rejects(f.select(true, { ...selection('2.0.0'), trustCode: false }), { code: 'PLUGIN_CODE_TRUST_REQUIRED' });
+  await assert.rejects(f.delivery.select(f.env, f.signed.session, { revision: before.revision - 1,
+    pluginId: 'sample', installed: true, ...selection('2.0.0') }), { code: 'PLUGIN_DELIVERY_CHANGED' });
+  assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+});
+
+test('a same-version artifact replacement is rejected instead of manufacturing an update', async t => {
+  const f = await versionedApp(t, { releases: [release('2.0.0', 'e')] });
+  await f.config({ mode: 'auto', deployHookUrl: hook, buildToken: token });
+  const before = rawDelivery(f), calls = f.calls.length;
+  await assert.rejects(f.select(true, selection('2.0.0')), { code: 'PLUGIN_VERSION_NOT_NEWER' });
+  assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+});
+
+for (const mode of ['manual', 'auto']) test(`a compatible newer release retains the ${mode} confirmation and activation boundary`, async t => {
+  const f = await versionedApp(t);
+  await f.config({ mode, deployHookUrl: hook, buildToken: token });
+  const calls = f.calls.length, installation = await f.registry.readInstallation(f.env, 'sample');
+  const result = await f.select(true, selection('2.0.1'));
+  assert.equal(result.running[0].version, '2.0.0'); assert.equal(result.desired[0].version, '2.0.1');
+  assert.deepEqual(result.pending, [{ id: 'sample', operation: 'update', fromVersion: '2.0.0', toVersion: '2.0.1' }]);
+  assert.deepEqual(await f.registry.readInstallation(f.env, 'sample'), installation);
+  assert.equal(f.calls.length - calls, mode === 'auto' ? 1 : 0);
+  if (mode === 'auto') { assert.equal(result.build.status, 'queued'); assert.equal(f.calls.at(-1)[0], hook); }
+  else assert.equal(result.build, null);
+});
+
+for (const installed of [false, true]) test(`a locked higher target cannot be lowered through installed:true (${installed ? 'running plugin' : 'pending new install'})`, async t => {
+  const f = await versionedApp(t, { installed });
+  const first = await f.select(true, selection('3.0.0'));
+  assert.equal(first.running.length, installed ? 1 : 0);
+  await f.config({ mode: 'auto', deployHookUrl: hook, buildToken: token });
+  const before = rawDelivery(f), calls = f.calls.length;
+  await assert.rejects(f.select(true, selection('2.0.1')), { code: 'PLUGIN_VERSION_NOT_NEWER' });
+  assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+  const exact = await f.select(true, selection('3.0.0'));
+  assert.equal(exact.revision, before.revision); assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+});
+
+test('an uninstalled plugin may select a historical release, while cancelling its pending uninstall does not create a fake update', async t => {
+  const fresh = await versionedApp(t, { installed: false });
+  const selected = await fresh.select(true, selection('1.9.0'));
+  assert.equal(selected.running.length, 0); assert.equal(selected.desired[0].version, '1.9.0');
+  assert.equal(selected.pending[0].operation, 'install');
+  const running = await versionedApp(t);
+  const uninstall = await running.select(false); assert.equal(uninstall.pending[0].operation, 'uninstall');
+  const restored = await running.select(true, selection('2.0.0'));
+  assert.deepEqual(restored.pending, []); assert.equal(restored.desired[0].version, '2.0.0');
+  await assert.rejects(running.build(), { code: 'PLUGIN_NO_PENDING_CHANGES' });
+});
+
+test('higher versions still require source ownership, explicit trust and compatible manifests before any write', async t => {
+  const f = await versionedApp(t, { releases: [release('2.0.0', 'b'), release('3.0.0', 'd', { hostApiVersion: 4 })] });
+  let before = rawDelivery(f), calls = f.calls.length;
+  await assert.rejects(f.select(true, { ...selection('3.0.0'), trustCode: false }), { code: 'PLUGIN_CODE_TRUST_REQUIRED' });
+  await assert.rejects(f.select(true, selection('3.0.0')), { code: 'PLUGIN_SELECTION_INCOMPATIBLE' });
+  assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+  const sources = await f.delivery.addSource(f.env, f.signed.session, { revision: (await f.get()).revision,
+    url: 'https://another.publisher.com/repository.json' });
+  const other = sources.sources.find(row => !row.official);
+  before = rawDelivery(f); calls = f.calls.length;
+  await assert.rejects(f.select(true, { ...selection('3.0.0'), sourceId: other.id }), { code: 'PLUGIN_SOURCE_CONFLICT' });
+  assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+});
+
 test('delivery permissions and cookie mutation protections are enforced by the real API', async t => {
   const f = await fixture(); t.after(() => f.close()); const member = await f.signIn('member');
   const status = await f.api('admin/plugin-delivery');

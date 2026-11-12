@@ -36,12 +36,14 @@ import { usePlayStatsStore } from '../store/usePlayStatsStore.js';
 import { deriveTopArtists } from '../utils/topArtists.js';
 import { createDailyRecommendationPlaylist } from '../services/dailyRecommendations.js';
 import { usePluginContribution } from '../plugins/contributions.js';
+import { usePluginAvailable } from '../hooks/usePluginAvailable.js';
 
 const inactiveQueueControls = Object.freeze({ available: false, actions: Object.freeze({}) });
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
 
 export default function MainContent({ myPlaylists, likedSongs, songsMap, activePage, activeRoute, onNavigate, toggleTheme, themePreference, selectTheme, scrollContainerRef }) {
+    const assistantAvailable = usePluginAvailable('assistant');
     const accountPlaylists = useAccountPlaylists((state) => state.playlists);
     const accountDetails = useAccountPlaylists((state) => state.details);
     const accountShelf = useAccountPlaylists((state) => state.shelf);
@@ -516,6 +518,8 @@ export default function MainContent({ myPlaylists, likedSongs, songsMap, activeP
                 onInsertNext={insertNextWithFeedback}
                 onAddToPlaylist={(song, event) => { event?.stopPropagation(); openAddToPlaylist(song); }}
                 onOpenAssistant={() => onNavigate('assistant')}
+                assistantAvailable={assistantAvailable}
+                onOpenSearch={() => onNavigate('search')}
                 onLoadMoreLibrarySongs={handleLoadMoreLibrarySongs}
                 onChangeLibrarySort={handleChangeLibrarySort}
                 onRefreshDailyRecommend={handleRefreshDailyRecommendInDetail}

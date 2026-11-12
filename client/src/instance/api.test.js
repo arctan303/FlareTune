@@ -51,6 +51,8 @@ test('error copy avoids exposing server details or credential existence', () => 
   assert.equal(messageForError(new InstanceApiError(401, 'secret_wrong'), 'verify_setup'), '初始化密钥无效或已过期，请检查后重试。');
   assert.equal(messageForError(new InstanceApiError(401, 'account_unknown'), 'login'), '用户名或密码不正确。');
   assert.equal(messageForError(new InstanceApiError(429, 'internal_threshold'), 'login'), '尝试次数较多，请稍后再试。');
+  assert.equal(messageForError(new InstanceApiError(403, 'invalid_setup'), 'setup'), '初始化验证已失效，请重新验证密钥。');
+  assert.equal(messageForError(new InstanceApiError(400, 'invalid_username'), 'setup'), '无法完成初始化。请检查管理员用户名和密码后重试。');
 });
 
 test('entry statically loads only gate and lazily imports business app', () => {

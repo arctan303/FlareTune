@@ -246,7 +246,7 @@ export default function PlaylistDrawer() {
                                                 }`}
                                             >
                                                 {/* 封面与播放态指示 */}
-                                                <div
+                                                <button type="button" tabIndex={-1} aria-hidden="true"
                                                     onClick={() => playSong(song)}
                                                     className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-current/10 cursor-pointer"
                                                 >
@@ -264,19 +264,21 @@ export default function PlaylistDrawer() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                </div>
+                                                </button>
 
                                                 {/* 歌曲信息 */}
-                                                <div
+                                                <button type="button"
                                                     onClick={() => playSong(song)}
-                                                    className="min-w-0 flex-1 cursor-pointer"
+                                                    aria-label={t("播放 {p0} - {p1}", { p0: song.title, p1: song.artist })}
+                                                    aria-current={isActive ? 'true' : undefined}
+                                                    className="min-w-0 flex-1 cursor-pointer rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
                                                 >
                                                     <div className="flex items-center gap-1.5">
                                                         <p className="queue-row__title truncate text-sm font-medium">{song.title}</p>
                                                         <QualityBadge song={song} />
                                                     </div>
                                                     <p className="queue-row__artist truncate text-xs">{song.artist}</p>
-                                                </div>
+                                                </button>
 
                                                 {/* 移出播放列表按钮 */}
                                                 <button
@@ -300,9 +302,16 @@ export default function PlaylistDrawer() {
                                                             event.stopPropagation();
                                                             beginPointerDrag(song.id, index, event);
                                                         }}
+                                                        onKeyDown={event => {
+                                                            const destination = event.key === 'ArrowUp' ? index - 1 : event.key === 'ArrowDown' ? index + 1 : null;
+                                                            if (destination === null) return;
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            if (destination >= 0 && destination < playlist.length) reorderPlaylist(index, destination);
+                                                        }}
                                                         className="queue-row__drag relative z-[2] flex-shrink-0 touch-none select-none"
-                                                        title={t("按住拖拽调整排序")}
-                                                        aria-label={t("按住拖拽调整 {p0} 排序", { p0: (song.title) })}
+                                                        title={t("拖拽或用上下方向键调整排序")}
+                                                        aria-label={t("调整 {p0} 排序，使用上下方向键移动", { p0: song.title })}
                                                     >
                                                         <GripVertical size={16} />
                                                     </button>

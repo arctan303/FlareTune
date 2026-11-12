@@ -1,9 +1,10 @@
 import { SettingsInput, SettingsWriteButton } from './SettingsReadOnly.jsx';
 import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import SelectControl from './SelectControl.jsx';
+import SettingsEditDialog from './SettingsEditDialog.jsx';
+import SettingsSkeleton from './SettingsSkeleton.jsx';
 import { t } from '../i18n/index.js';
 import React from 'react';
-import { createPortal } from 'react-dom';
 import {
   Music,
   Search,
@@ -40,31 +41,30 @@ export default function AdminCatalogSection() {
   const [editor, setEditor] = React.useState(null); // { version, draft }
   const [itemToDelete, setItemToDelete] = React.useState(null); // song
   const [busy, setBusy] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [loaded, setLoaded] = React.useState(false);
+  const [listError, setListError] = React.useState('');
   const [message, setMessage] = React.useState('');
   const [uploadNotice, setUploadNotice] = React.useState('');
 
   const listRequest = React.useRef(createLatestRequest());
   const editRequest = React.useRef(createLatestRequest());
-  const editorRef = React.useRef(null);
-  const busyRef = React.useRef(busy);
-  busyRef.current = busy;
-  const emptyList = () => ({ songs: [], total: 0, limit: 30 });
+  const editorId = React.useId();
 
   function invalidateList() {
     listRequest.current.invalidate();
-    setList(emptyList());
     setLoading(true);
   }
 
   const load = React.useCallback(async () => {
     const isCurrent = listRequest.current.begin();
     setLoading(true);
+    setListError('');
     try {
       const result = await listCatalogSongs({ page, q: search });
-      if (isCurrent()) setList(result);
+      if (isCurrent()) { setList(result); setLoaded(true); }
     } catch (error) {
-      if (isCurrent()) setMessage(error.message);
+      if (isCurrent()) setListError(error.message || '曲库数据加载失败，请重试。');
     } finally {
       if (isCurrent()) setLoading(false);
     }
@@ -77,19 +77,7 @@ export default function AdminCatalogSection() {
 
   React.useEffect(() => () => { editRequest.current.invalidate(); }, []);
 
-  // Escape key closes editor drawer
-  React.useEffect(() => {
-    if (!editor) return undefined;
-    const focusFrame = requestAnimationFrame(() => editorRef.current?.querySelector('input:not([type="file"])')?.focus());
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !busyRef.current) {
-        editRequest.current.invalidate();
-        setEditor(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => { cancelAnimationFrame(focusFrame); window.removeEventListener('keydown', handleKeyDown); };
-  }, [Boolean(editor)]);
+  const closeEditor = () => { if (!busy) { editRequest.current.invalidate(); setEditor(null); } };
 
   async function openEdit(item) {
     const isCurrent = editRequest.current.begin();
@@ -176,7 +164,7 @@ export default function AdminCatalogSection() {
     <div className="admin-catalog space-y-6">
       {/* 分类切换与搜索栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <span className="text-xs font-semibold text-[var(--muted)]">{t("单曲 (")}{list.total || 0})</span>
+        <span className="text-xs font-semibold text-[var(--muted)]">{loaded ? <>{t("单曲 (")}{list.total || 0})</> : t('单曲')}</span>
 
         {/* 搜索框 */}
         <form
@@ -213,6 +201,11 @@ export default function AdminCatalogSection() {
           )}
         </form>
       </div>
+
+      {listError && <div role="alert" className="app-inline-notice text-sm text-[var(--danger)]">
+        <span>{t(listError)}</span><SettingsButton disabled={loading} onClick={() => void load()}>{t('重试')}</SettingsButton>
+      </div>}
+      {loading && loaded && <p role="status" className="text-xs text-[var(--muted)]">{t('正在更新曲库数据…')}</p>}
 
       {/* 消息提示 */}
       {message && (
@@ -254,9 +247,9 @@ export default function AdminCatalogSection() {
 
       {/* 数据列表 */}
       <div className="wallpaper-content-surface rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] overflow-hidden shadow-xs">
-        {loading ? (
-          <div className="py-16 text-center text-xs text-[var(--muted)]">{t("正在加载曲库数据…")}</div>
-        ) : items.length === 0 ? (
+        {loading && !loaded ? (
+          <div className="p-4"><SettingsSkeleton compact rows={5} label="正在加载曲库数据…" /></div>
+        ) : !items.length && listError ? null : items.length === 0 ? (
           <div className="py-16 text-center text-xs text-[var(--muted)] space-y-2">
             <p>{t("暂无符合条件的歌曲")}</p>
             {search && (
@@ -361,46 +354,16 @@ export default function AdminCatalogSection() {
       )}
 
       {/* 编辑歌曲弹窗 */}
-      {editor && createPortal(
-        <>
-          {/* 背景半透明浅遮罩 */}
-          <div
-            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xs transition-opacity animate-[fade-in_0.2s_ease-out]"
-            onClick={() => { if (!busy) { editRequest.current.invalidate(); setEditor(null); } }}
-          />
-
-          <section
-            ref={editorRef}
-            className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(88dvh,760px)] w-[min(92vw,620px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("编辑歌曲")}
-          >
-          {/* 弹窗顶栏 */}
-            <div className="p-5 border-b border-[var(--line)] flex items-center justify-between shrink-0 bg-[var(--surface-raised)]">
-              <div>
-                <h3 className="text-base font-bold text-[var(--ink)]">{t("编辑歌曲")}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => { editRequest.current.invalidate(); setEditor(null); }}
-                disabled={busy}
-                className="p-2 text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] rounded-xl transition-colors cursor-pointer"
-                aria-label={t("关闭编辑")}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* 弹窗表单主体 */}
-            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 custom-scrollbar">
+      {editor && <SettingsEditDialog title={t('编辑歌曲')} busy={busy} onClose={closeEditor} closeOnBackdrop size="medium">
+            <form onSubmit={handleSave} className="space-y-5">
               {/* 歌曲特有字段 */}
               {(
                 <>
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲标题")}<span className="text-rose-500 ml-1">*</span>
+                    <label htmlFor={`${editorId}-title`} className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲标题")}<span className="text-rose-500 ml-1">*</span>
                     </label>
                     <SettingsInput
+                      id={`${editorId}-title`}
                       type="text"
                       required
                       value={editor.draft.title || ''}
@@ -410,10 +373,11 @@ export default function AdminCatalogSection() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3.5">
+                  <div className="settings-form-grid">
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌手")}</label>
+                      <label htmlFor={`${editorId}-artist`} className="block text-xs font-semibold text-[var(--ink)]">{t("歌手")}</label>
                       <SettingsInput
+                        id={`${editorId}-artist`}
                         type="text"
                         value={editor.draft.artist || ''}
                         onChange={(e) => setDraft('artist', e.target.value)}
@@ -422,8 +386,9 @@ export default function AdminCatalogSection() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("专辑")}</label>
+                      <label htmlFor={`${editorId}-album`} className="block text-xs font-semibold text-[var(--ink)]">{t("专辑")}</label>
                       <SettingsInput
+                        id={`${editorId}-album`}
                         type="text"
                         value={editor.draft.album || ''}
                         onChange={(e) => setDraft('album', e.target.value)}
@@ -433,10 +398,11 @@ export default function AdminCatalogSection() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3.5">
+                  <div className="settings-form-grid">
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("时长（秒）")}</label>
+                      <label htmlFor={`${editorId}-duration`} className="block text-xs font-semibold text-[var(--ink)]">{t("时长（秒）")}</label>
                       <SettingsInput
+                        id={`${editorId}-duration`}
                         type="number"
                         min="0"
                         value={editor.draft.duration || ''}
@@ -446,8 +412,8 @@ export default function AdminCatalogSection() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲语言")}</label>
-                      <SelectControl aria-label={t("歌曲语言")}
+                      <label htmlFor={`${editorId}-language`} className="block text-xs font-semibold text-[var(--ink)]">{t("歌曲语言")}</label>
+                      <SelectControl id={`${editorId}-language`} aria-label={t("歌曲语言")}
                         value={editor.draft.language || ''}
                         onChange={(e) => setDraft('language', e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
@@ -479,14 +445,14 @@ export default function AdminCatalogSection() {
                     </div>
                   )}
                   <div className="flex-1 space-y-2">
-                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-colors">
+                    <label className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--accent)]">
                       <Upload size={13} />
                       <span>{editor.draft.cover_url ? t("替换封面") : t("上传封面")}</span>
                       <SettingsInput
                         type="file"
                         accept=".jpg,.jpeg,.png,.webp"
                         disabled={busy}
-                        className="hidden"
+                        className="sr-only"
                         onChange={(e) => {
                           void handleUpload('cover', e.target.files?.[0]);
                           e.target.value = '';
@@ -522,9 +488,7 @@ export default function AdminCatalogSection() {
                 </SettingsWriteButton>
               </SettingsActions>
             </form>
-          </section>
-        </>, document.body
-      )}
+      </SettingsEditDialog>}
     </div>
   );
 }

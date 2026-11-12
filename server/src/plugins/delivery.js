@@ -1,7 +1,7 @@
 import { pluginRegistry, REGISTRY_KEY, installationKey } from './registry.js';
 import * as buildMetadata from '../../../shared/plugins/build.generated.js';
 import * as deliveryMetadata from '../../../shared/plugins/delivery.generated.js';
-import { canonicalPluginManifest, resolvePluginAvailability, normalizePluginUiLanguage } from '../../../shared/plugins/manifest.js';
+import { canonicalPluginManifest, comparePluginVersions, resolvePluginAvailability, normalizePluginUiLanguage } from '../../../shared/plugins/manifest.js';
 import { ACTIVE_PLUGIN_BUILDS, OFFICIAL_PLUGIN_SOURCE, PLUGIN_BUILD_TIMEOUT, canonicalPluginPlan, pluginSelectionChanges,
   validateDeployHookUrl, validatePluginDirectory, validatePublicHttpsUrl } from '../../../shared/plugins/delivery.js';
 import { pluginFail as fail, requirePluginSession, sessionBindings, sessionPredicate, sha256 } from './common.js';
@@ -12,6 +12,8 @@ export const PLUGIN_DELIVERY_KEY = 'plugin.delivery.v1';
 const clone = value => JSON.parse(JSON.stringify(value));
 const validRevision = value => Number.isSafeInteger(value) && value >= 0 && Number.isSafeInteger(value + 1);
 const snapshotPlugin = ({ id, version, manifest, source }) => ({ id, version, manifest, source });
+const samePluginTarget = (a, b) => Boolean(a && b
+  && canonicalPluginManifest(snapshotPlugin(a)) === canonicalPluginManifest(snapshotPlugin(b)));
 const initialState = () => ({ mode: 'manual', secrets: null, sources: [{ ...OFFICIAL_PLUGIN_SOURCE,
   status: 'unpublished', error: null, updatedAt: null, catalog: [] }], desired: null, running: [], build: null });
 const knownKeys = (input, keys) => input && typeof input === 'object' && !Array.isArray(input)
@@ -226,16 +228,27 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     const running = await runningFor(env, record);
     const desired = clone(record.value.desired ?? running);
     const current = desired.find(row => row.id === input.pluginId);
+    const installed = running.find(row => row.id === input.pluginId);
     if (input.installed) {
       const candidate = catalogFor(record).find(row => row.id === input.pluginId
         && row.sourceId === (input.sourceId || current?.sourceId || compiledRows().find(row => row.id === input.pluginId)?.sourceId || 'workspace')
         && (!input.version || row.version === input.version));
       if (!candidate) fail('PLUGIN_NOT_FOUND', 404);
-      const owner = current || running.find(row => row.id === input.pluginId);
       const workspaceOwned = workspaceRows().some(row => row.id === input.pluginId)
         && !deployment?.plugins?.some(entry => entry.id === input.pluginId && entry.source.type === 'artifact');
-      if ((owner && owner.sourceId !== candidate.sourceId) || (workspaceOwned && candidate.source.type === 'artifact')) fail('PLUGIN_SOURCE_CONFLICT');
+      if ([current, installed].some(owner => owner && owner.sourceId !== candidate.sourceId)
+        || (workspaceOwned && candidate.source.type === 'artifact')) fail('PLUGIN_SOURCE_CONFLICT');
       if (candidate.source.type === 'artifact' && input.trustCode !== true) fail('PLUGIN_CODE_TRUST_REQUIRED', 400);
+      // A pending install is also a locked target: changing the button label to
+      // "install" must not permit an older or republished same-version package.
+      for (const baseline of [installed, current].filter(Boolean)) {
+        const comparison = comparePluginVersions(candidate.version, baseline.version);
+        if (comparison < 0 || (comparison === 0 && !samePluginTarget(candidate, baseline))) fail('PLUGIN_VERSION_NOT_NEWER');
+      }
+      if (samePluginTarget(candidate, current)) {
+        validateSelection(desired);
+        return publicState(env, record);
+      }
       const index = desired.findIndex(row => row.id === input.pluginId);
       if (index >= 0) desired[index] = candidate; else desired.push(candidate);
     } else {

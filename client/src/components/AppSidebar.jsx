@@ -32,7 +32,7 @@ import { useCompactPlayerPlacement } from '../hooks/useCompactPlayerPlacement.js
 import { useSidebarNavigationMotion } from '../hooks/useSidebarNavigationMotion.js';
 import { useUIStore } from '../store/useUIStore.js';
 import { formatPath, syncBrowserHistory, returnFromSidebarWorkspace, returnToParentRoute } from '../utils/navigation.js';
-import { getPlugin, getPluginPages, getPluginPage, getPluginEntryRoute, localizePlugin } from '../plugins/registry.js';
+import { getPlugin, getPluginPages, getPluginPage, getPluginEntryRoute, getPrimaryPluginSettingsPageId, localizePlugin } from '../plugins/registry.js';
 import { usePluginStore } from '../store/usePluginStore.js';
 import { usePluginMenu } from '../hooks/usePluginMenu.js';
 import PluginActionDialog from './PluginActionDialog.jsx';
@@ -87,6 +87,10 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
   const pluginPageId = activeRoute?.pluginPage || activeRoute?.pluginSection || 'overview';
   const currentPluginPage = getPluginPage(plugin, pluginPageId);
   const serviceWorkspace = currentPluginPage?.kind === 'service';
+  const primarySettingsPageId = plugin ? getPrimaryPluginSettingsPageId(plugin) : null;
+  const pluginNavigationTitle = plugin && serviceWorkspace
+    ? plugin.supportedLocales?.length ? plugin.name : t(plugin.name)
+    : t('插件设置');
   const pluginPages = plugin ? getPluginPages(plugin, pluginContext) : [];
   const secondaryEntries = plugin ? secondaryPluginMenu.entries.filter(entry => entry.pluginId === plugin.id
     && (entry.group || plugin.id) === (currentPluginPage?.group || plugin.id)) : [];
@@ -97,7 +101,8 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
       && (!plugin.entries.some(entry => entry.page === page.id && ['sidebar.primary', 'sidebar.secondary'].includes(entry.slot))
         || secondaryEntries.some(entry => entry.page === page.id))
     : page.id === 'overview' || page.kind === 'settings')
-    .map(page => ({ ...page, targetPage: page.id }));
+    .map(page => ({ ...page, targetPage: page.id,
+      ...(!serviceWorkspace && page.id === primarySettingsPageId ? { label: '设置', labelKey: undefined } : {}) }));
   for (const entry of secondaryEntries) {
     if (entry.page && (getPluginPage(plugin, entry.page)?.kind === 'service') !== serviceWorkspace) continue;
     const existing = entry.page ? pluginSections.find(page => page.targetPage === entry.page) : null;
@@ -254,7 +259,7 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
           </button>
         </div>
 
-        <nav ref={navigationRef} className="app-sidebar__nav" aria-label={plugin ? plugin.supportedLocales?.length ? plugin.name : t(plugin.name) : ['settings', 'plugin'].includes(activePage) ? t("设置分类") : activePage === 'lyrics' ? t("歌词工作台分区") : activePage === 'assistant' ? t("助手分区") : t("主要页面")}>
+        <nav ref={navigationRef} className="app-sidebar__nav" aria-label={plugin ? pluginNavigationTitle : ['settings', 'plugin'].includes(activePage) ? t("设置分类") : activePage === 'lyrics' ? t("歌词工作台分区") : activePage === 'assistant' ? t("助手分区") : t("主要页面")}>
           {plugin ? <>
             <PageBackButton label={t('返回')} className="app-nav-item app-sidebar__back"
               onClick={() => {
@@ -262,19 +267,9 @@ export default function AppSidebar({ activePage, activeRoute, onNavigate }) {
                 else returnToParentRoute('/plugins');
                 setIsMobileOpen(false);
               }} />
-            <div className="app-sidebar__nav-group" aria-label={plugin.supportedLocales?.length ? plugin.name : t(plugin.name)}>
-              <p className="app-sidebar__group-label">{plugin.supportedLocales?.length ? plugin.name : t(plugin.name)}</p>
-              {serviceWorkspace ? pluginSections.map(renderPluginSection) : <>
-              {pluginSections.filter(page => page.id === 'overview').map(renderPluginSection)}
-              {['account', 'instance'].map(scope => {
-                const pages = pluginSections.filter(page => page.id !== 'overview' && page.kind === 'settings' && (page.scope || (page.access === 'admin' ? 'instance' : 'account')) === scope);
-                return pages.length > 0 && <div key={scope} className="mt-3">
-                  <p className="app-sidebar__group-label">{t(scope === 'instance' ? '站点设置' : '我的设置')}</p>
-                  {pages.map(renderPluginSection)}
-                </div>;
-              })}
-              {pluginSections.filter(page => page.id !== 'overview' && page.kind !== 'settings').map(renderPluginSection)}
-              </>}
+            <div className="app-sidebar__nav-group" aria-label={pluginNavigationTitle}>
+              <p className="app-sidebar__group-label">{pluginNavigationTitle}</p>
+              {pluginSections.map(renderPluginSection)}
             </div>
           </> : ['settings', 'plugin'].includes(activePage) ? (
             <>

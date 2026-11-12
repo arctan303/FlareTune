@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBackgroundModuleHarness, flushBackgroundAsync } from '../test/fullscreenBackgroundHarness.js';
 import * as registry from '../plugins/registry.js';
+import * as catalog from '../plugins/catalog.js';
+import { compiledPluginManifests } from '../../../shared/plugins/catalog.js';
 
 const nodes = tree => tree && typeof tree === 'object' ? [tree, ...[tree.props?.children, tree.props?.action].flat(Infinity).flatMap(nodes)] : [];
 const text = node => typeof node === 'string' ? node : [node?.props?.children, node?.props?.meta].flat(Infinity).map(child => child === undefined ? '' : text(child)).join('');
@@ -13,7 +15,8 @@ function pluginView({ admin = true, installed = false, manifests, locale = 'zh',
   const resource = { plugins: (manifests || [api.getPlugin(id)]).map(item => ({ id: item.id, version: item.version, installed, revision: 2 })),
     loaded: true, loading: false, busy: false, error: '', demo: false,
     refresh: async () => {}, setInstalled: async (...args) => { writes.push(args); } };
-  const catalogRows = () => resource.plugins.map(row => ({ id: row.id, version: row.version, manifest: api.getPlugin(row.id), sourceId: 'workspace', sourceName: 'Current deployment', source: { type: 'workspace', id: 'workspace' } }));
+  const catalogRows = () => resource.plugins.map(row => ({ id: row.id, version: row.version,
+    manifest: (manifests || compiledPluginManifests).find(item => item.id === row.id), sourceId: 'workspace', sourceName: 'Current deployment', source: { type: 'workspace', id: 'workspace' } }));
   const delivery = { data: { revision: 1, settings: { mode: 'manual' }, sources: [], pending: [], build: null,
     get catalog() { return [...catalogRows(), ...(this.extraCatalog || [])]; }, get running() { return catalogRows().filter(row => resource.plugins.find(item => item.id === row.id).installed); },
     get desired() { return this.running; } }, busy: false, error: '', refresh: async () => {},
@@ -23,9 +26,10 @@ function pluginView({ admin = true, installed = false, manifests, locale = 'zh',
       '../../../shared/uiLanguages.js': { UI_LANGUAGES: [{ id: 'zh', name: '简体中文' }, { id: 'en', name: 'English' }] },
       '../hooks/usePlugins.js': { usePlugins: (owner, options) => { calls.push({ owner, options }); return resource; } },
       '../hooks/usePluginDelivery.js': { usePluginDelivery: () => delivery, activePluginBuild: () => false },
-      '../plugins/registry.js': { ...api, localizePlugin: registry.localizePlugin, isPluginVisibleToRole: registry.isPluginVisibleToRole },
+      '../plugins/registry.js': { ...api, localizePlugin: registry.localizePlugin, getPrimaryPluginSettingsPageId: registry.getPrimaryPluginSettingsPageId, isPluginVisibleToRole: registry.isPluginVisibleToRole },
+      '../plugins/catalog.js': catalog,
       '../utils/navigation.js': { formatPath: route => route.pluginId ? '/plugins/' + route.pluginId + '/' + (route.pluginPage || 'overview') : route.section === 'list' ? '/plugins' : '/plugins/_/' + route.section, syncBrowserHistory() {} },
-      './SettingsSection.jsx': 'section', './SettingsSkeleton.jsx': 'skeleton', './SettingsControls.jsx': { SettingsActions: 'actions', SettingsButton: 'button' },
+      './SettingsSection.jsx': 'section', './SettingsSkeleton.jsx': 'skeleton', './SelectControl.jsx': 'select', './SettingsControls.jsx': { SettingsActions: 'actions', SettingsButton: 'button' },
       './PluginConfirmDialog.jsx': 'confirm-dialog', './PluginContentBoundary.jsx': 'plugin-content',
       './PluginDeliveryView.jsx': { __esModule: true, default: 'delivery-view', PluginDeliveryStatus: 'delivery-status' }, './PluginCatalogView.jsx': 'catalog-view' }, globals: {},
   });
@@ -149,6 +153,7 @@ test('catalog detail preserves the selected source and version through installat
     source: { type: 'artifact', id: sourceId, url: `https://plugins.flaretune.dev/${sourceId}.json` },
     manifest: { id: 'external', version, hostApiVersion: 1, apiVersion: 1, name: sourceId, description: sourceId + ' package', pages: [], entries: [], icon: 'puzzle' } });
   subject.delivery.data.extraCatalog = [external('first-source', '1.0.0'), external('second-source', '2.0.0')];
+  subject.delivery.data.sources = [{ id: 'first-source', name: 'first-source', status: 'ready' }, { id: 'second-source', name: 'second-source', status: 'ready' }];
   const route = { type: 'page', page: 'plugin', pluginId: 'external', pluginPage: 'overview', catalogSource: 'second-source', catalogVersion: '2.0.0' };
   let tree = subject.view(route);
   assert.match(text(tree), /second-source/); assert.doesNotMatch(text(tree), /first-source/);
@@ -160,14 +165,14 @@ test('catalog detail preserves the selected source and version through installat
   subject.unmount();
 });
 
-test('overview keeps configuration separate from the final uninstall region and exposes real language labels', () => {
+test('overview leaves configuration to the sidebar and keeps the final uninstall region and real language labels', () => {
   const subject = pluginView({ installed: true });
   const view = subject.view(), sections = nodes(view).filter(node => node.type === 'section');
   const intro = sections.find(node => node.props.className === 'plugin-overview__intro');
   const danger = sections.find(node => node.props.className === 'plugin-overview__danger');
   assert.ok(intro); assert.ok(danger);
   assert.equal(nodes(intro).some(node => node.type === 'button' && text(node) === '卸载插件'), false);
-  assert.ok(nodes(intro).some(node => node.type?.name === 'PluginLink' && node.props.route.pluginPage === 'connection'));
+  assert.equal(nodes(intro).some(node => node.type?.name === 'PluginLink' && node.props.route.pluginPage === 'connection'), false);
   assert.equal(nodes(danger).filter(node => node.type === 'button').length, 1);
   assert.equal(text(nodes(danger).find(node => node.type === 'button')), '卸载插件');
   assert.match(danger.props.description, /构建并部署成功后生效/);

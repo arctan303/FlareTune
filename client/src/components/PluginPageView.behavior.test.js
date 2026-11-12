@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBackgroundModuleHarness } from '../test/fullscreenBackgroundHarness.js';
-import { createPluginRegistry, localizePlugin, canAccessPluginDeclaration } from '../plugins/registry.js';
+import { createPluginRegistry, localizePlugin, canAccessPluginDeclaration, getPrimaryPluginSettingsPageId } from '../plugins/registry.js';
 import { compiledPluginManifests } from '../../../shared/plugins/catalog.js';
 
 const manifest = { id: 'reading-room', version: '1.0.0', apiVersion: 1, hostApiVersion: 1,
@@ -18,7 +18,7 @@ function subject(declaration = manifest, { locale = 'zh', translate = key => key
   const session = { authenticated: true, user: { accountId: 'A', role: 'member' }, csrfToken: 'A' };
   const harness = createBackgroundModuleHarness({ file: new URL('./PluginPageView.jsx', import.meta.url),
     modules: { '../i18n/index.js': { t: translate, useLocale: () => locale },
-      '../hooks/usePlugins.js': { usePlugins: () => resource }, '../plugins/registry.js': { ...registry, localizePlugin, canAccessPluginDeclaration },
+      '../hooks/usePlugins.js': { usePlugins: () => resource }, '../plugins/registry.js': { ...registry, localizePlugin, canAccessPluginDeclaration, getPrimaryPluginSettingsPageId },
       './PluginSettingsView.jsx': { default: 'plugin-overview', PluginLink: 'a', pluginAvailabilityMessage: reason => reason },
       './PluginContentBoundary.jsx': 'plugin-content', './SettingsSkeleton.jsx': 'skeleton', './SettingsControls.jsx': { SettingsButton: 'button' } }, globals: {} });
   return { ...harness, resource, session, renderPage(page = 'browse') {
@@ -97,6 +97,7 @@ test('actual Assistant pages gate their dependency and administrator settings wh
   assert.equal(content(view.renderPage('configuration')), undefined);
   view.session.user.role = 'admin';
   tree = view.renderPage('configuration');
+  assert.equal(text(nodes(tree).find(node => node.type === 'h1')), '设置');
   assert.equal(content(tree).props.page.scope, 'instance');
   assert.notEqual(content(tree).props.key, conversation.props.key);
   view.unmount();

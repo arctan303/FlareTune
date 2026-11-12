@@ -3,7 +3,7 @@
   "hostApiVersion": 3,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "52294f3b114735590f53ff8e6cdff80be6ca6809d3c8193393a2d122b7ed48ca"
+    "sourceDigest": "86652e6755cba5adee3357014f58752b8ea92607db16c6f56dc1b6c61c531f9f"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "cee3b3b51626b97d4e433d3bcec20036af7d761a21fd0df9c2775ba2b9d51102",
+      "sourceDigest": "d5b33efc89d80c7d12096574cd12653a820172a59d067fe62abc5fca9352f904",
       "sources": [
         {
           "path": "client/index.html",
@@ -73,7 +73,7 @@
         },
         {
           "path": "client/src/app.jsx",
-          "sha256": "f5a746ff7d3926da4e7f8e0321447093fe45183d211f46e8e41ce7d2cd23d2e8"
+          "sha256": "decbbdc83281fd282d766dc518f95b774df038f3aea7333747d73ae132435b19"
         },
         {
           "path": "client/src/assets/categories/en.jpg",
@@ -145,19 +145,19 @@
         },
         {
           "path": "client/src/components/AdminAccountRow.jsx",
-          "sha256": "aa5af9fc883a4f56b060d7d32794e7bd8f9beee5a41c8f3838e78cd0f8fcd684"
+          "sha256": "c5454628ac8172ac421d35a710e4ca41d6bf41bc49c5a13c0be6f64e7f0b9569"
         },
         {
           "path": "client/src/components/AdminCatalogSection.jsx",
-          "sha256": "55a33df640b27fd9d5cca21c2ffe90cfb2aa8d0c6b7df2c714793f52e5d28407"
+          "sha256": "171937ebbd1be6172c8624afa1317627c84c7e32d18596d8510aab784cb9e6eb"
         },
         {
           "path": "client/src/components/AdminSettingsFields.jsx",
-          "sha256": "8ba8cf6d78584692fe70756c8087d3f3d2496c1412f4c85f385cffe52e325350"
+          "sha256": "3686e2716dcd31bc5aa6ee034676a0c35a2dd064e0f5f1a1933922ca7d4025c7"
         },
         {
           "path": "client/src/components/AdminSongCreatePage.jsx",
-          "sha256": "a47612dc57e9c4f50bf72ffae96eba74c57c65dfde9ce108c985dcf0ff1be4cb"
+          "sha256": "624ed147125aa27d029cd96094415a4388c32dfd6095c44a64bdd5dff49253cd"
         },
         {
           "path": "client/src/components/AdminView.jsx",
@@ -177,19 +177,19 @@
         },
         {
           "path": "client/src/components/AlbumDetailView.jsx",
-          "sha256": "5c0b0ca81bfb083a50e2ece12d363153d5fe43d7196436ea1ff34ba1eee3f330"
+          "sha256": "3a46b9fdea46a32457f6b5c39e3ba253d90979645c96d04190993a5e758991fb"
         },
         {
           "path": "client/src/components/AllPlaylistsView.jsx",
-          "sha256": "d55d7b1ac10ca983d343c5b8da55bf670897b744701ee6ed2117ccce6cb10bc1"
+          "sha256": "4acf9bb814209ed106f295ebbedc7cd0100eff6c88d302d8f8665816cb42b5ad"
         },
         {
           "path": "client/src/components/AppSidebar.jsx",
-          "sha256": "6383b4da896d94d3a72c4c1560b1d1620a89c7907b6bc956b45d38ef8d5e2323"
+          "sha256": "56c345f7111310f6285e180f68e91e3a86d514d46719289f6b99c655546d129d"
         },
         {
           "path": "client/src/components/ArtistDetailView.jsx",
-          "sha256": "84d27504a838a02b20e37fe5cd89f991a1a6eb509b8663b367797b0a7ca8b4a1"
+          "sha256": "c66c2ddefe86337ed9344521aef61326e89b9d87766a02c0948526ce2855a068"
         },
         {
           "path": "client/src/components/ArtistDrawer.jsx",
@@ -233,7 +233,7 @@
         },
         {
           "path": "client/src/components/GoogleLogin.jsx",
-          "sha256": "de47491481d4666e0b6a1fc1c7cd710c4259c8d974da4384ec4a2a69ec1404e7"
+          "sha256": "22b68a82a2c4dbaa5bc9be0f724b99d9a76dc2f0feb334fc4b44ec84e49a0680"
         },
         {
           "path": "client/src/components/HistoryCoverStack.jsx",
@@ -309,7 +309,7 @@
         },
         {
           "path": "client/src/components/MainContent.jsx",
-          "sha256": "5f5efbcf3eea413490c2748f464301467b7777d2eae4ecde8691be659366db67"
+          "sha256": "e1663dbdd7e1ae018cdf0fb14050c3ec72b71662f494ad060b2ba6a11ec8ebd4"
         },
         {
           "path": "client/src/components/OrderingButtons.jsx",
@@ -325,11 +325,11 @@
         },
         {
           "path": "client/src/components/PlayStatsDetailView.jsx",
-          "sha256": "5e63a30dd72b740b03de5d2828899e4dcdefa6811f39459040a44fb762f84757"
+          "sha256": "44bcc89f24e102e1b7bd9c228cfcf4578bb69046e034ace44dc84fb01ca9ab51"
         },
         {
           "path": "client/src/components/PlayerBar.jsx",
-          "sha256": "d57e73aea4a0cb60e034845e205eb064261a77fbf10b4a2c5c71c3b17343eb35"
+          "sha256": "639e07e42bbc68c62d0a9e5788acf9620e4ecaefdd2ef2cc0804771c0ecde0f4"
         },
         {
           "path": "client/src/components/PlayerControls.jsx",
@@ -353,15 +353,15 @@
         },
         {
           "path": "client/src/components/PlaylistDetailSupport.jsx",
-          "sha256": "09b0e59e09ead3829214947a6f2128a504d95196838772ef1920195a27c2b4ef"
+          "sha256": "7e5b5710275de258272b9cf41b8a01e46df83feda055c2a5bc02f8a4796b0940"
         },
         {
           "path": "client/src/components/PlaylistDetailView.jsx",
-          "sha256": "561741a0d342b425e7807a76a06cafbc25b7c23506fbd11d56fc008adafd99fc"
+          "sha256": "4fa187d81066cce3d39703381e0473e607d8b752995a30f5d559731d61a5292f"
         },
         {
           "path": "client/src/components/PlaylistDrawer.jsx",
-          "sha256": "6f2d78640ee725cde14cc91c9710a26c277d0cd4266f4fa9010ed3b20961494d"
+          "sha256": "664242a9804fa3183f00c57413d430a4c2afdffdf1dc2f7faf265a563f09ace4"
         },
         {
           "path": "client/src/components/PlaylistEditableTracks.jsx",
@@ -376,12 +376,16 @@
           "sha256": "30faaa4037dfe20afb25c9466c8e22c2cf2f058d2b3570f15e2662befed38f74"
         },
         {
+          "path": "client/src/components/PluginCatalogVersions.jsx",
+          "sha256": "080094854ca5eb64512c11260d376d1ddde84df5d4baae7ee1ea1211507d4c60"
+        },
+        {
           "path": "client/src/components/PluginCatalogView.jsx",
-          "sha256": "01569d5269c62a71ac69bd6bbe6ce65e73888fd68f889e084822d88aed7ea190"
+          "sha256": "4e8688e0f543c17d8de4c810ea4cca1ea91befb2f5c875c30b20a5b9ed364593"
         },
         {
           "path": "client/src/components/PluginConfirmDialog.jsx",
-          "sha256": "2685c8552e0235b172ecba718a456487b9d07918c4d4b63c3083dcc9e2c5938f"
+          "sha256": "f75916c1b6a6e5cab3b5c7285a4eef02064235bc714eb8a59b0c13b547ab93e1"
         },
         {
           "path": "client/src/components/PluginContentBoundary.jsx",
@@ -393,11 +397,11 @@
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
-          "sha256": "d0b2d2530d8c405f435d346fc74587c04742834311455c5da8366178b6b3c85b"
+          "sha256": "eedda11498362b91aa9e0fcd43e5982d9f07b348dfbaf531b41cbce7ef13459e"
         },
         {
           "path": "client/src/components/PluginSettingsView.jsx",
-          "sha256": "c2f277fff57d63d51638db5d69885486fe7a4e85a653de97415bebe1aef3fbf5"
+          "sha256": "18b94f61dd5a7bf980a537cd5d8ccb5d43571ddf24c1bdd8c5a499c3783ce35b"
         },
         {
           "path": "client/src/components/PrivateCoverImage.jsx",
@@ -425,7 +429,7 @@
         },
         {
           "path": "client/src/components/SearchView.jsx",
-          "sha256": "21678af2ef832837cc7f2cfd4a5bd639b40869db82c46e5f979809f6047142f8"
+          "sha256": "f9db0f0208391be63d4d7ebe0b7d669110cee9105b98d38d81c46867a76f1852"
         },
         {
           "path": "client/src/components/SelectControl.jsx",
@@ -433,15 +437,15 @@
         },
         {
           "path": "client/src/components/ServiceModelSettings.jsx",
-          "sha256": "527c7eb0199d8ec1d52c94c7848187a72516e16a29aad25a591baa5e0cd491ed"
+          "sha256": "1d291bee10a1b7197d5c55cef1eee9e3fb3af909ca3e0ca9c93ecdd28aa8a871"
         },
         {
           "path": "client/src/components/SettingsControls.jsx",
-          "sha256": "3ce7463ab3b34f9de1c0579983ed428a2012b786e8b0cc1a2e9ebc19f76bf833"
+          "sha256": "db881e674e1416b88cec037f96745be143f458d1e31daa05261e2d1674eef4c8"
         },
         {
           "path": "client/src/components/SettingsEditDialog.jsx",
-          "sha256": "30e1a1fe114c7347abe1c2d6acc8ce28cedef4e67387ade31a0b31ac45ff1bcb"
+          "sha256": "79deb5884d0af838e0ad74c7c001465bb8368b95f37160789c0d80a581ec9326"
         },
         {
           "path": "client/src/components/SettingsReadOnly.jsx",
@@ -508,6 +512,10 @@
           "sha256": "25a768accc78a2286d71668445d0647369311407ed3fded3952f77d425834873"
         },
         {
+          "path": "client/src/components/catalog/CatalogReadState.jsx",
+          "sha256": "187fc53818c65a8ec80f73fad1489cc6c429862eac43504b48238e6f938e3840"
+        },
+        {
           "path": "client/src/components/catalog/CatalogSkeleton.jsx",
           "sha256": "902fa605a119baedca640a6eed502b4806076f82c10aba53ac63dbeb64f73b4f"
         },
@@ -565,7 +573,11 @@
         },
         {
           "path": "client/src/components/drawers/DrawerErrorBoundary.jsx",
-          "sha256": "d0315de2ebd23e9f91b9d0b1c80c020b00d2750310ae67290987c4a0e1733984"
+          "sha256": "38bf562fad896acfc7d543ecba2dccf4c9cd8c797b58a8bfde34214cc9f8b05b"
+        },
+        {
+          "path": "client/src/components/drawers/DrawerFallbackSurface.jsx",
+          "sha256": "1119792bf0f832dcd6923e5275a8e4f5e2ced370329c9fe2f17c04e2c6b72405"
         },
         {
           "path": "client/src/components/drawers/DrawerFrame.jsx",
@@ -809,7 +821,7 @@
         },
         {
           "path": "client/src/constants/shellThemes.js",
-          "sha256": "7c7db09f0f21aa36d985b0bd682f47c964ec853b18d5959e86ab789a33bc0ac9"
+          "sha256": "34ad017ae7edd0c23716c3d886e64721d3e34b0a4d32109a814a6cc2308c7004"
         },
         {
           "path": "client/src/constants/wallpaperPresets.js",
@@ -829,7 +841,7 @@
         },
         {
           "path": "client/src/hooks/useCatalogPage.js",
-          "sha256": "cbe3aa291503c66ad5e84a03d505a95b400a2d07e72565cf25ecf82b5e3a8313"
+          "sha256": "05508de0ee783e4bdf34399480b472457e8bfb3192514ea90eb65f0d4646dbff"
         },
         {
           "path": "client/src/hooks/useCompactPlayerPlacement.js",
@@ -853,7 +865,7 @@
         },
         {
           "path": "client/src/hooks/useKeyboard.js",
-          "sha256": "f3f445abc6164c879058b436d580729a95726eb8a7c6821f5e039c3fcda81ee6"
+          "sha256": "6a08e0d1c311c17518c29dbee6df2da941260d2de15a470d002179eea2ef8307"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
@@ -870,6 +882,10 @@
         {
           "path": "client/src/hooks/useMediaSession.js",
           "sha256": "caecc116f846610b23c3fad891adaf9e6971e176eb4bf7a1cb6baeccc6be3dad"
+        },
+        {
+          "path": "client/src/hooks/useModalFocus.js",
+          "sha256": "6aaa1b3b7c656129de8254baff8f09dca51f419126d7f436cbb563ccec39d794"
         },
         {
           "path": "client/src/hooks/useMusicData.js",
@@ -1013,7 +1029,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "75d2f54b3d46955d415a03b2ad85e31005f142ce63ba13a36771b25937e12ffb"
+          "sha256": "5692e0401207788531f09a004a02b89140ae8eef86ba96fa0a0d4d0498d5553e"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -1025,7 +1041,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "8f8cd8dcbb9faa358bb00c7a02abc7109316ee6b7f4c90c2ea94d2551c5e88a0"
+          "sha256": "15e3c3fee76855640cf47cb32e8783d323ea8b2bb4cce33997f3bd0d99a2236e"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -1033,7 +1049,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "921553da1ea156874bfcc145185156e6b03f3a2686e00c4f8fa774f468f3a8cd"
+          "sha256": "c0d64eb9bada3aa3fa9c452b24258e614510a8d0b4f8387f9e4b8fc56afe90ca"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -1041,11 +1057,19 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "f8f3ec9fe993d53b23e782183068fb8a36e3a1362f7c19ef3598d084832631d1"
+          "sha256": "bf35e064abe6a0996a9fc697fa37be17a4316c56495edfabcd798bdf784abf35"
+        },
+        {
+          "path": "client/src/i18n/pluginCatalog.js",
+          "sha256": "d0bd8cc7549328b6f3e32303bd2c58bec4c3586fbcd7efc05fdda1765cffb5b9"
         },
         {
           "path": "client/src/i18n/pluginDelivery.js",
           "sha256": "d15ac2a6025a60e21124ea13b9b6e32c3867403d71a2fbeaa81d8fac4d6fd4e0"
+        },
+        {
+          "path": "client/src/i18n/pluginOverview.js",
+          "sha256": "eb77e8c050cec0de169165308f6001ebc3fc48b643df7c32e4c26dc4dc9dbdc5"
         },
         {
           "path": "client/src/i18n/plugins.js",
@@ -1054,6 +1078,10 @@
         {
           "path": "client/src/i18n/requestErrors.js",
           "sha256": "739372d06d83e4571f0fa6bc6552c301b1c215128bf7107f56cab7cb1c79500b"
+        },
+        {
+          "path": "client/src/i18n/uiRepairs.js",
+          "sha256": "a9fe3d10337ebd6dab67cbd9cecee71e097d8f0863c71f7e901ade49438c65d6"
         },
         {
           "path": "client/src/i18n/youtube.js",
@@ -1065,7 +1093,7 @@
         },
         {
           "path": "client/src/instance/InstanceGate.jsx",
-          "sha256": "38788f2bc2b541c711209fa58ae6bfd0e4bfcceb6e71ad8bb03499b44985b13a"
+          "sha256": "198b630c5a772ba8f8dad9e173b23fda3107820942f84faa5a44b60648740644"
         },
         {
           "path": "client/src/instance/adminApi.js",
@@ -1073,11 +1101,11 @@
         },
         {
           "path": "client/src/instance/api.js",
-          "sha256": "bdd3e3e4a3603f3f5a772715b3e25a1892b7422d37058ed8d5b903ffb726b63c"
+          "sha256": "a59e0022836c954012c07bdcd3732bfdde32e73af37decf5c411dda357686ae6"
         },
         {
           "path": "client/src/instance/instance.css",
-          "sha256": "ffbc800aaa0827d180e8d54d9509ae685f754e5fc6fafbbe4e3c58576db160b6"
+          "sha256": "f9ba08bd7728c322f88d9b59fdae1507221821d9336eb3b53df11c8ca27a1dc8"
         },
         {
           "path": "client/src/instance/state.js",
@@ -1166,6 +1194,10 @@
         {
           "path": "client/src/plugins/assistant/welcome.js",
           "sha256": "c162a7cdf5436415e313a2d4e02a5c33100a26a89523b4b5d05874287363c8c8"
+        },
+        {
+          "path": "client/src/plugins/catalog.js",
+          "sha256": "8ebcb78b26eddc17b0b3dcae8a6647ddd2233451d4a3a81dba03df8d81fbb55d"
         },
         {
           "path": "client/src/plugins/compiled.js",
@@ -1269,7 +1301,7 @@
         },
         {
           "path": "client/src/plugins/registry.js",
-          "sha256": "a85a6abc1986dd25f2d6742c0455a540d53fb0f0030aeabfb62560fd94b1b702"
+          "sha256": "072cd8a32922e66f4184184130742a9af569b21901ec3948837d66657a979f3e"
         },
         {
           "path": "client/src/plugins/roam/RoamOverview.jsx",
@@ -1481,7 +1513,7 @@
         },
         {
           "path": "client/src/services/pluginDelivery.js",
-          "sha256": "ba8f44c41e3dbed9b605cfe59be8366feb2305b75b3f20fd7ce882b92bebbb14"
+          "sha256": "1d6abd9fcdc011d642e571044bd05f1d3d26e7d48c1c55e9bd416821b86ed818"
         },
         {
           "path": "client/src/services/plugins.js",
@@ -1581,7 +1613,7 @@
         },
         {
           "path": "client/src/styles/base.css",
-          "sha256": "a28b1885285a6a2ed5e97e59b6cc3883a04cc043b269b6d828eec6497999055d"
+          "sha256": "d80e9d74df704555375053d3b682f0f36cb0b1a46979372e2ed1ae87d585babd"
         },
         {
           "path": "client/src/styles/collection.css",
@@ -1589,7 +1621,7 @@
         },
         {
           "path": "client/src/styles/components.css",
-          "sha256": "db78b4eb0fdcbed8f8729b32cae9fbd8dce151c7a2ff6d9bb0c77f6285cb14d5"
+          "sha256": "6a14f06b136dded9229a391d27e6827ed4479f29e5d8c048852a27e8e2f41d50"
         },
         {
           "path": "client/src/styles/drawers.css",
@@ -1601,7 +1633,7 @@
         },
         {
           "path": "client/src/styles/track.css",
-          "sha256": "906cf19df231ce0aa511a4e5e851d3a82c7459fd65e722bcce24d622854c5094"
+          "sha256": "7ebc592c6f1f9b40c75dd5b16f402933e68448ca0fd2e03e30accbea34619144"
         },
         {
           "path": "client/src/theme-animations.css",
@@ -1702,6 +1734,10 @@
         {
           "path": "client/src/utils/motionPerformance.js",
           "sha256": "6628d43e80991cc0b512e7248fac184dc06b47a24414c7e7c8cd83fa9281cbfb"
+        },
+        {
+          "path": "client/src/utils/musicPageState.js",
+          "sha256": "52aee0c4202def9c10e590ddc38073087eccb16187861ed8e4fe905dd203d1ad"
         },
         {
           "path": "client/src/utils/musicSource.js",
@@ -2077,7 +2113,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "7b75c028d7850caae2afc496a45c381eba3259230f89c292c6f772185eaa868f"
+          "sha256": "9fbf773e9fbe21c6d7918f7c752499a94e0bed6a66cb6218271a027955d01aed"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -3629,7 +3665,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "f90712b7032ede1d462786293e45617e720dca44aeba7f79f7a41a93d7106fc8"
+          "sha256": "4542fa1df1e3cdf38c3328d9c7da96bbca31493be04e5c3c11dc6fbd590cedf8"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -3764,7 +3800,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "3df25d1abdb25867f9363fc4e9e07a87063a94d5daa63410ec089b4a7c796d27",
+      "sourceDigest": "68fcb8559e3e5457072dcd13b3048e9253420f0fadf34db36991eb0ad03cd79c",
       "sources": [
         {
           "path": "client/index.html",
@@ -3824,7 +3860,7 @@
         },
         {
           "path": "client/src/app.jsx",
-          "sha256": "f5a746ff7d3926da4e7f8e0321447093fe45183d211f46e8e41ce7d2cd23d2e8"
+          "sha256": "decbbdc83281fd282d766dc518f95b774df038f3aea7333747d73ae132435b19"
         },
         {
           "path": "client/src/assets/categories/en.jpg",
@@ -3896,19 +3932,19 @@
         },
         {
           "path": "client/src/components/AdminAccountRow.jsx",
-          "sha256": "aa5af9fc883a4f56b060d7d32794e7bd8f9beee5a41c8f3838e78cd0f8fcd684"
+          "sha256": "c5454628ac8172ac421d35a710e4ca41d6bf41bc49c5a13c0be6f64e7f0b9569"
         },
         {
           "path": "client/src/components/AdminCatalogSection.jsx",
-          "sha256": "55a33df640b27fd9d5cca21c2ffe90cfb2aa8d0c6b7df2c714793f52e5d28407"
+          "sha256": "171937ebbd1be6172c8624afa1317627c84c7e32d18596d8510aab784cb9e6eb"
         },
         {
           "path": "client/src/components/AdminSettingsFields.jsx",
-          "sha256": "8ba8cf6d78584692fe70756c8087d3f3d2496c1412f4c85f385cffe52e325350"
+          "sha256": "3686e2716dcd31bc5aa6ee034676a0c35a2dd064e0f5f1a1933922ca7d4025c7"
         },
         {
           "path": "client/src/components/AdminSongCreatePage.jsx",
-          "sha256": "a47612dc57e9c4f50bf72ffae96eba74c57c65dfde9ce108c985dcf0ff1be4cb"
+          "sha256": "624ed147125aa27d029cd96094415a4388c32dfd6095c44a64bdd5dff49253cd"
         },
         {
           "path": "client/src/components/AdminView.jsx",
@@ -3928,19 +3964,19 @@
         },
         {
           "path": "client/src/components/AlbumDetailView.jsx",
-          "sha256": "5c0b0ca81bfb083a50e2ece12d363153d5fe43d7196436ea1ff34ba1eee3f330"
+          "sha256": "3a46b9fdea46a32457f6b5c39e3ba253d90979645c96d04190993a5e758991fb"
         },
         {
           "path": "client/src/components/AllPlaylistsView.jsx",
-          "sha256": "d55d7b1ac10ca983d343c5b8da55bf670897b744701ee6ed2117ccce6cb10bc1"
+          "sha256": "4acf9bb814209ed106f295ebbedc7cd0100eff6c88d302d8f8665816cb42b5ad"
         },
         {
           "path": "client/src/components/AppSidebar.jsx",
-          "sha256": "6383b4da896d94d3a72c4c1560b1d1620a89c7907b6bc956b45d38ef8d5e2323"
+          "sha256": "56c345f7111310f6285e180f68e91e3a86d514d46719289f6b99c655546d129d"
         },
         {
           "path": "client/src/components/ArtistDetailView.jsx",
-          "sha256": "84d27504a838a02b20e37fe5cd89f991a1a6eb509b8663b367797b0a7ca8b4a1"
+          "sha256": "c66c2ddefe86337ed9344521aef61326e89b9d87766a02c0948526ce2855a068"
         },
         {
           "path": "client/src/components/ArtistDrawer.jsx",
@@ -3984,7 +4020,7 @@
         },
         {
           "path": "client/src/components/GoogleLogin.jsx",
-          "sha256": "de47491481d4666e0b6a1fc1c7cd710c4259c8d974da4384ec4a2a69ec1404e7"
+          "sha256": "22b68a82a2c4dbaa5bc9be0f724b99d9a76dc2f0feb334fc4b44ec84e49a0680"
         },
         {
           "path": "client/src/components/HistoryCoverStack.jsx",
@@ -4060,7 +4096,7 @@
         },
         {
           "path": "client/src/components/MainContent.jsx",
-          "sha256": "5f5efbcf3eea413490c2748f464301467b7777d2eae4ecde8691be659366db67"
+          "sha256": "e1663dbdd7e1ae018cdf0fb14050c3ec72b71662f494ad060b2ba6a11ec8ebd4"
         },
         {
           "path": "client/src/components/OrderingButtons.jsx",
@@ -4076,11 +4112,11 @@
         },
         {
           "path": "client/src/components/PlayStatsDetailView.jsx",
-          "sha256": "5e63a30dd72b740b03de5d2828899e4dcdefa6811f39459040a44fb762f84757"
+          "sha256": "44bcc89f24e102e1b7bd9c228cfcf4578bb69046e034ace44dc84fb01ca9ab51"
         },
         {
           "path": "client/src/components/PlayerBar.jsx",
-          "sha256": "d57e73aea4a0cb60e034845e205eb064261a77fbf10b4a2c5c71c3b17343eb35"
+          "sha256": "639e07e42bbc68c62d0a9e5788acf9620e4ecaefdd2ef2cc0804771c0ecde0f4"
         },
         {
           "path": "client/src/components/PlayerControls.jsx",
@@ -4104,15 +4140,15 @@
         },
         {
           "path": "client/src/components/PlaylistDetailSupport.jsx",
-          "sha256": "09b0e59e09ead3829214947a6f2128a504d95196838772ef1920195a27c2b4ef"
+          "sha256": "7e5b5710275de258272b9cf41b8a01e46df83feda055c2a5bc02f8a4796b0940"
         },
         {
           "path": "client/src/components/PlaylistDetailView.jsx",
-          "sha256": "561741a0d342b425e7807a76a06cafbc25b7c23506fbd11d56fc008adafd99fc"
+          "sha256": "4fa187d81066cce3d39703381e0473e607d8b752995a30f5d559731d61a5292f"
         },
         {
           "path": "client/src/components/PlaylistDrawer.jsx",
-          "sha256": "6f2d78640ee725cde14cc91c9710a26c277d0cd4266f4fa9010ed3b20961494d"
+          "sha256": "664242a9804fa3183f00c57413d430a4c2afdffdf1dc2f7faf265a563f09ace4"
         },
         {
           "path": "client/src/components/PlaylistEditableTracks.jsx",
@@ -4127,12 +4163,16 @@
           "sha256": "30faaa4037dfe20afb25c9466c8e22c2cf2f058d2b3570f15e2662befed38f74"
         },
         {
+          "path": "client/src/components/PluginCatalogVersions.jsx",
+          "sha256": "080094854ca5eb64512c11260d376d1ddde84df5d4baae7ee1ea1211507d4c60"
+        },
+        {
           "path": "client/src/components/PluginCatalogView.jsx",
-          "sha256": "01569d5269c62a71ac69bd6bbe6ce65e73888fd68f889e084822d88aed7ea190"
+          "sha256": "4e8688e0f543c17d8de4c810ea4cca1ea91befb2f5c875c30b20a5b9ed364593"
         },
         {
           "path": "client/src/components/PluginConfirmDialog.jsx",
-          "sha256": "2685c8552e0235b172ecba718a456487b9d07918c4d4b63c3083dcc9e2c5938f"
+          "sha256": "f75916c1b6a6e5cab3b5c7285a4eef02064235bc714eb8a59b0c13b547ab93e1"
         },
         {
           "path": "client/src/components/PluginContentBoundary.jsx",
@@ -4144,11 +4184,11 @@
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
-          "sha256": "d0b2d2530d8c405f435d346fc74587c04742834311455c5da8366178b6b3c85b"
+          "sha256": "eedda11498362b91aa9e0fcd43e5982d9f07b348dfbaf531b41cbce7ef13459e"
         },
         {
           "path": "client/src/components/PluginSettingsView.jsx",
-          "sha256": "c2f277fff57d63d51638db5d69885486fe7a4e85a653de97415bebe1aef3fbf5"
+          "sha256": "18b94f61dd5a7bf980a537cd5d8ccb5d43571ddf24c1bdd8c5a499c3783ce35b"
         },
         {
           "path": "client/src/components/PrivateCoverImage.jsx",
@@ -4176,7 +4216,7 @@
         },
         {
           "path": "client/src/components/SearchView.jsx",
-          "sha256": "21678af2ef832837cc7f2cfd4a5bd639b40869db82c46e5f979809f6047142f8"
+          "sha256": "f9db0f0208391be63d4d7ebe0b7d669110cee9105b98d38d81c46867a76f1852"
         },
         {
           "path": "client/src/components/SelectControl.jsx",
@@ -4184,15 +4224,15 @@
         },
         {
           "path": "client/src/components/ServiceModelSettings.jsx",
-          "sha256": "527c7eb0199d8ec1d52c94c7848187a72516e16a29aad25a591baa5e0cd491ed"
+          "sha256": "1d291bee10a1b7197d5c55cef1eee9e3fb3af909ca3e0ca9c93ecdd28aa8a871"
         },
         {
           "path": "client/src/components/SettingsControls.jsx",
-          "sha256": "3ce7463ab3b34f9de1c0579983ed428a2012b786e8b0cc1a2e9ebc19f76bf833"
+          "sha256": "db881e674e1416b88cec037f96745be143f458d1e31daa05261e2d1674eef4c8"
         },
         {
           "path": "client/src/components/SettingsEditDialog.jsx",
-          "sha256": "30e1a1fe114c7347abe1c2d6acc8ce28cedef4e67387ade31a0b31ac45ff1bcb"
+          "sha256": "79deb5884d0af838e0ad74c7c001465bb8368b95f37160789c0d80a581ec9326"
         },
         {
           "path": "client/src/components/SettingsReadOnly.jsx",
@@ -4259,6 +4299,10 @@
           "sha256": "25a768accc78a2286d71668445d0647369311407ed3fded3952f77d425834873"
         },
         {
+          "path": "client/src/components/catalog/CatalogReadState.jsx",
+          "sha256": "187fc53818c65a8ec80f73fad1489cc6c429862eac43504b48238e6f938e3840"
+        },
+        {
           "path": "client/src/components/catalog/CatalogSkeleton.jsx",
           "sha256": "902fa605a119baedca640a6eed502b4806076f82c10aba53ac63dbeb64f73b4f"
         },
@@ -4316,7 +4360,11 @@
         },
         {
           "path": "client/src/components/drawers/DrawerErrorBoundary.jsx",
-          "sha256": "d0315de2ebd23e9f91b9d0b1c80c020b00d2750310ae67290987c4a0e1733984"
+          "sha256": "38bf562fad896acfc7d543ecba2dccf4c9cd8c797b58a8bfde34214cc9f8b05b"
+        },
+        {
+          "path": "client/src/components/drawers/DrawerFallbackSurface.jsx",
+          "sha256": "1119792bf0f832dcd6923e5275a8e4f5e2ced370329c9fe2f17c04e2c6b72405"
         },
         {
           "path": "client/src/components/drawers/DrawerFrame.jsx",
@@ -4560,7 +4608,7 @@
         },
         {
           "path": "client/src/constants/shellThemes.js",
-          "sha256": "7c7db09f0f21aa36d985b0bd682f47c964ec853b18d5959e86ab789a33bc0ac9"
+          "sha256": "34ad017ae7edd0c23716c3d886e64721d3e34b0a4d32109a814a6cc2308c7004"
         },
         {
           "path": "client/src/constants/wallpaperPresets.js",
@@ -4580,7 +4628,7 @@
         },
         {
           "path": "client/src/hooks/useCatalogPage.js",
-          "sha256": "cbe3aa291503c66ad5e84a03d505a95b400a2d07e72565cf25ecf82b5e3a8313"
+          "sha256": "05508de0ee783e4bdf34399480b472457e8bfb3192514ea90eb65f0d4646dbff"
         },
         {
           "path": "client/src/hooks/useCompactPlayerPlacement.js",
@@ -4604,7 +4652,7 @@
         },
         {
           "path": "client/src/hooks/useKeyboard.js",
-          "sha256": "f3f445abc6164c879058b436d580729a95726eb8a7c6821f5e039c3fcda81ee6"
+          "sha256": "6a08e0d1c311c17518c29dbee6df2da941260d2de15a470d002179eea2ef8307"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
@@ -4621,6 +4669,10 @@
         {
           "path": "client/src/hooks/useMediaSession.js",
           "sha256": "caecc116f846610b23c3fad891adaf9e6971e176eb4bf7a1cb6baeccc6be3dad"
+        },
+        {
+          "path": "client/src/hooks/useModalFocus.js",
+          "sha256": "6aaa1b3b7c656129de8254baff8f09dca51f419126d7f436cbb563ccec39d794"
         },
         {
           "path": "client/src/hooks/useMusicData.js",
@@ -4764,7 +4816,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "75d2f54b3d46955d415a03b2ad85e31005f142ce63ba13a36771b25937e12ffb"
+          "sha256": "5692e0401207788531f09a004a02b89140ae8eef86ba96fa0a0d4d0498d5553e"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -4776,7 +4828,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "8f8cd8dcbb9faa358bb00c7a02abc7109316ee6b7f4c90c2ea94d2551c5e88a0"
+          "sha256": "15e3c3fee76855640cf47cb32e8783d323ea8b2bb4cce33997f3bd0d99a2236e"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -4784,7 +4836,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "921553da1ea156874bfcc145185156e6b03f3a2686e00c4f8fa774f468f3a8cd"
+          "sha256": "c0d64eb9bada3aa3fa9c452b24258e614510a8d0b4f8387f9e4b8fc56afe90ca"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -4792,11 +4844,19 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "f8f3ec9fe993d53b23e782183068fb8a36e3a1362f7c19ef3598d084832631d1"
+          "sha256": "bf35e064abe6a0996a9fc697fa37be17a4316c56495edfabcd798bdf784abf35"
+        },
+        {
+          "path": "client/src/i18n/pluginCatalog.js",
+          "sha256": "d0bd8cc7549328b6f3e32303bd2c58bec4c3586fbcd7efc05fdda1765cffb5b9"
         },
         {
           "path": "client/src/i18n/pluginDelivery.js",
           "sha256": "d15ac2a6025a60e21124ea13b9b6e32c3867403d71a2fbeaa81d8fac4d6fd4e0"
+        },
+        {
+          "path": "client/src/i18n/pluginOverview.js",
+          "sha256": "eb77e8c050cec0de169165308f6001ebc3fc48b643df7c32e4c26dc4dc9dbdc5"
         },
         {
           "path": "client/src/i18n/plugins.js",
@@ -4805,6 +4865,10 @@
         {
           "path": "client/src/i18n/requestErrors.js",
           "sha256": "739372d06d83e4571f0fa6bc6552c301b1c215128bf7107f56cab7cb1c79500b"
+        },
+        {
+          "path": "client/src/i18n/uiRepairs.js",
+          "sha256": "a9fe3d10337ebd6dab67cbd9cecee71e097d8f0863c71f7e901ade49438c65d6"
         },
         {
           "path": "client/src/i18n/youtube.js",
@@ -4816,7 +4880,7 @@
         },
         {
           "path": "client/src/instance/InstanceGate.jsx",
-          "sha256": "38788f2bc2b541c711209fa58ae6bfd0e4bfcceb6e71ad8bb03499b44985b13a"
+          "sha256": "198b630c5a772ba8f8dad9e173b23fda3107820942f84faa5a44b60648740644"
         },
         {
           "path": "client/src/instance/adminApi.js",
@@ -4824,11 +4888,11 @@
         },
         {
           "path": "client/src/instance/api.js",
-          "sha256": "bdd3e3e4a3603f3f5a772715b3e25a1892b7422d37058ed8d5b903ffb726b63c"
+          "sha256": "a59e0022836c954012c07bdcd3732bfdde32e73af37decf5c411dda357686ae6"
         },
         {
           "path": "client/src/instance/instance.css",
-          "sha256": "ffbc800aaa0827d180e8d54d9509ae685f754e5fc6fafbbe4e3c58576db160b6"
+          "sha256": "f9ba08bd7728c322f88d9b59fdae1507221821d9336eb3b53df11c8ca27a1dc8"
         },
         {
           "path": "client/src/instance/state.js",
@@ -4917,6 +4981,10 @@
         {
           "path": "client/src/plugins/assistant/welcome.js",
           "sha256": "c162a7cdf5436415e313a2d4e02a5c33100a26a89523b4b5d05874287363c8c8"
+        },
+        {
+          "path": "client/src/plugins/catalog.js",
+          "sha256": "8ebcb78b26eddc17b0b3dcae8a6647ddd2233451d4a3a81dba03df8d81fbb55d"
         },
         {
           "path": "client/src/plugins/compiled.js",
@@ -5020,7 +5088,7 @@
         },
         {
           "path": "client/src/plugins/registry.js",
-          "sha256": "a85a6abc1986dd25f2d6742c0455a540d53fb0f0030aeabfb62560fd94b1b702"
+          "sha256": "072cd8a32922e66f4184184130742a9af569b21901ec3948837d66657a979f3e"
         },
         {
           "path": "client/src/plugins/roam/RoamOverview.jsx",
@@ -5232,7 +5300,7 @@
         },
         {
           "path": "client/src/services/pluginDelivery.js",
-          "sha256": "ba8f44c41e3dbed9b605cfe59be8366feb2305b75b3f20fd7ce882b92bebbb14"
+          "sha256": "1d6abd9fcdc011d642e571044bd05f1d3d26e7d48c1c55e9bd416821b86ed818"
         },
         {
           "path": "client/src/services/plugins.js",
@@ -5332,7 +5400,7 @@
         },
         {
           "path": "client/src/styles/base.css",
-          "sha256": "a28b1885285a6a2ed5e97e59b6cc3883a04cc043b269b6d828eec6497999055d"
+          "sha256": "d80e9d74df704555375053d3b682f0f36cb0b1a46979372e2ed1ae87d585babd"
         },
         {
           "path": "client/src/styles/collection.css",
@@ -5340,7 +5408,7 @@
         },
         {
           "path": "client/src/styles/components.css",
-          "sha256": "db78b4eb0fdcbed8f8729b32cae9fbd8dce151c7a2ff6d9bb0c77f6285cb14d5"
+          "sha256": "6a14f06b136dded9229a391d27e6827ed4479f29e5d8c048852a27e8e2f41d50"
         },
         {
           "path": "client/src/styles/drawers.css",
@@ -5352,7 +5420,7 @@
         },
         {
           "path": "client/src/styles/track.css",
-          "sha256": "906cf19df231ce0aa511a4e5e851d3a82c7459fd65e722bcce24d622854c5094"
+          "sha256": "7ebc592c6f1f9b40c75dd5b16f402933e68448ca0fd2e03e30accbea34619144"
         },
         {
           "path": "client/src/theme-animations.css",
@@ -5453,6 +5521,10 @@
         {
           "path": "client/src/utils/motionPerformance.js",
           "sha256": "6628d43e80991cc0b512e7248fac184dc06b47a24414c7e7c8cd83fa9281cbfb"
+        },
+        {
+          "path": "client/src/utils/musicPageState.js",
+          "sha256": "52aee0c4202def9c10e590ddc38073087eccb16187861ed8e4fe905dd203d1ad"
         },
         {
           "path": "client/src/utils/musicSource.js",
@@ -5828,7 +5900,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "7b75c028d7850caae2afc496a45c381eba3259230f89c292c6f772185eaa868f"
+          "sha256": "9fbf773e9fbe21c6d7918f7c752499a94e0bed6a66cb6218271a027955d01aed"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -7652,7 +7724,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "f90712b7032ede1d462786293e45617e720dca44aeba7f79f7a41a93d7106fc8"
+          "sha256": "4542fa1df1e3cdf38c3328d9c7da96bbca31493be04e5c3c11dc6fbd590cedf8"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -7787,7 +7859,7 @@
       "apiVersion": 1,
       "source": "artifact:official:c02e265bfe797d993011648e0c8a5424e7b43829f9b540d849c5eafe6619dcf9",
       "manifestDigest": "58d79711ead9a562b0a432f4675b7612deb7fad14689abcf01f9ea6a9e8d95b1",
-      "sourceDigest": "b294102c88b4c08e2d9fe3f21a6632a72c3a8951ed76b28e2609dab5f61a7b75",
+      "sourceDigest": "28b3325dce80c521f7a4ace2637c99c4939a216b16328d8e90d8f8fbf1010cf9",
       "sources": [
         {
           "path": "client/index.html",
@@ -7847,7 +7919,7 @@
         },
         {
           "path": "client/src/app.jsx",
-          "sha256": "f5a746ff7d3926da4e7f8e0321447093fe45183d211f46e8e41ce7d2cd23d2e8"
+          "sha256": "decbbdc83281fd282d766dc518f95b774df038f3aea7333747d73ae132435b19"
         },
         {
           "path": "client/src/assets/categories/en.jpg",
@@ -7919,19 +7991,19 @@
         },
         {
           "path": "client/src/components/AdminAccountRow.jsx",
-          "sha256": "aa5af9fc883a4f56b060d7d32794e7bd8f9beee5a41c8f3838e78cd0f8fcd684"
+          "sha256": "c5454628ac8172ac421d35a710e4ca41d6bf41bc49c5a13c0be6f64e7f0b9569"
         },
         {
           "path": "client/src/components/AdminCatalogSection.jsx",
-          "sha256": "55a33df640b27fd9d5cca21c2ffe90cfb2aa8d0c6b7df2c714793f52e5d28407"
+          "sha256": "171937ebbd1be6172c8624afa1317627c84c7e32d18596d8510aab784cb9e6eb"
         },
         {
           "path": "client/src/components/AdminSettingsFields.jsx",
-          "sha256": "8ba8cf6d78584692fe70756c8087d3f3d2496c1412f4c85f385cffe52e325350"
+          "sha256": "3686e2716dcd31bc5aa6ee034676a0c35a2dd064e0f5f1a1933922ca7d4025c7"
         },
         {
           "path": "client/src/components/AdminSongCreatePage.jsx",
-          "sha256": "a47612dc57e9c4f50bf72ffae96eba74c57c65dfde9ce108c985dcf0ff1be4cb"
+          "sha256": "624ed147125aa27d029cd96094415a4388c32dfd6095c44a64bdd5dff49253cd"
         },
         {
           "path": "client/src/components/AdminView.jsx",
@@ -7951,19 +8023,19 @@
         },
         {
           "path": "client/src/components/AlbumDetailView.jsx",
-          "sha256": "5c0b0ca81bfb083a50e2ece12d363153d5fe43d7196436ea1ff34ba1eee3f330"
+          "sha256": "3a46b9fdea46a32457f6b5c39e3ba253d90979645c96d04190993a5e758991fb"
         },
         {
           "path": "client/src/components/AllPlaylistsView.jsx",
-          "sha256": "d55d7b1ac10ca983d343c5b8da55bf670897b744701ee6ed2117ccce6cb10bc1"
+          "sha256": "4acf9bb814209ed106f295ebbedc7cd0100eff6c88d302d8f8665816cb42b5ad"
         },
         {
           "path": "client/src/components/AppSidebar.jsx",
-          "sha256": "6383b4da896d94d3a72c4c1560b1d1620a89c7907b6bc956b45d38ef8d5e2323"
+          "sha256": "56c345f7111310f6285e180f68e91e3a86d514d46719289f6b99c655546d129d"
         },
         {
           "path": "client/src/components/ArtistDetailView.jsx",
-          "sha256": "84d27504a838a02b20e37fe5cd89f991a1a6eb509b8663b367797b0a7ca8b4a1"
+          "sha256": "c66c2ddefe86337ed9344521aef61326e89b9d87766a02c0948526ce2855a068"
         },
         {
           "path": "client/src/components/ArtistDrawer.jsx",
@@ -8007,7 +8079,7 @@
         },
         {
           "path": "client/src/components/GoogleLogin.jsx",
-          "sha256": "de47491481d4666e0b6a1fc1c7cd710c4259c8d974da4384ec4a2a69ec1404e7"
+          "sha256": "22b68a82a2c4dbaa5bc9be0f724b99d9a76dc2f0feb334fc4b44ec84e49a0680"
         },
         {
           "path": "client/src/components/HistoryCoverStack.jsx",
@@ -8083,7 +8155,7 @@
         },
         {
           "path": "client/src/components/MainContent.jsx",
-          "sha256": "5f5efbcf3eea413490c2748f464301467b7777d2eae4ecde8691be659366db67"
+          "sha256": "e1663dbdd7e1ae018cdf0fb14050c3ec72b71662f494ad060b2ba6a11ec8ebd4"
         },
         {
           "path": "client/src/components/OrderingButtons.jsx",
@@ -8099,11 +8171,11 @@
         },
         {
           "path": "client/src/components/PlayStatsDetailView.jsx",
-          "sha256": "5e63a30dd72b740b03de5d2828899e4dcdefa6811f39459040a44fb762f84757"
+          "sha256": "44bcc89f24e102e1b7bd9c228cfcf4578bb69046e034ace44dc84fb01ca9ab51"
         },
         {
           "path": "client/src/components/PlayerBar.jsx",
-          "sha256": "d57e73aea4a0cb60e034845e205eb064261a77fbf10b4a2c5c71c3b17343eb35"
+          "sha256": "639e07e42bbc68c62d0a9e5788acf9620e4ecaefdd2ef2cc0804771c0ecde0f4"
         },
         {
           "path": "client/src/components/PlayerControls.jsx",
@@ -8127,15 +8199,15 @@
         },
         {
           "path": "client/src/components/PlaylistDetailSupport.jsx",
-          "sha256": "09b0e59e09ead3829214947a6f2128a504d95196838772ef1920195a27c2b4ef"
+          "sha256": "7e5b5710275de258272b9cf41b8a01e46df83feda055c2a5bc02f8a4796b0940"
         },
         {
           "path": "client/src/components/PlaylistDetailView.jsx",
-          "sha256": "561741a0d342b425e7807a76a06cafbc25b7c23506fbd11d56fc008adafd99fc"
+          "sha256": "4fa187d81066cce3d39703381e0473e607d8b752995a30f5d559731d61a5292f"
         },
         {
           "path": "client/src/components/PlaylistDrawer.jsx",
-          "sha256": "6f2d78640ee725cde14cc91c9710a26c277d0cd4266f4fa9010ed3b20961494d"
+          "sha256": "664242a9804fa3183f00c57413d430a4c2afdffdf1dc2f7faf265a563f09ace4"
         },
         {
           "path": "client/src/components/PlaylistEditableTracks.jsx",
@@ -8150,12 +8222,16 @@
           "sha256": "30faaa4037dfe20afb25c9466c8e22c2cf2f058d2b3570f15e2662befed38f74"
         },
         {
+          "path": "client/src/components/PluginCatalogVersions.jsx",
+          "sha256": "080094854ca5eb64512c11260d376d1ddde84df5d4baae7ee1ea1211507d4c60"
+        },
+        {
           "path": "client/src/components/PluginCatalogView.jsx",
-          "sha256": "01569d5269c62a71ac69bd6bbe6ce65e73888fd68f889e084822d88aed7ea190"
+          "sha256": "4e8688e0f543c17d8de4c810ea4cca1ea91befb2f5c875c30b20a5b9ed364593"
         },
         {
           "path": "client/src/components/PluginConfirmDialog.jsx",
-          "sha256": "2685c8552e0235b172ecba718a456487b9d07918c4d4b63c3083dcc9e2c5938f"
+          "sha256": "f75916c1b6a6e5cab3b5c7285a4eef02064235bc714eb8a59b0c13b547ab93e1"
         },
         {
           "path": "client/src/components/PluginContentBoundary.jsx",
@@ -8167,11 +8243,11 @@
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
-          "sha256": "d0b2d2530d8c405f435d346fc74587c04742834311455c5da8366178b6b3c85b"
+          "sha256": "eedda11498362b91aa9e0fcd43e5982d9f07b348dfbaf531b41cbce7ef13459e"
         },
         {
           "path": "client/src/components/PluginSettingsView.jsx",
-          "sha256": "c2f277fff57d63d51638db5d69885486fe7a4e85a653de97415bebe1aef3fbf5"
+          "sha256": "18b94f61dd5a7bf980a537cd5d8ccb5d43571ddf24c1bdd8c5a499c3783ce35b"
         },
         {
           "path": "client/src/components/PrivateCoverImage.jsx",
@@ -8199,7 +8275,7 @@
         },
         {
           "path": "client/src/components/SearchView.jsx",
-          "sha256": "21678af2ef832837cc7f2cfd4a5bd639b40869db82c46e5f979809f6047142f8"
+          "sha256": "f9db0f0208391be63d4d7ebe0b7d669110cee9105b98d38d81c46867a76f1852"
         },
         {
           "path": "client/src/components/SelectControl.jsx",
@@ -8207,15 +8283,15 @@
         },
         {
           "path": "client/src/components/ServiceModelSettings.jsx",
-          "sha256": "527c7eb0199d8ec1d52c94c7848187a72516e16a29aad25a591baa5e0cd491ed"
+          "sha256": "1d291bee10a1b7197d5c55cef1eee9e3fb3af909ca3e0ca9c93ecdd28aa8a871"
         },
         {
           "path": "client/src/components/SettingsControls.jsx",
-          "sha256": "3ce7463ab3b34f9de1c0579983ed428a2012b786e8b0cc1a2e9ebc19f76bf833"
+          "sha256": "db881e674e1416b88cec037f96745be143f458d1e31daa05261e2d1674eef4c8"
         },
         {
           "path": "client/src/components/SettingsEditDialog.jsx",
-          "sha256": "30e1a1fe114c7347abe1c2d6acc8ce28cedef4e67387ade31a0b31ac45ff1bcb"
+          "sha256": "79deb5884d0af838e0ad74c7c001465bb8368b95f37160789c0d80a581ec9326"
         },
         {
           "path": "client/src/components/SettingsReadOnly.jsx",
@@ -8282,6 +8358,10 @@
           "sha256": "25a768accc78a2286d71668445d0647369311407ed3fded3952f77d425834873"
         },
         {
+          "path": "client/src/components/catalog/CatalogReadState.jsx",
+          "sha256": "187fc53818c65a8ec80f73fad1489cc6c429862eac43504b48238e6f938e3840"
+        },
+        {
           "path": "client/src/components/catalog/CatalogSkeleton.jsx",
           "sha256": "902fa605a119baedca640a6eed502b4806076f82c10aba53ac63dbeb64f73b4f"
         },
@@ -8339,7 +8419,11 @@
         },
         {
           "path": "client/src/components/drawers/DrawerErrorBoundary.jsx",
-          "sha256": "d0315de2ebd23e9f91b9d0b1c80c020b00d2750310ae67290987c4a0e1733984"
+          "sha256": "38bf562fad896acfc7d543ecba2dccf4c9cd8c797b58a8bfde34214cc9f8b05b"
+        },
+        {
+          "path": "client/src/components/drawers/DrawerFallbackSurface.jsx",
+          "sha256": "1119792bf0f832dcd6923e5275a8e4f5e2ced370329c9fe2f17c04e2c6b72405"
         },
         {
           "path": "client/src/components/drawers/DrawerFrame.jsx",
@@ -8583,7 +8667,7 @@
         },
         {
           "path": "client/src/constants/shellThemes.js",
-          "sha256": "7c7db09f0f21aa36d985b0bd682f47c964ec853b18d5959e86ab789a33bc0ac9"
+          "sha256": "34ad017ae7edd0c23716c3d886e64721d3e34b0a4d32109a814a6cc2308c7004"
         },
         {
           "path": "client/src/constants/wallpaperPresets.js",
@@ -8603,7 +8687,7 @@
         },
         {
           "path": "client/src/hooks/useCatalogPage.js",
-          "sha256": "cbe3aa291503c66ad5e84a03d505a95b400a2d07e72565cf25ecf82b5e3a8313"
+          "sha256": "05508de0ee783e4bdf34399480b472457e8bfb3192514ea90eb65f0d4646dbff"
         },
         {
           "path": "client/src/hooks/useCompactPlayerPlacement.js",
@@ -8627,7 +8711,7 @@
         },
         {
           "path": "client/src/hooks/useKeyboard.js",
-          "sha256": "f3f445abc6164c879058b436d580729a95726eb8a7c6821f5e039c3fcda81ee6"
+          "sha256": "6a08e0d1c311c17518c29dbee6df2da941260d2de15a470d002179eea2ef8307"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
@@ -8644,6 +8728,10 @@
         {
           "path": "client/src/hooks/useMediaSession.js",
           "sha256": "caecc116f846610b23c3fad891adaf9e6971e176eb4bf7a1cb6baeccc6be3dad"
+        },
+        {
+          "path": "client/src/hooks/useModalFocus.js",
+          "sha256": "6aaa1b3b7c656129de8254baff8f09dca51f419126d7f436cbb563ccec39d794"
         },
         {
           "path": "client/src/hooks/useMusicData.js",
@@ -8787,7 +8875,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "75d2f54b3d46955d415a03b2ad85e31005f142ce63ba13a36771b25937e12ffb"
+          "sha256": "5692e0401207788531f09a004a02b89140ae8eef86ba96fa0a0d4d0498d5553e"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -8799,7 +8887,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "8f8cd8dcbb9faa358bb00c7a02abc7109316ee6b7f4c90c2ea94d2551c5e88a0"
+          "sha256": "15e3c3fee76855640cf47cb32e8783d323ea8b2bb4cce33997f3bd0d99a2236e"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -8807,7 +8895,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "921553da1ea156874bfcc145185156e6b03f3a2686e00c4f8fa774f468f3a8cd"
+          "sha256": "c0d64eb9bada3aa3fa9c452b24258e614510a8d0b4f8387f9e4b8fc56afe90ca"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -8815,11 +8903,19 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "f8f3ec9fe993d53b23e782183068fb8a36e3a1362f7c19ef3598d084832631d1"
+          "sha256": "bf35e064abe6a0996a9fc697fa37be17a4316c56495edfabcd798bdf784abf35"
+        },
+        {
+          "path": "client/src/i18n/pluginCatalog.js",
+          "sha256": "d0bd8cc7549328b6f3e32303bd2c58bec4c3586fbcd7efc05fdda1765cffb5b9"
         },
         {
           "path": "client/src/i18n/pluginDelivery.js",
           "sha256": "d15ac2a6025a60e21124ea13b9b6e32c3867403d71a2fbeaa81d8fac4d6fd4e0"
+        },
+        {
+          "path": "client/src/i18n/pluginOverview.js",
+          "sha256": "eb77e8c050cec0de169165308f6001ebc3fc48b643df7c32e4c26dc4dc9dbdc5"
         },
         {
           "path": "client/src/i18n/plugins.js",
@@ -8828,6 +8924,10 @@
         {
           "path": "client/src/i18n/requestErrors.js",
           "sha256": "739372d06d83e4571f0fa6bc6552c301b1c215128bf7107f56cab7cb1c79500b"
+        },
+        {
+          "path": "client/src/i18n/uiRepairs.js",
+          "sha256": "a9fe3d10337ebd6dab67cbd9cecee71e097d8f0863c71f7e901ade49438c65d6"
         },
         {
           "path": "client/src/i18n/youtube.js",
@@ -8839,7 +8939,7 @@
         },
         {
           "path": "client/src/instance/InstanceGate.jsx",
-          "sha256": "38788f2bc2b541c711209fa58ae6bfd0e4bfcceb6e71ad8bb03499b44985b13a"
+          "sha256": "198b630c5a772ba8f8dad9e173b23fda3107820942f84faa5a44b60648740644"
         },
         {
           "path": "client/src/instance/adminApi.js",
@@ -8847,11 +8947,11 @@
         },
         {
           "path": "client/src/instance/api.js",
-          "sha256": "bdd3e3e4a3603f3f5a772715b3e25a1892b7422d37058ed8d5b903ffb726b63c"
+          "sha256": "a59e0022836c954012c07bdcd3732bfdde32e73af37decf5c411dda357686ae6"
         },
         {
           "path": "client/src/instance/instance.css",
-          "sha256": "ffbc800aaa0827d180e8d54d9509ae685f754e5fc6fafbbe4e3c58576db160b6"
+          "sha256": "f9ba08bd7728c322f88d9b59fdae1507221821d9336eb3b53df11c8ca27a1dc8"
         },
         {
           "path": "client/src/instance/state.js",
@@ -8940,6 +9040,10 @@
         {
           "path": "client/src/plugins/assistant/welcome.js",
           "sha256": "c162a7cdf5436415e313a2d4e02a5c33100a26a89523b4b5d05874287363c8c8"
+        },
+        {
+          "path": "client/src/plugins/catalog.js",
+          "sha256": "8ebcb78b26eddc17b0b3dcae8a6647ddd2233451d4a3a81dba03df8d81fbb55d"
         },
         {
           "path": "client/src/plugins/compiled.js",
@@ -9043,7 +9147,7 @@
         },
         {
           "path": "client/src/plugins/registry.js",
-          "sha256": "a85a6abc1986dd25f2d6742c0455a540d53fb0f0030aeabfb62560fd94b1b702"
+          "sha256": "072cd8a32922e66f4184184130742a9af569b21901ec3948837d66657a979f3e"
         },
         {
           "path": "client/src/plugins/roam/RoamOverview.jsx",
@@ -9255,7 +9359,7 @@
         },
         {
           "path": "client/src/services/pluginDelivery.js",
-          "sha256": "ba8f44c41e3dbed9b605cfe59be8366feb2305b75b3f20fd7ce882b92bebbb14"
+          "sha256": "1d6abd9fcdc011d642e571044bd05f1d3d26e7d48c1c55e9bd416821b86ed818"
         },
         {
           "path": "client/src/services/plugins.js",
@@ -9355,7 +9459,7 @@
         },
         {
           "path": "client/src/styles/base.css",
-          "sha256": "a28b1885285a6a2ed5e97e59b6cc3883a04cc043b269b6d828eec6497999055d"
+          "sha256": "d80e9d74df704555375053d3b682f0f36cb0b1a46979372e2ed1ae87d585babd"
         },
         {
           "path": "client/src/styles/collection.css",
@@ -9363,7 +9467,7 @@
         },
         {
           "path": "client/src/styles/components.css",
-          "sha256": "db78b4eb0fdcbed8f8729b32cae9fbd8dce151c7a2ff6d9bb0c77f6285cb14d5"
+          "sha256": "6a14f06b136dded9229a391d27e6827ed4479f29e5d8c048852a27e8e2f41d50"
         },
         {
           "path": "client/src/styles/drawers.css",
@@ -9375,7 +9479,7 @@
         },
         {
           "path": "client/src/styles/track.css",
-          "sha256": "906cf19df231ce0aa511a4e5e851d3a82c7459fd65e722bcce24d622854c5094"
+          "sha256": "7ebc592c6f1f9b40c75dd5b16f402933e68448ca0fd2e03e30accbea34619144"
         },
         {
           "path": "client/src/theme-animations.css",
@@ -9476,6 +9580,10 @@
         {
           "path": "client/src/utils/motionPerformance.js",
           "sha256": "6628d43e80991cc0b512e7248fac184dc06b47a24414c7e7c8cd83fa9281cbfb"
+        },
+        {
+          "path": "client/src/utils/musicPageState.js",
+          "sha256": "52aee0c4202def9c10e590ddc38073087eccb16187861ed8e4fe905dd203d1ad"
         },
         {
           "path": "client/src/utils/musicSource.js",
@@ -9851,7 +9959,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "7b75c028d7850caae2afc496a45c381eba3259230f89c292c6f772185eaa868f"
+          "sha256": "9fbf773e9fbe21c6d7918f7c752499a94e0bed6a66cb6218271a027955d01aed"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -11519,7 +11627,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "f90712b7032ede1d462786293e45617e720dca44aeba7f79f7a41a93d7106fc8"
+          "sha256": "4542fa1df1e3cdf38c3328d9c7da96bbca31493be04e5c3c11dc6fbd590cedf8"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -11654,7 +11762,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "b56c9352c35179e775a7cc3d373838cba830b98c069b47a1a0608ec5d2b9fed8",
+      "sourceDigest": "144c03ebaea2093b4dafa40acff3e70e93133765e6bff7b81be831a73598c5ed",
       "sources": [
         {
           "path": "client/index.html",
@@ -11714,7 +11822,7 @@
         },
         {
           "path": "client/src/app.jsx",
-          "sha256": "f5a746ff7d3926da4e7f8e0321447093fe45183d211f46e8e41ce7d2cd23d2e8"
+          "sha256": "decbbdc83281fd282d766dc518f95b774df038f3aea7333747d73ae132435b19"
         },
         {
           "path": "client/src/assets/categories/en.jpg",
@@ -11786,19 +11894,19 @@
         },
         {
           "path": "client/src/components/AdminAccountRow.jsx",
-          "sha256": "aa5af9fc883a4f56b060d7d32794e7bd8f9beee5a41c8f3838e78cd0f8fcd684"
+          "sha256": "c5454628ac8172ac421d35a710e4ca41d6bf41bc49c5a13c0be6f64e7f0b9569"
         },
         {
           "path": "client/src/components/AdminCatalogSection.jsx",
-          "sha256": "55a33df640b27fd9d5cca21c2ffe90cfb2aa8d0c6b7df2c714793f52e5d28407"
+          "sha256": "171937ebbd1be6172c8624afa1317627c84c7e32d18596d8510aab784cb9e6eb"
         },
         {
           "path": "client/src/components/AdminSettingsFields.jsx",
-          "sha256": "8ba8cf6d78584692fe70756c8087d3f3d2496c1412f4c85f385cffe52e325350"
+          "sha256": "3686e2716dcd31bc5aa6ee034676a0c35a2dd064e0f5f1a1933922ca7d4025c7"
         },
         {
           "path": "client/src/components/AdminSongCreatePage.jsx",
-          "sha256": "a47612dc57e9c4f50bf72ffae96eba74c57c65dfde9ce108c985dcf0ff1be4cb"
+          "sha256": "624ed147125aa27d029cd96094415a4388c32dfd6095c44a64bdd5dff49253cd"
         },
         {
           "path": "client/src/components/AdminView.jsx",
@@ -11818,19 +11926,19 @@
         },
         {
           "path": "client/src/components/AlbumDetailView.jsx",
-          "sha256": "5c0b0ca81bfb083a50e2ece12d363153d5fe43d7196436ea1ff34ba1eee3f330"
+          "sha256": "3a46b9fdea46a32457f6b5c39e3ba253d90979645c96d04190993a5e758991fb"
         },
         {
           "path": "client/src/components/AllPlaylistsView.jsx",
-          "sha256": "d55d7b1ac10ca983d343c5b8da55bf670897b744701ee6ed2117ccce6cb10bc1"
+          "sha256": "4acf9bb814209ed106f295ebbedc7cd0100eff6c88d302d8f8665816cb42b5ad"
         },
         {
           "path": "client/src/components/AppSidebar.jsx",
-          "sha256": "6383b4da896d94d3a72c4c1560b1d1620a89c7907b6bc956b45d38ef8d5e2323"
+          "sha256": "56c345f7111310f6285e180f68e91e3a86d514d46719289f6b99c655546d129d"
         },
         {
           "path": "client/src/components/ArtistDetailView.jsx",
-          "sha256": "84d27504a838a02b20e37fe5cd89f991a1a6eb509b8663b367797b0a7ca8b4a1"
+          "sha256": "c66c2ddefe86337ed9344521aef61326e89b9d87766a02c0948526ce2855a068"
         },
         {
           "path": "client/src/components/ArtistDrawer.jsx",
@@ -11874,7 +11982,7 @@
         },
         {
           "path": "client/src/components/GoogleLogin.jsx",
-          "sha256": "de47491481d4666e0b6a1fc1c7cd710c4259c8d974da4384ec4a2a69ec1404e7"
+          "sha256": "22b68a82a2c4dbaa5bc9be0f724b99d9a76dc2f0feb334fc4b44ec84e49a0680"
         },
         {
           "path": "client/src/components/HistoryCoverStack.jsx",
@@ -11950,7 +12058,7 @@
         },
         {
           "path": "client/src/components/MainContent.jsx",
-          "sha256": "5f5efbcf3eea413490c2748f464301467b7777d2eae4ecde8691be659366db67"
+          "sha256": "e1663dbdd7e1ae018cdf0fb14050c3ec72b71662f494ad060b2ba6a11ec8ebd4"
         },
         {
           "path": "client/src/components/OrderingButtons.jsx",
@@ -11966,11 +12074,11 @@
         },
         {
           "path": "client/src/components/PlayStatsDetailView.jsx",
-          "sha256": "5e63a30dd72b740b03de5d2828899e4dcdefa6811f39459040a44fb762f84757"
+          "sha256": "44bcc89f24e102e1b7bd9c228cfcf4578bb69046e034ace44dc84fb01ca9ab51"
         },
         {
           "path": "client/src/components/PlayerBar.jsx",
-          "sha256": "d57e73aea4a0cb60e034845e205eb064261a77fbf10b4a2c5c71c3b17343eb35"
+          "sha256": "639e07e42bbc68c62d0a9e5788acf9620e4ecaefdd2ef2cc0804771c0ecde0f4"
         },
         {
           "path": "client/src/components/PlayerControls.jsx",
@@ -11994,15 +12102,15 @@
         },
         {
           "path": "client/src/components/PlaylistDetailSupport.jsx",
-          "sha256": "09b0e59e09ead3829214947a6f2128a504d95196838772ef1920195a27c2b4ef"
+          "sha256": "7e5b5710275de258272b9cf41b8a01e46df83feda055c2a5bc02f8a4796b0940"
         },
         {
           "path": "client/src/components/PlaylistDetailView.jsx",
-          "sha256": "561741a0d342b425e7807a76a06cafbc25b7c23506fbd11d56fc008adafd99fc"
+          "sha256": "4fa187d81066cce3d39703381e0473e607d8b752995a30f5d559731d61a5292f"
         },
         {
           "path": "client/src/components/PlaylistDrawer.jsx",
-          "sha256": "6f2d78640ee725cde14cc91c9710a26c277d0cd4266f4fa9010ed3b20961494d"
+          "sha256": "664242a9804fa3183f00c57413d430a4c2afdffdf1dc2f7faf265a563f09ace4"
         },
         {
           "path": "client/src/components/PlaylistEditableTracks.jsx",
@@ -12017,12 +12125,16 @@
           "sha256": "30faaa4037dfe20afb25c9466c8e22c2cf2f058d2b3570f15e2662befed38f74"
         },
         {
+          "path": "client/src/components/PluginCatalogVersions.jsx",
+          "sha256": "080094854ca5eb64512c11260d376d1ddde84df5d4baae7ee1ea1211507d4c60"
+        },
+        {
           "path": "client/src/components/PluginCatalogView.jsx",
-          "sha256": "01569d5269c62a71ac69bd6bbe6ce65e73888fd68f889e084822d88aed7ea190"
+          "sha256": "4e8688e0f543c17d8de4c810ea4cca1ea91befb2f5c875c30b20a5b9ed364593"
         },
         {
           "path": "client/src/components/PluginConfirmDialog.jsx",
-          "sha256": "2685c8552e0235b172ecba718a456487b9d07918c4d4b63c3083dcc9e2c5938f"
+          "sha256": "f75916c1b6a6e5cab3b5c7285a4eef02064235bc714eb8a59b0c13b547ab93e1"
         },
         {
           "path": "client/src/components/PluginContentBoundary.jsx",
@@ -12034,11 +12146,11 @@
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
-          "sha256": "d0b2d2530d8c405f435d346fc74587c04742834311455c5da8366178b6b3c85b"
+          "sha256": "eedda11498362b91aa9e0fcd43e5982d9f07b348dfbaf531b41cbce7ef13459e"
         },
         {
           "path": "client/src/components/PluginSettingsView.jsx",
-          "sha256": "c2f277fff57d63d51638db5d69885486fe7a4e85a653de97415bebe1aef3fbf5"
+          "sha256": "18b94f61dd5a7bf980a537cd5d8ccb5d43571ddf24c1bdd8c5a499c3783ce35b"
         },
         {
           "path": "client/src/components/PrivateCoverImage.jsx",
@@ -12066,7 +12178,7 @@
         },
         {
           "path": "client/src/components/SearchView.jsx",
-          "sha256": "21678af2ef832837cc7f2cfd4a5bd639b40869db82c46e5f979809f6047142f8"
+          "sha256": "f9db0f0208391be63d4d7ebe0b7d669110cee9105b98d38d81c46867a76f1852"
         },
         {
           "path": "client/src/components/SelectControl.jsx",
@@ -12074,15 +12186,15 @@
         },
         {
           "path": "client/src/components/ServiceModelSettings.jsx",
-          "sha256": "527c7eb0199d8ec1d52c94c7848187a72516e16a29aad25a591baa5e0cd491ed"
+          "sha256": "1d291bee10a1b7197d5c55cef1eee9e3fb3af909ca3e0ca9c93ecdd28aa8a871"
         },
         {
           "path": "client/src/components/SettingsControls.jsx",
-          "sha256": "3ce7463ab3b34f9de1c0579983ed428a2012b786e8b0cc1a2e9ebc19f76bf833"
+          "sha256": "db881e674e1416b88cec037f96745be143f458d1e31daa05261e2d1674eef4c8"
         },
         {
           "path": "client/src/components/SettingsEditDialog.jsx",
-          "sha256": "30e1a1fe114c7347abe1c2d6acc8ce28cedef4e67387ade31a0b31ac45ff1bcb"
+          "sha256": "79deb5884d0af838e0ad74c7c001465bb8368b95f37160789c0d80a581ec9326"
         },
         {
           "path": "client/src/components/SettingsReadOnly.jsx",
@@ -12149,6 +12261,10 @@
           "sha256": "25a768accc78a2286d71668445d0647369311407ed3fded3952f77d425834873"
         },
         {
+          "path": "client/src/components/catalog/CatalogReadState.jsx",
+          "sha256": "187fc53818c65a8ec80f73fad1489cc6c429862eac43504b48238e6f938e3840"
+        },
+        {
           "path": "client/src/components/catalog/CatalogSkeleton.jsx",
           "sha256": "902fa605a119baedca640a6eed502b4806076f82c10aba53ac63dbeb64f73b4f"
         },
@@ -12206,7 +12322,11 @@
         },
         {
           "path": "client/src/components/drawers/DrawerErrorBoundary.jsx",
-          "sha256": "d0315de2ebd23e9f91b9d0b1c80c020b00d2750310ae67290987c4a0e1733984"
+          "sha256": "38bf562fad896acfc7d543ecba2dccf4c9cd8c797b58a8bfde34214cc9f8b05b"
+        },
+        {
+          "path": "client/src/components/drawers/DrawerFallbackSurface.jsx",
+          "sha256": "1119792bf0f832dcd6923e5275a8e4f5e2ced370329c9fe2f17c04e2c6b72405"
         },
         {
           "path": "client/src/components/drawers/DrawerFrame.jsx",
@@ -12450,7 +12570,7 @@
         },
         {
           "path": "client/src/constants/shellThemes.js",
-          "sha256": "7c7db09f0f21aa36d985b0bd682f47c964ec853b18d5959e86ab789a33bc0ac9"
+          "sha256": "34ad017ae7edd0c23716c3d886e64721d3e34b0a4d32109a814a6cc2308c7004"
         },
         {
           "path": "client/src/constants/wallpaperPresets.js",
@@ -12470,7 +12590,7 @@
         },
         {
           "path": "client/src/hooks/useCatalogPage.js",
-          "sha256": "cbe3aa291503c66ad5e84a03d505a95b400a2d07e72565cf25ecf82b5e3a8313"
+          "sha256": "05508de0ee783e4bdf34399480b472457e8bfb3192514ea90eb65f0d4646dbff"
         },
         {
           "path": "client/src/hooks/useCompactPlayerPlacement.js",
@@ -12494,7 +12614,7 @@
         },
         {
           "path": "client/src/hooks/useKeyboard.js",
-          "sha256": "f3f445abc6164c879058b436d580729a95726eb8a7c6821f5e039c3fcda81ee6"
+          "sha256": "6a08e0d1c311c17518c29dbee6df2da941260d2de15a470d002179eea2ef8307"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
@@ -12511,6 +12631,10 @@
         {
           "path": "client/src/hooks/useMediaSession.js",
           "sha256": "caecc116f846610b23c3fad891adaf9e6971e176eb4bf7a1cb6baeccc6be3dad"
+        },
+        {
+          "path": "client/src/hooks/useModalFocus.js",
+          "sha256": "6aaa1b3b7c656129de8254baff8f09dca51f419126d7f436cbb563ccec39d794"
         },
         {
           "path": "client/src/hooks/useMusicData.js",
@@ -12654,7 +12778,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "75d2f54b3d46955d415a03b2ad85e31005f142ce63ba13a36771b25937e12ffb"
+          "sha256": "5692e0401207788531f09a004a02b89140ae8eef86ba96fa0a0d4d0498d5553e"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -12666,7 +12790,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "8f8cd8dcbb9faa358bb00c7a02abc7109316ee6b7f4c90c2ea94d2551c5e88a0"
+          "sha256": "15e3c3fee76855640cf47cb32e8783d323ea8b2bb4cce33997f3bd0d99a2236e"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -12674,7 +12798,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "921553da1ea156874bfcc145185156e6b03f3a2686e00c4f8fa774f468f3a8cd"
+          "sha256": "c0d64eb9bada3aa3fa9c452b24258e614510a8d0b4f8387f9e4b8fc56afe90ca"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -12682,11 +12806,19 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "f8f3ec9fe993d53b23e782183068fb8a36e3a1362f7c19ef3598d084832631d1"
+          "sha256": "bf35e064abe6a0996a9fc697fa37be17a4316c56495edfabcd798bdf784abf35"
+        },
+        {
+          "path": "client/src/i18n/pluginCatalog.js",
+          "sha256": "d0bd8cc7549328b6f3e32303bd2c58bec4c3586fbcd7efc05fdda1765cffb5b9"
         },
         {
           "path": "client/src/i18n/pluginDelivery.js",
           "sha256": "d15ac2a6025a60e21124ea13b9b6e32c3867403d71a2fbeaa81d8fac4d6fd4e0"
+        },
+        {
+          "path": "client/src/i18n/pluginOverview.js",
+          "sha256": "eb77e8c050cec0de169165308f6001ebc3fc48b643df7c32e4c26dc4dc9dbdc5"
         },
         {
           "path": "client/src/i18n/plugins.js",
@@ -12695,6 +12827,10 @@
         {
           "path": "client/src/i18n/requestErrors.js",
           "sha256": "739372d06d83e4571f0fa6bc6552c301b1c215128bf7107f56cab7cb1c79500b"
+        },
+        {
+          "path": "client/src/i18n/uiRepairs.js",
+          "sha256": "a9fe3d10337ebd6dab67cbd9cecee71e097d8f0863c71f7e901ade49438c65d6"
         },
         {
           "path": "client/src/i18n/youtube.js",
@@ -12706,7 +12842,7 @@
         },
         {
           "path": "client/src/instance/InstanceGate.jsx",
-          "sha256": "38788f2bc2b541c711209fa58ae6bfd0e4bfcceb6e71ad8bb03499b44985b13a"
+          "sha256": "198b630c5a772ba8f8dad9e173b23fda3107820942f84faa5a44b60648740644"
         },
         {
           "path": "client/src/instance/adminApi.js",
@@ -12714,11 +12850,11 @@
         },
         {
           "path": "client/src/instance/api.js",
-          "sha256": "bdd3e3e4a3603f3f5a772715b3e25a1892b7422d37058ed8d5b903ffb726b63c"
+          "sha256": "a59e0022836c954012c07bdcd3732bfdde32e73af37decf5c411dda357686ae6"
         },
         {
           "path": "client/src/instance/instance.css",
-          "sha256": "ffbc800aaa0827d180e8d54d9509ae685f754e5fc6fafbbe4e3c58576db160b6"
+          "sha256": "f9ba08bd7728c322f88d9b59fdae1507221821d9336eb3b53df11c8ca27a1dc8"
         },
         {
           "path": "client/src/instance/state.js",
@@ -12807,6 +12943,10 @@
         {
           "path": "client/src/plugins/assistant/welcome.js",
           "sha256": "c162a7cdf5436415e313a2d4e02a5c33100a26a89523b4b5d05874287363c8c8"
+        },
+        {
+          "path": "client/src/plugins/catalog.js",
+          "sha256": "8ebcb78b26eddc17b0b3dcae8a6647ddd2233451d4a3a81dba03df8d81fbb55d"
         },
         {
           "path": "client/src/plugins/compiled.js",
@@ -12910,7 +13050,7 @@
         },
         {
           "path": "client/src/plugins/registry.js",
-          "sha256": "a85a6abc1986dd25f2d6742c0455a540d53fb0f0030aeabfb62560fd94b1b702"
+          "sha256": "072cd8a32922e66f4184184130742a9af569b21901ec3948837d66657a979f3e"
         },
         {
           "path": "client/src/plugins/roam/RoamOverview.jsx",
@@ -13122,7 +13262,7 @@
         },
         {
           "path": "client/src/services/pluginDelivery.js",
-          "sha256": "ba8f44c41e3dbed9b605cfe59be8366feb2305b75b3f20fd7ce882b92bebbb14"
+          "sha256": "1d6abd9fcdc011d642e571044bd05f1d3d26e7d48c1c55e9bd416821b86ed818"
         },
         {
           "path": "client/src/services/plugins.js",
@@ -13222,7 +13362,7 @@
         },
         {
           "path": "client/src/styles/base.css",
-          "sha256": "a28b1885285a6a2ed5e97e59b6cc3883a04cc043b269b6d828eec6497999055d"
+          "sha256": "d80e9d74df704555375053d3b682f0f36cb0b1a46979372e2ed1ae87d585babd"
         },
         {
           "path": "client/src/styles/collection.css",
@@ -13230,7 +13370,7 @@
         },
         {
           "path": "client/src/styles/components.css",
-          "sha256": "db78b4eb0fdcbed8f8729b32cae9fbd8dce151c7a2ff6d9bb0c77f6285cb14d5"
+          "sha256": "6a14f06b136dded9229a391d27e6827ed4479f29e5d8c048852a27e8e2f41d50"
         },
         {
           "path": "client/src/styles/drawers.css",
@@ -13242,7 +13382,7 @@
         },
         {
           "path": "client/src/styles/track.css",
-          "sha256": "906cf19df231ce0aa511a4e5e851d3a82c7459fd65e722bcce24d622854c5094"
+          "sha256": "7ebc592c6f1f9b40c75dd5b16f402933e68448ca0fd2e03e30accbea34619144"
         },
         {
           "path": "client/src/theme-animations.css",
@@ -13343,6 +13483,10 @@
         {
           "path": "client/src/utils/motionPerformance.js",
           "sha256": "6628d43e80991cc0b512e7248fac184dc06b47a24414c7e7c8cd83fa9281cbfb"
+        },
+        {
+          "path": "client/src/utils/musicPageState.js",
+          "sha256": "52aee0c4202def9c10e590ddc38073087eccb16187861ed8e4fe905dd203d1ad"
         },
         {
           "path": "client/src/utils/musicSource.js",
@@ -13718,7 +13862,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "7b75c028d7850caae2afc496a45c381eba3259230f89c292c6f772185eaa868f"
+          "sha256": "9fbf773e9fbe21c6d7918f7c752499a94e0bed6a66cb6218271a027955d01aed"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -15218,7 +15362,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "f90712b7032ede1d462786293e45617e720dca44aeba7f79f7a41a93d7106fc8"
+          "sha256": "4542fa1df1e3cdf38c3328d9c7da96bbca31493be04e5c3c11dc6fbd590cedf8"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -15353,7 +15497,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "eefb7c0c24ee9ec80316be8c290c9ef89c27a79f0dc15e25370b00b5c7766e9f",
+      "sourceDigest": "fb52ff9d04ead40277d87ce0732255f1d2e14d0bcb08ea1946902cacf9c75f5c",
       "sources": [
         {
           "path": "client/index.html",
@@ -15413,7 +15557,7 @@
         },
         {
           "path": "client/src/app.jsx",
-          "sha256": "f5a746ff7d3926da4e7f8e0321447093fe45183d211f46e8e41ce7d2cd23d2e8"
+          "sha256": "decbbdc83281fd282d766dc518f95b774df038f3aea7333747d73ae132435b19"
         },
         {
           "path": "client/src/assets/categories/en.jpg",
@@ -15485,19 +15629,19 @@
         },
         {
           "path": "client/src/components/AdminAccountRow.jsx",
-          "sha256": "aa5af9fc883a4f56b060d7d32794e7bd8f9beee5a41c8f3838e78cd0f8fcd684"
+          "sha256": "c5454628ac8172ac421d35a710e4ca41d6bf41bc49c5a13c0be6f64e7f0b9569"
         },
         {
           "path": "client/src/components/AdminCatalogSection.jsx",
-          "sha256": "55a33df640b27fd9d5cca21c2ffe90cfb2aa8d0c6b7df2c714793f52e5d28407"
+          "sha256": "171937ebbd1be6172c8624afa1317627c84c7e32d18596d8510aab784cb9e6eb"
         },
         {
           "path": "client/src/components/AdminSettingsFields.jsx",
-          "sha256": "8ba8cf6d78584692fe70756c8087d3f3d2496c1412f4c85f385cffe52e325350"
+          "sha256": "3686e2716dcd31bc5aa6ee034676a0c35a2dd064e0f5f1a1933922ca7d4025c7"
         },
         {
           "path": "client/src/components/AdminSongCreatePage.jsx",
-          "sha256": "a47612dc57e9c4f50bf72ffae96eba74c57c65dfde9ce108c985dcf0ff1be4cb"
+          "sha256": "624ed147125aa27d029cd96094415a4388c32dfd6095c44a64bdd5dff49253cd"
         },
         {
           "path": "client/src/components/AdminView.jsx",
@@ -15517,19 +15661,19 @@
         },
         {
           "path": "client/src/components/AlbumDetailView.jsx",
-          "sha256": "5c0b0ca81bfb083a50e2ece12d363153d5fe43d7196436ea1ff34ba1eee3f330"
+          "sha256": "3a46b9fdea46a32457f6b5c39e3ba253d90979645c96d04190993a5e758991fb"
         },
         {
           "path": "client/src/components/AllPlaylistsView.jsx",
-          "sha256": "d55d7b1ac10ca983d343c5b8da55bf670897b744701ee6ed2117ccce6cb10bc1"
+          "sha256": "4acf9bb814209ed106f295ebbedc7cd0100eff6c88d302d8f8665816cb42b5ad"
         },
         {
           "path": "client/src/components/AppSidebar.jsx",
-          "sha256": "6383b4da896d94d3a72c4c1560b1d1620a89c7907b6bc956b45d38ef8d5e2323"
+          "sha256": "56c345f7111310f6285e180f68e91e3a86d514d46719289f6b99c655546d129d"
         },
         {
           "path": "client/src/components/ArtistDetailView.jsx",
-          "sha256": "84d27504a838a02b20e37fe5cd89f991a1a6eb509b8663b367797b0a7ca8b4a1"
+          "sha256": "c66c2ddefe86337ed9344521aef61326e89b9d87766a02c0948526ce2855a068"
         },
         {
           "path": "client/src/components/ArtistDrawer.jsx",
@@ -15573,7 +15717,7 @@
         },
         {
           "path": "client/src/components/GoogleLogin.jsx",
-          "sha256": "de47491481d4666e0b6a1fc1c7cd710c4259c8d974da4384ec4a2a69ec1404e7"
+          "sha256": "22b68a82a2c4dbaa5bc9be0f724b99d9a76dc2f0feb334fc4b44ec84e49a0680"
         },
         {
           "path": "client/src/components/HistoryCoverStack.jsx",
@@ -15649,7 +15793,7 @@
         },
         {
           "path": "client/src/components/MainContent.jsx",
-          "sha256": "5f5efbcf3eea413490c2748f464301467b7777d2eae4ecde8691be659366db67"
+          "sha256": "e1663dbdd7e1ae018cdf0fb14050c3ec72b71662f494ad060b2ba6a11ec8ebd4"
         },
         {
           "path": "client/src/components/OrderingButtons.jsx",
@@ -15665,11 +15809,11 @@
         },
         {
           "path": "client/src/components/PlayStatsDetailView.jsx",
-          "sha256": "5e63a30dd72b740b03de5d2828899e4dcdefa6811f39459040a44fb762f84757"
+          "sha256": "44bcc89f24e102e1b7bd9c228cfcf4578bb69046e034ace44dc84fb01ca9ab51"
         },
         {
           "path": "client/src/components/PlayerBar.jsx",
-          "sha256": "d57e73aea4a0cb60e034845e205eb064261a77fbf10b4a2c5c71c3b17343eb35"
+          "sha256": "639e07e42bbc68c62d0a9e5788acf9620e4ecaefdd2ef2cc0804771c0ecde0f4"
         },
         {
           "path": "client/src/components/PlayerControls.jsx",
@@ -15693,15 +15837,15 @@
         },
         {
           "path": "client/src/components/PlaylistDetailSupport.jsx",
-          "sha256": "09b0e59e09ead3829214947a6f2128a504d95196838772ef1920195a27c2b4ef"
+          "sha256": "7e5b5710275de258272b9cf41b8a01e46df83feda055c2a5bc02f8a4796b0940"
         },
         {
           "path": "client/src/components/PlaylistDetailView.jsx",
-          "sha256": "561741a0d342b425e7807a76a06cafbc25b7c23506fbd11d56fc008adafd99fc"
+          "sha256": "4fa187d81066cce3d39703381e0473e607d8b752995a30f5d559731d61a5292f"
         },
         {
           "path": "client/src/components/PlaylistDrawer.jsx",
-          "sha256": "6f2d78640ee725cde14cc91c9710a26c277d0cd4266f4fa9010ed3b20961494d"
+          "sha256": "664242a9804fa3183f00c57413d430a4c2afdffdf1dc2f7faf265a563f09ace4"
         },
         {
           "path": "client/src/components/PlaylistEditableTracks.jsx",
@@ -15716,12 +15860,16 @@
           "sha256": "30faaa4037dfe20afb25c9466c8e22c2cf2f058d2b3570f15e2662befed38f74"
         },
         {
+          "path": "client/src/components/PluginCatalogVersions.jsx",
+          "sha256": "080094854ca5eb64512c11260d376d1ddde84df5d4baae7ee1ea1211507d4c60"
+        },
+        {
           "path": "client/src/components/PluginCatalogView.jsx",
-          "sha256": "01569d5269c62a71ac69bd6bbe6ce65e73888fd68f889e084822d88aed7ea190"
+          "sha256": "4e8688e0f543c17d8de4c810ea4cca1ea91befb2f5c875c30b20a5b9ed364593"
         },
         {
           "path": "client/src/components/PluginConfirmDialog.jsx",
-          "sha256": "2685c8552e0235b172ecba718a456487b9d07918c4d4b63c3083dcc9e2c5938f"
+          "sha256": "f75916c1b6a6e5cab3b5c7285a4eef02064235bc714eb8a59b0c13b547ab93e1"
         },
         {
           "path": "client/src/components/PluginContentBoundary.jsx",
@@ -15733,11 +15881,11 @@
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
-          "sha256": "d0b2d2530d8c405f435d346fc74587c04742834311455c5da8366178b6b3c85b"
+          "sha256": "eedda11498362b91aa9e0fcd43e5982d9f07b348dfbaf531b41cbce7ef13459e"
         },
         {
           "path": "client/src/components/PluginSettingsView.jsx",
-          "sha256": "c2f277fff57d63d51638db5d69885486fe7a4e85a653de97415bebe1aef3fbf5"
+          "sha256": "18b94f61dd5a7bf980a537cd5d8ccb5d43571ddf24c1bdd8c5a499c3783ce35b"
         },
         {
           "path": "client/src/components/PrivateCoverImage.jsx",
@@ -15765,7 +15913,7 @@
         },
         {
           "path": "client/src/components/SearchView.jsx",
-          "sha256": "21678af2ef832837cc7f2cfd4a5bd639b40869db82c46e5f979809f6047142f8"
+          "sha256": "f9db0f0208391be63d4d7ebe0b7d669110cee9105b98d38d81c46867a76f1852"
         },
         {
           "path": "client/src/components/SelectControl.jsx",
@@ -15773,15 +15921,15 @@
         },
         {
           "path": "client/src/components/ServiceModelSettings.jsx",
-          "sha256": "527c7eb0199d8ec1d52c94c7848187a72516e16a29aad25a591baa5e0cd491ed"
+          "sha256": "1d291bee10a1b7197d5c55cef1eee9e3fb3af909ca3e0ca9c93ecdd28aa8a871"
         },
         {
           "path": "client/src/components/SettingsControls.jsx",
-          "sha256": "3ce7463ab3b34f9de1c0579983ed428a2012b786e8b0cc1a2e9ebc19f76bf833"
+          "sha256": "db881e674e1416b88cec037f96745be143f458d1e31daa05261e2d1674eef4c8"
         },
         {
           "path": "client/src/components/SettingsEditDialog.jsx",
-          "sha256": "30e1a1fe114c7347abe1c2d6acc8ce28cedef4e67387ade31a0b31ac45ff1bcb"
+          "sha256": "79deb5884d0af838e0ad74c7c001465bb8368b95f37160789c0d80a581ec9326"
         },
         {
           "path": "client/src/components/SettingsReadOnly.jsx",
@@ -15848,6 +15996,10 @@
           "sha256": "25a768accc78a2286d71668445d0647369311407ed3fded3952f77d425834873"
         },
         {
+          "path": "client/src/components/catalog/CatalogReadState.jsx",
+          "sha256": "187fc53818c65a8ec80f73fad1489cc6c429862eac43504b48238e6f938e3840"
+        },
+        {
           "path": "client/src/components/catalog/CatalogSkeleton.jsx",
           "sha256": "902fa605a119baedca640a6eed502b4806076f82c10aba53ac63dbeb64f73b4f"
         },
@@ -15905,7 +16057,11 @@
         },
         {
           "path": "client/src/components/drawers/DrawerErrorBoundary.jsx",
-          "sha256": "d0315de2ebd23e9f91b9d0b1c80c020b00d2750310ae67290987c4a0e1733984"
+          "sha256": "38bf562fad896acfc7d543ecba2dccf4c9cd8c797b58a8bfde34214cc9f8b05b"
+        },
+        {
+          "path": "client/src/components/drawers/DrawerFallbackSurface.jsx",
+          "sha256": "1119792bf0f832dcd6923e5275a8e4f5e2ced370329c9fe2f17c04e2c6b72405"
         },
         {
           "path": "client/src/components/drawers/DrawerFrame.jsx",
@@ -16149,7 +16305,7 @@
         },
         {
           "path": "client/src/constants/shellThemes.js",
-          "sha256": "7c7db09f0f21aa36d985b0bd682f47c964ec853b18d5959e86ab789a33bc0ac9"
+          "sha256": "34ad017ae7edd0c23716c3d886e64721d3e34b0a4d32109a814a6cc2308c7004"
         },
         {
           "path": "client/src/constants/wallpaperPresets.js",
@@ -16169,7 +16325,7 @@
         },
         {
           "path": "client/src/hooks/useCatalogPage.js",
-          "sha256": "cbe3aa291503c66ad5e84a03d505a95b400a2d07e72565cf25ecf82b5e3a8313"
+          "sha256": "05508de0ee783e4bdf34399480b472457e8bfb3192514ea90eb65f0d4646dbff"
         },
         {
           "path": "client/src/hooks/useCompactPlayerPlacement.js",
@@ -16193,7 +16349,7 @@
         },
         {
           "path": "client/src/hooks/useKeyboard.js",
-          "sha256": "f3f445abc6164c879058b436d580729a95726eb8a7c6821f5e039c3fcda81ee6"
+          "sha256": "6a08e0d1c311c17518c29dbee6df2da941260d2de15a470d002179eea2ef8307"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
@@ -16210,6 +16366,10 @@
         {
           "path": "client/src/hooks/useMediaSession.js",
           "sha256": "caecc116f846610b23c3fad891adaf9e6971e176eb4bf7a1cb6baeccc6be3dad"
+        },
+        {
+          "path": "client/src/hooks/useModalFocus.js",
+          "sha256": "6aaa1b3b7c656129de8254baff8f09dca51f419126d7f436cbb563ccec39d794"
         },
         {
           "path": "client/src/hooks/useMusicData.js",
@@ -16353,7 +16513,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "75d2f54b3d46955d415a03b2ad85e31005f142ce63ba13a36771b25937e12ffb"
+          "sha256": "5692e0401207788531f09a004a02b89140ae8eef86ba96fa0a0d4d0498d5553e"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -16365,7 +16525,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "8f8cd8dcbb9faa358bb00c7a02abc7109316ee6b7f4c90c2ea94d2551c5e88a0"
+          "sha256": "15e3c3fee76855640cf47cb32e8783d323ea8b2bb4cce33997f3bd0d99a2236e"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -16373,7 +16533,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "921553da1ea156874bfcc145185156e6b03f3a2686e00c4f8fa774f468f3a8cd"
+          "sha256": "c0d64eb9bada3aa3fa9c452b24258e614510a8d0b4f8387f9e4b8fc56afe90ca"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -16381,11 +16541,19 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "f8f3ec9fe993d53b23e782183068fb8a36e3a1362f7c19ef3598d084832631d1"
+          "sha256": "bf35e064abe6a0996a9fc697fa37be17a4316c56495edfabcd798bdf784abf35"
+        },
+        {
+          "path": "client/src/i18n/pluginCatalog.js",
+          "sha256": "d0bd8cc7549328b6f3e32303bd2c58bec4c3586fbcd7efc05fdda1765cffb5b9"
         },
         {
           "path": "client/src/i18n/pluginDelivery.js",
           "sha256": "d15ac2a6025a60e21124ea13b9b6e32c3867403d71a2fbeaa81d8fac4d6fd4e0"
+        },
+        {
+          "path": "client/src/i18n/pluginOverview.js",
+          "sha256": "eb77e8c050cec0de169165308f6001ebc3fc48b643df7c32e4c26dc4dc9dbdc5"
         },
         {
           "path": "client/src/i18n/plugins.js",
@@ -16394,6 +16562,10 @@
         {
           "path": "client/src/i18n/requestErrors.js",
           "sha256": "739372d06d83e4571f0fa6bc6552c301b1c215128bf7107f56cab7cb1c79500b"
+        },
+        {
+          "path": "client/src/i18n/uiRepairs.js",
+          "sha256": "a9fe3d10337ebd6dab67cbd9cecee71e097d8f0863c71f7e901ade49438c65d6"
         },
         {
           "path": "client/src/i18n/youtube.js",
@@ -16405,7 +16577,7 @@
         },
         {
           "path": "client/src/instance/InstanceGate.jsx",
-          "sha256": "38788f2bc2b541c711209fa58ae6bfd0e4bfcceb6e71ad8bb03499b44985b13a"
+          "sha256": "198b630c5a772ba8f8dad9e173b23fda3107820942f84faa5a44b60648740644"
         },
         {
           "path": "client/src/instance/adminApi.js",
@@ -16413,11 +16585,11 @@
         },
         {
           "path": "client/src/instance/api.js",
-          "sha256": "bdd3e3e4a3603f3f5a772715b3e25a1892b7422d37058ed8d5b903ffb726b63c"
+          "sha256": "a59e0022836c954012c07bdcd3732bfdde32e73af37decf5c411dda357686ae6"
         },
         {
           "path": "client/src/instance/instance.css",
-          "sha256": "ffbc800aaa0827d180e8d54d9509ae685f754e5fc6fafbbe4e3c58576db160b6"
+          "sha256": "f9ba08bd7728c322f88d9b59fdae1507221821d9336eb3b53df11c8ca27a1dc8"
         },
         {
           "path": "client/src/instance/state.js",
@@ -16506,6 +16678,10 @@
         {
           "path": "client/src/plugins/assistant/welcome.js",
           "sha256": "c162a7cdf5436415e313a2d4e02a5c33100a26a89523b4b5d05874287363c8c8"
+        },
+        {
+          "path": "client/src/plugins/catalog.js",
+          "sha256": "8ebcb78b26eddc17b0b3dcae8a6647ddd2233451d4a3a81dba03df8d81fbb55d"
         },
         {
           "path": "client/src/plugins/compiled.js",
@@ -16609,7 +16785,7 @@
         },
         {
           "path": "client/src/plugins/registry.js",
-          "sha256": "a85a6abc1986dd25f2d6742c0455a540d53fb0f0030aeabfb62560fd94b1b702"
+          "sha256": "072cd8a32922e66f4184184130742a9af569b21901ec3948837d66657a979f3e"
         },
         {
           "path": "client/src/plugins/roam/RoamOverview.jsx",
@@ -16821,7 +16997,7 @@
         },
         {
           "path": "client/src/services/pluginDelivery.js",
-          "sha256": "ba8f44c41e3dbed9b605cfe59be8366feb2305b75b3f20fd7ce882b92bebbb14"
+          "sha256": "1d6abd9fcdc011d642e571044bd05f1d3d26e7d48c1c55e9bd416821b86ed818"
         },
         {
           "path": "client/src/services/plugins.js",
@@ -16921,7 +17097,7 @@
         },
         {
           "path": "client/src/styles/base.css",
-          "sha256": "a28b1885285a6a2ed5e97e59b6cc3883a04cc043b269b6d828eec6497999055d"
+          "sha256": "d80e9d74df704555375053d3b682f0f36cb0b1a46979372e2ed1ae87d585babd"
         },
         {
           "path": "client/src/styles/collection.css",
@@ -16929,7 +17105,7 @@
         },
         {
           "path": "client/src/styles/components.css",
-          "sha256": "db78b4eb0fdcbed8f8729b32cae9fbd8dce151c7a2ff6d9bb0c77f6285cb14d5"
+          "sha256": "6a14f06b136dded9229a391d27e6827ed4479f29e5d8c048852a27e8e2f41d50"
         },
         {
           "path": "client/src/styles/drawers.css",
@@ -16941,7 +17117,7 @@
         },
         {
           "path": "client/src/styles/track.css",
-          "sha256": "906cf19df231ce0aa511a4e5e851d3a82c7459fd65e722bcce24d622854c5094"
+          "sha256": "7ebc592c6f1f9b40c75dd5b16f402933e68448ca0fd2e03e30accbea34619144"
         },
         {
           "path": "client/src/theme-animations.css",
@@ -17042,6 +17218,10 @@
         {
           "path": "client/src/utils/motionPerformance.js",
           "sha256": "6628d43e80991cc0b512e7248fac184dc06b47a24414c7e7c8cd83fa9281cbfb"
+        },
+        {
+          "path": "client/src/utils/musicPageState.js",
+          "sha256": "52aee0c4202def9c10e590ddc38073087eccb16187861ed8e4fe905dd203d1ad"
         },
         {
           "path": "client/src/utils/musicSource.js",
@@ -17417,7 +17597,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "7b75c028d7850caae2afc496a45c381eba3259230f89c292c6f772185eaa868f"
+          "sha256": "9fbf773e9fbe21c6d7918f7c752499a94e0bed6a66cb6218271a027955d01aed"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -18925,7 +19105,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "f90712b7032ede1d462786293e45617e720dca44aeba7f79f7a41a93d7106fc8"
+          "sha256": "4542fa1df1e3cdf38c3328d9c7da96bbca31493be04e5c3c11dc6fbd590cedf8"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -19060,7 +19240,7 @@
       "apiVersion": 1,
       "source": "artifact:official:16a72a518fd2c8be872d12a53fe3c0d5278529eddebd5b62c685247bf2bf96ce",
       "manifestDigest": "8b13d1a2614f3098fcb4ba4207fa567135ceffeb9c44cd3c8bad7fddfeab558d",
-      "sourceDigest": "f1d06177e3449073d9992e7fc63c9a4ca1ae7a9b9f223665029d720ab761d643",
+      "sourceDigest": "1f3d9c4f4fa643e400eaa3e5222c5b64eab9933798f73ee209404de9a95ddc67",
       "sources": [
         {
           "path": "client/index.html",
@@ -19120,7 +19300,7 @@
         },
         {
           "path": "client/src/app.jsx",
-          "sha256": "f5a746ff7d3926da4e7f8e0321447093fe45183d211f46e8e41ce7d2cd23d2e8"
+          "sha256": "decbbdc83281fd282d766dc518f95b774df038f3aea7333747d73ae132435b19"
         },
         {
           "path": "client/src/assets/categories/en.jpg",
@@ -19192,19 +19372,19 @@
         },
         {
           "path": "client/src/components/AdminAccountRow.jsx",
-          "sha256": "aa5af9fc883a4f56b060d7d32794e7bd8f9beee5a41c8f3838e78cd0f8fcd684"
+          "sha256": "c5454628ac8172ac421d35a710e4ca41d6bf41bc49c5a13c0be6f64e7f0b9569"
         },
         {
           "path": "client/src/components/AdminCatalogSection.jsx",
-          "sha256": "55a33df640b27fd9d5cca21c2ffe90cfb2aa8d0c6b7df2c714793f52e5d28407"
+          "sha256": "171937ebbd1be6172c8624afa1317627c84c7e32d18596d8510aab784cb9e6eb"
         },
         {
           "path": "client/src/components/AdminSettingsFields.jsx",
-          "sha256": "8ba8cf6d78584692fe70756c8087d3f3d2496c1412f4c85f385cffe52e325350"
+          "sha256": "3686e2716dcd31bc5aa6ee034676a0c35a2dd064e0f5f1a1933922ca7d4025c7"
         },
         {
           "path": "client/src/components/AdminSongCreatePage.jsx",
-          "sha256": "a47612dc57e9c4f50bf72ffae96eba74c57c65dfde9ce108c985dcf0ff1be4cb"
+          "sha256": "624ed147125aa27d029cd96094415a4388c32dfd6095c44a64bdd5dff49253cd"
         },
         {
           "path": "client/src/components/AdminView.jsx",
@@ -19224,19 +19404,19 @@
         },
         {
           "path": "client/src/components/AlbumDetailView.jsx",
-          "sha256": "5c0b0ca81bfb083a50e2ece12d363153d5fe43d7196436ea1ff34ba1eee3f330"
+          "sha256": "3a46b9fdea46a32457f6b5c39e3ba253d90979645c96d04190993a5e758991fb"
         },
         {
           "path": "client/src/components/AllPlaylistsView.jsx",
-          "sha256": "d55d7b1ac10ca983d343c5b8da55bf670897b744701ee6ed2117ccce6cb10bc1"
+          "sha256": "4acf9bb814209ed106f295ebbedc7cd0100eff6c88d302d8f8665816cb42b5ad"
         },
         {
           "path": "client/src/components/AppSidebar.jsx",
-          "sha256": "6383b4da896d94d3a72c4c1560b1d1620a89c7907b6bc956b45d38ef8d5e2323"
+          "sha256": "56c345f7111310f6285e180f68e91e3a86d514d46719289f6b99c655546d129d"
         },
         {
           "path": "client/src/components/ArtistDetailView.jsx",
-          "sha256": "84d27504a838a02b20e37fe5cd89f991a1a6eb509b8663b367797b0a7ca8b4a1"
+          "sha256": "c66c2ddefe86337ed9344521aef61326e89b9d87766a02c0948526ce2855a068"
         },
         {
           "path": "client/src/components/ArtistDrawer.jsx",
@@ -19280,7 +19460,7 @@
         },
         {
           "path": "client/src/components/GoogleLogin.jsx",
-          "sha256": "de47491481d4666e0b6a1fc1c7cd710c4259c8d974da4384ec4a2a69ec1404e7"
+          "sha256": "22b68a82a2c4dbaa5bc9be0f724b99d9a76dc2f0feb334fc4b44ec84e49a0680"
         },
         {
           "path": "client/src/components/HistoryCoverStack.jsx",
@@ -19356,7 +19536,7 @@
         },
         {
           "path": "client/src/components/MainContent.jsx",
-          "sha256": "5f5efbcf3eea413490c2748f464301467b7777d2eae4ecde8691be659366db67"
+          "sha256": "e1663dbdd7e1ae018cdf0fb14050c3ec72b71662f494ad060b2ba6a11ec8ebd4"
         },
         {
           "path": "client/src/components/OrderingButtons.jsx",
@@ -19372,11 +19552,11 @@
         },
         {
           "path": "client/src/components/PlayStatsDetailView.jsx",
-          "sha256": "5e63a30dd72b740b03de5d2828899e4dcdefa6811f39459040a44fb762f84757"
+          "sha256": "44bcc89f24e102e1b7bd9c228cfcf4578bb69046e034ace44dc84fb01ca9ab51"
         },
         {
           "path": "client/src/components/PlayerBar.jsx",
-          "sha256": "d57e73aea4a0cb60e034845e205eb064261a77fbf10b4a2c5c71c3b17343eb35"
+          "sha256": "639e07e42bbc68c62d0a9e5788acf9620e4ecaefdd2ef2cc0804771c0ecde0f4"
         },
         {
           "path": "client/src/components/PlayerControls.jsx",
@@ -19400,15 +19580,15 @@
         },
         {
           "path": "client/src/components/PlaylistDetailSupport.jsx",
-          "sha256": "09b0e59e09ead3829214947a6f2128a504d95196838772ef1920195a27c2b4ef"
+          "sha256": "7e5b5710275de258272b9cf41b8a01e46df83feda055c2a5bc02f8a4796b0940"
         },
         {
           "path": "client/src/components/PlaylistDetailView.jsx",
-          "sha256": "561741a0d342b425e7807a76a06cafbc25b7c23506fbd11d56fc008adafd99fc"
+          "sha256": "4fa187d81066cce3d39703381e0473e607d8b752995a30f5d559731d61a5292f"
         },
         {
           "path": "client/src/components/PlaylistDrawer.jsx",
-          "sha256": "6f2d78640ee725cde14cc91c9710a26c277d0cd4266f4fa9010ed3b20961494d"
+          "sha256": "664242a9804fa3183f00c57413d430a4c2afdffdf1dc2f7faf265a563f09ace4"
         },
         {
           "path": "client/src/components/PlaylistEditableTracks.jsx",
@@ -19423,12 +19603,16 @@
           "sha256": "30faaa4037dfe20afb25c9466c8e22c2cf2f058d2b3570f15e2662befed38f74"
         },
         {
+          "path": "client/src/components/PluginCatalogVersions.jsx",
+          "sha256": "080094854ca5eb64512c11260d376d1ddde84df5d4baae7ee1ea1211507d4c60"
+        },
+        {
           "path": "client/src/components/PluginCatalogView.jsx",
-          "sha256": "01569d5269c62a71ac69bd6bbe6ce65e73888fd68f889e084822d88aed7ea190"
+          "sha256": "4e8688e0f543c17d8de4c810ea4cca1ea91befb2f5c875c30b20a5b9ed364593"
         },
         {
           "path": "client/src/components/PluginConfirmDialog.jsx",
-          "sha256": "2685c8552e0235b172ecba718a456487b9d07918c4d4b63c3083dcc9e2c5938f"
+          "sha256": "f75916c1b6a6e5cab3b5c7285a4eef02064235bc714eb8a59b0c13b547ab93e1"
         },
         {
           "path": "client/src/components/PluginContentBoundary.jsx",
@@ -19440,11 +19624,11 @@
         },
         {
           "path": "client/src/components/PluginPageView.jsx",
-          "sha256": "d0b2d2530d8c405f435d346fc74587c04742834311455c5da8366178b6b3c85b"
+          "sha256": "eedda11498362b91aa9e0fcd43e5982d9f07b348dfbaf531b41cbce7ef13459e"
         },
         {
           "path": "client/src/components/PluginSettingsView.jsx",
-          "sha256": "c2f277fff57d63d51638db5d69885486fe7a4e85a653de97415bebe1aef3fbf5"
+          "sha256": "18b94f61dd5a7bf980a537cd5d8ccb5d43571ddf24c1bdd8c5a499c3783ce35b"
         },
         {
           "path": "client/src/components/PrivateCoverImage.jsx",
@@ -19472,7 +19656,7 @@
         },
         {
           "path": "client/src/components/SearchView.jsx",
-          "sha256": "21678af2ef832837cc7f2cfd4a5bd639b40869db82c46e5f979809f6047142f8"
+          "sha256": "f9db0f0208391be63d4d7ebe0b7d669110cee9105b98d38d81c46867a76f1852"
         },
         {
           "path": "client/src/components/SelectControl.jsx",
@@ -19480,15 +19664,15 @@
         },
         {
           "path": "client/src/components/ServiceModelSettings.jsx",
-          "sha256": "527c7eb0199d8ec1d52c94c7848187a72516e16a29aad25a591baa5e0cd491ed"
+          "sha256": "1d291bee10a1b7197d5c55cef1eee9e3fb3af909ca3e0ca9c93ecdd28aa8a871"
         },
         {
           "path": "client/src/components/SettingsControls.jsx",
-          "sha256": "3ce7463ab3b34f9de1c0579983ed428a2012b786e8b0cc1a2e9ebc19f76bf833"
+          "sha256": "db881e674e1416b88cec037f96745be143f458d1e31daa05261e2d1674eef4c8"
         },
         {
           "path": "client/src/components/SettingsEditDialog.jsx",
-          "sha256": "30e1a1fe114c7347abe1c2d6acc8ce28cedef4e67387ade31a0b31ac45ff1bcb"
+          "sha256": "79deb5884d0af838e0ad74c7c001465bb8368b95f37160789c0d80a581ec9326"
         },
         {
           "path": "client/src/components/SettingsReadOnly.jsx",
@@ -19555,6 +19739,10 @@
           "sha256": "25a768accc78a2286d71668445d0647369311407ed3fded3952f77d425834873"
         },
         {
+          "path": "client/src/components/catalog/CatalogReadState.jsx",
+          "sha256": "187fc53818c65a8ec80f73fad1489cc6c429862eac43504b48238e6f938e3840"
+        },
+        {
           "path": "client/src/components/catalog/CatalogSkeleton.jsx",
           "sha256": "902fa605a119baedca640a6eed502b4806076f82c10aba53ac63dbeb64f73b4f"
         },
@@ -19612,7 +19800,11 @@
         },
         {
           "path": "client/src/components/drawers/DrawerErrorBoundary.jsx",
-          "sha256": "d0315de2ebd23e9f91b9d0b1c80c020b00d2750310ae67290987c4a0e1733984"
+          "sha256": "38bf562fad896acfc7d543ecba2dccf4c9cd8c797b58a8bfde34214cc9f8b05b"
+        },
+        {
+          "path": "client/src/components/drawers/DrawerFallbackSurface.jsx",
+          "sha256": "1119792bf0f832dcd6923e5275a8e4f5e2ced370329c9fe2f17c04e2c6b72405"
         },
         {
           "path": "client/src/components/drawers/DrawerFrame.jsx",
@@ -19856,7 +20048,7 @@
         },
         {
           "path": "client/src/constants/shellThemes.js",
-          "sha256": "7c7db09f0f21aa36d985b0bd682f47c964ec853b18d5959e86ab789a33bc0ac9"
+          "sha256": "34ad017ae7edd0c23716c3d886e64721d3e34b0a4d32109a814a6cc2308c7004"
         },
         {
           "path": "client/src/constants/wallpaperPresets.js",
@@ -19876,7 +20068,7 @@
         },
         {
           "path": "client/src/hooks/useCatalogPage.js",
-          "sha256": "cbe3aa291503c66ad5e84a03d505a95b400a2d07e72565cf25ecf82b5e3a8313"
+          "sha256": "05508de0ee783e4bdf34399480b472457e8bfb3192514ea90eb65f0d4646dbff"
         },
         {
           "path": "client/src/hooks/useCompactPlayerPlacement.js",
@@ -19900,7 +20092,7 @@
         },
         {
           "path": "client/src/hooks/useKeyboard.js",
-          "sha256": "f3f445abc6164c879058b436d580729a95726eb8a7c6821f5e039c3fcda81ee6"
+          "sha256": "6a08e0d1c311c17518c29dbee6df2da941260d2de15a470d002179eea2ef8307"
         },
         {
           "path": "client/src/hooks/useLyricsFetcher.js",
@@ -19917,6 +20109,10 @@
         {
           "path": "client/src/hooks/useMediaSession.js",
           "sha256": "caecc116f846610b23c3fad891adaf9e6971e176eb4bf7a1cb6baeccc6be3dad"
+        },
+        {
+          "path": "client/src/hooks/useModalFocus.js",
+          "sha256": "6aaa1b3b7c656129de8254baff8f09dca51f419126d7f436cbb563ccec39d794"
         },
         {
           "path": "client/src/hooks/useMusicData.js",
@@ -20060,7 +20256,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "75d2f54b3d46955d415a03b2ad85e31005f142ce63ba13a36771b25937e12ffb"
+          "sha256": "5692e0401207788531f09a004a02b89140ae8eef86ba96fa0a0d4d0498d5553e"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -20072,7 +20268,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "8f8cd8dcbb9faa358bb00c7a02abc7109316ee6b7f4c90c2ea94d2551c5e88a0"
+          "sha256": "15e3c3fee76855640cf47cb32e8783d323ea8b2bb4cce33997f3bd0d99a2236e"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -20080,7 +20276,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "921553da1ea156874bfcc145185156e6b03f3a2686e00c4f8fa774f468f3a8cd"
+          "sha256": "c0d64eb9bada3aa3fa9c452b24258e614510a8d0b4f8387f9e4b8fc56afe90ca"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -20088,11 +20284,19 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "f8f3ec9fe993d53b23e782183068fb8a36e3a1362f7c19ef3598d084832631d1"
+          "sha256": "bf35e064abe6a0996a9fc697fa37be17a4316c56495edfabcd798bdf784abf35"
+        },
+        {
+          "path": "client/src/i18n/pluginCatalog.js",
+          "sha256": "d0bd8cc7549328b6f3e32303bd2c58bec4c3586fbcd7efc05fdda1765cffb5b9"
         },
         {
           "path": "client/src/i18n/pluginDelivery.js",
           "sha256": "d15ac2a6025a60e21124ea13b9b6e32c3867403d71a2fbeaa81d8fac4d6fd4e0"
+        },
+        {
+          "path": "client/src/i18n/pluginOverview.js",
+          "sha256": "eb77e8c050cec0de169165308f6001ebc3fc48b643df7c32e4c26dc4dc9dbdc5"
         },
         {
           "path": "client/src/i18n/plugins.js",
@@ -20101,6 +20305,10 @@
         {
           "path": "client/src/i18n/requestErrors.js",
           "sha256": "739372d06d83e4571f0fa6bc6552c301b1c215128bf7107f56cab7cb1c79500b"
+        },
+        {
+          "path": "client/src/i18n/uiRepairs.js",
+          "sha256": "a9fe3d10337ebd6dab67cbd9cecee71e097d8f0863c71f7e901ade49438c65d6"
         },
         {
           "path": "client/src/i18n/youtube.js",
@@ -20112,7 +20320,7 @@
         },
         {
           "path": "client/src/instance/InstanceGate.jsx",
-          "sha256": "38788f2bc2b541c711209fa58ae6bfd0e4bfcceb6e71ad8bb03499b44985b13a"
+          "sha256": "198b630c5a772ba8f8dad9e173b23fda3107820942f84faa5a44b60648740644"
         },
         {
           "path": "client/src/instance/adminApi.js",
@@ -20120,11 +20328,11 @@
         },
         {
           "path": "client/src/instance/api.js",
-          "sha256": "bdd3e3e4a3603f3f5a772715b3e25a1892b7422d37058ed8d5b903ffb726b63c"
+          "sha256": "a59e0022836c954012c07bdcd3732bfdde32e73af37decf5c411dda357686ae6"
         },
         {
           "path": "client/src/instance/instance.css",
-          "sha256": "ffbc800aaa0827d180e8d54d9509ae685f754e5fc6fafbbe4e3c58576db160b6"
+          "sha256": "f9ba08bd7728c322f88d9b59fdae1507221821d9336eb3b53df11c8ca27a1dc8"
         },
         {
           "path": "client/src/instance/state.js",
@@ -20213,6 +20421,10 @@
         {
           "path": "client/src/plugins/assistant/welcome.js",
           "sha256": "c162a7cdf5436415e313a2d4e02a5c33100a26a89523b4b5d05874287363c8c8"
+        },
+        {
+          "path": "client/src/plugins/catalog.js",
+          "sha256": "8ebcb78b26eddc17b0b3dcae8a6647ddd2233451d4a3a81dba03df8d81fbb55d"
         },
         {
           "path": "client/src/plugins/compiled.js",
@@ -20316,7 +20528,7 @@
         },
         {
           "path": "client/src/plugins/registry.js",
-          "sha256": "a85a6abc1986dd25f2d6742c0455a540d53fb0f0030aeabfb62560fd94b1b702"
+          "sha256": "072cd8a32922e66f4184184130742a9af569b21901ec3948837d66657a979f3e"
         },
         {
           "path": "client/src/plugins/roam/RoamOverview.jsx",
@@ -20528,7 +20740,7 @@
         },
         {
           "path": "client/src/services/pluginDelivery.js",
-          "sha256": "ba8f44c41e3dbed9b605cfe59be8366feb2305b75b3f20fd7ce882b92bebbb14"
+          "sha256": "1d6abd9fcdc011d642e571044bd05f1d3d26e7d48c1c55e9bd416821b86ed818"
         },
         {
           "path": "client/src/services/plugins.js",
@@ -20628,7 +20840,7 @@
         },
         {
           "path": "client/src/styles/base.css",
-          "sha256": "a28b1885285a6a2ed5e97e59b6cc3883a04cc043b269b6d828eec6497999055d"
+          "sha256": "d80e9d74df704555375053d3b682f0f36cb0b1a46979372e2ed1ae87d585babd"
         },
         {
           "path": "client/src/styles/collection.css",
@@ -20636,7 +20848,7 @@
         },
         {
           "path": "client/src/styles/components.css",
-          "sha256": "db78b4eb0fdcbed8f8729b32cae9fbd8dce151c7a2ff6d9bb0c77f6285cb14d5"
+          "sha256": "6a14f06b136dded9229a391d27e6827ed4479f29e5d8c048852a27e8e2f41d50"
         },
         {
           "path": "client/src/styles/drawers.css",
@@ -20648,7 +20860,7 @@
         },
         {
           "path": "client/src/styles/track.css",
-          "sha256": "906cf19df231ce0aa511a4e5e851d3a82c7459fd65e722bcce24d622854c5094"
+          "sha256": "7ebc592c6f1f9b40c75dd5b16f402933e68448ca0fd2e03e30accbea34619144"
         },
         {
           "path": "client/src/theme-animations.css",
@@ -20749,6 +20961,10 @@
         {
           "path": "client/src/utils/motionPerformance.js",
           "sha256": "6628d43e80991cc0b512e7248fac184dc06b47a24414c7e7c8cd83fa9281cbfb"
+        },
+        {
+          "path": "client/src/utils/musicPageState.js",
+          "sha256": "52aee0c4202def9c10e590ddc38073087eccb16187861ed8e4fe905dd203d1ad"
         },
         {
           "path": "client/src/utils/musicSource.js",
@@ -21124,7 +21340,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "7b75c028d7850caae2afc496a45c381eba3259230f89c292c6f772185eaa868f"
+          "sha256": "9fbf773e9fbe21c6d7918f7c752499a94e0bed6a66cb6218271a027955d01aed"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -22732,7 +22948,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "f90712b7032ede1d462786293e45617e720dca44aeba7f79f7a41a93d7106fc8"
+          "sha256": "4542fa1df1e3cdf38c3328d9c7da96bbca31493be04e5c3c11dc6fbd590cedf8"
         },
         {
           "path": "shared/plugins/sdkImports.js",

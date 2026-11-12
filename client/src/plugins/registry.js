@@ -13,16 +13,24 @@ const canAccess = (declaration, options) => canAccessPluginDeclaration(declarati
 const overview = Object.freeze({ id: 'overview', label: '概览', icon: Info, kind: 'settings', access: 'authenticated',
   playerPlacement: 'inherit', availableBeforeInstall: true, scope: 'account' });
 
+// This is a stable declaration identity, not an authorization decision.
+export const getPrimaryPluginSettingsPageId = plugin => plugin?.pages?.find(page => page.kind === 'settings')?.id ?? null;
+
 export function localizePlugin(plugin, requestedLocale) {
   if (!plugin) return null;
   const supportedLocales = plugin.supportedLocales;
-  if (!supportedLocales?.length) return { ...plugin, localization: { locale: requestedLocale, fallback: false } };
+  if (!supportedLocales?.length) return { ...plugin, introduction: [...(plugin.introduction || [])], introductionLocale: null,
+    localization: { locale: requestedLocale, fallback: false } };
   const locale = supportedLocales.includes(requestedLocale) ? requestedLocale : plugin.defaultLocale;
   const metadata = plugin.metadata?.[locale] || plugin.metadata?.[plugin.defaultLocale];
+  const defaultIntroduction = plugin.metadata?.[plugin.defaultLocale]?.introduction;
+  const introduction = metadata?.introduction || defaultIntroduction || plugin.introduction || [];
+  const introductionLocale = metadata?.introduction ? locale : defaultIntroduction ? plugin.defaultLocale : null;
   const label = declaration => declaration.labelKey
     ? plugin.messages?.[locale]?.[declaration.labelKey] || plugin.messages?.[plugin.defaultLocale]?.[declaration.labelKey] || declaration.label
     : declaration.label;
   return { ...plugin, name: metadata?.name || plugin.name, description: metadata?.description || plugin.description,
+    introduction: [...introduction], introductionLocale,
     pages: plugin.pages.map(page => ({ ...page, label: label(page) })),
     entries: plugin.entries.map(entry => ({ ...entry, label: label(entry) })),
     localization: { locale, fallback: locale !== requestedLocale } };

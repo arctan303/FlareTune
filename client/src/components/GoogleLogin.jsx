@@ -10,8 +10,6 @@ import SettingsSkeleton from './SettingsSkeleton.jsx';
 import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import { useSettingsResource } from '../hooks/useSettingsResource.js';
 
-import { Settings } from 'lucide-react';
-
 const inputClass = 'mt-1.5 block min-h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 text-xs text-[var(--ink)] outline-none focus:border-[var(--accent)] transition-colors';
 
 export function googleReturnMessage() {
@@ -160,10 +158,11 @@ export function GoogleAdminSettings({ session }) {
     else persist({ ...config, enabled });
   };
   const update = (field, value) => setDraft(current => ({ ...current, [field]: value }));
-  return <SettingsSection title={t('Google 登录')} action={config && (
+  return <SettingsSection title={t('Google 登录')} action={config && <SettingsActions>
+    {config.ready && <SettingsButton disabled={busy || Boolean(draft)} onClick={() => edit()}>{t('修改配置')}</SettingsButton>}
     <SettingsInput type="checkbox" role="switch" aria-label={t('启用 Google 登录')} className="settings-switch"
       checked={Boolean(config?.enabled)} disabled={!config?.ready || busy || Boolean(draft)} onChange={event => toggle(event.target.checked)} />
-  )}>
+  </SettingsActions>}>
     {!config && loading ? <SettingsSkeleton compact rows={1} label="正在读取…" /> : config && !config.ready ? <p className="text-xs text-[var(--muted)]">{t('请管理员先完成数据库补充迁移。')}</p> : config && (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
         <div className="space-y-1 min-w-0">
@@ -177,12 +176,6 @@ export function GoogleAdminSettings({ session }) {
             {config.clientId ? `Client ID: ${config.clientId}` : t('未配置')}
           </p>
         </div>
-        {config.ready && (
-          <SettingsButton disabled={busy} onClick={() => edit()} className="inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0">
-            <Settings size={13} className="shrink-0" />
-            <span>{t('修改配置')}</span>
-          </SettingsButton>
-        )}
       </div>
     )}
     {loadError && <div role="alert" className="mt-3 space-y-2 text-xs text-red-600">

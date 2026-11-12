@@ -50,6 +50,9 @@ dialog:modal {
   --soft-line: rgba(0, 0, 0, 0.04);
   --accent: #0284c7;
   --accent-strong: #0369a1;
+  --accent-fill: #0369a1;
+  --accent-fill-hover: #075985;
+  --accent-contrast: #ffffff;
   --danger: #dc2626;
   --player-bg: rgba(255, 255, 255, 0.10);
   --player-line: rgba(0, 0, 0, 0.08);

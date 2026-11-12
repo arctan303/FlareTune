@@ -3,13 +3,19 @@ import database from './database.js';
 import plugins from './plugins.js';
 import youtube from './youtube.js';
 import pluginDelivery from './pluginDelivery.js';
+import uiRepairs from './uiRepairs.js';
+import pluginCatalog from './pluginCatalog.js';
+import pluginOverview from './pluginOverview.js';
 
 // Chinese source copy is the stable key until every screen has migrated.
 // Feature catalogs share the same Chinese source keys and translation rules.
 export default Object.freeze({
+  ...pluginCatalog,
+  ...pluginOverview,
   ...plugins,
   ...youtube,
   ...pluginDelivery,
+  ...uiRepairs,
   "插件": "Plugins",
   "我的插件": "My plugins",
   "返回插件列表": "Back to plugins",

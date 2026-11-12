@@ -77,7 +77,9 @@ export function messageForError(error, context = 'request') {
   if (error?.status === 503 || error?.status === 0) return '服务暂时不可用，请稍后重试。';
   if (context === 'login') return '用户名或密码不正确。';
   if (context === 'verify_setup') return '初始化密钥无效或已过期，请检查后重试。';
-  if (context === 'setup') return '无法完成初始化。请检查管理员用户名和密码后重试。';
+  if (context === 'setup') return error?.code === 'invalid_setup'
+    ? '初始化验证已失效，请重新验证密钥。'
+    : '无法完成初始化。请检查管理员用户名和密码后重试。';
   if (context === 'change') return '无法修改密码，请检查输入后重试。';
   return '请求暂时无法完成，请重试。';
 }

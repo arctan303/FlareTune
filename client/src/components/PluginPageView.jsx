@@ -1,7 +1,7 @@
 import React from 'react';
 import { t, useLocale } from '../i18n/index.js';
 import { usePlugins } from '../hooks/usePlugins.js';
-import { getPlugin, getPluginPage, getPluginAvailability, canAccessPluginDeclaration, localizePlugin } from '../plugins/registry.js';
+import { getPlugin, getPluginPage, getPluginAvailability, getPrimaryPluginSettingsPageId, canAccessPluginDeclaration, localizePlugin } from '../plugins/registry.js';
 import PluginSettingsView, { pluginAvailabilityMessage } from './PluginSettingsView.jsx';
 import PluginContentBoundary from './PluginContentBoundary.jsx';
 import SettingsSkeleton from './SettingsSkeleton.jsx';
@@ -24,7 +24,8 @@ export default function PluginPageView({ route, session }) {
     availabilityById: resource.availabilityById }) : null;
   const row = resource.plugins.find(entry => entry.id === plugin?.id);
   const denied = resolvePluginPageAccess({ plugin, page, session, loaded: resource.loaded, availability });
-  const pageTitle = page?.labelKey ? page.label : t(page?.label || '插件');
+  const pageTitle = page?.id === getPrimaryPluginSettingsPageId(plugin) ? t('设置')
+    : page?.labelKey ? page.label : t(page?.label || '插件');
   const pluginName = plugin && (plugin.supportedLocales?.length ? plugin.name : t(plugin.name));
   const workspace = page?.presentation === 'workspace';
   if (!route?.pluginId || route.pluginPage === 'overview' || !route.pluginPage) return <PluginSettingsView route={route} session={session} />;

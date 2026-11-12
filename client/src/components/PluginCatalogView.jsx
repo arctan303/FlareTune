@@ -1,15 +1,13 @@
 import React from 'react';
 import { t, useLocale } from '../i18n/index.js';
 import { localizePlugin } from '../plugins/registry.js';
+import { catalogCandidateState, catalogGroups, sameCatalogTarget } from '../plugins/catalog.js';
 import SelectControl from './SelectControl.jsx';
 import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import PluginConfirmDialog from './PluginConfirmDialog.jsx';
 import { PluginDeliveryStatus } from './PluginDeliveryView.jsx';
+import { PluginVersionSummary, PluginCatalogNotice } from './PluginCatalogVersions.jsx';
 import { activePluginBuild } from '../hooks/usePluginDelivery.js';
-const compareVersions = (a, b) => {
-  const left = a.split('.').map(Number), right = b.split('.').map(Number);
-  return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
-};
 
 export default function PluginCatalogView({ delivery, renderLinks, renderOverviewLink, renderAvailability }) {
   const locale = useLocale();
@@ -18,9 +16,12 @@ export default function PluginCatalogView({ delivery, renderLinks, renderOvervie
   const [sourceId, setSourceId] = React.useState('');
   const [confirmation, setConfirmation] = React.useState(null);
   const locked = busy || activePluginBuild(data.build) || data.build?.resultUnknown;
-  const rows = (tab === 'installed' ? data.running : data.catalog).filter(row => !sourceId || row.sourceId === sourceId);
+  const confirmationBlocked = confirmation && (locked || data.pending.some(change => change.id === confirmation.row.id)
+    || (confirmation.operation === 'uninstall' ? !sameCatalogTarget(confirmation.row, data.running.find(row => row.id === confirmation.row.id))
+      : !catalogCandidateState(data, confirmation.row).available));
+  const groups = catalogGroups(data, { sourceId, installedOnly: tab === 'installed' });
   const save = async () => {
-    if (!confirmation) return;
+    if (!confirmation || confirmationBlocked) return;
     const { row, operation } = confirmation;
     try {
       const updated = await action('/selection', 'PUT', { pluginId: row.id, installed: operation !== 'uninstall', sourceId: row.sourceId, version: row.version, trustCode: true });
@@ -39,45 +40,53 @@ export default function PluginCatalogView({ delivery, renderLinks, renderOvervie
       </SelectControl>
     </div>
     {!!data.pending.length && <PluginDeliveryStatus delivery={delivery} />}
-    {rows.map(row => {
+    {groups.map(model => {
+      const row = model.row;
+      if (!row) return null;
       const plugin = localizePlugin(row.manifest, locale);
-      const running = data.running.find(item => item.id === row.id);
-      const target = data.desired.find(item => item.id === row.id);
-      const changed = data.pending.find(item => item.id === row.id);
-      const current = running?.version === row.version && running?.sourceId === row.sourceId;
-      const selected = target?.version === row.version && target?.sourceId === row.sourceId;
-      const availableUpdate = data.catalog.filter(item => item.id === row.id && item.sourceId === row.sourceId && item.version !== row.version
-        && compareVersions(item.version, row.version) > 0).sort((a, b) => compareVersions(b.version, a.version))[0];
-      const availabilityNode = current && renderAvailability ? renderAvailability(row.id) : null;
-      return <section key={`${row.sourceId}:${row.id}:${row.version}`} className="plugin-catalog-card wallpaper-content-surface">
+      const candidate = model.running ? model.update : model.ambiguousSource ? null : model.viewLatest;
+      const candidateState = candidate ? catalogCandidateState(data, candidate) : null;
+      const operation = candidateState?.available ? candidateState.operation : null;
+      const availabilityNode = model.running && renderAvailability ? renderAvailability(row.id) : null;
+      const sourceName = model.ambiguousSource ? t('{p0} 个来源', { p0: model.sourceIds.length })
+        : row.sourceId === 'workspace' ? t('当前部署') : row.sourceName;
+      const linkRow = model.ambiguousSource ? { ...row, sourceId: undefined, version: undefined } : row;
+      return <section key={model.id} className="plugin-catalog-card wallpaper-content-surface">
         <div className="plugin-catalog-card__header">
-          {renderOverviewLink(row, { presentation: 'summary', className: 'plugin-catalog-card__summary', children: <>
+          {renderOverviewLink(linkRow, { presentation: 'summary', className: 'plugin-catalog-card__summary', children: <>
             <div className="plugin-catalog-card__identity">
               <h2>{plugin.name}</h2>
-              <span className="plugin-catalog-card__meta">{row.version}{' · '}{row.sourceId === 'workspace' ? t('当前部署') : row.sourceName}</span>
+              <span className="plugin-catalog-card__meta plugin-catalog-card__source" title={sourceName}>{sourceName}</span>
             </div>
             <p className="plugin-catalog-card__description">{plugin.description}</p>
+            <PluginVersionSummary model={model} />
           </> })}
           <SettingsActions className="plugin-catalog-card__actions">
-          {current && renderLinks(row.id, { compact: true })}
+          {model.running && renderLinks(row.id, { compact: true })}
+          {operation && <SettingsButton variant={operation === 'install' ? 'primary' : 'quiet'} disabled={locked || !!model.pending}
+            onClick={() => setConfirmation({ row: candidate, operation })}>{t(operation === 'update' ? '更新插件' : '安装插件')}</SettingsButton>}
           {tab === 'installed' ? <>
-            {availableUpdate && <SettingsButton disabled={locked || !!changed} onClick={() => setConfirmation({ row: availableUpdate, operation: 'update' })}>{t('更新插件')}</SettingsButton>}
-            <SettingsButton variant="danger" className="plugin-icon-action" aria-label={t('卸载插件')} title={t('卸载插件')} disabled={locked || !target} onClick={() => setConfirmation({ row, operation: 'uninstall' })}>
+            <SettingsButton variant="danger" className="plugin-icon-action" aria-label={t('卸载插件')} title={t('卸载插件')} disabled={locked || !!model.pending || !model.desired} onClick={() => setConfirmation({ row: model.running, operation: 'uninstall' })}>
               <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg>
               <span className="sr-only">{t('卸载插件')}</span>
             </SettingsButton>
-          </> : current ? <span className="px-2 text-xs font-medium text-[var(--muted)]">{t('已安装')}</span> : <SettingsButton variant="primary" disabled={locked || selected}
-            onClick={() => setConfirmation({ row, operation: running ? 'update' : 'install' })}>{t(selected ? '已加入待应用变更' : running ? '更新插件' : '安装插件')}</SettingsButton>}
+          </> : model.running && !operation && <span className="text-xs font-medium text-[var(--muted)]">{t('已安装')}</span>}
           </SettingsActions>
         </div>
-        {(changed || availabilityNode) && <div className="plugin-catalog-card__state space-y-2 text-sm text-[var(--muted)]">
-          {changed && <p role="status" className="text-xs font-medium text-[var(--accent)]">{t(changed.operation === 'uninstall' ? '待卸载' : changed.operation === 'update' ? '待更新' : '待安装')}</p>}
+        <PluginCatalogNotice model={model} data={data} />
+        {availabilityNode && <div className="plugin-catalog-card__state text-sm text-[var(--muted)]">
           {availabilityNode}
         </div>}
       </section>;
     })}
-    {!rows.length && <p role="status" className="text-sm text-[var(--muted)]">{t(tab === 'installed' ? '暂无已安装插件，可前往发现插件。' : '此来源暂无可发现的插件，请到来源与部署刷新目录。')}</p>}
+    {!groups.length && <p role="status" className="text-sm text-[var(--muted)]">{t(tab === 'installed' ? '暂无已安装插件，可前往发现插件。' : '此来源暂无可发现的插件，请到来源与部署刷新目录。')}</p>}
     {confirmation && <PluginConfirmDialog installed={confirmation.operation === 'uninstall'} operation={confirmation.operation} deferred
-      deliveryMode={data.settings.mode} busy={busy} error={delivery.error} onClose={() => setConfirmation(null)} onConfirm={save} />}
+      pluginName={localizePlugin(confirmation.row.manifest, locale).name} fromVersion={data.running.find(row => row.id === confirmation.row.id)?.version}
+      targetVersion={confirmation.operation !== 'uninstall' ? confirmation.row.version : null}
+      sourceName={confirmation.row.sourceId === 'workspace' ? t('当前部署') : confirmation.row.sourceName}
+      deliveryMode={data.settings.mode} busy={busy} confirmDisabled={confirmationBlocked}
+      blockedMessage={confirmationBlocked ? t(data.build?.resultUnknown ? '请先核实远端构建结果，再修改待应用变更。'
+        : activePluginBuild(data.build) ? '构建正在进行，请完成后再修改插件组合。' : '插件变更已被其他操作更新，请刷新后重试。') : ''}
+      error={delivery.error} onClose={() => setConfirmation(null)} onConfirm={save} />}
   </>;
 }

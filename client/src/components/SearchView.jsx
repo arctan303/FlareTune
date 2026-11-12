@@ -26,6 +26,8 @@ import ArtistPreviewRow from './catalog/ArtistPreviewRow.jsx';
 import SectionHeading from './catalog/SectionHeading.jsx';
 import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
+import CatalogReadState from './catalog/CatalogReadState.jsx';
+import CatalogSkeleton from './catalog/CatalogSkeleton.jsx';
 import { hasPreviewOverflow } from './catalog/previewVisibility.js';
 import { useFavoriteSongAction } from '../hooks/useFavoriteSongAction.js';
 import { insertNextWithFeedback } from '../services/playerActions.js';
@@ -295,12 +297,12 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   };
 
   const hasCatalogQuery = Boolean(catalogQuery.trim());
-  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7, refreshKey: refreshVersion, retainWhileDisabled: true,
+  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7, refreshKey: refreshVersion, retainWhileDisabled: true, recoverable: true,
     enabled: hasCatalogQuery && subView === 'overview' });
-  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10, refreshKey: refreshVersion, retainWhileDisabled: true,
+  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10, refreshKey: refreshVersion, retainWhileDisabled: true, recoverable: true,
     enabled: hasCatalogQuery && subView === 'overview' });
-  const fullArtistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'artists' });
-  const fullAlbumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'albums' });
+  const fullArtistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 20, recoverable: true, enabled: hasCatalogQuery && subView === 'artists' });
+  const fullAlbumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 20, recoverable: true, enabled: hasCatalogQuery && subView === 'albums' });
 
   useEffect(() => {
     const generation = searchGenerationRef.current + 1;
@@ -658,23 +660,13 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
         {sourceWarning && <p role="status" className="mx-auto mb-6 max-w-2xl text-center text-sm text-[var(--muted)]">{t(sourceWarning)}</p>}
 
         {status === 'error' && (
-          <div className="theme-empty mx-auto max-w-2xl rounded-2xl p-6 text-center text-sm">{t("搜索失败，请稍后重试。")}</div>
-        )}
-
-        {status === 'loading' && (
-          <div className="w-full flex flex-col gap-1.5 animate-pulse" aria-label={t("正在加载搜索结果")}>
-            {[1, 2, 3, 4, 5].map((idx) => (
-              <div key={idx} className="track-row flex items-center gap-4 rounded-xl p-2 sm:px-3 bg-[var(--surface)]/60">
-                <div className="h-14 w-14 rounded-lg bg-[var(--line)]/50 shrink-0" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="h-4 w-3/5 rounded bg-[var(--line)]/60" />
-                  <div className="h-3 w-2/5 rounded bg-[var(--line)]/40" />
-                </div>
-                <div className="flex items-center gap-2 pr-1">
-                  <div className="h-8 w-8 rounded-full bg-[var(--line)]/30" />
-                </div>
-              </div>
-            ))}
+          <div role="alert" className="app-inline-notice mb-5 text-sm">
+            <span>{t("搜索失败，请稍后重试。")}</span>
+            <button type="button" className="app-section-link" onClick={() => {
+              searchCacheRef.current.delete(searchPageKey(query.trim(), songSubCategory));
+              invalidateCatalogSearch(query.trim(), songSubCategory);
+              setRefreshVersion(value => value + 1);
+            }}>{t('重试')}</button>
           </div>
         )}
 
@@ -717,13 +709,13 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
           </div>
         )}
 
-        {subView === 'overview' && status === 'ready' && songs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status !== 'loading' && albumResults.status !== 'loading' && songSubCategory === 'all' && (
+        {subView === 'overview' && status === 'ready' && songs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status === 'ready' && albumResults.status === 'ready' && !artistResults.requestError && !albumResults.requestError && songSubCategory === 'all' && (
           <div className="theme-empty mx-auto max-w-2xl rounded-2xl p-8 text-center text-sm">{t("没有找到与“")}{query.trim()}{t("”匹配的内容。")}</div>
         )}
 
-        {status === 'ready' && (subView !== 'overview' || songs.length > 0 || matchedArtists.length > 0 || albumResults.items.length > 0 || songSubCategory !== 'all') && (
+        {['ready', 'loading', 'error'].includes(status) && (status !== 'ready' || subView !== 'overview' || songs.length > 0 || matchedArtists.length > 0 || albumResults.items.length > 0 || songSubCategory !== 'all' || artistResults.status !== 'ready' || albumResults.status !== 'ready' || artistResults.requestError || albumResults.requestError) && (
           <div className="w-full">
-            {subView === 'overview' && filteredSongs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && (
+            {subView === 'overview' && status === 'ready' && filteredSongs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status === 'ready' && albumResults.status === 'ready' && !artistResults.requestError && !albumResults.requestError && (
               <div className="theme-empty mx-auto my-6 rounded-2xl p-8 text-center text-sm">
                 <p className="mb-3 text-[var(--muted)]">{t("当前筛选下没有与“")}{query.trim()}{t("”匹配的内容。")}</p>
                 {songSubCategory !== 'all' && (
@@ -739,7 +731,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
             {/* 概览模式 (Search Overview) */}
             <div hidden={subView !== 'overview'} style={subView === 'overview' ? undefined : { display: 'none' }}>
                 {/* 歌手 */}
-                {matchedArtists.length > 0 && (
+                {(matchedArtists.length > 0 || artistResults.status !== 'ready' || artistResults.requestError) && (
                   <div className="mb-8">
                     <div className="mb-3 px-1 flex items-center justify-between">
                       <SectionHeading title={t("歌手")} onViewAll={hasPreviewOverflow({
@@ -747,15 +739,17 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                         totalCount: artistResults.total ?? matchedArtists.length, hasMore: artistResults.hasMore,
                       }) ? () => navigateResults('artists') : null} />
                     </div>
+                    <CatalogReadState resource={artistResults} type="artists" overview>
                     <ArtistPreviewRow artists={matchedArtists.slice(0, 6)} onVisibleCountChange={setArtistVisibleCount}
                       onOpen={(artist) => {
                         handleOpenArtist(artist);
                       }} />
+                    </CatalogReadState>
                   </div>
                 )}
 
                 {/* 3. 单曲紧凑预览 (Songs Preview) */}
-                {songs.length > 0 && (
+                {(songs.length > 0 || status === 'loading') && (
                   <div className="mb-8">
                     <div className="mb-3.5 flex items-center justify-between px-1">
                       <SectionHeading title={t("单曲")} onViewAll={hasPreviewOverflow({
@@ -773,7 +767,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                         <Play size={12} fill="currentColor" />{t("播放全部")}</button>
                     </div>
 
-                    <SongColumnShelf key={`${query}:${songSubCategory}`} label={t("单曲")}
+                    {status === 'loading' ? <CatalogSkeleton type="songs" /> : <SongColumnShelf key={`${query}:${songSubCategory}`} label={t("单曲")}
                       onOverflowChange={setSongScrollOverflow}>
                       {filteredSongs.slice(0, 20).map((song, idx) => {
                         const liked = likedIds.has(String(song.id));
@@ -820,19 +814,21 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                           />
                         );
                       })}
-                    </SongColumnShelf>
+                    </SongColumnShelf>}
                   </div>
                 )}
 
-                {albumResults.items.length > 0 && (
+                {(albumResults.items.length > 0 || albumResults.status !== 'ready' || albumResults.requestError) && (
                   <div className="mb-8">
                     <div className="mb-3 px-1"><SectionHeading title={t("专辑")} onViewAll={hasPreviewOverflow({
                       renderedCount: Math.min(albumResults.items.length, 10), visibleCount: albumVisibleCount,
                       totalCount: albumResults.total ?? albumResults.items.length, hasMore: albumResults.hasMore,
                     }) ? () => navigateResults('albums') : null} /></div>
+                    <CatalogReadState resource={albumResults} type="albums" overview>
                     <AlbumPreviewGrid albums={albumResults.items.slice(0, 10)}
                       onVisibleCountChange={setAlbumVisibleCount}
                       onOpen={(album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }))} />
+                    </CatalogReadState>
                   </div>
                 )}
             </div>
@@ -898,6 +894,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                 </div>
 
                 {/* 单曲全量列表 */}
+                {status === 'loading' && <CatalogSkeleton type="songs" overview={false} trackGridClassName="full-song-grid" />}
                 <div className={`full-song-grid transition-opacity duration-200 ${isFiltering ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                   {filteredSongs.map((song, idx) => {
                     const liked = likedIds.has(String(song.id));
@@ -965,18 +962,22 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                 <h2 className="text-2xl sm:text-3xl font-bold mb-7">{subView === 'artists' ? t("歌手") : t("专辑")}</h2>
                 {subView === 'artists' ? (
                   <>
+                    <CatalogReadState resource={fullArtistResults} type="artists" emptyLabel={t('暂无歌手')}>
                     <div className="artist-full-grid">
                       {fullArtistResults.items.map((artist) => <ArtistCard key={artist.id || artist.name} artist={artist} onOpen={() => {
                         handleOpenArtist(artist);
                       }} />)}
                     </div>
-                    {fullArtistResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullArtistResults.loadMore} disabled={fullArtistResults.loadingMore}>{fullArtistResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
+                    </CatalogReadState>
+                    {fullArtistResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullArtistResults.loadMore} disabled={fullArtistResults.loadingMore || fullArtistResults.refreshing}>{fullArtistResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
                   </>
                 ) : (
                   <>
+                    <CatalogReadState resource={fullAlbumResults} type="albums" emptyLabel={t('暂无专辑')}>
                     <AlbumPreviewGrid albums={fullAlbumResults.items} maxRows={Infinity}
                       onOpen={(album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }))} />
-                    {fullAlbumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullAlbumResults.loadMore} disabled={fullAlbumResults.loadingMore}>{fullAlbumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
+                    </CatalogReadState>
+                    {fullAlbumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullAlbumResults.loadMore} disabled={fullAlbumResults.loadingMore || fullAlbumResults.refreshing}>{fullAlbumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
                   </>
                 )}
               </div>

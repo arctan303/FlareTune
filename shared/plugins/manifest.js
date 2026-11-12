@@ -8,6 +8,8 @@ const versionParts = value => {
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 const access = value => ['authenticated', 'admin'].includes(value);
 const text = value => typeof value === 'string' && value.trim().length > 0 && value.length <= 512;
+const validIntroduction = value => Array.isArray(value) && value.length >= 1 && value.length <= 6
+  && Array.from(value).every(paragraph => typeof paragraph === 'string' && paragraph.trim().length > 0 && paragraph.length <= 1500);
 const slots = new Set(['sidebar.primary', 'sidebar.settings.admin', 'sidebar.secondary', 'menu.song', 'menu.player']);
 const locales = new Set(['zh', 'zh-Hant', 'en', 'ja', 'ko']);
 export const normalizePluginUiLanguage = value => {
@@ -46,6 +48,16 @@ export function isPluginVisibleToRole(manifest, role) {
 export class PluginManifestError extends Error {
   constructor(code = 'PLUGIN_MANIFEST_INVALID') { super(code); this.name = 'PluginManifestError'; this.code = code; }
 }
+// Plugin releases use three strict, non-negative safe-integer components.
+// Keep UI and delivery ordering on the same numeric contract as validation.
+export function comparePluginVersions(a, b) {
+  const left = versionParts(a), right = versionParts(b);
+  if (!left || !right) throw new PluginManifestError();
+  for (let index = 0; index < left.length; index++) {
+    if (left[index] !== right[index]) return left[index] > right[index] ? 1 : -1;
+  }
+  return 0;
+}
 const invalid = () => { throw new PluginManifestError(); };
 const validateAccess = declaration => {
   if (declaration.roles !== undefined && !validRoles(declaration.roles)) invalid();
@@ -70,7 +82,8 @@ function validateLocalization(manifest) {
     || Object.keys(manifest.metadata).some(locale => !manifest.supportedLocales.includes(locale))) invalid();
   for (const locale of manifest.supportedLocales) {
     const metadata = manifest.metadata[locale];
-    if (!plain(metadata) || !text(metadata.name) || !text(metadata.description)) invalid();
+    if (!plain(metadata) || !text(metadata.name) || !text(metadata.description)
+      || (metadata.introduction !== undefined && !validIntroduction(metadata.introduction))) invalid();
   }
   const keys = [...manifest.pages, ...manifest.entries].map(item => item?.labelKey).filter(key => key !== undefined);
   if (manifest.messages !== undefined && (!plain(manifest.messages)
@@ -129,6 +142,7 @@ export function validatePluginManifests(manifests) {
       || !text(manifest.name) || !text(manifest.description) || !identifier(manifest.icon)
       || !Array.isArray(manifest.pages) || !Array.isArray(manifest.entries)) invalid();
     ids.add(manifest.id);
+    if (manifest.introduction !== undefined && !validIntroduction(manifest.introduction)) invalid();
     if (manifest.capabilityRoles !== undefined && !validRoles(manifest.capabilityRoles)) invalid();
     validateLocalization(manifest);
     const pages = new Map();

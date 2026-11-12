@@ -35,7 +35,9 @@ test('PlaylistDrawer integrates pointer drag reordering, grip handles, auto-scro
   assert.match(dragHook, /setPointerCapture/);
   assert.match(dragLifecycle, /releasePointerCapture/);
   assert.match(drawer, /className="queue-row__drag/);
-  assert.match(drawer, /aria-label=\{t\("按住拖拽调整 \{p0\} 排序", \{ p0: \(song\.title\) \}\)\}/);
+  // Pointer wiring remains here; MediaRecovery.behavior.test.js exercises the
+  // native song button and bounded arrow-key store actions.
+  assert.match(drawer, /aria-label=\{t\("调整 \{p0\} 排序，使用上下方向键移动"/);
 
   // 4. 验证边缘自动滚动与边界防溢出
   assert.match(dragHook, /runAutoScroll/);

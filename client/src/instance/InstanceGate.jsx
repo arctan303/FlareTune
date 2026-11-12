@@ -73,7 +73,7 @@ function Page({ title, description, children, footer }) {
   );
 }
 
-function SetupPage({ onComplete }) {
+export function SetupPage({ onComplete }) {
   const [setupSecret, setSetupSecret] = useState('');
   const [proof, setProof] = useState('');
   const [username, setUsername] = useState('');
@@ -117,6 +117,7 @@ function SetupPage({ onComplete }) {
       setConfirm('');
       onComplete();
     } catch (cause) {
+      if (cause?.code === 'invalid_setup') setProof('');
       setError(messageForError(cause, 'setup'));
       queueMicrotask(() => errorRef.current?.focus());
     } finally {
@@ -133,6 +134,7 @@ function SetupPage({ onComplete }) {
           <Field id="setup-confirm" label="确认密码" type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
         </>}
         <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{t(busy ? '请稍候…' : proof ? '初始化并创建管理员' : '验证密钥')}</button>
+        {proof && <button className="instance-link" type="button" disabled={busy} onClick={() => { setProof(''); setError(''); }}>{t('重新验证密钥')}</button>}
       </form>
     </Page>
   );

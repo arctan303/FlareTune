@@ -1,10 +1,16 @@
 import { t } from '../i18n/index.js';
 import { useEffect } from 'react';
 import { isInteractiveKeyboardTarget } from '../utils/keyboardActivation.js';
+import { getTopmostModal } from '../components/drawers/drawerFocus.js';
 
 export function useGlobalKeyboardShortcuts({ togglePlay, isPlaying, playPrev, playNext, volume, setVolume, showToast, onOpenSearch }) {
     useEffect(() => {
         const handleKeyDown = (e) => {
+            if (e.defaultPrevented) return;
+            const modal = getTopmostModal(globalThis.document);
+            // The player remains searchable; edit dialogs and drawers own their
+            // keyboard interaction until they have explicitly closed.
+            if (modal && !modal.classList?.contains('app-player-surface')) return;
             const isTyping = Boolean(e.target?.closest?.('input, textarea, [contenteditable="true"], [role="slider"]'));
             const isInteractive = isInteractiveKeyboardTarget(e.target);
 

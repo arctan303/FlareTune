@@ -30,11 +30,13 @@ export function SettingsActions({ children, className = '' }) {
 
 export function SettingsToggle({ label, description, info, className = '', ...props }) {
   const readOnly = useSettingsReadOnly();
-  return <label className={`settings-toggle-row ${className}`}>
+  const generatedId = React.useId();
+  const id = props.id || generatedId;
+  return <div className={`settings-toggle-row ${className}`}>
     <span className="min-w-0">
-      <span className="inline-flex items-center gap-1.5">{label}{info && <InfoTip text={info} />}</span>
+      <span className="inline-flex items-center gap-1.5"><label htmlFor={id}>{label}</label>{info && <InfoTip text={info} />}</span>
       {description && <span className="mt-1 block text-xs font-normal text-[var(--muted)]">{description}</span>}
     </span>
-    <input {...props} disabled={props.disabled || readOnly} type="checkbox" role="switch" className="settings-switch" />
-  </label>;
+    <input {...props} id={id} disabled={props.disabled || readOnly} type="checkbox" role="switch" className="settings-switch" />
+  </div>;
 }

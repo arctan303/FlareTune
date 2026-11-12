@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as icons from 'lucide-react';
 import { createBackgroundModuleHarness } from '../test/fullscreenBackgroundHarness.js';
-import { createPluginRegistry, getPluginEntryRoute, localizePlugin } from '../plugins/registry.js';
+import { createPluginRegistry, getPluginEntryRoute, getPrimaryPluginSettingsPageId, localizePlugin } from '../plugins/registry.js';
 import { formatPath, parsePathname } from '../utils/navigation.js';
 import { compiledPluginManifests } from '../../../shared/plugins/catalog.js';
 
@@ -20,20 +20,20 @@ const plugin = { id: 'reading-room', version: '1.0.0', apiVersion: 1, hostApiVer
   ] };
 const nodes = tree => tree && typeof tree === 'object' ? [tree, ...(tree.props?.children || []).flat(Infinity).flatMap(nodes)] : [];
 const text = node => typeof node === 'string' ? node : (node?.props?.children || []).flat(Infinity).map(text).join('');
-function sidebar(manifest = plugin) {
+function sidebar(manifest = plugin, { locale = 'zh', translate = key => key } = {}) {
   const registry = createPluginRegistry(Array.isArray(manifest) ? manifest : [manifest]);
   const navigations = [], actions = [], state = { installedIds: ['reading-room'], availabilityById: {} };
   const ui = { authSession: { authenticated: true, user: { role: 'member' } }, setCompactPlayerPlacement() {} };
   const playback = { song: null, playing: false, output: null };
   const harness = createBackgroundModuleHarness({ file: new URL('./AppSidebar.jsx', import.meta.url),
-    modules: { '../i18n/index.js': { t: key => key, useLocale: () => 'zh' }, 'lucide-react': icons,
+    modules: { '../i18n/index.js': { t: translate, useLocale: () => locale }, 'lucide-react': icons,
       '../hooks/useCompactPlayerPlacement.js': { useCompactPlayerPlacement: () => ({ placement: 'dock' }) },
       '../hooks/useSidebarNavigationMotion.js': { useSidebarNavigationMotion: () => ({ current: null }) },
       '../hooks/usePluginMenu.js': { usePluginMenu: slot => ({ entries: registry.getPluginEntries(slot, {
         ...state, ...playback, authenticated: ui.authSession.authenticated, isAdmin: ui.authSession.user.role === 'admin' }),
         open: entry => actions.push({ slot, entry }), close() {} }) },
       '../store/useUIStore.js': { useUIStore: selector => selector(ui) }, '../store/usePluginStore.js': { usePluginStore: selector => selector(state) },
-      '../plugins/registry.js': { ...registry, getPluginEntryRoute, localizePlugin },
+      '../plugins/registry.js': { ...registry, getPluginEntryRoute, getPrimaryPluginSettingsPageId, localizePlugin },
       '../utils/navigation.js': { formatPath, syncBrowserHistory: url => navigations.push(url), returnFromSidebarWorkspace: () => navigations.push('back'), returnToParentRoute: url => navigations.push(url) },
       './AccountMenu.jsx': 'account', './SidebarMiniPlayer.jsx': 'mini-player', './TuneWordmark.jsx': 'wordmark', './PageBackButton.jsx': 'back', './PluginActionDialog.jsx': 'plugin-action' }, globals: {} });
   const render = (route = { type: 'page', page: 'home' }) => harness.render({ activePage: route.page, activeRoute: route, onNavigate: (...args) => navigations.push(args) });
@@ -136,7 +136,8 @@ test('assistant navigation follows installation and Gateway availability for mem
   const back = nodes(tree).find(node => node.type === 'back');
   assert.equal(back.props.label, '返回'); back.props.onClick(); assert.equal(view.navigations.at(-1), 'back');
   tree = view.render({ type: 'page', page: 'plugin', pluginId: 'assistant', pluginPage: 'overview' });
-  assert.ok(nodes(tree).some(node => node.type === 'p' && text(node) === '站点设置'));
+  assert.ok(nodes(tree).some(node => node.type === 'p' && text(node) === '插件设置'));
+  assert.equal(nodes(tree).some(node => node.type === 'p' && ['站点设置', '我的设置', '助手'].includes(text(node))), false);
   assert.ok(nodes(tree).some(node => node.type === 'button' && text(node) === '概览'));
   assert.equal(nodes(tree).some(node => node.type === 'button' && text(node) === '记忆'), false);
   const configuration = nodes(tree).find(node => node.type === 'button' && text(node) === '设置');
@@ -178,7 +179,7 @@ test('plugin settings stay in their detail sidebar and obey installed state and 
   let tree = view.render(settings);
   assert.equal(nodes(tree).some(node => text(node) === 'Reading administration'), false);
   view.ui.authSession.user.role = 'admin'; tree = view.render({ type: 'page', page: 'plugin', pluginId: 'reading-room', pluginPage: 'overview' });
-  const shortcut = nodes(tree).find(node => node.type === 'button' && text(node) === 'Reading administration');
+  const shortcut = nodes(tree).find(node => node.type === 'button' && text(node) === '设置');
   assert.ok(shortcut); shortcut.props.onClick(); assert.equal(view.navigations.at(-1), '/plugins/reading-room/admin');
   view.state.installedIds = []; tree = view.render();
   assert.equal(nodes(tree).some(node => text(node) === 'Read'), false);
@@ -201,5 +202,91 @@ test('all sidebar slots reuse live song, playing and output display conditions',
   assert.ok(nodes(view.render(route)).some(node => node.type === 'button' && text(node) === 'Notes'));
   view.playback.playing = false;
   assert.equal(nodes(view.render(route)).some(node => node.type === 'button' && text(node) === 'Notes'), false);
+  view.unmount();
+});
+
+const managementPlugin = { ...plugin, pages: [
+  plugin.pages[0],
+  { ...plugin.pages[2], scope: 'instance' },
+  { id: 'devices', kind: 'settings', access: 'authenticated', scope: 'account', label: 'Devices', icon: 'settings' },
+  { id: 'playback', kind: 'settings', access: 'authenticated', scope: 'account', label: 'Playback', icon: 'settings' },
+], entries: [
+  plugin.entries[0],
+  { id: 'check-devices', slot: 'sidebar.secondary', action: 'check-devices', access: 'authenticated', label: 'Check devices', icon: 'info', group: plugin.id, order: 1 },
+] };
+const navigation = tree => nodes(tree).find(node => node.type === 'nav');
+const navigationButtons = tree => nodes(navigation(tree)).filter(node => node.type === 'button');
+const groupLabels = tree => nodes(navigation(tree)).filter(node => node.type === 'p' && node.props.className === 'app-sidebar__group-label').map(text);
+
+test('management uses one generic heading and flattens primary, derived pages and actions without changing routes', () => {
+  const view = sidebar(managementPlugin);
+  view.ui.authSession.user.role = 'admin';
+  const route = { type: 'page', page: 'plugin', pluginId: plugin.id, pluginPage: 'overview' };
+  let tree = view.render(route);
+  assert.deepEqual(groupLabels(tree), ['插件设置']);
+  assert.equal(navigation(tree).props['aria-label'], '插件设置');
+  assert.deepEqual(navigationButtons(tree).map(text), ['概览', '设置', 'Devices', 'Playback', 'Check devices']);
+  navigationButtons(tree).find(node => text(node) === '设置').props.onClick();
+  assert.equal(view.navigations.at(-1), '/plugins/reading-room/admin');
+  navigationButtons(tree).find(node => text(node) === 'Devices').props.onClick();
+  assert.equal(view.navigations.at(-1), '/plugins/reading-room/devices');
+  tree = view.render({ ...route, pluginPage: 'playback' });
+  assert.equal(navigationButtons(tree).find(node => text(node) === 'Playback').props['aria-current'], 'page');
+  assert.deepEqual(groupLabels(tree), ['插件设置']);
+  const before = view.navigations.length;
+  navigationButtons(tree).find(node => text(node) === 'Check devices').props.onClick();
+  assert.equal(view.actions.at(-1).entry.action, 'check-devices');
+  assert.equal(view.navigations.length, before);
+  view.unmount();
+});
+
+test('a hidden administrator primary configuration never promotes the first member-visible derived page', () => {
+  const view = sidebar(managementPlugin);
+  const route = { type: 'page', page: 'plugin', pluginId: plugin.id, pluginPage: 'devices' };
+  let tree = view.render(route);
+  assert.deepEqual(groupLabels(tree), ['插件设置']);
+  assert.deepEqual(navigationButtons(tree).map(text), ['概览', 'Devices', 'Playback', 'Check devices']);
+  assert.equal(navigationButtons(tree).some(node => text(node) === '设置'), false);
+  navigationButtons(tree).find(node => text(node) === 'Devices').props.onClick();
+  assert.equal(view.navigations.at(-1), '/plugins/reading-room/devices');
+  tree = view.render({ ...route, pluginPage: 'admin' });
+  assert.deepEqual(navigationButtons(tree).map(text), ['概览', 'Devices', 'Playback', 'Check devices']);
+  assert.equal(navigationButtons(tree).some(node => node.props['aria-current'] === 'page'), false, 'an inaccessible deep link never becomes an allowed main settings page');
+  assert.equal(managementPlugin.pages[1].scope, 'instance');
+  assert.equal(managementPlugin.pages[1].access, 'admin');
+  view.unmount();
+});
+
+test('uninstalled or unavailable plugins keep overview only without inventing a settings page', () => {
+  const view = sidebar(managementPlugin);
+  const route = { type: 'page', page: 'plugin', pluginId: plugin.id, pluginPage: 'overview' };
+  for (const role of ['member', 'admin']) {
+    view.ui.authSession.user.role = role;
+    view.state.installedIds = [];
+    assert.deepEqual(navigationButtons(view.render(route)).map(text), ['概览']);
+    view.state.installedIds = [plugin.id];
+    view.state.availabilityById = { [plugin.id]: { available: false, reason: 'incompatible_version' } };
+    assert.deepEqual(navigationButtons(view.render(route)).map(text), ['概览']);
+  }
+  view.unmount();
+  const serviceOnly = sidebar({ ...plugin, pages: plugin.pages.filter(page => page.kind === 'service'),
+    entries: plugin.entries.filter(entry => entry.page !== 'admin') });
+  serviceOnly.ui.authSession.user.role = 'admin';
+  assert.deepEqual(navigationButtons(serviceOnly.render(route)).map(text), ['概览']);
+  serviceOnly.unmount();
+});
+
+test('generic management labels use host translation while daily service headings keep their plugin identity', () => {
+  const translate = key => ({ '插件设置': 'Plugin settings', '设置': 'Settings', '概览': 'Overview' })[key] || key;
+  const view = sidebar(managementPlugin, { locale: 'en', translate });
+  view.ui.authSession.user.role = 'admin';
+  const route = { type: 'page', page: 'plugin', pluginId: plugin.id, pluginPage: 'overview' };
+  let tree = view.render(route);
+  assert.deepEqual(groupLabels(tree), ['Plugin settings']);
+  assert.deepEqual(navigationButtons(tree).map(text), ['Overview', 'Settings', 'Devices', 'Playback', 'Check devices']);
+  tree = view.render({ ...route, pluginPage: 'browse' });
+  assert.deepEqual(groupLabels(tree), ['Reading room']);
+  assert.equal(navigationButtons(tree).some(node => ['Settings', 'Overview'].includes(text(node))), false);
+  assert.ok(navigationButtons(tree).some(node => text(node) === 'Read'));
   view.unmount();
 });

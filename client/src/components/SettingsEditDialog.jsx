@@ -50,7 +50,7 @@ export default function SettingsEditDialog({ title, onClose, children, message, 
         <SettingsButton className="shrink-0" onClick={requestClose} disabled={busy || closing} variant="quiet" aria-label={t('关闭编辑')}>{t('关闭')}</SettingsButton>
       </div>
       <div className="settings-edit-dialog__body overflow-y-auto p-5 sm:p-6">
-        {message && <div role={messageTone === 'error' ? 'alert' : 'status'} className={`mb-4 rounded-xl p-3 text-sm ${messageTone === 'error' ? 'bg-rose-500/10 text-rose-600' : 'bg-[var(--surface)] text-[var(--muted)]'}`}>{t(message)}</div>}
+        {message && <div role={messageTone === 'error' ? 'alert' : 'status'} className={`mb-4 rounded-xl p-3 text-sm ${messageTone === 'error' ? 'bg-rose-500/10 text-[var(--danger)]' : 'bg-[var(--surface)] text-[var(--muted)]'}`}>{t(message)}</div>}
         {children}
       </div>
     </dialog></SettingsDialogContext.Provider>, document.body,
