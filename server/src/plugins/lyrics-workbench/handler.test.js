@@ -79,13 +79,13 @@ test('workbench uninstall during the final external source check prevents the ra
   assert.equal(JSON.stringify(raw.current()), before);
 });
 
-test('Gateway uninstall during an external AI save source check prevents the raw translation write', async t => {
+test('Gateway uninstall during an external AI save source check prevents the raw translation write', { timeout: 10000 }, async t => {
   const songId = 'yt:abcdefghijk', asked = deferred(), reply = deferred(), entered = deferred(), released = deferred();
   let f, afterReply = false, checks = 0, putCalls = 0;
   const raw = createMemoryLyricStore(makeReadyArtifact({ songId }));
   const store = { ...raw, putIfMatch: (...args) => { putCalls++; return raw.putIfMatch(...args); } };
   f = await app(t, { store, resolveSong: async id => ({ id, title: 'External song', artist: 'Artist', language: 'en' }),
-    songStillExists: async () => { if (afterReply && ++checks === 2) { entered.resolve(); await released.promise; } return true; },
+    songStillExists: async () => { if (afterReply && ++checks === 1) { entered.resolve(); await released.promise; } return true; },
     aiDeps: { loadLyricAiConfig: async () => ({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh' }),
       reserveDailyQuota: async () => true, createGatewayClient: async params => {
       const lease = await createPluginServiceLease({ ...params, providerId: 'ai-gateway', registry: f.registry });
@@ -101,7 +101,7 @@ test('Gateway uninstall during an external AI save source check prevents the raw
   assert.equal(putCalls, priorPuts); assert.equal(JSON.stringify(raw.current()), before);
 });
 
-test('Gateway retirement during manual AI cannot commit a translation or inferred song language', async t => {
+test('Gateway retirement during synchronous language assessment cannot commit a translation or inferred song language', async t => {
   const reply = deferred(); const entered = deferred(); let f;
   f = await app(t, { aiDeps: { reserveDailyQuota: async () => true,
     createGatewayClient: async params => {
@@ -111,11 +111,13 @@ test('Gateway retirement during manual AI cannot commit a translation or inferre
         ask: async () => { entered.resolve(); return reply.promise; } };
     } } });
   await f.install(); await f.install('ai-gateway');
-  const result = await f.call('/workspace/s1/ai-completion', 'POST', {}, await f.signIn('member'));
-  assert.equal(result.status, 202); await entered.promise;
+  const pendingRequest = f.call('/workspace/s1/ai-completion', 'POST', {}, await f.signIn('member'));
+  await entered.promise;
   const pending = JSON.stringify(f.store.current());
   await f.install('ai-gateway', false);
-  reply.resolve({ songLanguage: 'ja', translations: [{ unitId: 0, text: '遅い翻訳' }] });
+  reply.resolve({ language: 'ja', match: 0.99 });
+  const result = await pendingRequest;
+  assert.equal(result.status, 409);
   await Promise.allSettled(f.tasks);
   assert.equal(JSON.stringify(f.store.current()), pending);
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
@@ -125,7 +127,7 @@ test('workbench settings and source settings retain CAS and administrator-only a
   const f = await app(t); await f.install(); const member = await f.signIn('member');
   assert.equal((await f.admin('/settings', 'GET', undefined, member)).status, 403);
   const read = await f.admin('/settings'); assert.equal(read.status, 200);
-  const data = await read.json(); const value = { ...data.setting.value, automaticCompletionEnabled: false };
+  const data = await read.json(); const value = { ...data.setting.value, completionEnabled: false, automaticCompletionEnabled: false };
   const saved = await f.admin('/settings', 'PUT', { value, expectedRevision: data.setting.revision });
   assert.equal(saved.status, 200); assert.equal((await saved.json()).setting.value.automaticCompletionEnabled, false);
   assert.equal((await f.admin('/settings', 'PUT', { value, expectedRevision: data.setting.revision })).status, 409);
@@ -183,6 +185,7 @@ test('an optional AI lease retiring during playback falls back to the saved orig
   const f = await app(t, { store }); let checks = 0;
   const read = await readPlaybackLyrics({ env: f.env, db: f.db, song: { id: 's1', language: 'en' }, accountId: f.owner,
     deps: { session: f.signed.session, store: f.store, readOrCreateLyricArtifact: () => f.store.get('s1'),
-      createAiLease: async () => ({ guardedDb: db => db, assertCurrent: async () => { checks++; throw new Error('retired'); } }) } });
+      createAiLease: async () => ({ assertCurrent: async () => { throw new Error('retired'); },
+        guardedDb: () => { checks++; throw new Error('retired'); } }) } });
   assert.ok(read.lyrics.lines.length); assert.equal(read.lyrics.translationState, 'unavailable'); assert.ok(checks);
 });

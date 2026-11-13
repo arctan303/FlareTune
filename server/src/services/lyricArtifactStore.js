@@ -371,7 +371,7 @@ function normalizeTranslationDecision(value) {
   const fields = ['status', 'textHash', 'targetLanguage', 'policyVersion', 'songLanguage', 'sourceLanguage', 'basis'];
   assertExactFields(value, [...fields, 'hasForeignPassages'], fields, 'translationDecision');
   const spokenLanguage = language => language === null || isValidSongLanguage(language) && !['other', 'instrumental'].includes(language);
-  if (!['not_needed', 'translated'].includes(value.status)
+  if (!['not_needed', 'needed', 'translated'].includes(value.status)
     || !isValidLyricTranslationTarget(value.targetLanguage)
     || !Number.isSafeInteger(value.policyVersion) || value.policyVersion < 1
     || !spokenLanguage(value.songLanguage) || !spokenLanguage(value.sourceLanguage)

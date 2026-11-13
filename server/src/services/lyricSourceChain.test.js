@@ -7,6 +7,8 @@ import { selectLyricSource, normalizeLyricSourceResult, effectiveLyricSourceOrde
 import { computeHash } from '../utils/lyricsParsing.js';
 import { projectLyricArtifact } from './lyricAssetWorkflow.js';
 import { lyricRouteErrorMessage } from '../routes/lyricSourceRoutes.js';
+import { createLyricArtifactStore } from './lyricArtifactStore.js';
+import { createMemoryR2Bucket } from '../test/lyricAssetFixtures.js';
 
 const song = { id: 's1', title: 'Test', artist: 'Artist', duration: 30, language: 'en' };
 const document = createLyricDocument({ source: 'manual', format: 'lrc', lines: [{ text: 'First line', time: 1 }, { text: 'Second line', time: 3 }] });
@@ -14,6 +16,49 @@ const value = (quality = 'good') => ({ quality, document, translation: { support
 const provider = (id, resolve) => ({ id, claim: () => true, resolve, assertCurrent: async () => {}, epoch: 'epoch', build: 'build' });
 const env = { SETUP_SECRET: 'test-setup-secret-with-at-least-32-characters' };
 const session = { account: { accountId: 'a1', role: 'admin' }, tokenHash: 'session-hash', mode: 'normal' };
+
+test('translation recovers a missing cached original through the same source before generation', async()=>{
+  const store=createLyricArtifactStore({MEDIA_BUCKET:createMemoryR2Bucket()});
+  let adopted=0, translated=0;
+  const render=read=>({...value(),artifact:read.artifact,etag:read.etag,
+    translation:{supported:true,state:read.artifact.translation?'ready':'idle',targetLanguage:'zh',
+      ...(read.artifact.translation?{language:'zh',source:'ai',lines:read.artifact.translation.lines}:{})}});
+  const source=provider('lyrics-workbench',async()=>{
+    const current=await store.get(song.id); if(current.artifact)return render(current);
+    const built=await buildReadyLyricArtifact(song,document);
+    return {...render({...built,etag:null}),onAdopt:async()=>{
+      adopted++;return render(await store.createIfAbsent(song.id,built.artifact));
+    }};
+  });
+  source.translate=async()=>{
+    translated++; const read=await store.get(song.id);assert.equal(read.artifact?.status,'ready');
+    return render(await store.putIfMatch(song.id,{...read.artifact,translation:{source:'ai',kind:'ai',language:'zh',
+      originalTextHash:read.artifact.textHash,lines:['第一行','第二行'],updatedAt:new Date().toISOString()}},read.etag));
+  };
+  const deps={sources:[source],store,requireSession:async()=>session.account};
+  const read=await readLyricsFromChain({env,db,session,song,deps});
+  assert.equal(adopted,1);await store.delete(song.id);
+  const result=await readLyricsFromChain({env,db,session,song,deps,resultRef:read.lyrics.resultRef,translate:true});
+  assert.equal(adopted,2);assert.equal(translated,1);
+  assert.equal(result.lyrics.translation.state,'ready');
+  assert.deepEqual((await store.get(song.id)).artifact.original.lines,document.lines);
+});
+
+test('a missing original is not adopted or translated when its fetched body no longer matches the signed reference',async()=>{
+  const store=memory();let changed=false,adopted=0;
+  const built=(await buildReadyLyricArtifact(song,document)).artifact;
+  const source=provider('lyrics-workbench',()=>({...value(),artifact:built,etag:null,
+    document:changed?{...document,lines:[{time:1,text:'A different version'}]}:document,
+    translation:{supported:true,state:'idle',targetLanguage:'zh'},onAdopt:async()=>{
+      adopted++;return {...value(),artifact:built,etag:'stored',translation:{supported:true,state:'idle',targetLanguage:'zh'}};
+    }}));
+  source.translate=()=>assert.fail('A changed version must not be translated using the old reference');
+  const deps={sources:[source],store,requireSession:async()=>session.account};
+  const read=await readLyricsFromChain({env,db,session,song,deps});changed=true;
+  await assert.rejects(readLyricsFromChain({env,db,session,song,deps,resultRef:read.lyrics.resultRef,translate:true}),
+    error=>error.code==='LYRIC_RESULT_CHANGED');
+  assert.equal(adopted,1);
+});
 const memory = initial => {
   let artifact = initial;
   let writes = 0;

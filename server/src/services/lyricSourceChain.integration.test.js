@@ -254,6 +254,7 @@ for (const status of ['failed', 'pending', 'rewritten']) {
       context: { identity: session.account }, dependencies: { store,
         assertCurrent: async () => {}, loadSettings: async () => ({ onlineEnabled: false, targetLanguage: 'zh',
           completionEnabled: true, automaticCompletionEnabled: true }),
+        resolveSong: async id => id === local.id ? local : null,
         createAiLease: () => assert.fail('No AI lease is needed for these Chinese verses'),
       } });
     const deps = { sources: [{ ...workbench, epoch: 'fixture', build: 'fixture', assertCurrent: async () => {} }],
@@ -268,7 +269,10 @@ for (const status of ['failed', 'pending', 'rewritten']) {
     assert.equal(result.translation.state, 'not_needed');
     assert.equal(result.translationAvailable, false);
     assert.deepEqual(result.lines, document.lines);
-    assert.deepEqual(store.current(), before);
+    assert.deepEqual(store.current().original, before.original);
+    assert.deepEqual(store.current().translation, before.translation);
+    assert.equal(store.current().textHash, before.textHash);
+    assert.equal(store.current().translationDecision.status, 'not_needed');
   });
 }
 
@@ -332,7 +336,7 @@ test('a fixed result lazily initializes only its original source and rejects cha
 
 for (const scenario of [
   { name: 'copied layer with AI disabled', partial: false, completion: false, automatic: true, state: 'unavailable' },
-  { name: 'copied layer with manual AI', partial: false, completion: true, automatic: false, state: 'idle' },
+  { name: 'legacy automatic=false with AI enabled', partial: false, completion: true, automatic: false, state: 'pending' },
   { name: 'copied layer with automatic AI', partial: false, completion: true, automatic: true, state: 'pending' },
   { name: 'partially unchanged real translation', partial: true, completion: true, automatic: true, state: 'ready' },
 ]) {
@@ -368,8 +372,7 @@ for (const scenario of [
       createAiLease: async () => ({ assertCurrent: async () => {}, guardedDb: value => value }),
       aiDeps: { reserveDailyQuota: async () => true,
         createGatewayClient: async () => ({ config: policy, assertCurrent: async () => {}, guardedDb: value => value,
-          ask: async messages => { calls.ai++; await gate; return { songLanguage: 'en', discardLineIndices: [],
-            translations: JSON.parse(messages.at(-1).content).units.map(unit => ({ unitId: unit.unitId,
+          ask: async messages => { calls.ai++; await gate; return { translations: JSON.parse(messages.at(-1).content).units.map(unit => ({ unitId: unit.unitId,
               text: translatedLines[originals.indexOf(unit.text)] })) }; },
         }),
       },
@@ -404,7 +407,7 @@ for (const scenario of [
     release();
     await Promise.all(tasks);
     if (scenario.completion && !scenario.partial) {
-      assert.equal(store.current().aiCompletion, null);
+      assert.equal(store.current().aiCompletion.status, 'completed');
       assert.deepEqual(store.current().translation.lines, translatedLines);
     }
   });

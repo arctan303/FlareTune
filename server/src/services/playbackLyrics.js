@@ -41,12 +41,14 @@ export const lyricSongStillExists = (db, songId, deps = {}) => isExternalLyricSo
   ? deps.songStillExists(songId)
   : resolveLyricSong(db, songId, deps).then(Boolean);
 
-// Keep the ordinary shared store unchanged. A virtual source is rechecked at
-// each I/O boundary, including writes made later by an automatic AI task.
+// Virtual sources are rechecked at every I/O boundary. Local songs also need
+// a final existence check before writes: deleting a catalog row can retain its
+// old media object, so an ETag alone cannot retire an in-flight AI task.
 export function guardExternalLyricStore(store, songId, exists) {
-  if (!isExternalLyricSongId(songId)) return store;
+  const external = isExternalLyricSongId(songId);
   const guarded = { ...store };
   for (const method of ['get', 'createIfAbsent', 'putIfMatch', 'restoreLegacyIfMatch', 'delete']) {
+    if (!external && method === 'get') continue;
     if (typeof store[method] !== 'function') continue;
     guarded[method] = async (...args) => {
       const signal = ['createIfAbsent', 'putIfMatch'].includes(method) ? args.at(-1)?.signal : null;

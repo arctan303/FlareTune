@@ -7,13 +7,13 @@ import { createLyricArtifactStore, validateLyricArtifact } from './lyricArtifact
 import { createMemoryR2Bucket, makeReadyArtifact, makeSong } from '../test/lyricAssetFixtures.js';
 
 const original = text => ({ source: 'manual', format: 'lrc', syncMode: 'line', lines: [{ time: 1, text }] });
-test('catalog language whitelist follows the selected target and sends contradictions to unknown', () => {
+test('dominant catalog language follows the selected target without reopening foreign inserts', () => {
   for (const [language, text, targetLanguage, state] of [
     ['zh', '窗外的春风', 'zh', 'not_needed'], ['zh', '窗外的春风', 'zh-Hant', 'not_needed'],
     ['en', 'Come sing with me', 'en', 'not_needed'], ['fr', 'Bonjour le monde', 'fr', 'not_needed'],
     ['fr', 'Bonjour le monde', 'en', 'needed'], ['zh', '窗外的春风', 'en', 'needed'],
-    ['en', '窗外的春风', 'zh', 'unknown'], ['zh', 'Come sing with me', 'zh', 'unknown'],
-    ['zh', '窗外的春风 I love you', 'zh', 'unknown'], [undefined, '窗外的春风', 'zh', 'unknown'],
+    ['en', '窗外的春风', 'zh', 'needed'], ['zh', 'Come sing with me', 'zh', 'not_needed'],
+    ['zh', '窗外的春风 I love you', 'zh', 'not_needed'], [undefined, '窗外的春风', 'zh', 'unknown'],
     ['other', 'Come sing with me', 'en', 'unknown'], ['ja', '夢ならば', 'ja', 'not_needed'],
     ['instrumental', 'Anything', 'zh', 'not_needed'],
   ]) assert.equal(resolveLyricTranslationNeed(original(text), { language }, { targetLanguage }).state, state, `${language}/${targetLanguage}`);
@@ -33,7 +33,7 @@ test('no-op decisions survive R2 reads and bind content, target, language hint a
   for (const [changed, hint, targetLanguage] of [
     [{ ...artifact, textHash: 'b'.repeat(64) }, song, 'zh'], [artifact, song, 'en'], [artifact, song, 'zh-Hant'],
     [artifact, { ...song, language: 'en' }, 'zh'],
-    [{ ...artifact, translationDecision: { ...artifact.translationDecision, policyVersion: 2 } }, song, 'zh'],
+    [{ ...artifact, translationDecision: { ...artifact.translationDecision, policyVersion: 1 } }, song, 'zh'],
   ]) assert.equal(hasCurrentLyricNoTranslationDecision(changed, hint, { targetLanguage }), false);
   assert.equal(validateLyricArtifact({ ...artifact, textHash: 'b'.repeat(64) }).valid, true,
     'a stale decision must not make the original lyrics unreadable');

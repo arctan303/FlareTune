@@ -38,13 +38,14 @@ const route = (req, { session = admin, db = makeSongDb(), store = createMemoryLy
 
 test('candidate inspection, draft save and later edits preserve a non-target source translation language', async () => {
   const store = createMemoryLyricStore();
+  const db = makeSongDb([makeSong({ language: 'ja' })]);
   const document = makeLyricDocument({ source: 'custom_lrc', format: 'lrc',
     lines: [{ time: 1, text: 'こんにちは', tlyric: 'English translation' }],
     providerMeta: { providerLyricId: 'one', translationLanguage: 'en' },
   });
   const inspected = await route(request(path('/candidates/inspect'), 'POST', {
     candidates: [{ source: 'custom_lrc', providerLyricId: 'one' }],
-  }), { store, deps: { createProviderSnapshot: async () => ({
+  }), { store, db, deps: { createProviderSnapshot: async () => ({
     providerLyricIds: ['one'], loadDocument: async () => document,
   }) } });
   const candidate = (await inspected.json()).data.results[0];
@@ -52,7 +53,7 @@ test('candidate inspection, draft save and later edits preserve a non-target sou
   const lines = candidate.lyrics.lines.map((line, i) => ({ ...line, tlyric: candidate.translation.lines[i] }));
   const saved = await route(request(path('/document'), 'PUT', {
     etag: null, lines, translationLanguage: candidate.translation.language,
-  }), { store });
+  }), { store, db });
   assert.equal(saved.status, 200);
   assert.equal(store.current().translation.language, 'en');
   assert.equal(resolveLyricTranslationState(store.current(), makeSong({ language: 'ja' }), Date.now(), 'zh'), 'missing');
@@ -60,13 +61,13 @@ test('candidate inspection, draft save and later edits preserve a non-target sou
   const read = await store.get();
   const edited = await route(request(path('/document'), 'PUT', { etag: read.etag,
     lines: [{ ...lines[0], tlyric: 'Edited English translation' }],
-  }), { store });
+  }), { store, db });
   assert.equal(edited.status, 200);
   assert.equal(store.current().translation.language, 'en');
   assert.equal(store.current().translation.lines[0], 'Edited English translation');
   const invalid = await route(request(path('/document'), 'PUT', { etag: (await store.get()).etag,
     lines, translationLanguage: 'instrumental',
-  }), { store });
+  }), { store, db });
   assert.equal(invalid.status, 400);
 });
 
@@ -325,7 +326,7 @@ test('member can trigger the Worker-owned AI completion without supplying a lang
   assert.equal(rejected.status, 400);
 });
 
-test('a legacy cleanup proposal is applied automatically when any member reads lyrics', async () => {
+test('ordinary member reads preserve a legacy cleanup proposal without deleting original rows', async () => {
   const base = makeReadyArtifact();
   const store = createMemoryLyricStore(makeReadyArtifact({
     original: { ...base.original, lines: [
@@ -340,20 +341,21 @@ test('a legacy cleanup proposal is applied automatically when any member reads l
   const first = await route(request(path()), { session: otherMember, store });
   assert.equal(first.status, 200);
   assert.equal((await first.json()).data.asset.aiCompletion, null);
-  assert.deepEqual(store.current().original.lines.map((line) => line.text), ['Hello']);
-  assert.deepEqual(store.current().translation.lines, ['你好']);
+  assert.deepEqual(store.current().original.lines.map((line) => line.text), ['Lyrics by: Someone', 'Hello']);
+  assert.deepEqual(store.current().translation.lines, ['', '你好']);
   assert.equal(store.current().translation.originalTextHash, store.current().textHash);
-  assert.notEqual(store.current().textHash, base.textHash);
-  assert.equal(store.calls.put, 1);
+  assert.equal(store.current().textHash, base.textHash);
+  assert.equal(store.current().aiCompletion.status, 'review');
+  assert.equal(store.calls.put, 0);
   const ownerView = await route(request(path()), { session: member, store });
-  assert.equal((await ownerView.json()).data.asset.aiCompletion, null);
-  assert.equal(store.calls.put, 1);
+  assert.equal((await ownerView.json()).data.asset.aiCompletion.status, 'review');
+  assert.equal(store.calls.put, 0);
   assert.equal(await route(request(path('/ai-cleanup'), 'POST', {
     etag: 'etag-2', removeLineIndices: [0],
   }), { session: member, store }), null);
 });
 
-test('legacy cleanup keeps the original if deletion would leave only song title metadata', async () => {
+test('a legacy cleanup proposal cannot change original rows or its marker on a read', async () => {
   const base = makeReadyArtifact();
   const store = createMemoryLyricStore(makeReadyArtifact({
     original: { ...base.original, lines: [
@@ -366,8 +368,8 @@ test('legacy cleanup keeps the original if deletion would leave only song title 
   assert.equal(result.status, 200);
   assert.deepEqual(store.current().original.lines.map((line) => line.text),
     ['Night Song - Singer', 'Hello']);
-  assert.equal(store.current().aiCompletion, null);
-  assert.equal(store.calls.put, 1);
+  assert.equal(store.current().aiCompletion.status, 'review');
+  assert.equal(store.calls.put, 0);
 });
 
 test('timeline shift bakes legacy offset into shared word timing exactly once', async () => {

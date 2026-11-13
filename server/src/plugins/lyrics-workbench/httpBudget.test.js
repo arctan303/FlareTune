@@ -7,8 +7,9 @@ import { buildReadyLyricArtifact } from '../../services/lyricAssetWorkflow.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../../utils/lyricAiConfig.js';
 
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
-async function app(t, length = 144) {
+async function app(t, length = 144, language = null) {
   const f = await fixture(); t.after(f.close);
+  f.sqlite.prepare("UPDATE Songs SET language=? WHERE id='s1'").run(language);
   f.sqlite.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
     VALUES ('lyrics.ai',?,1,1,'test')`).run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash' }));
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
@@ -45,7 +46,11 @@ async function app(t, length = 144) {
         'X-CSRF-Token': auth.session.csrfToken, 'X-FlareTune-Plugin-Build': pluginRegistry.getBuildDigest('lyrics-workbench') },
       ...(kind === 'playback' ? {} : { body: JSON.stringify(kind === 'draft' ? { lines: read().original.lines, etag: 'test-etag' } : {}) }),
     }), f.env, { waitUntil: task => tasks.push(task) });
-    const body = await response.json(); await Promise.allSettled(tasks);
+    const body = await response.json();
+    for (let completed = 0; completed < tasks.length;) {
+      const pending = tasks.slice(completed); completed = tasks.length;
+      await Promise.allSettled(pending);
+    }
     if (process.env.LYRICS_BUDGET_TRACE === '1') t.diagnostic(JSON.stringify({ kind, calls: calls.length, queries: [...queryTrace] }));
     return { response, body };
   };
@@ -53,16 +58,16 @@ async function app(t, length = 144) {
 }
 function reply(options, mode = 'normal', notNeededLanguage = 'zh') {
   const data = JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content);
-  return Response.json({ choices: [{ message: { content: mode === 'invalid' ? '{invalid' : JSON.stringify({
-    ...(data.languageSample ? { songLanguage: mode === 'not-needed' ? notNeededLanguage : 'en', discardLineIndices: [] } : {}),
-    ...(mode === 'not-needed' ? { notNeeded: true } : { translations: data.units.map(unit => ({ unitId: unit.unitId, text: `这是第${unit.unitId}行译文` })) }),
-  }) } }] });
+  const content = data.languageTable ? JSON.stringify({ language: mode === 'not-needed' ? notNeededLanguage : 'en', match: 0.99 })
+    : mode === 'invalid' ? '{invalid'
+      : JSON.stringify({ translations: data.units.map(unit => ({ unitId: unit.unitId, text: `这是第${unit.unitId}行译文` })) });
+  return Response.json({ choices: [{ message: { content } }] });
 }
 
 async function unifiedApp(t, length = 144) {
-  const f = await app(t, length);
+  const f = await app(t, length, 'en');
   f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'")
-    .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash', completionEnabled: true,
+    .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash', completionEnabled: false,
       automaticCompletionEnabled: false }));
   const httpRequests = [];
   const resetInvocation = () => { f.calls.length = 0; f.tasks.length = 0; };
@@ -94,14 +99,17 @@ async function unifiedApp(t, length = 144) {
     assert.equal(result.response.status, 200, JSON.stringify(result.body));
     assert.equal(result.body.data?.lines.length, length);
     assert.equal(result.body.data?.sourceId, 'lyrics-workbench');
-    assert.equal(result.body.data?.translation?.supported, true);
-    assert.equal(result.body.data?.translation?.state, 'idle');
+    assert.equal(result.body.data?.translation?.supported, false);
+    assert.equal(result.body.data?.translation?.state, 'unavailable');
     assert.equal(typeof result.body.data?.resultRef, 'string');
     assert.equal(f.read().translation, null);
-    assert.equal(f.read().aiCompletion, null, 'manual GET does not start an AI task');
+    assert.equal(f.read().aiCompletion, null, 'disabled AI does not start a task while obtaining the signed result');
     assert.equal(f.nativeLimit(), 0);
     assert.ok(f.calls.length <= 50, 'the initial GET also respects its own request budget');
     const ref = result.body.data.resultRef;
+    f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'").run(JSON.stringify({
+      ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash', completionEnabled: true,
+      automaticCompletionEnabled: true }));
     resetInvocation();
     return ref;
   };
@@ -114,13 +122,13 @@ test('unified translation POST completes 144 lines within its own whole HTTP Fre
     upstreamPaths.push(String(input?.url || input)); return reply(options);
   });
   const resultRef = await f.idleResult();
-  assert.equal(upstreamPaths.length, 0, 'obtaining the signed result in manual mode does not call AI');
+  assert.equal(upstreamPaths.length, 0, 'obtaining the signed result with AI disabled does not call AI');
   const result = await f.send({ resultRef });
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
-  assert.equal(upstreamPaths.length, 8);
+  assert.equal(upstreamPaths.length, 4);
   assert.equal(f.read().translation?.lines.length, 144, JSON.stringify(f.read().aiCompletion));
   assert.ok(f.read().translation.lines.every(line => typeof line === 'string' && line.trim()));
-  assert.equal(f.read().aiCompletion, null);
+  assert.equal(f.read().aiCompletion?.status, 'completed');
   assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
   assert.deepEqual(f.httpRequests, [{ method: 'GET', path: '/api/lyrics?songId=s1' },
     { method: 'POST', path: '/api/lyrics/translation' }]);
@@ -134,9 +142,9 @@ test('unified translation POST retains one invalid-JSON retry for 144 lines with
   const resultRef = await f.idleResult(); assert.equal(upstream, 0);
   const result = await f.send({ resultRef });
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
-  assert.equal(upstream, 9);
+  assert.equal(upstream, 5);
   assert.equal(f.read().translation?.lines.length, 144, JSON.stringify(f.read().aiCompletion));
-  assert.equal(f.read().aiCompletion, null);
+  assert.equal(f.read().aiCompletion?.status, 'completed');
   assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
   t.diagnostic(`unified POST 144 lines plus JSON retry: ${f.calls.length}/50 D1 bindings`);
 });
@@ -147,7 +155,7 @@ test('a member can translate their own signed result through the unified 144-lin
   const resultRef = await f.idleResult(member); assert.equal(upstream, 0);
   const result = await f.send({ resultRef, auth: member });
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
-  assert.equal(upstream, 8);
+  assert.equal(upstream, 4);
   assert.equal(f.read().translation?.lines.length, 144, JSON.stringify(f.read().aiCompletion));
   assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
   t.diagnostic(`member unified POST 144 lines: ${f.calls.length}/50 D1 bindings`);
@@ -178,41 +186,45 @@ test('all browser lyric AI consumers complete 144-line translation under the who
     const f = await app(t); let upstream = 0;
     t.mock.method(globalThis, 'fetch', async (input, options) => { upstream++; return reply(options); });
     const result = await f.request(kind);
-    assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 8);
+    assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 5, 'one language assessment followed by four translation batches');
     if (kind === 'draft') {
       assert.equal(result.body.data?.lines.length, 144); assert.ok(result.body.data.lines.every(line => line.tlyric));
       assert.equal(f.read().translation, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
     } else {
       assert.equal(f.read().translation?.lines.length, 144, JSON.stringify(f.read().aiCompletion));
-      assert.equal(f.read().aiCompletion, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
+      assert.equal(f.read().aiCompletion?.status, 'completed'); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
     }
     assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
     t.diagnostic(`${kind} 144 lines entire HTTP+waitUntil: ${f.calls.length}/50 D1 bindings`);
   });
 });
 
-test('mixed compact batches preserve target-language rows without an extra paraphrase request', async t => {
+test('predominantly Chinese lyrics with a few foreign inserts need only one language assessment and no translation', async t => {
   for (const kind of ['playback', 'manual', 'draft']) await t.test(kind, async t => {
     const f = await app(t, 32); let upstream = 0;
     const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
     const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
-      f.read().original.lines.map((line, index) => index < 20 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
+      f.read().original.lines.map((line, index) => index < 29 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
     f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
     t.mock.method(globalThis, 'fetch', async (input, options) => reply(options, ++upstream === 1 ? 'not-needed' : 'normal'));
-    const result = await f.request(kind); assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 2);
-    const lines = kind === 'draft' ? result.body.data?.lines : f.read().translation?.lines;
-    assert.equal(lines?.length, 32);
-    assert.ok(lines.slice(0, 20).every(line => kind === 'draft' ? !line.tlyric : line === ''));
-    assert.ok(lines.slice(20).every(line => kind === 'draft' ? Boolean(line.tlyric) : Boolean(line)));
+    const result = await f.request(kind); assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 1);
+    if (kind === 'draft') {
+      assert.equal(result.body.data?.lines.length, 32);
+      assert.ok(result.body.data.lines.every(line => !line.tlyric));
+    } else {
+      assert.equal(f.read().translation, null); assert.equal(f.read().translationDecision.status, 'not_needed');
+      f.calls.length = 0; f.tasks.length = 0;
+      assert.ok((await f.request(kind)).response.ok); assert.equal(upstream, 1, 'the no-translation decision is reused');
+    }
     assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
   });
 });
 
 test('every browser consumer retains one invalid-JSON retry for a 144-line translation', async t => {
   for (const kind of ['playback', 'manual', 'legacy', 'draft']) await t.test(kind, async t => {
-    const f = await app(t); let upstream = 0;
+    const f = await app(t, 144, 'en'); let upstream = 0;
     t.mock.method(globalThis, 'fetch', async (input, options) => reply(options, ++upstream === 1 ? 'invalid' : 'normal'));
-    const result = await f.request(kind); assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 9);
+    const result = await f.request(kind); assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 5);
     const lines = kind === 'draft' ? result.body.data?.lines : f.read().translation?.lines;
     assert.equal(lines?.length, 144); assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
     t.diagnostic(`${kind} 144 lines plus JSON retry: ${f.calls.length}/50 D1 bindings`);
@@ -221,7 +233,7 @@ test('every browser consumer retains one invalid-JSON retry for a 144-line trans
 
 test('browser consumers reserve safe budget settlement across retry and waiting and recover on a fresh invocation', async t => {
   for (const kind of ['playback', 'manual', 'legacy', 'draft']) await t.test(kind, async t => {
-    const f = await app(t), entered = deferred(), released = deferred(); let first = true, upstream = 0;
+    const f = await app(t, 144, 'en'), entered = deferred(), released = deferred(); let first = true, upstream = 0;
     t.mock.timers.enable({ apis: ['setInterval'] });
     t.mock.method(globalThis, 'fetch', async (input, options) => {
       upstream++;
@@ -231,13 +243,13 @@ test('browser consumers reserve safe budget settlement across retry and waiting 
     const pending = f.request(kind); await entered.promise;
     for (let second = 1; second <= 24; second++) { t.mock.timers.tick(1000); await new Promise(resolve => setImmediate(resolve)); }
     released.resolve(); const result = await pending;
-    assert.equal(f.read().translation, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
+    assert.equal(f.read().translation, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
     if (kind === 'draft') { assert.equal(result.response.status, 503); assert.equal(f.read().aiCompletion, null); }
     else { assert.equal(f.read().aiCompletion?.status, 'failed'); assert.equal(f.read().aiCompletion.errorCode, 'request_budget_exhausted'); }
     assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
     t.diagnostic(`${kind} wait/retry safely settled: ${f.calls.length}/50 D1 bindings`);
     f.calls.length = 0; f.tasks.length = 0; const before = upstream;
-    const retry = await f.request(kind); assert.ok(retry.response.ok, JSON.stringify(retry.body)); assert.equal(upstream - before, 8);
+    const retry = await f.request(kind); assert.ok(retry.response.ok, JSON.stringify(retry.body)); assert.equal(upstream - before, 4);
     const lines = kind === 'draft' ? retry.body.data?.lines : f.read().translation?.lines;
     assert.equal(lines?.length, 144); assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
   });
@@ -248,7 +260,7 @@ test('members can invoke shared AI but not draft AI; a draft administrator downg
   t.mock.method(globalThis, 'fetch', async (input, options) => { upstream++; return reply(options); });
   assert.equal((await f.request('draft', member)).response.status, 403); assert.equal(upstream, 0);
   f.calls.length = 0; f.tasks.length = 0;
-  assert.equal((await f.request('manual', member)).response.status, 202); assert.equal(upstream, 1); assert.ok(f.read().translation);
+  assert.equal((await f.request('manual', member)).response.status, 202); assert.equal(upstream, 2); assert.ok(f.read().translation);
   const g = await app(t, 16), batch = g.db.batch.bind(g.db); let downgraded = false;
   g.db.batch = async statements => {
     const before = g.db.queries.length, result = await batch(statements);
@@ -286,14 +298,26 @@ test('Gateway uninstall during every browser AI consumer discards delayed shared
   });
 });
 
-test('all not-needed compact batches settle without a translation and do not run again for the same policy', async t => {
+test('same-target language assessment settles without translation and is reused for the same policy', async t => {
   const f = await app(t, 32); let upstream = 0;
   f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'")
     .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'en', model: 'deepseek-flash' }));
   t.mock.method(globalThis, 'fetch', async (input, options) => { upstream++; return reply(options, 'not-needed', 'en'); });
-  assert.equal((await f.request('playback')).response.status, 200); assert.equal(upstream, 2);
+  assert.equal((await f.request('playback')).response.status, 200); assert.equal(upstream, 1);
   assert.equal(f.read().translation, null); assert.equal(f.read().aiCompletion?.status, 'completed');
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   f.calls.length = 0; f.tasks.length = 0;
-  assert.equal((await f.request('playback')).response.status, 200); assert.equal(upstream, 2); assert.equal(f.nativeLimit(), 0);
+  assert.equal((await f.request('playback')).response.status, 200); assert.equal(upstream, 1); assert.equal(f.nativeLimit(), 0);
+});
+
+test('a known target-language tag bypasses both AI roles even with a few foreign lyric inserts', async t => {
+  const f = await app(t, 32, 'zh'); let upstream = 0;
+  const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
+  const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
+    f.read().original.lines.map((line, index) => index < 29 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
+  f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
+  t.mock.method(globalThis, 'fetch', async () => { upstream++; assert.fail('A known same-target song does not need either AI role'); });
+  assert.equal((await f.request('playback')).response.status, 200);
+  assert.equal(upstream, 0); assert.equal(f.read().translation, null);
+  assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
 });

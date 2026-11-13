@@ -198,7 +198,7 @@ test('a provider Chinese translation is usable without starting automatic AI', a
   assert.equal(store.calls.put, 0);
 });
 
-test('automatic lyric completion switch leaves manual AI available while total switch hides AI state', async () => {
+test('the single AI switch controls automatic preparation and the retired manual flag has no separate effect', async () => {
   for (const completionEnabled of [true, false]) {
     const db = baseline();
     db.sqlite.exec("INSERT INTO Songs (id, title, artist, language) VALUES ('song-1', 'One', 'Artist', 'en')");
@@ -209,12 +209,17 @@ test('automatic lyric completion switch leaves manual AI available while total s
     const store = createMemoryLyricStore(makeReadyArtifact());
     let starts = 0;
     const response = await call(db, '/api/lyrics?songId=song-1', { accountId: 'member', deps: {
-      store, beginCompletion: async () => { starts += 1; throw new Error('AI must not start'); },
+      store, beginCompletion: async () => {
+        starts += 1;
+        const read = await store.get('song-1');
+        return store.putIfMatch('song-1', { ...read.artifact,
+          aiCompletion: { status: 'pending', updatedAt: new Date().toISOString() } }, read.etag);
+      },
     } });
     assert.equal(response.status, 200);
     assert.equal((await response.json()).data.translationState,
-      completionEnabled ? 'missing' : 'unavailable');
-    assert.equal(starts, 0);
+      completionEnabled ? 'pending' : 'unavailable');
+    assert.equal(starts, completionEnabled ? 1 : 0);
   }
 });
 
@@ -372,7 +377,7 @@ test('automatic AI records a no-translation result for a virtual song so later p
     reserveDailyQuota: async () => true,
     getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test', systemPrompt: '' }),
     resolveAiFeature: async () => null,
-    askAI: async () => { aiCalls += 1; return { notNeeded: true, songLanguage: 'en' }; },
+    askAI: async () => { aiCalls += 1; return { language: 'en', match: 0.99 }; },
   } };
   await call(db, '/api/lyrics?songId=' + virtual.id, { accountId: 'member', deps });
   await Promise.all(tasks);
@@ -442,7 +447,7 @@ test('a changed lyric AI target or processing switch retries completed analysis,
   }
 });
 
-test('player lyric GET resolves a pending legacy cleanup without asking the listener', async () => {
+test('player lyric GET preserves a pending legacy cleanup and the exact original rows', async () => {
   const db = baseline();
   configureLyricAi(db, { targetLanguage: 'zh' });
   db.sqlite.exec("INSERT INTO Songs (id, title, artist, language) VALUES ('song-1', 'One', 'Artist', 'en')");
@@ -460,12 +465,12 @@ test('player lyric GET resolves a pending legacy cleanup without asking the list
   assert.equal(response.status, 200);
   const result = createLyricsResultFromResponse(await response.json(), response.status);
   assert.equal(result.status, 'ready');
-  assert.deepEqual(result.lyrics.map((line) => [line.text, line.translation]), [['Hello', '你好']]);
-  assert.equal(store.current().aiCompletion, null);
-  assert.equal(store.calls.put, 1);
+  assert.deepEqual(result.lyrics.map((line) => [line.text, line.translation]), [['Lyrics by: Someone', undefined], ['Hello', '你好']]);
+  assert.equal(store.current().aiCompletion.status, 'review');
+  assert.equal(store.calls.put, 0);
 });
 
-test('a legacy cleanup and target change start translation on the same read', async () => {
+test('a target change does not authorize automatic execution of an old cleanup review', async () => {
   const db = baseline();
   db.sqlite.exec("INSERT INTO Songs (id, title, artist, language) VALUES ('song-1', 'One', 'Artist', 'en')");
   db.sqlite.prepare(`INSERT INTO instance_settings
@@ -490,10 +495,13 @@ test('a legacy cleanup and target change start translation on the same read', as
     },
   } });
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).data.translationState, 'pending');
-  assert.equal(tasks.length, 1);
+  assert.equal((await response.json()).data.translationState, 'missing');
+  assert.equal(tasks.length, 0);
   await Promise.all(tasks);
-  assert.equal(store.current().translation.language, 'ja');
+  assert.equal(store.current().translation.language, 'zh');
+  assert.equal(store.current().aiCompletion.status, 'review');
+  assert.deepEqual(store.current().original.lines.map(line => line.text), ['Lyrics by: Someone', 'Hello']);
+  assert.equal(store.calls.put, 0);
 });
 
 test('invalid, retired, and unavailable lyric assets fail closed without leaking storage data', async () => {

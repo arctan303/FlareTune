@@ -392,6 +392,14 @@ export async function readLyricsFromChain({ env, db = env.DB, session, song, exe
         || (candidate.translation.targetLanguage || null) !== oldRef.translationTarget) pluginFail('LYRIC_RESULT_CHANGED', 409);
     };
     await validateResult(result);
+    // A previously issued reference can outlive its cached file. Reuse this
+    // source's normal fetch/selection/adoption path only after confirming the
+    // exact pinned original and timeline, then translate the recovered copy.
+    if (translate && result?.artifact?.status === 'ready' && !result.etag
+      && typeof result.onAdopt === 'function') {
+      result = normalizeLyricSourceResult(await result.onAdopt(), source.id, song);
+      await validateResult(result);
+    }
     if (translate && typeof source.translate === 'function' && !['ready', 'not_needed'].includes(result.translation.state)) {
       result = normalizeLyricSourceResult(await source.translate(oldRef, { signal, song }), source.id, song);
       await validateResult(result);

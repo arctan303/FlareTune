@@ -172,7 +172,7 @@ test('unreadable stored lyrics return a retryable error without exposing details
   assert.equal(provider.mock.calls.length, 0);
 });
 
-test('member third-party playback follows both web automatic-AI switches and completes through waitUntil', async t => {
+test('member third-party playback follows the single AI switch and ignores the retired manual mode', async t => {
   for (const [completionEnabled, automaticCompletionEnabled] of [[false, true], [true, false], [true, true]]) {
     const f = await fixture();
     try {
@@ -190,7 +190,7 @@ test('member third-party playback follows both web automatic-AI switches and com
         assert.ok(new URL(input).hostname.includes('deepseek'));
         aiCalls += 1;
         return Response.json({ choices: [{ message: { content: JSON.stringify({
-          songLanguage: 'en', discardLineIndices: [], translations: [{ unitId: 0, text: '你好' }],
+          translations: [{ unitId: 0, text: '你好' }],
         }) } }] });
       });
       const options = { username: 'member', executionContext: { waitUntil: task => tasks.push(task) } };
@@ -198,7 +198,7 @@ test('member third-party playback follows both web automatic-AI switches and com
       assert.equal(result.status, 'ok');
       await Promise.all(tasks);
       const read = JSON.parse(new TextDecoder().decode(f.objects.get('media/lyrics/s1.json').bytes));
-      if (completionEnabled && automaticCompletionEnabled) {
+      if (completionEnabled) {
         assert.ok(tasks.length > 0); assert.equal(aiCalls, 1, JSON.stringify(read.aiCompletion)); assert.equal(read.translation?.lines[0], '你好');
         const refresh = await payload(await f.rest('getLyricsBySongId', { id: 's1', enhanced: true }, options));
         assert.equal(refresh.lyricsList.structuredLyrics[1].line[0].value, '你好');

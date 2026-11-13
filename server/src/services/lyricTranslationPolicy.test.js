@@ -12,7 +12,7 @@ const original = { source: 'manual', format: 'lrc', syncMode: 'line', lines: [
   { time: 12, text: '窗外的风轻轻吹过' },
 ] };
 
-test('Chinese verses with individual embedded Latin words are not a foreign passage', () => {
+test('Chinese dominant tags do not translate individual foreign words or inserted sentences', () => {
   for (const targetLanguage of ['zh', 'zh-Hant']) {
     assert.equal(shouldAiCompleteLyrics(original, chinese, { targetLanguage }), false);
     for (const aiCompletion of [null,
@@ -26,7 +26,7 @@ test('Chinese verses with individual embedded Latin words are not a foreign pass
     }
   }
   for (const text of ['I will be waiting for you', '我轻轻说 I love you', 'Yesterday']) {
-    assert.equal(shouldAiCompleteLyrics({ ...original, lines: [...original.lines, { time: 30, text }] }, chinese), true);
+    assert.equal(shouldAiCompleteLyrics({ ...original, lines: [...original.lines, { time: 30, text }] }, chinese), false);
   }
   assert.equal(shouldAiCompleteLyrics(original, chinese, { targetLanguage: 'en' }), true);
   assert.equal(shouldAiCompleteLyrics(original, { ...chinese, language: 'other' }), true);

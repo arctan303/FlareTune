@@ -18,15 +18,15 @@ test('AI completes an imported draft without persisting lyrics or song language'
   } };
   const result = await completeLyricDraft({
     env: { SETUP_SECRET: 's'.repeat(48) }, db,
-    song: makeSong({ language: 'ja' }), actorAccountId: 'admin', etag: null,
+    song: makeSong({ language: 'other' }), actorAccountId: 'admin', etag: null,
     lines: [{ time: 1, text: 'Hello world' }],
     deps: {
       reserveDailyQuota: async () => true,
       getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test',
         targetLanguage: 'zh', detectLanguage: true, cleanDirtyLyrics: false }),
       resolveAiFeature: async () => null,
-      askAI: async () => ({ translations: [{ unitId: 0, text: '你好世界' }], songLanguage: 'en',
-        discardLineIndices: [] }),
+      askAI: async messages => JSON.parse(messages.at(-1).content).languageTable
+        ? { language: 'en', match: 0.97 } : { translations: [{ unitId: 0, text: '你好世界' }] },
     },
   });
   assert.equal(result.status, 'ready');
@@ -47,7 +47,8 @@ test('AI redo replaces English provider translation with the actual configured t
       getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test',
         targetLanguage: 'zh', detectLanguage: false, cleanDirtyLyrics: false }),
       resolveAiFeature: async () => null,
-      askAI: async () => ({ translations: [{ unitId: 0, text: '你好' }] }),
+      askAI: async messages => JSON.parse(messages.at(-1).content).languageTable
+        ? { language: 'ja', match: 0.97 } : { translations: [{ unitId: 0, text: '你好' }] },
     },
   });
   assert.equal(result.status, 'ready');
@@ -65,8 +66,9 @@ test('draft AI removes identified credits before returning editable lyrics and r
       getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test',
         targetLanguage: 'zh', detectLanguage: true, cleanDirtyLyrics: true }),
       resolveAiFeature: async () => null,
-      askAI: async () => ({ translations: [{ unitId: 1, text: '你好世界' }],
-        songLanguage: 'en', discardLineIndices: [0] }),
+      askAI: async messages => JSON.parse(messages.at(-1).content).languageTable
+        ? { language: 'en', match: 0.97 }
+        : { translations: [{ unitId: 1, text: '你好世界' }], discardLineIndices: [0] },
     },
   });
   assert.equal(result.status, 'ready');

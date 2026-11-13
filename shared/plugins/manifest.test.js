@@ -23,9 +23,9 @@ test('plugin release ordering is numeric in every component and rejects versions
   }
 });
 
-test('API4 capabilities preserve earlier packages and service slots require bounded declared dependencies', () => {
-  assert.equal(HOST_PLUGIN_API_VERSION, 4);
-  for (const hostApiVersion of [1, 2, 3, 4]) {
+test('API5 capabilities preserve earlier packages and service slots require bounded declared dependencies', () => {
+  assert.equal(HOST_PLUGIN_API_VERSION, 5);
+  for (const hostApiVersion of [1, 2, 3, 4, 5]) {
     assert.equal(resolvePluginAvailability([manifest('compatible', { hostApiVersion })], ['compatible'], 'compatible').available, true);
   }
   const dependency = { dependencies: { provider: { apiVersion: 1 } } };
@@ -38,13 +38,13 @@ test('API4 capabilities preserve earlier packages and service slots require boun
   ]) assert.throws(() => validatePluginManifests([manifest('consumer', extra)]));
 });
 
-test('host API 4 preserves existing API 1, 2 and 3 packages and rejects newer minimum requirements', () => {
-  assert.equal(HOST_PLUGIN_API_VERSION, 4);
-  for (const hostApiVersion of [1, 2, 3, 4]) {
+test('host API 5 preserves existing API 1–4 packages and rejects newer minimum requirements', () => {
+  assert.equal(HOST_PLUGIN_API_VERSION, 5);
+  for (const hostApiVersion of [1, 2, 3, 4, 5]) {
     const item = manifest('compatible', { hostApiVersion });
     assert.equal(resolvePluginAvailability([item], ['compatible'], 'compatible').available, true);
   }
-  const future = manifest('future', { hostApiVersion: 5 });
+  const future = manifest('future', { hostApiVersion: 6 });
   assert.equal(resolvePluginAvailability([future], ['future'], 'future').reason, 'host_incompatible');
 });
 
@@ -104,8 +104,8 @@ test('locale claims require complete metadata, valid defaults and declared label
 });
 
 test('introductions are optional bounded plain-text paragraphs for legacy and localized packages without an API change', () => {
-  assert.equal(HOST_PLUGIN_API_VERSION, 4);
-  for (const hostApiVersion of [1, 2, 3, 4]) {
+  assert.equal(HOST_PLUGIN_API_VERSION, 5);
+  for (const hostApiVersion of [1, 2, 3, 4, 5]) {
     const legacy = manifest('legacy', { hostApiVersion });
     assert.equal(validatePluginManifests([legacy])[0], legacy);
     assert.equal(legacy.introduction, undefined);
