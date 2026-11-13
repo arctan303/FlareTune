@@ -10,7 +10,7 @@ export const pluginBuilds = Object.freeze([
     "hostApiVersion": 3,
     "apiVersion": 1,
     "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-    "sourceDigest": "30aac4ac49575df2e2c65cd9882990a57ead8fdfd544ed4bf6aee3cc71146bb0"
+    "sourceDigest": "0a1099ec5e7043ceba978d7dc03e12e380f8d42075bcd0cef6541d5c26af16f3"
   },
   {
     "id": "assistant",
@@ -18,7 +18,7 @@ export const pluginBuilds = Object.freeze([
     "hostApiVersion": 3,
     "apiVersion": 1,
     "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-    "sourceDigest": "67a230a7994b91d0336c6e99c7656ab3c1534047af64be17aa2f79194645ac50"
+    "sourceDigest": "25eef7801e3159ba659b582efc287158d868c3241f56a64e2c90cbdb6751d8f4"
   },
   {
     "id": "lyrics-workbench",
@@ -26,7 +26,7 @@ export const pluginBuilds = Object.freeze([
     "hostApiVersion": 3,
     "apiVersion": 1,
     "manifestDigest": "58d79711ead9a562b0a432f4675b7612deb7fad14689abcf01f9ea6a9e8d95b1",
-    "sourceDigest": "492765d500e625eea0dd71f9396bbfa11c6a31f73b6e2aa294555022f8f10078"
+    "sourceDigest": "48503bf03711b9f19a7c419bdc20b771fdfe1f982b0e6104180207c4e61ad059"
   },
   {
     "id": "roam",
@@ -34,7 +34,7 @@ export const pluginBuilds = Object.freeze([
     "hostApiVersion": 2,
     "apiVersion": 1,
     "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-    "sourceDigest": "4999c5369bb18e2e923332729d50faa9da573e091ce0b3a108849521a1e41d9c"
+    "sourceDigest": "a99190bd4339b6746fd56481415f0f7e60a104d9ab3a1b6ca76f2c62d40483bf"
   },
   {
     "id": "xiaomi-speaker",
@@ -42,7 +42,7 @@ export const pluginBuilds = Object.freeze([
     "hostApiVersion": 2,
     "apiVersion": 1,
     "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-    "sourceDigest": "56d1e3834dd791f20ca074f23e95c9ee3aa026be83ef66ed48b2c4965c999c72"
+    "sourceDigest": "561b46ca9c2cbb94c262064e870e5e0f9e90fa4412cf4ef5467c241de63315d4"
   },
   {
     "id": "youtube-music",
@@ -50,6 +50,6 @@ export const pluginBuilds = Object.freeze([
     "hostApiVersion": 3,
     "apiVersion": 1,
     "manifestDigest": "8b13d1a2614f3098fcb4ba4207fa567135ceffeb9c44cd3c8bad7fddfeab558d",
-    "sourceDigest": "2be2f28323c01b7bce1b1aaf7292742d5237d7d2b0dc398ec0c0259dee50813e"
+    "sourceDigest": "7b03868cfb1735be97342c6381f5cbe298b6c364534c8edc1d0e4c60aa9b7fdc"
   }
 ]);

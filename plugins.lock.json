@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "30aac4ac49575df2e2c65cd9882990a57ead8fdfd544ed4bf6aee3cc71146bb0",
+      "sourceDigest": "0a1099ec5e7043ceba978d7dc03e12e380f8d42075bcd0cef6541d5c26af16f3",
       "sources": [
         {
           "path": "client/index.html",
@@ -2885,19 +2885,19 @@
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/ai.js",
-          "sha256": "8ea2dbfaa97922a240d088d085ecc37aa0162b18c713caaee9543aa6fb3665c3"
+          "sha256": "595248bc59c4e5004cd5e9a9c46c7254f045bde2ed313071f29d2b126a7fcb4b"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/client.js",
-          "sha256": "e0c58969104fddb185bf8e19f7bad1bcb8acd1cda9cb749115af70d3c9f176b5"
+          "sha256": "61ef145901e53902d32888f0318e970d72f4a28b4be14d713d73791cf963cb76"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/consumer-model.js",
-          "sha256": "09158333e89c1def5e5dd78b9671c57c01ddb4fd1680e2fb17601310d82b40d3"
+          "sha256": "102bab4b37386f465799a5fb8d7d4b5542293a24e839f94b5e8ccb2bbd98cc75"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/shared/aiProtocols.js",
-          "sha256": "bf57e0c4fa83c64dfaab53500639f9cc442a7712bdb454bfb6fe4aca4f793336"
+          "sha256": "9f07347206a44ca287677379429d4117fc096147294fb051857595a691006635"
         },
         {
           "path": "shared/plugins/.api/roam/client/state.js",
@@ -3804,7 +3804,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "67a230a7994b91d0336c6e99c7656ab3c1534047af64be17aa2f79194645ac50",
+      "sourceDigest": "25eef7801e3159ba659b582efc287158d868c3241f56a64e2c90cbdb6751d8f4",
       "sources": [
         {
           "path": "client/index.html",
@@ -6676,19 +6676,19 @@
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/ai.js",
-          "sha256": "8ea2dbfaa97922a240d088d085ecc37aa0162b18c713caaee9543aa6fb3665c3"
+          "sha256": "595248bc59c4e5004cd5e9a9c46c7254f045bde2ed313071f29d2b126a7fcb4b"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/client.js",
-          "sha256": "e0c58969104fddb185bf8e19f7bad1bcb8acd1cda9cb749115af70d3c9f176b5"
+          "sha256": "61ef145901e53902d32888f0318e970d72f4a28b4be14d713d73791cf963cb76"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/consumer-model.js",
-          "sha256": "09158333e89c1def5e5dd78b9671c57c01ddb4fd1680e2fb17601310d82b40d3"
+          "sha256": "102bab4b37386f465799a5fb8d7d4b5542293a24e839f94b5e8ccb2bbd98cc75"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/shared/aiProtocols.js",
-          "sha256": "bf57e0c4fa83c64dfaab53500639f9cc442a7712bdb454bfb6fe4aca4f793336"
+          "sha256": "9f07347206a44ca287677379429d4117fc096147294fb051857595a691006635"
         },
         {
           "path": "shared/plugins/.api/roam/client/state.js",
@@ -7867,7 +7867,7 @@
       "apiVersion": 1,
       "source": "artifact:official:c02e265bfe797d993011648e0c8a5424e7b43829f9b540d849c5eafe6619dcf9",
       "manifestDigest": "58d79711ead9a562b0a432f4675b7612deb7fad14689abcf01f9ea6a9e8d95b1",
-      "sourceDigest": "492765d500e625eea0dd71f9396bbfa11c6a31f73b6e2aa294555022f8f10078",
+      "sourceDigest": "48503bf03711b9f19a7c419bdc20b771fdfe1f982b0e6104180207c4e61ad059",
       "sources": [
         {
           "path": "client/index.html",
@@ -10739,19 +10739,19 @@
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/ai.js",
-          "sha256": "8ea2dbfaa97922a240d088d085ecc37aa0162b18c713caaee9543aa6fb3665c3"
+          "sha256": "595248bc59c4e5004cd5e9a9c46c7254f045bde2ed313071f29d2b126a7fcb4b"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/client.js",
-          "sha256": "e0c58969104fddb185bf8e19f7bad1bcb8acd1cda9cb749115af70d3c9f176b5"
+          "sha256": "61ef145901e53902d32888f0318e970d72f4a28b4be14d713d73791cf963cb76"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/consumer-model.js",
-          "sha256": "09158333e89c1def5e5dd78b9671c57c01ddb4fd1680e2fb17601310d82b40d3"
+          "sha256": "102bab4b37386f465799a5fb8d7d4b5542293a24e839f94b5e8ccb2bbd98cc75"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/shared/aiProtocols.js",
-          "sha256": "bf57e0c4fa83c64dfaab53500639f9cc442a7712bdb454bfb6fe4aca4f793336"
+          "sha256": "9f07347206a44ca287677379429d4117fc096147294fb051857595a691006635"
         },
         {
           "path": "shared/plugins/.api/roam/client/state.js",
@@ -11774,7 +11774,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "4999c5369bb18e2e923332729d50faa9da573e091ce0b3a108849521a1e41d9c",
+      "sourceDigest": "a99190bd4339b6746fd56481415f0f7e60a104d9ab3a1b6ca76f2c62d40483bf",
       "sources": [
         {
           "path": "client/index.html",
@@ -14646,19 +14646,19 @@
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/ai.js",
-          "sha256": "8ea2dbfaa97922a240d088d085ecc37aa0162b18c713caaee9543aa6fb3665c3"
+          "sha256": "595248bc59c4e5004cd5e9a9c46c7254f045bde2ed313071f29d2b126a7fcb4b"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/client.js",
-          "sha256": "e0c58969104fddb185bf8e19f7bad1bcb8acd1cda9cb749115af70d3c9f176b5"
+          "sha256": "61ef145901e53902d32888f0318e970d72f4a28b4be14d713d73791cf963cb76"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/consumer-model.js",
-          "sha256": "09158333e89c1def5e5dd78b9671c57c01ddb4fd1680e2fb17601310d82b40d3"
+          "sha256": "102bab4b37386f465799a5fb8d7d4b5542293a24e839f94b5e8ccb2bbd98cc75"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/shared/aiProtocols.js",
-          "sha256": "bf57e0c4fa83c64dfaab53500639f9cc442a7712bdb454bfb6fe4aca4f793336"
+          "sha256": "9f07347206a44ca287677379429d4117fc096147294fb051857595a691006635"
         },
         {
           "path": "shared/plugins/.api/roam/client/state.js",
@@ -15513,7 +15513,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "56d1e3834dd791f20ca074f23e95c9ee3aa026be83ef66ed48b2c4965c999c72",
+      "sourceDigest": "561b46ca9c2cbb94c262064e870e5e0f9e90fa4412cf4ef5467c241de63315d4",
       "sources": [
         {
           "path": "client/index.html",
@@ -18385,19 +18385,19 @@
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/ai.js",
-          "sha256": "8ea2dbfaa97922a240d088d085ecc37aa0162b18c713caaee9543aa6fb3665c3"
+          "sha256": "595248bc59c4e5004cd5e9a9c46c7254f045bde2ed313071f29d2b126a7fcb4b"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/client.js",
-          "sha256": "e0c58969104fddb185bf8e19f7bad1bcb8acd1cda9cb749115af70d3c9f176b5"
+          "sha256": "61ef145901e53902d32888f0318e970d72f4a28b4be14d713d73791cf963cb76"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/consumer-model.js",
-          "sha256": "09158333e89c1def5e5dd78b9671c57c01ddb4fd1680e2fb17601310d82b40d3"
+          "sha256": "102bab4b37386f465799a5fb8d7d4b5542293a24e839f94b5e8ccb2bbd98cc75"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/shared/aiProtocols.js",
-          "sha256": "bf57e0c4fa83c64dfaab53500639f9cc442a7712bdb454bfb6fe4aca4f793336"
+          "sha256": "9f07347206a44ca287677379429d4117fc096147294fb051857595a691006635"
         },
         {
           "path": "shared/plugins/.api/roam/client/state.js",
@@ -19260,7 +19260,7 @@
       "apiVersion": 1,
       "source": "artifact:official:16a72a518fd2c8be872d12a53fe3c0d5278529eddebd5b62c685247bf2bf96ce",
       "manifestDigest": "8b13d1a2614f3098fcb4ba4207fa567135ceffeb9c44cd3c8bad7fddfeab558d",
-      "sourceDigest": "2be2f28323c01b7bce1b1aaf7292742d5237d7d2b0dc398ec0c0259dee50813e",
+      "sourceDigest": "7b03868cfb1735be97342c6381f5cbe298b6c364534c8edc1d0e4c60aa9b7fdc",
       "sources": [
         {
           "path": "client/index.html",
@@ -22132,19 +22132,19 @@
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/ai.js",
-          "sha256": "8ea2dbfaa97922a240d088d085ecc37aa0162b18c713caaee9543aa6fb3665c3"
+          "sha256": "595248bc59c4e5004cd5e9a9c46c7254f045bde2ed313071f29d2b126a7fcb4b"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/client.js",
-          "sha256": "e0c58969104fddb185bf8e19f7bad1bcb8acd1cda9cb749115af70d3c9f176b5"
+          "sha256": "61ef145901e53902d32888f0318e970d72f4a28b4be14d713d73791cf963cb76"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/server/consumer-model.js",
-          "sha256": "09158333e89c1def5e5dd78b9671c57c01ddb4fd1680e2fb17601310d82b40d3"
+          "sha256": "102bab4b37386f465799a5fb8d7d4b5542293a24e839f94b5e8ccb2bbd98cc75"
         },
         {
           "path": "shared/plugins/.api/ai-gateway/shared/aiProtocols.js",
-          "sha256": "bf57e0c4fa83c64dfaab53500639f9cc442a7712bdb454bfb6fe4aca4f793336"
+          "sha256": "9f07347206a44ca287677379429d4117fc096147294fb051857595a691006635"
         },
         {
           "path": "shared/plugins/.api/roam/client/state.js",
