@@ -59,7 +59,13 @@ export async function media(method, p, request, env, executionContext, accountId
     const read = await readLyricsFromChain({ env, db, song: row, accountId, executionContext, signal: request.signal,
       deps: { subsonicPrincipal } });
     if (read.state === 'song_deleted') reject(70, 'Song was not found');
-    const artifact = read.artifact;
+    // The unified reader owns translation validity and already applied the
+    // offset. Do not expose a rejected stored layer or shift its timeline twice.
+    const lyrics = read.lyrics;
+    const artifact = lyrics?.lines?.length ? {
+      status: 'ready', original: { lines: lyrics.lines, syncMode: lyrics.syncMode }, offsetMs: 0,
+      translation: lyrics.translationAvailable && lyrics.translation?.state === 'ready' ? lyrics.translation : null,
+    } : null;
     const lines = artifact?.status === 'ready' ? artifact.original?.lines || [] : [];
     if (method === 'getLyrics') return { lyrics: { artist: row.artist || '', title: row.title,
       value: lines.map((line) => line.text).join('\n') } };

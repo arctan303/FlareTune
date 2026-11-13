@@ -158,7 +158,7 @@ test('saving a signed AI draft for YT stores its lyric document without attempti
   const artifact = await buildEditedLyricArtifact(ytSong, lines);
   const aiReceipt = await createLyricDraftReceipt(env, { songId: ytSong.id,
     accountId: admin.account.accountId, etag: null, language: 'en', textHash: artifact.textHash });
-  const req = request(`${workspacePath}/document`, 'PUT', { etag: null, lines, aiReceipt });
+  const req = request(`${workspacePath}/document`, 'PUT', { etag: null, lines, aiReceipt, translationLanguage: 'zh' });
   const response = await handleLocalLyricsManageRoute(req, new URL(req.url), db, {}, admin, env,
     { store, resolveSong: async () => ytSong, songStillExists: async () => true });
   assert.equal(response.status, 200);

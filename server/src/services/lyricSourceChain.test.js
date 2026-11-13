@@ -41,6 +41,18 @@ test('source failure or timeout continues and emits only safe diagnostic codes',
   assert.equal((await selectLyricSource({ sources, order: sources.map(s => s.id), song, onDiagnostic: row => diagnostics.push(row) })).source.id, 'file');
   assert.equal(diagnostics.length, 2); assert.ok(!JSON.stringify(diagnostics).includes('private'));
 });
+test('source faults without a fallback remain retryable rather than becoming not found', async () => {
+  for (const broken of [provider('broken', () => { throw new Error('private upstream detail'); }),
+    { ...provider('slow', () => new Promise(() => {})), timeoutMs: 5 },
+    provider('adoption', () => ({ ...value(), onAdopt: () => { throw new Error('write failed'); } }))]) {
+    const sources = [broken, provider('file', () => null)];
+    await assert.rejects(selectLyricSource({ sources, order: sources.map(source => source.id), song, adopt: true }),
+      error => error.name === 'LyricSourceError' && !error.message.includes('private'));
+  }
+  assert.equal(await selectLyricSource({ sources: [provider('file', () => null)], order: ['file'], song }), null);
+  const sources = [provider('broken', () => { throw new Error('upstream'); }), provider('weak', () => value('weak'))];
+  assert.equal((await selectLyricSource({ sources, order: ['broken', 'weak'], song })).source.id, 'weak');
+});
 test('parent cancellation does not try another source', async () => {
   const controller = new AbortController(); controller.abort();
   await assert.rejects(selectLyricSource({ sources: [provider('file', () => assert.fail())], order: ['file'], song, signal: controller.signal }));
@@ -49,6 +61,26 @@ test('a translation must be paired with all canonical rows', () => {
   assert.throws(() => normalizeLyricSourceResult({ ...value(), translation: { supported: true, state: 'ready', lines: ['译文'] } }, 'first'));
   const normalized = normalizeLyricSourceResult({ ...value(), translation: { supported: true, state: 'idle' } }, 'first');
   assert.equal(normalized.translation.supported, true); assert.equal(normalized.translation.state, 'idle');
+});
+test('the host filters same-language provider rewrites and copied rows before advertising translation', () => {
+  const chinese = { ...song, language: 'zh' };
+  const chineseDocument = createLyricDocument({ source: 'youtube', format: 'lrc',
+    lines: [{ text: '把心事写在日记里', time: 1 }] });
+  const normalized = normalizeLyricSourceResult({ quality: 'good', document: chineseDocument,
+    translation: { supported: true, state: 'ready', language: 'zh-CN', targetLanguage: 'zh-CN',
+      source: 'youtube', lines: ['将心事记在本子上'] } }, 'youtube-music', chinese);
+  assert.equal(normalized.translation.supported, false);
+  assert.equal(normalized.translation.state, 'not_needed');
+  const copied = normalizeLyricSourceResult({ ...value(), translation: { supported: true, state: 'ready',
+    language: 'zh', source: 'youtube', lines: document.lines.map(line => line.text) } }, 'youtube-music', song);
+  assert.equal(copied.translation.supported, true);
+  assert.equal(copied.translation.state, 'failed');
+  const partial = normalizeLyricSourceResult({ ...value(), translation: { supported: true, state: 'ready',
+    language: 'zh', source: 'youtube', lines: [document.lines[0].text, '第二行'] } }, 'youtube-music', song);
+  assert.deepEqual(partial.translation.lines, ['', '第二行']);
+  const embedded = normalizeLyricSourceResult({ ...value(), document: { ...document,
+    lines: document.lines.map(line => ({ ...line, tlyric: 'undeclared translation' })) } }, 'provider', song);
+  assert.ok(embedded.document.lines.every(line => !Object.hasOwn(line, 'tlyric')));
 });
 test('order excludes retired sources, preserves remaining relative order and appends new providers', () => {
   assert.deepEqual(effectiveLyricSourceOrder(['youtube-music', 'gone', 'file', 'lyrics-workbench'], ['file', 'lyrics-workbench', 'new']), ['file', 'lyrics-workbench', 'new']);

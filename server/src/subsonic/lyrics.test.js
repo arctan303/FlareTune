@@ -130,3 +130,32 @@ test('authenticated HTTP opt-in returns stored word and translation layers while
   const xml = await (await f.rest('getLyricsBySongId.view', { id: 's1', enhanced: true, f: 'xml' })).text();
   assert.match(xml, /kind="main"/); assert.match(xml, /kind="translation"/); assert.match(xml, /<cueLine/);
 });
+
+test('Web and enhanced Subsonic use the same projected translation and apply offsets once', async t => {
+  const f = await fixture(); t.after(f.close); await f.enable();
+  f.sqlite.exec("UPDATE Songs SET language='zh' WHERE id='s1'");
+  const original = ['春风吹过山岗', '月光落在窗前'];
+  for (const translation of [original, ['Spring winds cross the hills', 'Moonlight falls by the window']]) {
+    const { artifact } = await buildReadyLyricArtifact({ ...song, language: 'zh' }, {
+      source: 'manual', format: 'lrc', lines: original.map((text, index) => ({
+        time: index + 1, text, tlyric: translation[index],
+        words: [{ text, startTime: index + 1, endTime: index + 2 }],
+      })),
+    }, { offsetMs: 500, targetLanguage: translation === original ? 'zh' : 'en' });
+    f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(artifact)), type: 'application/json' });
+    const web = await (await f.api('lyrics?songId=s1')).json();
+    const protocol = (await (await f.rest('getLyricsBySongId', { id: 's1', enhanced: true })).json())['subsonic-response'];
+    const layers = protocol.lyricsList.structuredLyrics;
+    assert.equal(layers.length, web.data.translationAvailable ? 2 : 1,
+      'a translation rejected by the unified reader must not escape through the stored artifact');
+    assert.deepEqual(layers[0].line.map(line => line.value), web.data.lines.map(line => line.text));
+    assert.deepEqual(layers[0].line.map(line => line.start), web.data.lines.map(line => Math.round(line.time * 1000)));
+    assert.equal(layers[0].cueLine[0].cue[0].start, 1500);
+    assert.equal(layers[0].cueLine[0].cue[0].end, 2500);
+    if (web.data.translationAvailable) {
+      assert.equal(layers[1].lang, web.data.translation.language);
+      assert.deepEqual(layers[1].line.map(line => line.value), web.data.translation.lines);
+      assert.equal(layers[1].line[0].start, 1500);
+    }
+  }
+});

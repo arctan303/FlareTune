@@ -86,11 +86,12 @@ test('Gateway uninstall during an external AI save source check prevents the raw
   const store = { ...raw, putIfMatch: (...args) => { putCalls++; return raw.putIfMatch(...args); } };
   f = await app(t, { store, resolveSong: async id => ({ id, title: 'External song', artist: 'Artist', language: 'en' }),
     songStillExists: async () => { if (afterReply && ++checks === 2) { entered.resolve(); await released.promise; } return true; },
-    aiDeps: { reserveDailyQuota: async () => true, createGatewayClient: async params => {
+    aiDeps: { loadLyricAiConfig: async () => ({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh' }),
+      reserveDailyQuota: async () => true, createGatewayClient: async params => {
       const lease = await createPluginServiceLease({ ...params, providerId: 'ai-gateway', registry: f.registry });
       assert.deepEqual(params.configuration, { slot: 'ai-model' });
       return { config: { provider: 'deepseek', model: 'fixture-model', generationOptions: { temperature: 0.2 } }, assertCurrent: lease.assertCurrent, guardedDb: lease.guardedDb,
-        ask: async () => { asked.resolve(); await reply.promise; return { translations: [{ unitId: 0, text: 'Late translation' }] }; } };
+        ask: async () => { asked.resolve(); await reply.promise; return { translations: [{ unitId: 0, text: '你好' }] }; } };
     } } });
   await f.install(); await f.install('ai-gateway');
   assert.equal((await f.call(`/workspace/${encodeURIComponent(songId)}/ai-completion`, 'POST', {})).status, 202);

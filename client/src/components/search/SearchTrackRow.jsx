@@ -56,6 +56,8 @@ export function SearchTrackRow({
   const isCurrent = currentSong?.id === song.id;
   const songLang = resolveSongLanguage(song);
   const artistLabel = song.artist || t('歌手未设置');
+  const displayTitle = isYouTubeEntity(song) && typeof song.displayTitle === 'string' && song.displayTitle.trim()
+    ? song.displayTitle : song.title;
   const moreButtonRef = useRef(null);
 
   return (
@@ -69,15 +71,15 @@ export function SearchTrackRow({
           className="track-row__main-action"
           onClick={(event) => (selecting ? onToggleBulkSelection(song, event) : onPlay(song, songs))}
           aria-label={selecting
-            ? `${isBulkSelected ? t("取消选择") : t("选择")} ${song.title}`
-            : t("播放 {p0} - {p1}", { p0: song.title, p1: artistLabel })}
+            ? `${isBulkSelected ? t("取消选择") : t("选择")} ${displayTitle}`
+            : t("播放 {p0} - {p1}", { p0: displayTitle, p1: artistLabel })}
         />
         <div className="track-row__state" aria-hidden="true"></div>
         <div className="track-row__cover relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
           <LazyImage
             src={song.cover_url || '/placeholder-album.svg'}
             className="h-full w-full object-cover"
-            alt={song.title ? t("{p0} - {p1} 专辑封面", { p0: song.title, p1: artistLabel }) : t("专辑封面")}
+            alt={displayTitle ? t("{p0} - {p1} 专辑封面", { p0: displayTitle, p1: artistLabel }) : t("专辑封面")}
           />
           {isCurrent && isPlaying ? (
             <div className="playing-bars" aria-label={t("正在播放")}>
@@ -88,7 +90,7 @@ export function SearchTrackRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
             <h4 className="track-row__title truncate text-sm font-semibold">
-              <HighlightText text={song.title} query={query} />
+              <HighlightText text={displayTitle} query={query} />
             </h4>
             {(() => {
               if (isYouTubeEntity(song) && !song.language) return null;
@@ -135,7 +137,7 @@ export function SearchTrackRow({
               type="button"
               onClick={(event) => onToggleBulkSelection(song, event)}
               aria-pressed={isBulkSelected}
-              aria-label={`${isBulkSelected ? t("取消选择") : t("选择")} ${song.title}`}
+              aria-label={`${isBulkSelected ? t("取消选择") : t("选择")} ${displayTitle}`}
               className={`track-row__action rounded-full border ${isBulkSelected ? 'border-[var(--accent)] bg-[var(--accent)] text-white opacity-100' : 'border-[var(--line)]'}`}
             >
               {isBulkSelected ? <Check size={16} /> : <span className="h-4 w-4" aria-hidden="true" />}
@@ -151,7 +153,7 @@ export function SearchTrackRow({
               }}
               className={`track-row__action ${isMenuOpen ? 'text-[var(--accent-strong)] opacity-100' : ''}`}
               title={t("更多操作")}
-              aria-label={t("更多操作：{p0}", { p0: (song.title) })}
+              aria-label={t("更多操作：{p0}", { p0: displayTitle })}
               aria-haspopup="menu"
               aria-expanded={isMenuOpen}
             >

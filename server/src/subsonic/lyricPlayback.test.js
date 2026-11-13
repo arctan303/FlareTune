@@ -113,15 +113,15 @@ test('instrumental and unauthorized requests do not read assets, fetch providers
   assert.equal(f.mediaReads(), before); assert.equal(provider.mock.calls.length, 0);
 });
 
-test('temporary provider failures fall through to empty lyrics without leaking details or saving a miss marker', async t => {
+test('temporary provider failures return a retryable error without leaking details or saving a miss marker', async t => {
   const f = await fixture(); t.after(f.close); await f.enable(); await installWorkbench(f); config(f);
   f.sqlite.exec("UPDATE Songs SET title='Temporary provider failure',language='en' WHERE id='s1'");
   const provider = t.mock.method(globalThis, 'fetch', async () => new Response('private-upstream-failure', { status: 503 }));
   const response = await f.rest('getLyricsBySongId', { id: 's1' });
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 503);
   const result = await payload(response);
-  assert.equal(result.status, 'ok');
-  assert.deepEqual(result.lyricsList.structuredLyrics, []);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 0);
   assert.doesNotMatch(JSON.stringify(result), /private-upstream-failure|lrclib|media\/lyrics|503/u);
   assert.ok(provider.mock.calls.length > 0);
   assert.equal(f.objects.has('media/lyrics/s1.json'), false);
@@ -157,16 +157,16 @@ test('deleting a song during source retrieval cannot recreate its lyric asset', 
   assert.equal(result.error?.code, 70, 'a song deleted during retrieval must remain not found');
 });
 
-test('unreadable stored lyrics fall through to empty without exposing details or replacing the stored file', async t => {
+test('unreadable stored lyrics return a retryable error without exposing details or replacing the stored file', async t => {
   const f = await fixture(); t.after(f.close); await f.enable(); config(f);
   const broken = { bytes: new TextEncoder().encode('{broken-json'), type: 'application/json' };
   f.objects.set('media/lyrics/s1.json', broken);
   const provider = t.mock.method(globalThis, 'fetch', async () => { throw new Error('No source plugin installed'); });
   const response = await f.rest('getLyricsBySongId', { id: 's1' });
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 503);
   const result = await payload(response);
-  assert.equal(result.status, 'ok');
-  assert.deepEqual(result.lyricsList.structuredLyrics, []);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 0);
   assert.doesNotMatch(JSON.stringify(result), /broken-json|media\/lyrics|storage/u);
   assert.strictEqual(f.objects.get('media/lyrics/s1.json'), broken);
   assert.equal(provider.mock.calls.length, 0);

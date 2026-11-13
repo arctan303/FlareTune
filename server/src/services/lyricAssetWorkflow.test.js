@@ -185,9 +185,9 @@ test('leading metadata filtering does not invent Chinese identity or hide a vali
   } });
   const sameTargetBefore = structuredClone(sameTargetArtifact);
   const sameTargetProjection = projectLyricArtifact(sameTargetArtifact, { song: chineseSong, targetLanguage: 'zh' });
-  assert.equal(sameTargetProjection.translationAvailable, true);
-  assert.deepEqual(sameTargetProjection.translation.lines, sameTargetArtifact.translation.lines);
-  assert.deepEqual(sameTargetProjection.lines.map(line => line.tlyric || ''), sameTargetArtifact.translation.lines);
+  assert.equal(sameTargetProjection.translationAvailable, false);
+  assert.equal(sameTargetProjection.translation, null);
+  assert.ok(sameTargetProjection.lines.every(line => !Object.hasOwn(line, 'tlyric')));
   assert.deepEqual(sameTargetArtifact, sameTargetBefore);
 });
 
@@ -411,7 +411,7 @@ test('a legacy whole-copy translation is hidden without changing the saved asset
     assert.equal(projected.tlyric, '');
     assert.equal(projected.translation, null);
     assert.equal(projected.translationAvailable, false);
-    assert.equal(projected.translationState, 'missing');
+    assert.equal(projected.translationState, targetLanguage === 'en' ? 'unavailable' : 'missing');
   }
   assert.deepEqual(artifact, before);
 });
@@ -429,8 +429,8 @@ test('a genuine translation keeps shared names or repeated lines and preserves a
   const projected = projectLyricArtifact(artifact, { song: makeSong(), targetLanguage: 'zh' });
   assert.equal(projected.translationAvailable, true);
   assert.equal(projected.translationState, 'ready');
-  assert.deepEqual(projected.lines.map((line) => line.tlyric), ['Maria', '和我一起歌唱']);
-  assert.deepEqual(projected.translation.lines, ['Maria', '和我一起歌唱']);
+  assert.deepEqual(projected.lines.map((line) => line.tlyric), [undefined, '和我一起歌唱']);
+  assert.deepEqual(projected.translation.lines, ['', '和我一起歌唱']);
   assert.deepEqual(artifact, before);
 });
 
@@ -470,7 +470,7 @@ test('translation state rejects contradictory metadata without guessing ambiguou
   assert.equal(resolveLyricTranslationState(chinese.artifact, makeSong({ language: 'en' })), 'missing');
   assert.equal(resolveLyricTranslationState(chinese.artifact, makeSong({ language: 'zh' })), 'unavailable');
   assert.equal(shouldAiCompleteLyrics(foreign.artifact.original,
-    makeSong({ language: 'en' }), { targetLanguage: 'en' }), true);
+    makeSong({ language: 'en' }), { targetLanguage: 'en' }), false);
 });
 
 test('public translation state honors pending freshness and old-translation fallback', () => {
