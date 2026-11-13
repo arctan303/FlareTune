@@ -3,7 +3,7 @@
   "hostApiVersion": 3,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "d9cacac89a3f3fc642e9cd99a956ff046cdbd9aebe22ffdf5198463c1c219769"
+    "sourceDigest": "718124dffa54ac7e8973ebad660cf1017896a427f16ddae968accb1b2f652e4a"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "ba751712fcddf56994b1b4dd8c29a883a7a3e644d5971681cd27b5a5b7339293",
+      "sourceDigest": "4a11817814cf4443865019a95333b0b68557f25df4b77bed54f9746e0906e446",
       "sources": [
         {
           "path": "client/index.html",
@@ -2601,7 +2601,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "bc49ef08d4585d8e64034e5c1ec824e95bc4dc8a05913684a4d3ecbd8d7c06ce"
+          "sha256": "1639ef30fff2ef66f15baa3f877cd1d19c0b4d30de6b92eeea768d7b3e1ae02a"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -3800,7 +3800,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "3f877670f9973516f8dcdb0a39f271f238317867a6f179d314ba714ff6a0d1a4",
+      "sourceDigest": "fdbf1801b35cc53c47722d8ade3072e6ecb4c30165944fd27afc9917a93f0713",
       "sources": [
         {
           "path": "client/index.html",
@@ -6388,7 +6388,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "bc49ef08d4585d8e64034e5c1ec824e95bc4dc8a05913684a4d3ecbd8d7c06ce"
+          "sha256": "1639ef30fff2ef66f15baa3f877cd1d19c0b4d30de6b92eeea768d7b3e1ae02a"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -7859,7 +7859,7 @@
       "apiVersion": 1,
       "source": "artifact:official:c02e265bfe797d993011648e0c8a5424e7b43829f9b540d849c5eafe6619dcf9",
       "manifestDigest": "58d79711ead9a562b0a432f4675b7612deb7fad14689abcf01f9ea6a9e8d95b1",
-      "sourceDigest": "31e1f18ffb9a253c67236ffd6027af3a5dd186393fe374cdd5fe2f9f3b8846e0",
+      "sourceDigest": "c0e40c4f6d02c9ab1d53eb6842fff5e3269291eaf63344c490aec8ad9f9e830f",
       "sources": [
         {
           "path": "client/index.html",
@@ -10447,7 +10447,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "bc49ef08d4585d8e64034e5c1ec824e95bc4dc8a05913684a4d3ecbd8d7c06ce"
+          "sha256": "1639ef30fff2ef66f15baa3f877cd1d19c0b4d30de6b92eeea768d7b3e1ae02a"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -11762,7 +11762,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "90063fc46b5183e4ffc9b7404cbbf25a0a153c40243b5d4aa45e2ed8e815a92b",
+      "sourceDigest": "545f1c07c88dcbc2c0523296a80cb85e607097a09fba6f64643b2573a8403ab6",
       "sources": [
         {
           "path": "client/index.html",
@@ -14350,7 +14350,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "bc49ef08d4585d8e64034e5c1ec824e95bc4dc8a05913684a4d3ecbd8d7c06ce"
+          "sha256": "1639ef30fff2ef66f15baa3f877cd1d19c0b4d30de6b92eeea768d7b3e1ae02a"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -15497,7 +15497,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "151a75f0e2621c65135bdc5ff5768f5093411fa29fea1a09c589344633546e1c",
+      "sourceDigest": "eca0887302dca493aba45587a8f30c226d219e75920a44f2cf81aa2f6de8d300",
       "sources": [
         {
           "path": "client/index.html",
@@ -18085,7 +18085,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "bc49ef08d4585d8e64034e5c1ec824e95bc4dc8a05913684a4d3ecbd8d7c06ce"
+          "sha256": "1639ef30fff2ef66f15baa3f877cd1d19c0b4d30de6b92eeea768d7b3e1ae02a"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -19240,7 +19240,7 @@
       "apiVersion": 1,
       "source": "artifact:official:16a72a518fd2c8be872d12a53fe3c0d5278529eddebd5b62c685247bf2bf96ce",
       "manifestDigest": "8b13d1a2614f3098fcb4ba4207fa567135ceffeb9c44cd3c8bad7fddfeab558d",
-      "sourceDigest": "25be88633d8aff75826d785dea659ede8cc38d2e5c331f80798297ad53d92140",
+      "sourceDigest": "aa7aa48d45310c4131e12bcaf617e266e31990c9092dc677e49d92899a9415d2",
       "sources": [
         {
           "path": "client/index.html",
@@ -21828,7 +21828,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "bc49ef08d4585d8e64034e5c1ec824e95bc4dc8a05913684a4d3ecbd8d7c06ce"
+          "sha256": "1639ef30fff2ef66f15baa3f877cd1d19c0b4d30de6b92eeea768d7b3e1ae02a"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",

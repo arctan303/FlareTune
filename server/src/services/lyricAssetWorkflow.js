@@ -4,7 +4,7 @@ import {
   fetchSourceLyricsDocument,
 } from './lyricSourceLoader.js';
 import { applyLyricOffset } from './lyricResolution.js';
-import { createLyricDocument, projectCanonicalLrc, isSingableLineText } from '../utils/lyricDocument.js';
+import { createLyricDocument, projectCanonicalLrc, isSingableLineText, isLeadingProviderMetadata } from '../utils/lyricDocument.js';
 import { analyzeLrcLanguage, computeHash } from '../utils/lyricsParsing.js';
 import { resolveSongTranslationNeed, isValidSongLanguage } from '../utils/songLanguage.js';
 import { scheduleLyricAssetUpgrade } from './lyricAssetUpgrade.js';
@@ -67,6 +67,7 @@ export function lyricTextForHash(lines) {
 
 export function shouldAiCompleteLyrics(original, song = {}, { targetLanguage = 'zh' } = {}) {
   const meaningfulLines = (original?.lines || [])
+    .filter((line, index) => !isLeadingProviderMetadata(line, index, song))
     .map((line) => String(line?.text || '').trim())
     .filter((text) => text && !PLACEHOLDER_LYRIC_PATTERN.test(text) && isSingableLineText(text, song));
   if (meaningfulLines.length === 0) return false;
