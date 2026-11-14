@@ -340,7 +340,8 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       { ...source?.createLyricDependencies?.(env, session, ctx) });
     if (lyricSourceRoute) return lyricSourceRoute;
     const metadata = await handleLocalMetadataReadRoute(request, new URL(request.url), env.DB,
-      {}, actorAccountId, env, { ctx, session, ...source?.createLyricDependencies?.(env, session, ctx) });
+      {}, actorAccountId, env, { ctx, session, ...source?.createLyricDependencies?.(env, session, ctx),
+        requestIdentity: session.account });
     if (metadata) return metadata;
     const catalogMedia = await handleLocalCatalogMediaRoute(request, new URL(request.url), env.DB,
       {}, session, env);

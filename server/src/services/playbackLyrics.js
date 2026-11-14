@@ -6,6 +6,7 @@ import { createPluginServiceLease } from '../plugins/services.js';
 import { createSubsonicPluginServiceLease } from '../subsonic/pluginAuthority.js';
 import { guardStoreAuthority as guardLyricsStore, storeAuthorityGuard as lyricsStoreGuard } from './storeAuthority.js';
 import { isValidSongLanguage } from '../utils/songLanguage.js';
+import { externalSongDto } from './externalMusicReferences.js';
 
 // Saved translation language is a playback preference even when the optional
 // workbench is absent. Model selection, prompts and AI policy stay in its pack.
@@ -25,11 +26,27 @@ export class PlaybackLyricsError extends Error {
 
 export const isExternalLyricSongId = value => typeof value === 'string' && /^yt:[A-Za-z0-9_-]{11}$/u.test(value);
 
-// The resolver is supplied by the authenticated host. It must resolve public
-// metadata through the currently installed/connected source, never request data.
+// Prefer the authenticated account's validated reference by internal ID. Source
+// access remains live; a missing reference uses the installed provider as before.
 export async function resolveLyricSong(db, songId, deps = {}) {
   if (String(songId).startsWith('yt:')) {
-    if (!isExternalLyricSongId(songId) || typeof deps.resolveSong !== 'function') return null;
+    if (!isExternalLyricSongId(songId)) return null;
+    const accountId = deps.session?.account?.accountId || deps.accountId;
+    if (typeof accountId === 'string' && accountId && db?.prepare && typeof deps.songStillExists === 'function') {
+      let row;
+      try {
+        row = await db.prepare('SELECT metadata_json FROM Member_External_Songs WHERE account_id=? AND song_id=?')
+          .bind(accountId, songId).first();
+      } catch (error) {
+        // This optional reference table may be absent before its migration.
+        // Other database failures must not be disguised as a cache miss.
+        if (!/no such table:\s*Member_External_Songs/iu.test(String(error?.message || ''))) throw error;
+      }
+      let saved;
+      try { if (row?.metadata_json) saved = externalSongDto(JSON.parse(row.metadata_json), songId); } catch { /* Use the provider for a corrupt reference. */ }
+      if (saved) return await deps.songStillExists(songId) ? saved : null;
+    }
+    if (typeof deps.resolveSong !== 'function') return null;
     const song = await deps.resolveSong(songId);
     return song?.id === songId ? { ...song } : null;
   }

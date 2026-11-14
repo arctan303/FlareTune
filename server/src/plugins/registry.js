@@ -5,6 +5,7 @@ import { deliveryPluginModules } from './delivery.generated.js';
 import { canonicalPluginManifest, getRequiredDependents, resolvePluginAvailability, validatePluginManifests, isPluginVisibleToRole, normalizePluginUiLanguage } from '../../../shared/plugins/manifest.js';
 import { pluginFail as fail, requirePluginSession, sessionBindings, sessionPredicate, sha256 } from './common.js';
 import { preparePluginMigrations } from './migrations.js';
+import { invocationBudget } from '../services/invocationDatabase.js';
 
 export const XIAOMI_PLUGIN_ID = 'xiaomi-speaker';
 export const installationKey = pluginId => `plugin.installation.${pluginId}`;
@@ -26,6 +27,7 @@ const freeze = value => {
 export function createPluginRegistry({ manifests = compiledPluginManifests, modules = {}, builds = [], deployment = pluginDeployment } = {}) {
   const catalog = freeze(JSON.parse(JSON.stringify(validatePluginManifests(manifests))));
   const byId = new Map(catalog.map(manifest => [manifest.id, manifest]));
+  const requestSnapshots = new WeakMap(), snapshotGuards = new WeakMap();
   const buildDigests = new Map(builds.map(build => {
     if (!byId.has(build.id) || !/^[a-f0-9]{64}$/.test(build.sourceDigest || '')) fail('PLUGIN_BUILD_INVALID', 503);
     return [build.id, build.sourceDigest];
@@ -139,14 +141,25 @@ export function createPluginRegistry({ manifests = compiledPluginManifests, modu
     if (!availability.available) fail('PLUGIN_UNAVAILABLE', 409, { availability });
     return installation;
   }
-  async function requirePluginsInstalled(env, pluginIds) {
+  async function requirePluginsInstalled(env, pluginIds, { fresh = false } = {}) {
     if (!Array.isArray(pluginIds) || !pluginIds.length) fail('invalid_input', 400);
     pluginIds.forEach(known);
     // Consumers of several services need one coherent read, including the
     // migration/delivery gates. Installation writers retain their existing CAS.
-    const rows = (await env.DB.prepare(`SELECT key,value_json,revision FROM instance_settings
+    const candidate = !fresh && invocationBudget(env.DB);
+    const owner = candidate?.exhaustedCode === 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' ? candidate : null;
+    const loadRows = async () => (await env.DB.prepare(`SELECT key,value_json,revision FROM instance_settings
       WHERE key IN ('plugin.registry','plugin.delivery.v1')
         OR key LIKE 'plugin.installation.%' OR key LIKE 'plugin.migrations.%'`).all()).results || [];
+    let pending = owner && requestSnapshots.get(owner);
+    if (!pending) {
+      pending = loadRows();
+      if (owner) {
+        requestSnapshots.set(owner, pending);
+        pending.catch(() => { if (requestSnapshots.get(owner) === pending) requestSnapshots.delete(owner); });
+      }
+    }
+    const rows = await pending;
     const installations = new Map(rows.filter(row => row.key.startsWith('plugin.installation.'))
       .map(row => [row.key.slice('plugin.installation.'.length), readValue(row)]));
     const migrationLedgers = new Map(rows.filter(row => row.key.startsWith('plugin.migrations.')).map(row => {
@@ -169,6 +182,16 @@ export function createPluginRegistry({ manifests = compiledPluginManifests, modu
       for (const dependencyId of Object.keys(manifest.dependencies || {})) visit(dependencyId);
     };
     pluginIds.forEach(visit);
+    if (owner) {
+      // This request snapshot is only an initialization hint. Every lease pins
+      // availability revisions alongside the live session and epochs. One
+      // JSON binding keeps large dependency graphs within D1's bind limit.
+      const keys = [REGISTRY_KEY, 'plugin.delivery.v1', ...[...result.keys()].map(id => `plugin.migrations.${id}`)];
+      const revisions = keys.map(key => ({ key, revision: Number(rows.find(row => row.key === key)?.revision || 0) }));
+      snapshotGuards.set(result, Object.freeze({ sql: `NOT EXISTS (SELECT 1 FROM json_each(?) pinned
+        WHERE COALESCE((SELECT revision FROM instance_settings WHERE key=json_extract(pinned.value,'$.key')),0)
+          <>json_extract(pinned.value,'$.revision'))`, values: Object.freeze([JSON.stringify(revisions)]) }));
+    }
     return result;
   }
   async function setInstalled(env, session, pluginId, input, { uiLanguage } = {}) {
@@ -244,7 +267,9 @@ export function createPluginRegistry({ manifests = compiledPluginManifests, modu
     return { plugin: await publicPlugin(manifest, { installed: input.installed, revision: input.revision + 1 }, { ...state, installedIds, migrationLedgers }) };
   }
   const getMigrations = pluginId => { known(pluginId); return migrationsFor(pluginId); };
-  return Object.freeze({ manifests: catalog, listPlugins, setInstalled, readInstallation, requirePluginInstalled, requirePluginsInstalled, requirePluginRole, getBuildDigest, getMigrations });
+  return Object.freeze({ manifests: catalog, listPlugins, setInstalled, readInstallation, requirePluginInstalled, requirePluginsInstalled,
+    installationSnapshotGuard: installations => snapshotGuards.get(installations) || null,
+    requirePluginRole, getBuildDigest, getMigrations });
 }
 
 export const pluginRegistry = createPluginRegistry({ builds: pluginBuilds, modules: () => deliveryPluginModules });

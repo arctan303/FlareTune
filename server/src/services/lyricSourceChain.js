@@ -5,7 +5,8 @@ import { computeHash } from '../utils/lyricsParsing.js';
 import { deliveryPluginModules } from '../plugins/delivery.generated.js';
 import { pluginRegistry, installationKey } from '../plugins/registry.js';
 import { createPluginOperationLease, isPluginServiceLeaseForSession } from '../plugins/services.js';
-import { requirePluginSession, pluginFail } from '../plugins/common.js';
+import { requirePluginSession, pluginFail, sessionPredicate, sessionBindings } from '../plugins/common.js';
+import { isUsableCredentialMaterial } from '../instance/credentialFormat.js';
 import { guardStoreAuthority, storeAuthorityGuard } from './storeAuthority.js';
 import { updateDefinedSetting } from '../instanceAdmin/settings.js';
 import { subsonicAuthorityForPrincipal } from '../subsonic/credentials.js';
@@ -33,14 +34,23 @@ export function effectiveLyricSourceOrder(saved, ids) {
   const available = new Set(ids);
   return [...new Set([...saved, ...DEFAULT_LYRIC_SOURCE_ORDER, ...ids])].filter(id => available.has(id));
 }
-export async function loadLyricSourceOrder(db, ids) {
-  const row = await db.prepare('SELECT value_json,revision FROM instance_settings WHERE key=?').bind(LYRIC_ORDER_KEY).first();
+export async function loadLyricSourceOrder(db, ids, { session } = {}) {
+  if (session && (session.mode !== 'normal' || !['admin', 'member'].includes(session.account?.role))) pluginFail('forbidden', 403);
+  const row = session ? await db.prepare(`SELECT c.*,a.role AS current_role,
+    (SELECT value_json FROM instance_settings WHERE key=?) AS value_json,
+    COALESCE((SELECT revision FROM instance_settings WHERE key=?),0) AS revision
+    FROM account_credentials c JOIN accounts a ON a.account_id=c.account_id
+    WHERE c.account_id=? AND ${sessionPredicate}`)
+    .bind(LYRIC_ORDER_KEY, LYRIC_ORDER_KEY, session.account.accountId, ...sessionBindings(session, Date.now())).first()
+    : await db.prepare('SELECT value_json,revision FROM instance_settings WHERE key=?').bind(LYRIC_ORDER_KEY).first();
+  if (session && (!row || !isUsableCredentialMaterial(row))) pluginFail('forbidden', 403);
   let saved = DEFAULT_LYRIC_SOURCE_ORDER;
-  if (row) {
+  if (row?.value_json != null) {
     try { saved = validateLyricSourceOrder(JSON.parse(row.value_json)); }
     catch { pluginFail('LYRIC_ORDER_UNAVAILABLE', 503); }
   }
-  return { order: effectiveLyricSourceOrder(saved, ids), revision: Number(row?.revision || 0) };
+  return { order: effectiveLyricSourceOrder(saved, ids), revision: Number(row?.revision || 0),
+    ...(session ? { identity: { accountId: session.account.accountId, role: row.current_role } } : {}) };
 }
 
 // Claims never call a different source. Abort the scoped capability before
@@ -366,14 +376,21 @@ const documentDigest = result => computeHash(JSON.stringify({ source: result.doc
 export async function readLyricsFromChain({ env, db = env.DB, session, song, executionContext, signal, resultRef, translate = false, deps = {} }) {
   const protocol = deps.subsonicPrincipal;
   const assertRequest = protocol ? () => assertProtocol(env, protocol) : () => (deps.requireSession || requirePluginSession)(env, session);
-  const authority = await assertRequest();
+  const hint = !protocol && !resultRef && !translate && deps.requestIdentity;
+  if (hint && (hint.accountId !== session?.account?.accountId || !['admin', 'member'].includes(hint.role))) pluginFail('forbidden', 403);
+  // A normal GET combines fresh entry authorization with its source-order
+  // query below. Signed actions and every final response keep their live gate.
+  const authority = hint ? { ...hint } : await assertRequest();
   if (!protocol && (!session?.account?.accountId || !session?.tokenHash)) pluginFail('forbidden', 403);
   const identity = protocol ? { accountId: authority.accountId, sessionHash: 'protocol' }
     : { accountId: session.account.accountId, sessionHash: await computeHash(session.tokenHash) };
   if (protocol && (resultRef || translate)) pluginFail('forbidden', 403);
-  if (song.language === 'instrumental') return { state: 'not_needed', artifact: null, lyrics: {
+  if (song.language === 'instrumental') {
+    if (hint) await assertRequest();
+    return { state: 'not_needed', artifact: null, lyrics: {
     version: 2, status: 'not_needed', reason: 'instrumental', source: null, format: null, syncMode: 'none',
     lines: [], translation: { supported: false, state: 'not_needed' }, translationAvailable: false, translationState: 'not_needed' } };
+  }
   const onDiagnostic = deps.onDiagnostic || (record => console.warn('lyric-source', JSON.stringify(record)));
   deps = { ...deps, onDiagnostic };
   const sources = deps.sources || await createLyricSources({ env, db, session, executionContext, deps, requestIdentity: authority });
@@ -407,7 +424,8 @@ export async function readLyricsFromChain({ env, db = env.DB, session, song, exe
     chosen = { source, result };
   } else {
     if (translate) pluginFail('LYRIC_RESULT_INVALID', 400);
-    const saved = await loadLyricSourceOrder(db, sources.map(source => source.id));
+    const saved = await loadLyricSourceOrder(db, sources.map(source => source.id), { session: hint ? session : undefined });
+    if (saved.identity) Object.assign(authority, saved.identity);
     try { chosen = await selectLyricSource({ sources, order: saved.order, song, signal, onDiagnostic: deps.onDiagnostic, adopt: true }); }
     catch (error) { if (error?.code === 'LYRIC_SONG_DELETED') return { state: 'song_deleted', artifact: null, lyrics: null }; throw error; }
   }

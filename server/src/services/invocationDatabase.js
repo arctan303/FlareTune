@@ -16,6 +16,7 @@ export function createInvocationDatabase(database, signal, {
   const spend = () => { if (spent >= (executingAi ? limit - settlementReserve : limit)) fail(); spent++; };
   const budget = Object.freeze({
     signal: controller.signal,
+    exhaustedCode,
     get depleted() { return depleted; },
     settle() { settling = true; executingAi = false; controller.abort(); },
     requireSettlementRoom() { if (limit - spent < settlementRoom) fail(); },
