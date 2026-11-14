@@ -190,7 +190,9 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     if (!secrets.deployHookUrl || !secrets.buildToken) fail('SYSTEM_UPDATE_NOT_CONFIGURED', 409);
     let providerBuildId = null, failed = false;
     try {
-      const response = await fetchImpl(hookUrl(secrets.deployHookUrl), { method: 'POST', redirect: 'error', credentials: 'omit',
+      // Workers supports only manual/follow; boundedJson rejects every 3xx
+      // without forwarding the capability URL to a redirected destination.
+      const response = await fetchImpl(hookUrl(secrets.deployHookUrl), { method: 'POST', redirect: 'manual', credentials: 'omit',
         headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) });
       const body = await boundedJson(response, 32768);
       if (!response.ok || body.success !== true || !/^[A-Za-z0-9_-]{1,128}$/.test(body.result?.build_uuid || '')) throw Error();

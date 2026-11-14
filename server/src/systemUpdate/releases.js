@@ -43,7 +43,7 @@ export async function discoverRelease(env, { fetchImpl = fetch } = {}) {
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'FlareTune-System-Update' };
   let release;
   try { release = await boundedJson(await fetchImpl(`https://api.github.com/repos/${OFFICIAL_REPOSITORY}/releases/latest`,
-    { headers, redirect: 'error', signal: AbortSignal.timeout(15000) })); }
+    { headers, redirect: 'manual', signal: AbortSignal.timeout(15000) })); }
   catch (error) { if (error?.code) throw error; fail('SYSTEM_UPDATE_RELEASE_UNAVAILABLE', 502); }
   if (!plain(release) || release.draft !== false || release.prerelease !== false || !validVersion(release.tag_name)
     || !Array.isArray(release.assets)) fail('SYSTEM_UPDATE_RELEASE_INVALID', 502);

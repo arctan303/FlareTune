@@ -3,7 +3,7 @@
   "hostApiVersion": 5,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "f55dec9524690257ad1cc54b3c6d2d0dfbedefe6f944d4c10e07b5b784b86475"
+    "sourceDigest": "152cf5d267a13d4db7240337bfd3e42fd6c832bff48da71e77a7bad396e3e48c"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "86afe3c2e96498e28f5eb6fc6278efd35db3f7e9776d959dd206d38f1a0f2533",
+      "sourceDigest": "cfea910d52baed1f412b91253ceb69ce186ef869d52457e99a0261e1d57a7d7b",
       "sources": [
         {
           "path": "client/index.html",
@@ -2773,11 +2773,11 @@
         },
         {
           "path": "server/src/systemUpdate/releases.js",
-          "sha256": "44bf92647ae4cf49348f0e783b7bad65922172f14677634adf9975d8cf4556d2"
+          "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "aed0cc0585fbdaed46ae2a67abae63a6f0bff6b7765874aab599d5a422e7dd59"
+          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -3868,7 +3868,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "1a2ec2c9d9a18d40cbb9ac70638436ebe9bf1da45aed524ff3c3c189884573a9",
+      "sourceDigest": "584b711675da0dec1f118657d562b55cf39406b1d7d0495c12f6c60534bbb3f8",
       "sources": [
         {
           "path": "client/index.html",
@@ -6628,11 +6628,11 @@
         },
         {
           "path": "server/src/systemUpdate/releases.js",
-          "sha256": "44bf92647ae4cf49348f0e783b7bad65922172f14677634adf9975d8cf4556d2"
+          "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "aed0cc0585fbdaed46ae2a67abae63a6f0bff6b7765874aab599d5a422e7dd59"
+          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -7995,7 +7995,7 @@
       "apiVersion": 1,
       "source": "artifact:official:01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d",
       "manifestDigest": "c09b2c33fdff8f2ce9c7fc69216bdae6955a6312b555a81681b98db4cde2ad62",
-      "sourceDigest": "8ae919eda6fc645730616cdaa2bef6fe846c6d39000cf6911b4c5abcc94aa9a4",
+      "sourceDigest": "6b0894aa000cc2f534071d130e37019fa69be2ce6c3daff7a1cc4634bbcd0ad9",
       "sources": [
         {
           "path": "client/index.html",
@@ -10755,11 +10755,11 @@
         },
         {
           "path": "server/src/systemUpdate/releases.js",
-          "sha256": "44bf92647ae4cf49348f0e783b7bad65922172f14677634adf9975d8cf4556d2"
+          "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "aed0cc0585fbdaed46ae2a67abae63a6f0bff6b7765874aab599d5a422e7dd59"
+          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -11974,7 +11974,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "50d8ccd83a5e567b5e32e72361d313f8160930c80e064568b46c01777254be5e",
+      "sourceDigest": "5dd1d6e399ea46c30ce417dbb32def3b6b41d3cfd67887ceff373bbadadf13cb",
       "sources": [
         {
           "path": "client/index.html",
@@ -14734,11 +14734,11 @@
         },
         {
           "path": "server/src/systemUpdate/releases.js",
-          "sha256": "44bf92647ae4cf49348f0e783b7bad65922172f14677634adf9975d8cf4556d2"
+          "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "aed0cc0585fbdaed46ae2a67abae63a6f0bff6b7765874aab599d5a422e7dd59"
+          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -15777,7 +15777,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "8580fcbfcfe8b5acff6b83e01440774a7625aaf1943c14e790e456df772aa43d",
+      "sourceDigest": "4d5eab9cc1ea7c7a6d59e228ec823a7ffc54f5f653113a594641e0c7850a846d",
       "sources": [
         {
           "path": "client/index.html",
@@ -18537,11 +18537,11 @@
         },
         {
           "path": "server/src/systemUpdate/releases.js",
-          "sha256": "44bf92647ae4cf49348f0e783b7bad65922172f14677634adf9975d8cf4556d2"
+          "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "aed0cc0585fbdaed46ae2a67abae63a6f0bff6b7765874aab599d5a422e7dd59"
+          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -19588,7 +19588,7 @@
       "apiVersion": 1,
       "source": "artifact:official:441a41ff8539e44077d280bf25441f261829df5acea28e901f9eb3bfc415ffe6",
       "manifestDigest": "524ddb4b18133d342c164f073c36130ed6a1c92441557ab54eed1e426c9bc302",
-      "sourceDigest": "a62149fd89b66976b8efc7bc76d4b2d4bd20d88a5f6dda4b95e36ff6394d1e93",
+      "sourceDigest": "231704e7f7a8f30470a5552e2f8db56c2d743f5b1fac77c7c8674ad157fba242",
       "sources": [
         {
           "path": "client/index.html",
@@ -22348,11 +22348,11 @@
         },
         {
           "path": "server/src/systemUpdate/releases.js",
-          "sha256": "44bf92647ae4cf49348f0e783b7bad65922172f14677634adf9975d8cf4556d2"
+          "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "aed0cc0585fbdaed46ae2a67abae63a6f0bff6b7765874aab599d5a422e7dd59"
+          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
