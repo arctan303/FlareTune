@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
@@ -6,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { currentWorkerDeployment, workerVersionBindingsDigest, uploadedVersion } from '../plugins/delivery-deploy.mjs';
 import { readBoundedResponse } from '../plugins/assemble.mjs';
 import { updateConnection, fetchUpdatePlan, currentUpdatePlan, reportUpdate, migrateUpdate, validateReceipt, withUpdateLease, fail } from './protocol.mjs';
+import { canCleanProcessDirectory, runManagedProcess } from './process.mjs';
 
 const rootDirectory = fileURLToPath(new URL('../../', import.meta.url));
 const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value);
@@ -94,7 +94,7 @@ async function readTemplate(root) {
   const { unstable_readConfig } = await import('wrangler');
   return unstable_readConfig({ config: resolve(root, 'wrangler.toml') }, { hideWarnings: true });
 }
-export async function uploadSystemVersion(target, plan, { root, configPath, environment = process.env, signal } = {}) {
+export async function uploadSystemVersion(target, plan, { root, configPath, environment = process.env, signal, runProcessImpl = runManagedProcess } = {}) {
   const scratch = await mkdtemp(resolve(tmpdir(), 'flaretune-system-upload-')), outputFile = resolve(scratch, 'upload.ndjson');
   try {
     const args = [resolve(root, 'node_modules/wrangler/bin/wrangler.js'), 'versions', 'upload', '--config', configPath,
@@ -104,20 +104,11 @@ export async function uploadSystemVersion(target, plan, { root, configPath, envi
       CLOUDFLARE_API_TOKEN: target.token, WRANGLER_OUTPUT_FILE_PATH: outputFile, WRANGLER_SEND_METRICS: 'false', WRANGLER_LOG_SANITIZE: 'true',
       ...(environment.WRANGLER_CI_OVERRIDE_NAME ? { WRANGLER_CI_OVERRIDE_NAME: environment.WRANGLER_CI_OVERRIDE_NAME } : {}),
       ...(environment.WRANGLER_CI_MATCH_TAG ? { WRANGLER_CI_MATCH_TAG: environment.WRANGLER_CI_MATCH_TAG } : {}) };
-    await new Promise((accept, reject) => {
-      if (signal?.aborted) { reject(Object.assign(new Error('SYSTEM_UPDATE_LEASE_LOST'), { code: 'SYSTEM_UPDATE_LEASE_LOST' })); return; }
-      const child = spawn(process.execPath, args, { cwd: root, env: childEnvironment, shell: false, windowsHide: true, stdio: 'ignore', detached: process.platform !== 'win32' });
-      const stop = () => { try { process.platform === 'win32' ? child.kill() : process.kill(-child.pid, 'SIGTERM'); } catch { child.kill(); } };
-      const cancel = () => { stop(); reject(Object.assign(new Error('SYSTEM_UPDATE_LEASE_LOST'), { code: 'SYSTEM_UPDATE_LEASE_LOST' })); };
-      signal?.addEventListener('abort', cancel, { once: true });
-      const timer = setTimeout(() => { stop(); reject(Object.assign(new Error('SYSTEM_UPDATE_UPLOAD_UNCONFIRMED'), { code: 'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED' })); }, 10 * 60 * 1000);
-      const clear = () => { clearTimeout(timer); signal?.removeEventListener('abort', cancel); };
-      child.once('error', () => { clear(); reject(Object.assign(new Error('SYSTEM_UPDATE_UPLOAD_UNCONFIRMED'), { code: 'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED' })); });
-      child.once('exit', code => { clear(); code === 0 ? accept() : reject(Object.assign(new Error('SYSTEM_UPDATE_UPLOAD_UNCONFIRMED'), { code: 'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED' })); });
-    });
+    await runProcessImpl(root, process.execPath, args, childEnvironment, { signal, timeoutMs: 10 * 60 * 1000,
+      failureCode: 'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED', processDirectories: [scratch] });
     return uploadedVersion(await readFile(outputFile, 'utf8'), target);
   } finally {
-    if (dirname(await realpath(scratch)) === await realpath(tmpdir())) await rm(scratch, { recursive: true, force: true });
+    if (dirname(await realpath(scratch)) === await realpath(tmpdir()) && canCleanProcessDirectory(scratch)) await rm(scratch, { recursive: true, force: true });
   }
 }
 async function uploadedForTask(target, plan, options) {
@@ -197,7 +188,7 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
           lease.check();
           nextVersionId = await uploadImpl(target, plan, { root, configPath, environment, signal: lease.signal });
         }
-        finally { await rm(configPath, { force: true }); }
+        finally { if (canCleanProcessDirectory(root)) await rm(configPath, { force: true }); }
       }
       if (!uuid(nextVersionId)) fail('SYSTEM_UPDATE_UPLOAD_INVALID');
       const version = await provider(target, `/versions/${nextVersionId}`, options);

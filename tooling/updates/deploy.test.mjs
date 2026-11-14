@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { EventEmitter } from 'node:events';
 import { canonical, sha256 } from '../../server/src/systemUpdate/common.js';
 import { workerVersionBindingsDigest } from '../plugins/delivery-deploy.mjs';
 import { DatabaseSync } from 'node:sqlite';
@@ -12,6 +13,7 @@ import { runKnownDatabaseUpgrade } from '../../server/src/instance/upgradeDataba
 import { runPlaylistCountMigration } from '../../server/src/instance/playlistCountMigration.js';
 import { deploySystemUpdate, systemBuildConfig, updateTarget } from './deploy.mjs';
 import { fetchUpdatePlan, updateConnection, validateUpdatePlan, migrateUpdate } from './protocol.mjs';
+import { runManagedProcess, canCleanProcessDirectory } from './process.mjs';
 
 const TASK = '895c1cb8-cea8-4f32-abf7-b324191005c8', OLD = '4032d7c5-570f-4415-b53a-26bcb45bd160';
 const NEXT = 'cc8fc558-6860-4e2c-9a2b-422b8bbc392b', OTHER = 'ae0c58f8-b7db-4373-81ee-4f2b81147092';
@@ -96,6 +98,27 @@ export async function fixture(t, options = {}) {
     sleepImpl: async () => {}, leaseOptions: { initialWaitMs: 0 }, ...extra });
   return { root, state, run, fetchImpl };
 }
+test('an unconfirmed upload process stop preserves its configuration and the original lease-loss error', async t => {
+  const f = await fixture(t), abort = new AbortController();
+  const child = Object.assign(new EventEmitter(), { pid: 12345, kill: () => false });
+  await assert.rejects(f.run({ uploadImpl: async () => {
+    const pending = runManagedProcess(f.root, 'synthetic-no-process', [], {}, {
+      signal: abort.signal, timeoutMs: 1000, failureCode: 'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED',
+      platform: 'linux', spawnImpl: () => child,
+      killImpl: () => { throw Object.assign(Error('synthetic no exit proof'), { code: 'EPERM' }); },
+      graceMs: 0, stopDeadlineMs: 20,
+    });
+    abort.abort();
+    return pending;
+  } }), error => error.code === 'SYSTEM_UPDATE_LEASE_LOST' && error.cleanupUnsafe === true);
+  assert.equal(canCleanProcessDirectory(f.root), false);
+  assert.equal(JSON.parse(await readFile(resolve(f.root, '.system-update-wrangler.json'), 'utf8')).name, 'synthetic-worker');
+  assert.equal(f.state.plan.status, 'activation_pending');
+  assert.equal(f.state.plan.receipt.uploadStarted, true); assert.equal(f.state.plan.receipt.nextVersionId, null);
+  assert.equal(f.state.promotions.length, 0); assert.equal(f.state.migrations, 0);
+  // The fixture teardown has no OS child; application cleanup remains forbidden.
+});
+
 test('system update persists an inactive version before promotion and migrates before completion', async t => {
   const f = await fixture(t); const result = await f.run();
   assert.equal(result.status, 'deployed'); assert.equal(f.state.uploads, 1); assert.equal(f.state.migrations, 1);

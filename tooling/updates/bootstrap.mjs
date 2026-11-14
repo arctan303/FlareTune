@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -7,6 +6,7 @@ import { createPluginHostBuild } from '../plugins/host-identity.mjs';
 import { downloadSource, extractSourceArchive } from './archive.mjs';
 import { updateConnection, fetchUpdatePlan, currentUpdatePlan, reportUpdate, withUpdateLease, fail } from './protocol.mjs';
 import { deploySystemUpdate, updateTarget, verifyUpdateTarget } from './deploy.mjs';
+import { canCleanProcessDirectory, runManagedProcess } from './process.mjs';
 
 export function sanitizedBuildEnvironment(environment = process.env, commit) {
   const allowed = ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
@@ -21,19 +21,8 @@ export async function runBuildCommand(root, executable, args, environment, { sig
     if (!/[\\/]npm-cli\.js$/.test(environment.npm_execpath || '')) fail('SYSTEM_UPDATE_NPM_MISSING');
     command = process.execPath; parameters = [environment.npm_execpath, ...args];
   }
-  await new Promise((accept, reject) => {
-    // Build output is not forwarded: dependencies and plugins must not leak
-    // source content or private build inputs through arbitrary CI stderr.
-    if (signal?.aborted) { reject(Object.assign(new Error('SYSTEM_UPDATE_LEASE_LOST'), { code: 'SYSTEM_UPDATE_LEASE_LOST' })); return; }
-    const child = spawn(command, parameters, { cwd: root, env: environment, shell: false, windowsHide: true, stdio: 'ignore', detached: process.platform !== 'win32' });
-    const stop = () => { try { process.platform === 'win32' ? child.kill() : process.kill(-child.pid, 'SIGTERM'); } catch { child.kill(); } };
-    const cancel = () => { stop(); reject(Object.assign(new Error('SYSTEM_UPDATE_LEASE_LOST'), { code: 'SYSTEM_UPDATE_LEASE_LOST' })); };
-    signal?.addEventListener('abort', cancel, { once: true });
-    const timer = setTimeout(() => { stop(); reject(Object.assign(new Error('SYSTEM_UPDATE_BUILD_TIMEOUT'), { code: 'SYSTEM_UPDATE_BUILD_TIMEOUT' })); }, 12 * 60 * 1000);
-    const clear = () => { clearTimeout(timer); signal?.removeEventListener('abort', cancel); };
-    child.once('error', () => { clear(); reject(Object.assign(new Error('SYSTEM_UPDATE_BUILD_FAILED'), { code: 'SYSTEM_UPDATE_BUILD_FAILED' })); });
-    child.once('exit', code => { clear(); code === 0 ? accept() : reject(Object.assign(new Error('SYSTEM_UPDATE_BUILD_FAILED'), { code: 'SYSTEM_UPDATE_BUILD_FAILED' })); });
-  });
+  await runManagedProcess(root, command, parameters, environment, { signal, timeoutMs: 12 * 60 * 1000,
+    failureCode: 'SYSTEM_UPDATE_BUILD_FAILED', timeoutCode: 'SYSTEM_UPDATE_BUILD_TIMEOUT' });
 }
 export async function verifySourceCheckout(root, target) {
   const actual = await createPluginHostBuild(root);
@@ -56,7 +45,10 @@ export async function buildSystemUpdate(plan, { root, environment = process.env,
   const run = async (executable, args, failureCode) => {
     lease?.check();
     try { await runCommandImpl(root, executable, args, childEnvironment, { signal: lease?.signal }); }
-    catch (error) { if (error.code === 'SYSTEM_UPDATE_LEASE_LOST') throw error; fail(failureCode); }
+    catch (error) {
+      if (error.code === 'SYSTEM_UPDATE_LEASE_LOST') throw error;
+      try { fail(failureCode); } catch (mapped) { if (error.cleanupUnsafe) mapped.cleanupUnsafe = true; throw mapped; }
+    }
     lease?.check();
   };
   const planPath = resolve(root, '.system-update-plan.json');
@@ -71,7 +63,7 @@ export async function buildSystemUpdate(plan, { root, environment = process.env,
     await run('node', ['tooling/build/system-update-runtime.mjs', 'generate', '--commit', plan.target.commit], 'SYSTEM_UPDATE_METADATA_FAILED');
     await run('npm', ['run', 'build'], 'SYSTEM_UPDATE_COMPILE_FAILED');
     await verifySourceImpl(root, plan.target);
-  } finally { await rm(planPath, { force: true }); }
+  } finally { if (canCleanProcessDirectory(root)) await rm(planPath, { force: true }); }
   return { root, taskId: plan.taskId, planDigest: plan.planDigest };
 }
 
@@ -104,7 +96,8 @@ export async function runSystemUpdate({ environment = process.env, fetchImpl = f
     throw error;
   } finally {
     const absolute = await realpath(scratch), parent = await realpath(tmpdir());
-    if (dirname(absolute) === parent && absolute.startsWith(resolve(parent, 'flaretune-system-source-'))) await rm(absolute, { recursive: true, force: true });
+    if (dirname(absolute) === parent && absolute.startsWith(resolve(parent, 'flaretune-system-source-'))
+      && canCleanProcessDirectory(absolute)) await rm(absolute, { recursive: true, force: true });
   }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

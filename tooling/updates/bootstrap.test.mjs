@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, stat, realpath } from 'node:fs/promises';
+import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { canonical, sha256 } from '../../server/src/systemUpdate/common.js';
 import { createPluginHostBuild } from '../plugins/host-identity.mjs';
 import { sanitizedBuildEnvironment, verifySourceCheckout, buildSystemUpdate, runSystemUpdate, runBuildCommand } from './bootstrap.mjs';
 import { fetchUpdatePlan, updateConnection, withUpdateLease, reportUpdate } from './protocol.mjs';
+import { canCleanProcessDirectory, runManagedProcess } from './process.mjs';
 
 const TASK = '895c1cb8-cea8-4f32-abf7-b324191005c8';
 const environment = { FLARETUNE_SYSTEM_UPDATE_SITE_URL: 'https://music.example.net',
@@ -65,6 +67,41 @@ test('failed compilation removes its private plan input and stops before later s
   await assert.rejects(buildSystemUpdate(plan, { root, environment, downloadImpl: async () => Buffer.from('x'), extractImpl: async () => {},
     verifySourceImpl: async () => {}, runCommandImpl: async () => { calls++; throw Error('synthetic build failure'); } }));
   assert.equal(calls, 1); await assert.rejects(stat(resolve(root, '.system-update-plan.json')), { code: 'ENOENT' });
+});
+
+test('an unconfirmed build stop keeps the private plan and source scratch and preserves cleanupUnsafe through error mapping', async t => {
+  const plan = await makePlan(), reports = [];
+  let scratch;
+  t.after(async () => {
+    if (!scratch) return;
+    const absolute = await realpath(scratch);
+    assert.equal(dirname(absolute), await realpath(tmpdir()));
+    assert.ok(basename(absolute).startsWith('flaretune-system-source-'));
+    await rm(absolute, { recursive: true, force: true }); // The fixture never created a real process.
+  });
+  const fetchImpl = async (url, init) => {
+    if (url.endsWith('/plan')) return Response.json(plan);
+    assert.ok(url.endsWith('/report'));
+    const body = JSON.parse(init.body); plan.status = body.status; reports.push(body.status);
+    return Response.json({ ok: true, status: body.status });
+  };
+  await assert.rejects(runSystemUpdate({ environment, fetchImpl, lease: { check() {} }, verifyTargetImpl: async () => {},
+    buildImpl: (frozen, { root }) => {
+      scratch = root;
+      return buildSystemUpdate(frozen, { root, environment, downloadImpl: async () => Buffer.from('synthetic'),
+        extractImpl: async () => {}, verifySourceImpl: async () => {}, runCommandImpl: async () => {
+          const child = Object.assign(new EventEmitter(), { pid: 12345 });
+          const pending = runManagedProcess(root, 'synthetic', [], {}, { spawnImpl: () => child, platform: 'linux',
+            killImpl: () => false, failureCode: 'SYSTEM_UPDATE_BUILD_FAILED', timeoutMs: 1000, graceMs: 5, stopDeadlineMs: 25 });
+          child.emit('error', Error('synthetic stop failure')); child.emit('close', 1);
+          return pending;
+        } });
+    }, deployImpl: async () => assert.fail('An unsafe stopped build must never upload or deploy') }),
+  error => error.code === 'SYSTEM_UPDATE_DEPENDENCIES_FAILED' && error.cleanupUnsafe === true);
+  assert.equal(canCleanProcessDirectory(scratch), false);
+  assert.equal((await stat(scratch)).isDirectory(), true);
+  assert.equal((await stat(resolve(scratch, '.system-update-plan.json'))).isFile(), true);
+  assert.deepEqual(reports, ['building', 'failed']);
 });
 test('no confirmed task is a safe idle result with no provider call or build', async () => {
   const result = await runSystemUpdate({ environment,
