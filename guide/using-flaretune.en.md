@@ -25,6 +25,8 @@ Desktop and mobile share the same library but use layouts suited to each screen.
 
 ## Favorites and library
 
+The development version can cast an MP3 track to a Xiaomi L05B speaker from a track or player menu, with play and stop controls. Connect your Xiaomi account in personal settings first. Cloud and private-track device validation is still pending; see the [Xiaomi speaker guide](xiaomi-speaker.en.md) for scope and authorization details.
+
 Use the star on a song to add or remove it from Favorites. You can also create personal playlists, add songs, change track order, and arrange playlist order in your library. Favorites, playlists, and play statistics belong to your account; other members cannot directly see or change your personal lists.
 
 ## Music assistant

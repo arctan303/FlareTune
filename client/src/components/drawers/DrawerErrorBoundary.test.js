@@ -44,9 +44,38 @@ test('a failed lazy import and closing before first mount do not strand the moti
 test('a closed failed drawer hides its error fallback', () => {
   const boundary = createBoundary({ type: 'drawer' });
   boundary.state = { hasError: true, error: new Error('Failed to fetch module') };
-  assert.equal(boundary.render().props.role, 'alert');
+  const recovery = boundary.render();
+  assert.equal(recovery.props.error, true);
+  assert.equal(typeof recovery.props.onClose, 'function');
   boundary.props = { ...boundary.props, isOpen: false };
   assert.equal(boundary.render(), null);
+});
+
+for (const context of ['page', 'parent modal', 'new modal', 'inert opener']) test(`the waiting boundary restores focus only into the active context: ${context}`, () => {
+  const scheduler = createBackgroundScheduler();
+  let focused = 0;
+  const opener = { isConnected: true, focus: () => { focused++; }, closest: () => context === 'inert opener' ? {} : null };
+  const modal = { contains: target => context === 'parent modal' && target === opener };
+  const document = { activeElement: opener, querySelectorAll: () => context.includes('modal') ? [modal] : [] };
+  const fixture = createBackgroundModuleHarness({
+    file: new URL('./DrawerErrorBoundary.jsx', import.meta.url),
+    modules: { '../../i18n/index.js': { t: text => text }, '../../store/useUIStore': { useUIStore: { getState: () => ({ setVisualMotionPhase() {} }) } } },
+    globals: { ...scheduler, document },
+  });
+  const boundary = new fixture.exports.default({ isOpen: false });
+  let previous = boundary.props;
+  boundary.props = { isOpen: true };
+  const snapshot = boundary.getSnapshotBeforeUpdate(previous);
+  boundary.componentDidUpdate(previous, {}, snapshot);
+  document.activeElement = { description: 'temporary fallback close button' };
+  previous = boundary.props;
+  boundary.props = { isOpen: false };
+  boundary.componentDidUpdate(previous, {}, null);
+  assert.equal(focused, 0, 'wait until the inert attributes have been removed');
+  scheduler.frame();
+  assert.equal(focused, ['page', 'parent modal'].includes(context) ? 1 : 0);
+  assert.equal(boundary.returnFocus, null);
+  boundary.componentWillUnmount();
 });
 
 for (const completion of ['transitionend', 'fallback']) {

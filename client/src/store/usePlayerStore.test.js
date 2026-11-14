@@ -43,25 +43,13 @@ const resetStore = () => {
     resolvedLyricSource: null,
     lyricFormat: 'none',
     lyricSyncMode: 'none',
-    lyricIntro: null,
     lyricOffsetMs: 0,
     lyricsRefreshRevision: 0,
     translationAvailable: false,
     translationState: 'unavailable',
     translationStartedAt: null,
     translationEnabled: false,
-    randomRoam: {
-      enabled: false,
-      seenSongIds: [],
-      totalPlayable: null,
-      remainingPlayable: null,
-      exhausted: false,
-      status: 'idle',
-      error: null,
-      retryNonce: 0,
-      waitingAtQueueEnd: false,
-      resumeWhenAppended: false,
-    },
+    queueContextReady: true,
   });
 };
 
@@ -72,7 +60,6 @@ test('switching songs resets all resolved lyric document metadata', () => {
     resolvedLyricSource: 'custom_krc',
     lyricFormat: 'krc',
     lyricSyncMode: 'word',
-    lyricIntro: { time: 0, text: 'Artist - Song' },
     lyricOffsetMs: 350,
     translationAvailable: true,
     translationState: 'ready',
@@ -85,7 +72,6 @@ test('switching songs resets all resolved lyric document metadata', () => {
   assert.equal(state.resolvedLyricSource, null);
   assert.equal(state.lyricFormat, 'none');
   assert.equal(state.lyricSyncMode, 'none');
-  assert.equal(state.lyricIntro, null);
   assert.equal(state.lyricOffsetMs, 0);
   assert.equal(state.translationAvailable, false);
   assert.equal(state.translationState, 'unavailable');
@@ -171,7 +157,6 @@ test('lyric document snapshot applies original metadata and translation lifecycl
     source: 'custom_krc',
     format: 'krc',
     syncMode: 'word',
-    intro: { time: 0, text: 'Artist - Song' },
     offsetMs: 350,
     translationAvailable: false,
     translationState: 'pending',
@@ -201,147 +186,6 @@ test('patchSongMetadata updates current song and playlist without creating a gho
   assert.equal(state.currentSong.language, 'en');
   assert.equal(state.playlist[0].language, 'en');
   assert.equal(Object.hasOwn(state, 'queue'), false);
-});
-
-test('starting random roam replaces the queue, uses sequence mode and marks the first batch seen', () => {
-  resetStore();
-  const songs = ['a', 'b', 'c'].map(makeSong);
-  assert.equal(usePlayerStore.getState().startRandomRoam(songs), true);
-  const state = usePlayerStore.getState();
-  assert.deepEqual(state.playlist.map((song) => song.id), ['a', 'b', 'c']);
-  assert.equal(state.currentSong.id, 'a');
-  assert.equal(state.playMode, 'sequence');
-  assert.equal(state.randomRoam.enabled, true);
-  assert.deepEqual(state.randomRoam.seenSongIds, ['a', 'b', 'c']);
-});
-
-test('random roam appends only unseen songs and resumes after waiting at the old queue end', () => {
-  resetStore();
-  const songs = ['a', 'b'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-  usePlayerStore.setState((state) => ({
-    currentSong: songs[1],
-    isPlaying: false,
-    randomRoam: { ...state.randomRoam, waitingAtQueueEnd: true, resumeWhenAppended: true },
-  }));
-
-  usePlayerStore.getState().appendRandomRoamBatch([makeSong('b'), makeSong('c')], {
-    totalPlayable: 3,
-    remainingPlayable: 0,
-    exhausted: true,
-  });
-  const state = usePlayerStore.getState();
-  assert.deepEqual(state.playlist.map((song) => song.id), ['a', 'b', 'c']);
-  assert.deepEqual(state.randomRoam.seenSongIds, ['a', 'b', 'c']);
-  assert.equal(state.currentSong.id, 'c');
-  assert.equal(state.isPlaying, true);
-  assert.equal(state.randomRoam.waitingAtQueueEnd, false);
-});
-
-test('random roam stops after the final queued song ends', () => {
-  resetStore();
-  const songs = ['a', 'b'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-  usePlayerStore.setState((state) => ({
-    currentSong: songs[1],
-    randomRoam: { ...state.randomRoam, totalPlayable: 2, remainingPlayable: 0, exhausted: true },
-  }));
-
-  usePlayerStore.getState().playNext({ type: 'ended', stopPropagation() {} });
-  const state = usePlayerStore.getState();
-  assert.equal(state.isPlaying, false);
-  assert.equal(state.randomRoam.enabled, false);
-  assert.equal(state.randomRoam.status, 'exhausted');
-});
-
-test('replacing the queue or changing away from sequence resets an active roam round', () => {
-  resetStore();
-  const songs = ['a', 'b'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-  usePlayerStore.getState().playSong(makeSong('x'), [makeSong('x')]);
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, false);
-
-  usePlayerStore.getState().startRandomRoam(songs);
-  usePlayerStore.getState().handleModeChange('random');
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, false);
-});
-
-test('a restored queue-end continuation appends the batch without auto-playing', async () => {
-  resetStore();
-  const songs = ['a', 'b'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-  const { normalizeRandomRoamState } = await import('../randomRoam.js');
-  const restoredRoam = normalizeRandomRoamState({
-    ...usePlayerStore.getState().randomRoam,
-    waitingAtQueueEnd: true,
-    resumeWhenAppended: true,
-  });
-  usePlayerStore.setState({
-    currentSong: songs[1],
-    isPlaying: false,
-    shouldAutoPlay: false,
-    randomRoam: restoredRoam,
-  });
-
-  usePlayerStore.getState().appendRandomRoamBatch([makeSong('c')], {
-    totalPlayable: 4,
-    remainingPlayable: 1,
-    exhausted: false,
-  });
-  const state = usePlayerStore.getState();
-  assert.deepEqual(state.playlist.map((item) => item.id), ['a', 'b', 'c']);
-  assert.equal(state.currentSong.id, 'b');
-  assert.equal(state.isPlaying, false);
-  assert.equal(state.shouldAutoPlay, false);
-  assert.equal(state.randomRoam.waitingAtQueueEnd, false);
-});
-
-test('removing the active roam song advances within the existing queue without waiting for a new batch', () => {
-  resetStore();
-  const songs = ['a', 'b', 'c', 'd'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-  usePlayerStore.setState({ currentSong: songs[1] });
-
-  assert.equal(usePlayerStore.getState().removePlaylistSong(1), true);
-  const state = usePlayerStore.getState();
-  assert.deepEqual(state.playlist.map((item) => item.id), ['a', 'c', 'd']);
-  assert.equal(state.currentSong.id, 'c');
-  assert.equal(state.randomRoam.waitingAtQueueEnd, false);
-});
-
-test('removing the active roam queue head advances to the original second song', () => {
-  resetStore();
-  const songs = ['a', 'b', 'c'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-
-  usePlayerStore.getState().removePlaylistSong(0);
-  const state = usePlayerStore.getState();
-  assert.deepEqual(state.playlist.map((item) => item.id), ['b', 'c']);
-  assert.equal(state.currentSong.id, 'b');
-  assert.equal(state.randomRoam.waitingAtQueueEnd, false);
-});
-
-test('removing the active roam queue tail waits for a fresh batch instead of replaying an old song', () => {
-  resetStore();
-  const songs = ['a', 'b', 'c'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-  usePlayerStore.setState({ currentSong: songs[2] });
-
-  usePlayerStore.getState().removePlaylistSong(2);
-  const waiting = usePlayerStore.getState();
-  assert.deepEqual(waiting.playlist.map((item) => item.id), ['a', 'b']);
-  assert.equal(waiting.currentSong, null);
-  assert.equal(waiting.randomRoam.waitingAtQueueEnd, true);
-  assert.equal(waiting.randomRoam.resumeWhenAppended, true);
-
-  usePlayerStore.getState().appendRandomRoamBatch([makeSong('d')], {
-    totalPlayable: 4,
-    remainingPlayable: 0,
-    exhausted: true,
-  });
-  const resumed = usePlayerStore.getState();
-  assert.deepEqual(resumed.playlist.map((item) => item.id), ['a', 'b', 'd']);
-  assert.equal(resumed.currentSong.id, 'd');
 });
 
 test('removePlaylistSong seamlessly supports index, string song id, and song object', () => {
@@ -387,38 +231,6 @@ test('reorderPlaylist updates store playlist order without affecting current pla
   assert.equal(usePlayerStore.getState().reorderPlaylist(1, 1), false);
 });
 
-test('setRandomRoamLanguage updates language, resets state and preserves language preference on disable', () => {
-  resetStore();
-  usePlayerStore.getState().setRandomRoamLanguage('ja');
-  assert.equal(usePlayerStore.getState().randomRoam.language, 'ja');
-
-  const songs = ['ja-1', 'ja-2'].map(makeSong);
-  usePlayerStore.getState().startRandomRoam(songs);
-  const roam = usePlayerStore.getState().randomRoam;
-  assert.equal(roam.enabled, true);
-  assert.equal(roam.language, 'ja');
-  assert.deepEqual(roam.seenSongIds, ['ja-1', 'ja-2']);
-
-  // 关闭漫游后依然保留语言偏好
-  usePlayerStore.getState().setRandomRoamEnabled(false);
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, false);
-  assert.equal(usePlayerStore.getState().randomRoam.language, 'ja');
-
-  // 当漫游处于开启状态时，修改偏好立即修剪当前歌曲之后的待播列表，确保新偏好即时生效
-  usePlayerStore.getState().startRandomRoam(['s1', 's2', 's3', 's4'].map(makeSong));
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, true);
-  assert.equal(usePlayerStore.getState().playlist.length, 4);
-  assert.equal(usePlayerStore.getState().currentSong.id, 's1');
-
-  // 当前正在播 s1，后面排了 s2, s3, s4；切换语言至 'en'
-  usePlayerStore.getState().setRandomRoamLanguage('en');
-  assert.equal(usePlayerStore.getState().randomRoam.language, 'en');
-  // s1 之后的 s2, s3, s4 被清除，只保留 s1，队列长度为 1，从而立即满足 prefetch 阈值（剩余 0 <= 2）
-  assert.equal(usePlayerStore.getState().playlist.length, 1);
-  assert.equal(usePlayerStore.getState().playlist[0].id, 's1');
-  assert.deepEqual(usePlayerStore.getState().randomRoam.seenSongIds, ['s1']);
-});
-
 test('tryPlay synchronizes audio.currentTime with store progress before playing when restored', async () => {
   resetStore();
   let playCalled = false;
@@ -444,90 +256,167 @@ test('tryPlay synchronizes audio.currentTime with store progress before playing 
   assert.equal(usePlayerStore.getState().isPlaying, true);
 });
 
-test('enabling roam on empty playlist enters waiting-at-queue-end state and auto-plays on append', () => {
+test('ordinary sequence, loop, random and single playback work without a continuation provider', async () => {
   resetStore();
-  assert.equal(usePlayerStore.getState().playlist.length, 0);
-
-  // 1. 空列表开启漫游成功
-  const enabled = usePlayerStore.getState().setRandomRoamEnabled(true);
-  assert.equal(enabled, true);
-  const roam = usePlayerStore.getState().randomRoam;
-  assert.equal(roam.enabled, true);
-  assert.equal(roam.waitingAtQueueEnd, true);
-  assert.equal(roam.resumeWhenAppended, true);
-
-  // 2. 第一批歌曲拉取并 append 后，自动起播
-  const newSongs = ['roam-1', 'roam-2'].map(makeSong);
-  usePlayerStore.getState().appendRandomRoamBatch(newSongs, { totalPlayable: 50, remainingPlayable: 48, exhausted: false });
-
-  const state = usePlayerStore.getState();
-  assert.equal(state.playlist.length, 2);
-  assert.equal(state.currentSong?.id, 'roam-1');
-  assert.equal(state.randomRoam.waitingAtQueueEnd, false);
+  assert.equal(usePlayerStore.getState().randomRoam, undefined);
+  assert.equal(usePlayerStore.getState().startRandomRoam, undefined);
+  const songs = ['a', 'b'].map(makeSong);
+  const audio = { currentTime: 70, play: async () => {}, paused: true };
+  usePlayerStore.setState({ playlist: songs, currentSong: songs[1], isPlaying: true, audioRef: { current: audio } });
+  usePlayerStore.getState().playNext({ type: 'ended' });
+  assert.equal(usePlayerStore.getState().currentSong.id, 'b');
+  assert.equal(usePlayerStore.getState().isPlaying, false);
+  usePlayerStore.getState().playNext();
+  assert.equal(usePlayerStore.getState().currentSong.id, 'a');
+  usePlayerStore.setState({ currentSong: songs[1], playMode: 'loop' });
+  usePlayerStore.getState().playNext({ type: 'ended' });
+  assert.equal(usePlayerStore.getState().currentSong.id, 'a');
+  usePlayerStore.setState({ playMode: 'random' });
+  usePlayerStore.getState().playNext({ type: 'ended' });
+  assert.equal(usePlayerStore.getState().currentSong.id, 'b');
+  usePlayerStore.setState({ playMode: 'single' });
+  usePlayerStore.getState().playNext({ type: 'ended' });
+  await Promise.resolve();
+  assert.equal(usePlayerStore.getState().currentSong.id, 'b');
+  assert.equal(audio.currentTime, 0);
 });
 
-test('clearing playlist or emptying by removal disables roam to prevent loop', () => {
+test('a generic continuation can append after pause without resuming; queue and context changes reject stale results', t => {
   resetStore();
-  // 1. 开启漫游并设置偏好
-  usePlayerStore.getState().setRandomRoamBatchSize(15);
-  usePlayerStore.getState().setRandomRoamLanguage('yue');
-  usePlayerStore.getState().startRandomRoam(['s1', 's2'].map(makeSong));
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, true);
-  assert.equal(usePlayerStore.getState().randomRoam.batchSize, 15);
-  assert.equal(usePlayerStore.getState().randomRoam.language, 'yue');
-
-  // 2. clearPlaylist 强制关闭漫游，并保留偏好
-  usePlayerStore.getState().clearPlaylist();
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, false);
-  assert.equal(usePlayerStore.getState().randomRoam.batchSize, 15);
-  assert.equal(usePlayerStore.getState().randomRoam.language, 'yue');
-  assert.equal(usePlayerStore.getState().playlist.length, 0);
-
-  // 3. removePlaylistSong 删完至 0 首时强制关闭漫游
-  usePlayerStore.getState().startRandomRoam(['single-song'].map(makeSong));
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, true);
-  usePlayerStore.getState().removePlaylistSong(0);
-  assert.equal(usePlayerStore.getState().playlist.length, 0);
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, false);
-  assert.equal(usePlayerStore.getState().randomRoam.batchSize, 15);
-  assert.equal(usePlayerStore.getState().randomRoam.language, 'yue');
-
-  // 4. setPlaylist([]) 强制关闭漫游
-  usePlayerStore.getState().startRandomRoam(['s1'].map(makeSong));
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, true);
-  usePlayerStore.getState().setPlaylist([]);
-  assert.equal(usePlayerStore.getState().randomRoam.enabled, false);
-});
-
-test('triggerManualRandomRoam and setRandomRoamBatchSize configure and trigger batch prefetch', () => {
-  resetStore();
-  usePlayerStore.getState().setRandomRoamBatchSize(20);
-  assert.equal(usePlayerStore.getState().randomRoam.batchSize, 20);
-
-  // 边界保护：非法或超限值
-  usePlayerStore.getState().setRandomRoamBatchSize(100);
-  assert.equal(usePlayerStore.getState().randomRoam.batchSize, 50);
-  usePlayerStore.getState().setRandomRoamBatchSize(-1);
-  assert.equal(usePlayerStore.getState().randomRoam.batchSize, 10);
-
-  // 手动触发漫游：队列为空时
-  usePlayerStore.getState().triggerManualRandomRoam();
-  let roam = usePlayerStore.getState().randomRoam;
-  assert.equal(roam.enabled, true);
-  assert.equal(roam.manualNonce, 1);
-  assert.equal(roam.retryNonce, 1);
-  assert.equal(roam.waitingAtQueueEnd, true);
-  assert.equal(roam.resumeWhenAppended, true);
-
-  // 队列不为空且未启用漫游时触发：不应擅自开启漫游
-  usePlayerStore.setState({
-    playlist: ['a', 'b'].map(makeSong),
-    currentSong: makeSong('a'),
-    randomRoam: { ...usePlayerStore.getState().randomRoam, enabled: false },
+  const store = usePlayerStore.getState();
+  const ended = [];
+  const dispose = store.registerQueueContinuation({ onQueueEnd: snapshot => { ended.push(snapshot); return true; } });
+  t.after(dispose);
+  store.startQueueContinuation(['a', 'b'].map(makeSong));
+  usePlayerStore.setState({ currentSong: usePlayerStore.getState().playlist[1] });
+  store.playNext({ type: 'ended' });
+  assert.equal(ended.length, 1);
+  const captured = store.getQueueSnapshot();
+  store.pause();
+  assert.equal(store.getQueueSnapshot().revision, captured.revision, 'pause retains queue generation');
+  const appended = store.appendQueueContinuation(['b', 'c', 'c'].map(makeSong), {
+    expectedRevision: captured.revision, expectedCurrentSongId: 'b', resume: true,
   });
-  usePlayerStore.getState().triggerManualRandomRoam();
-  roam = usePlayerStore.getState().randomRoam;
-  assert.equal(roam.enabled, false);
-  assert.equal(roam.manualNonce, 2);
-  assert.equal(roam.retryNonce, 2);
+  assert.deepEqual(appended.added.map(song => song.id), ['c']);
+  assert.equal(usePlayerStore.getState().currentSong.id, 'b');
+  assert.equal(usePlayerStore.getState().isPlaying, false);
+  assert.equal(usePlayerStore.getState().shouldAutoPlay, false);
+  assert.equal(store.appendQueueContinuation([makeSong('late')], { expectedRevision: captured.revision }).stale, true);
+  const beforeContext = store.getQueueSnapshot();
+  store.setQueueContextReady(false); store.setQueueContextReady(true);
+  assert.equal(store.appendQueueContinuation([makeSong('other-account')], { expectedRevision: beforeContext.revision }).stale, true);
+  assert.deepEqual(usePlayerStore.getState().playlist.map(song => song.id), ['a', 'b', 'c']);
+});
+
+test('deleting a provider-owned current tail waits with an accurate snapshot and resumes from new additions', t => {
+  resetStore();
+  const store = usePlayerStore.getState();
+  let requestSnapshot;
+  const dispose = store.registerQueueContinuation({ onQueueEnd: snapshot => { requestSnapshot = snapshot; return true; } });
+  t.after(dispose);
+  const songs = ['a', 'b'].map(makeSong);
+  usePlayerStore.setState({ playlist: songs, currentSong: songs[1], isPlaying: true });
+  store.removePlaylistSong('b');
+  assert.equal(usePlayerStore.getState().currentSong, null);
+  assert.deepEqual(requestSnapshot.queue.map(song => song.id), ['a']);
+  assert.equal(requestSnapshot.revision, store.getQueueSnapshot().revision);
+  store.appendQueueContinuation([makeSong('c')], {
+    expectedRevision: requestSnapshot.revision, expectedCurrentSongId: null, resume: true,
+  });
+  assert.equal(usePlayerStore.getState().currentSong.id, 'c');
+  assert.equal(usePlayerStore.getState().isPlaying, true);
+});
+
+test('continuation cleanup preserves playback and ordinary insert-next preserves the current song', t => {
+  resetStore();
+  const store = usePlayerStore.getState();
+  const events = [];
+  const dispose = store.registerQueueContinuation({ onQueueEnd: () => true,
+    onQueueCleared: () => events.push('clear'), onExplicitPlay: () => events.push('play'),
+    onModeChange: () => events.push('mode'), onPause: () => events.push('pause') });
+  t.after(dispose);
+  store.startQueueContinuation(['a', 'b'].map(makeSong));
+  store.insertAndPlay(makeSong('c'));
+  assert.deepEqual(usePlayerStore.getState().playlist.map(song => song.id), ['a', 'c', 'b']);
+  assert.equal(usePlayerStore.getState().currentSong.id, 'a');
+  assert.deepEqual(events, []);
+  const before = store.getQueueSnapshot();
+  before.queue[0].title = 'mutated';
+  assert.equal(usePlayerStore.getState().playlist[0].title, 'a');
+  dispose();
+  assert.equal(usePlayerStore.getState().isPlaying, true);
+  assert.deepEqual(usePlayerStore.getState().playlist.map(song => song.id), ['a', 'c', 'b']);
+  usePlayerStore.setState({ currentSong: usePlayerStore.getState().playlist[2] });
+  store.playNext({ type: 'ended' });
+  assert.equal(usePlayerStore.getState().isPlaying, false);
+  assert.equal(usePlayerStore.getState().currentSong.id, 'b');
+});
+
+test('user clear, explicit play and mode changes notify a provider while plugin queue setup does not', t => {
+  resetStore();
+  const store = usePlayerStore.getState(), events = [];
+  t.after(store.registerQueueContinuation({ onQueueEnd: () => true,
+    onQueueCleared: () => events.push('clear'), onExplicitPlay: () => events.push('play'),
+    onModeChange: () => events.push('mode') }));
+  store.setQueueSequence(); store.startQueueContinuation([makeSong('a')]);
+  store.trimQueueAfterCurrent();
+  assert.deepEqual(events, []);
+  store.playSong(makeSong('b'), [makeSong('b')]);
+  store.handleModeChange('random'); store.clearPlaylist();
+  assert.deepEqual(events, ['play', 'mode', 'clear']);
+});
+
+test('queue readiness is bound to the account session before React can reset the restore flag', async t => {
+  resetStore();
+  const { useUIStore } = await import('./useUIStore.js');
+  const previous = useUIStore.getState().authSession;
+  t.after(() => { useUIStore.setState({ authSession: previous }); usePlayerStore.getState().setQueueContextReady(false); });
+  const auth = { authenticated: true, user: { accountId: 'A', role: 'member' }, csrfToken: 'A' };
+  useUIStore.setState({ authSession: auth });
+  const store = usePlayerStore.getState();
+  store.startQueueContinuation([makeSong('preserved')]);
+  store.setQueueContextReady(true);
+  const snapshot = store.getQueueSnapshot();
+  assert.equal(snapshot.ready, true);
+  useUIStore.setState({ authSession: { ...auth, user: { ...auth.user, accountId: 'B' } } });
+  assert.equal(store.getQueueSnapshot().ready, false);
+  assert.notEqual(store.getQueueSnapshot().revision, snapshot.revision);
+  assert.equal(usePlayerStore.getState().currentSong.id, 'preserved');
+  store.setQueueContextReady(true);
+  assert.equal(store.getQueueSnapshot().ready, true);
+});
+
+test('quiet cleanup cancels a native play promise without allowing its late completion to resume local sound', async () => {
+  resetStore();
+  const { capturePlaybackCleanup } = await import('../plugins/playbackCleanup.js');
+  let finish, pauses = 0;
+  const audio = { src: 'same.mp3', paused: true, currentTime: 0, play() {
+    return new Promise(resolve => { finish = () => { audio.paused = false; resolve(); }; });
+  }, pause() { pauses++; this.paused = true; } };
+  usePlayerStore.setState({ currentSong: makeSong('same'), audioRef: { current: audio }, shouldAutoPlay: true, progress: 0 });
+  usePlayerStore.getState().tryPlay();
+  const cleanup = capturePlaybackCleanup(usePlayerStore); cleanup(); finish(); await Promise.resolve();
+  assert.equal(usePlayerStore.getState().isPlaying, false); assert.equal(audio.paused, true); assert.equal(pauses, 1);
+});
+
+test('restoration establishes new ownership even for the same cached song and source', async t => {
+  resetStore();
+  const { useUIStore } = await import('./useUIStore.js');
+  const { capturePlaybackCleanup } = await import('../plugins/playbackCleanup.js');
+  const previous = useUIStore.getState().authSession;
+  t.after(() => { useUIStore.setState({ authSession: previous }); usePlayerStore.getState().setQueueContextReady(false); });
+  const auth = { authenticated: true, user: { accountId: 'A', role: 'member' }, csrfToken: 'session-A' };
+  const audio = { src: 'same.mp3', paused: false, pause() { throw new Error('New owner must keep playing'); } };
+  useUIStore.setState({ authSession: auth });
+  usePlayerStore.setState({ currentSong: makeSong('same'), audioRef: { current: audio }, isPlaying: true });
+  usePlayerStore.getState().setQueueContextReady(true);
+  const generation = usePlayerStore.getState().playbackOwnershipGeneration;
+  const cleanup = capturePlaybackCleanup(usePlayerStore);
+  usePlayerStore.getState().setQueueContextReady(false);
+  // Logging in again as the same account creates a fresh hydration owner.
+  useUIStore.setState({ authSession: { ...auth, csrfToken: 'session-B' } });
+  usePlayerStore.getState().setQueueContextReady(true);
+  assert.ok(usePlayerStore.getState().playbackOwnershipGeneration > generation);
+  assert.equal(cleanup(), false); assert.equal(usePlayerStore.getState().isPlaying, true);
+  assert.equal(usePlayerStore.persist.getOptions().partialize(usePlayerStore.getState()).playbackOwnershipGeneration, undefined);
 });

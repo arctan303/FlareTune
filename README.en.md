@@ -8,6 +8,8 @@ FlareTune runs its web player, accounts and library service on Cloudflare Worker
 
 **[Try the live demo](https://flaretune.arcinks.com)** · [Deploy your library](#deploy-your-library) · [User guide](guide/using-flaretune.en.md) · [Changelog](CHANGELOG.en.md)
 
+> **Release and upgrade notice:** **[1.3.0](https://github.com/arctan303/FlareTune/releases/tag/1.3.0)** adds system updates in administration: configure a build repository and channel once, then check and confirm updates in the app. Older versions without this entry first need a compatible transition deployment preserving their resources and data. This does not establish direct or lossless upgrades from every old version. See [deployment and updates](guide/deployment.en.md#system-updates-in-administration) for setup, maintenance and recovery; [plugin deployment](guide/plugin-deployment.en.md) covers plugin installation separately.
+
 ## Try it with music
 
 The demo needs no sign-in and uses music licensed for public redistribution. Play, search, roam, favorite tracks and edit personal playlists. Favorites, history and preferences stay in your browser. A simulated administrator opens the same full pages and settings as a real installation. Local preferences such as language and appearance can be changed; administrative configuration can be inspected. Send assistant messages and receive a fixed demo reply without calling a model. See [demo details and licenses](guide/demo.en.md).
@@ -39,6 +41,8 @@ Cloudflare R2 Standard includes **10 GB-month of free storage each month**, a st
 
 Initial database setup runs inside the application; no manual migration command is needed for a new instance. See the [deployment guide](guide/deployment.en.md) for manual deployment, allowances, backups and upgrades. A new Cloudflare account follows the platform’s current onboarding prompts.
 
+An instance supporting system updates can use a bootstrap repository created once and connected to the same Worker Builds project. After [channel setup](guide/deployment.en.md#configure-the-update-channel-once), confirm later releases in administration without repeatedly forking or manually syncing a repository. The initial cloud channel still requires deployer configuration.
+
 ## Docs and contributions
 
 | Entry | Contents |
@@ -46,6 +50,7 @@ Initial database setup runs inside the application; no manual migration command 
 | [User guide](guide/using-flaretune.en.md) | Playback, roaming, playlists, assistant and preferences |
 | [Administration](guide/administration.en.md) | Library, accounts, instance configuration and data |
 | [Deployment](guide/deployment.en.md) | Installation, allowances, secrets, backups and upgrades |
+| [Plugin sources and deployment](guide/plugin-deployment.en.md) | Permissions, pinned versions, build channels, host upgrades and recovery |
 | [Demo](guide/demo.en.md) | Browser data, full settings, fixed assistant replies and music sources |
 | [Local development](guide/local-development.en.md) | React/Vite/Workers development and checks |
 | [All docs](guide/README.en.md) | User, administrator and client documentation |

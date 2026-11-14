@@ -19,7 +19,6 @@ export default function PlayerBarLyricPreview({
     canTranslate,
     title,
     subtitle,
-    lyricIntro = null,
     lyricSyncMode = 'line',
     surfaceVisible = true,
 }) {
@@ -27,14 +26,14 @@ export default function PlayerBarLyricPreview({
     const lyricPresentation = useLyricSurfacePresentation({
         lyrics: safeLyrics,
         currentLyricIndex,
-        lyricIntro,
         lyricSyncMode,
         surfaceVisible: surfaceVisible && !isHidden,
     });
     const displayedLyricIndex = lyricPresentation.index >= 0
         ? lyricPresentation.index
         : currentLyricIndex;
-    const hasLyricPresentation = Boolean(lyricIntro) || safeLyrics.length > 1;
+    const hasLyricPresentation = safeLyrics.length > 1
+        || (safeLyrics.length === 1 && (lyricSyncMode === 'line' || lyricSyncMode === 'word'));
 
     if (isHidden || !hasLyricPresentation) {
         return (
@@ -63,13 +62,12 @@ export default function PlayerBarLyricPreview({
     for (let index = windowStart; index <= windowEnd; index += 1) {
         const line = safeLyrics[index];
         const isActive = index === displayedLyricIndex;
-        const isIntroRow = lyricPresentation.kind === 'intro' && index === 0;
-        const displayLine = isIntroRow ? lyricPresentation.line : line;
+        const displayLine = line;
         const opacityClass = isActive ? 'player-console__lyric--current opacity-100' : 'player-console__lyric opacity-70';
 
         if (isBilingual) {
             const primaryText = String(displayLine?.text || '').split('\n')[0] || '...';
-            const translationText = isIntroRow ? '' : (line.translation || (line.text.split('\n')[1] || ''));
+            const translationText = line.translation || (line.text.split('\n')[1] || '');
             windowLines.push(
                 <div key={index} className="h-[36px] flex flex-col justify-center text-center">
                     <div className={`player-console__lyric-row h-[18px] leading-[18px] truncate transition-all duration-300 origin-center text-center text-[15px] sm:text-[15.5px] font-bold ${opacityClass}`}>

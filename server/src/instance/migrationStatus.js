@@ -1,4 +1,5 @@
 import { hasHotpathObjects } from './hotpathSchema.js';
+import { hasExternalMusicObjects } from './externalMusicSchema.js';
 
 const supplements = [
   ['ai_protocols', ['ai_profile_protocols']],
@@ -8,9 +9,10 @@ const supplements = [
 ];
 
 export async function getSupplementalMigrationStatus(db) {
-  const result = await db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'trigger', 'index')").all();
+  const result = await db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'trigger', 'index', 'view')").all();
   const names = new Set((result.results || []).map(row => row.name));
   const supplementalMigrations = supplements.map(([id, tables]) => ({ id, ready: tables.every(name => names.has(name)) }));
   supplementalMigrations.push({ id: 'hotpath_counts', ready: hasHotpathObjects(result.results) });
+  supplementalMigrations.push({ id: 'external_music', ready: hasExternalMusicObjects(result.results) });
   return { supplementalPending: supplementalMigrations.some(item => !item.ready), supplementalMigrations };
 }

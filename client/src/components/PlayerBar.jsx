@@ -1,6 +1,7 @@
+import { canReferenceAccountSong } from '../utils/musicSource.js';
 import { localizeUnknownArtist, localizeUnknownTitle, t } from '../i18n/index.js';
 import React from 'react';
-import { Play, Pause, Menu, Star } from 'lucide-react';
+import { Play, Pause, Menu, Star, Languages } from 'lucide-react';
 import { SolidRoundedSkipBack, SolidRoundedSkipForward } from './icons/SolidSkipIcons';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { showToast, useUIStore } from '../store/useUIStore';
@@ -39,8 +40,8 @@ const PlayerBarTimeDisplay = React.memo(function PlayerBarTimeDisplay({ classNam
     );
 });
 
-export default function PlayerBar({ motionProfile = 'full', activePage }) {
-    const { placement, transition } = useCompactPlayerPlacement(activePage);
+export default function PlayerBar({ motionProfile = 'full', activePage, activeRoute }) {
+    const { placement, transition } = useCompactPlayerPlacement(activeRoute || activePage);
     const { isFavorite, toggleFavorite, pendingSongIds } = useFavoriteSongAction();
     const {
         currentSong,
@@ -51,10 +52,11 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         playNext,
         lyrics,
         currentLyricIndex,
-        lyricIntro,
         lyricSyncMode,
         translationEnabled,
         translationAvailable,
+        translationSupported,
+        translationError,
         translationState,
         toggleTranslation,
         setTranslationEnabled,
@@ -68,10 +70,11 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         playNext: state.playNext,
         lyrics: state.lyrics,
         currentLyricIndex: state.currentLyricIndex,
-        lyricIntro: state.lyricIntro,
         lyricSyncMode: state.lyricSyncMode,
         translationEnabled: state.translationEnabled,
         translationAvailable: state.translationAvailable,
+        translationSupported: state.translationSupported,
+        translationError: state.translationError,
         translationState: state.translationState,
         toggleTranslation: state.toggleTranslation,
         setTranslationEnabled: state.setTranslationEnabled,
@@ -90,7 +93,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         immersiveControlsPinned,
         immersiveControlsVisible,
         authenticated,
-        canManageLyrics,
     } = useUIStore(useShallow((state) => ({
         isFullScreen: state.isFullScreen,
         isFullScreenClosing: state.isFullScreenClosing,
@@ -100,7 +102,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
         immersiveControlsPinned: state.immersiveControlsPinned,
         immersiveControlsVisible: state.immersiveControlsVisible,
         authenticated: Boolean(state.authSession?.authenticated),
-        canManageLyrics: state.authSession?.user?.role === 'admin',
     })));
     const { glassMaterial } = useThemeStore(useShallow((state) => ({
         glassMaterial: state.glassMaterial,
@@ -151,32 +152,30 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
     const isSidebarPlayer = !activeFullScreen && placement === 'sidebar';
     const isPlacementExit = !activeFullScreen && transition?.from === 'dock' && transition.phase === 'exit';
     const isHidden = (activeFullScreen && (!isDesktop || !isImmersiveMode)) || isSidebarPlayer || isPlacementExit;
-    const showTranslationButton = translationState !== 'unavailable'
-        && (canManageLyrics || translationState === 'ready');
-    const translationPending = translationState === 'pending';
-    const translationReady = translationState === 'ready' && translationAvailable;
+    const showTranslationButton = translationSupported;
+    const translationPending = translationState === 'pending' && translationEnabled;
+    const translationReady = translationState === 'ready';
     const translationStatusMessage = translationPending
         ? '正在补全歌词翻译'
         : translationReady
             ? '歌词翻译已就绪'
             : translationState === 'failed'
-                ? '歌词翻译补全失败，可以点击重试'
+                ? translationError?.message || '歌词翻译补全失败，可以点击重试'
                 : '';
     const handleTranslationAction = React.useCallback((event) => {
         event?.stopPropagation?.();
-        if (translationPending) return;
-        if (translationReady) {
+        if (!translationSupported) return;
+        if (translationReady || translationState === 'pending') {
             toggleTranslation();
             return;
         }
-        if (!canManageLyrics) return;
         setTranslationEnabled(true);
         void requestLyricsTranslationCompletion({
             songId: currentSong?.id,
             authenticated,
             notify: showToast,
         });
-    }, [authenticated, canManageLyrics, currentSong?.id, setTranslationEnabled, toggleTranslation, translationPending, translationReady]);
+    }, [authenticated, translationSupported, translationState, currentSong?.id, setTranslationEnabled, toggleTranslation, translationReady]);
     
     if (!currentSong) return null;
 
@@ -240,6 +239,10 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             : `group h-[74px] cursor-pointer p-2 pr-4 ${getGlassClasses()}`
                     }`}
                 >
+                    {!isExpanded && <button type="button"
+                        aria-label={t("打开《{p0}》的全屏播放器", { p0: currentSong.title || t("当前歌曲") })}
+                        onClick={event => { event.stopPropagation(); setIsFullScreen(true); }}
+                        className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[var(--accent)]" />}
                     {!isExpanded && (
                         <div className="player-console__progress pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-[22px]">
                             <div className="pointer-events-auto w-full">
@@ -312,7 +315,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                                 ? t("歌词翻译补全失败，重试")
                                                 : t("补全歌词翻译")}
                                     aria-busy={translationPending || undefined}
-                                    disabled={translationPending}
                                     data-active={translationReady && translationEnabled}
                                     data-translation-state={translationState}
                                     onClick={handleTranslationAction}
@@ -331,18 +333,21 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                             ? (translationEnabled ? t("已显示歌词翻译（点击隐藏）") : t("显示歌词翻译"))
                                             : translationState === 'failed' ? t("补全失败，点击重试") : t("点击补全歌词翻译")}
                                 >
-                                    <span aria-hidden="true">{t("译")}</span>
+                                    <Languages size={14} strokeWidth={1.75} aria-hidden="true" focusable="false" />
                                     {translationState === 'failed' && (
                                         <span aria-hidden="true" className="lyrics-translation-action__warning">!</span>
                                     )}
                                 </button>
+                            )}
+                            {translationEnabled && translationState === 'failed' && translationError?.message && (
+                                <span role="alert" className="absolute bottom-full right-0 mb-3 max-w-xs rounded-xl bg-[var(--surface)] border border-[var(--line)] px-3 py-2 text-xs text-[var(--ink)] shadow-lg">{translationError.message}</span>
                             )}
                             <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
                                 {t(translationStatusMessage)}
                             </span>
                             <PlayModeToggle isExpanded={true} />
                             <VolumeControl isExpanded={true} />
-                            <button
+                            {canReferenceAccountSong(currentSong) && <button
                                 type="button"
                                 aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                                 title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
@@ -356,7 +361,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 } ${isPendingFavorite ? 'animate-heart-pending' : ''}`}
                             >
                                 <Star size={20} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
-                            </button>
+                            </button>}
                             <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`text-white/70 hover:text-white transition-colors outline-none flex items-center justify-center ${playlistBouncing ? 'animate-playlist-bounce text-white' : ''}`}>
                                 <Menu size={20} />
                             </button>
@@ -409,7 +414,6 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 showBuffering={showBuffering}
                                 lyrics={lyrics}
                                 currentLyricIndex={currentLyricIndex}
-                                lyricIntro={lyricIntro}
                                 lyricSyncMode={lyricSyncMode}
                                 surfaceVisible={!isHidden}
                                 translationEnabled={translationEnabled}
@@ -439,7 +443,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                             <div className="hidden lg:flex items-center">
                                 <PlayModeToggle isExpanded={false} />
                             </div>
-                            <button
+                            {canReferenceAccountSong(currentSong) && <button
                                 type="button"
                                 aria-label={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
                                 title={isInFavorite ? t("移出我的收藏") : t("加入我的收藏")}
@@ -453,7 +457,7 @@ export default function PlayerBar({ motionProfile = 'full', activePage }) {
                                 } ${isPendingFavorite ? 'animate-heart-pending' : ''}`}
                             >
                                 <Star size={19} fill={isInFavorite && !isPendingFavorite ? 'currentColor' : 'none'} strokeWidth={1.75} />
-                            </button>
+                            </button>}
                             <button aria-label={t("打开播放列表")} onClick={() => setIsPlaylistOpen(true)} className={`player-console__icon p-1.5 transition-all duration-300 active:scale-90 ${playlistBouncing ? 'animate-playlist-bounce text-[var(--accent-strong)]' : ''}`}>
                                 <Menu size={20} />
                             </button>

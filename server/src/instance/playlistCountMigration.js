@@ -77,8 +77,10 @@ async function readControlPlane(db, migration) {
   return 'pending';
 }
 
-const countMismatch = `cached_song_count !=
-  (SELECT COUNT(*) FROM Member_Playlist_Songs WHERE playlist_id = Member_Playlists.id)`;
+const playlistMembership = async db => (await db.prepare("SELECT name FROM sqlite_master WHERE type='view' AND name='Member_All_Playlist_Songs'").first())
+  ? 'Member_All_Playlist_Songs' : 'Member_Playlist_Songs';
+const countMismatchFor = table => `cached_song_count !=
+  (SELECT COUNT(*) FROM ${table} WHERE playlist_id = Member_Playlists.id)`;
 
 async function validateProgress(db, verifyPrefix = false) {
   const progress = await db.prepare('SELECT phase, cursor FROM ft_migration_progress WHERE version = 2').first();
@@ -92,6 +94,7 @@ async function validateProgress(db, verifyPrefix = false) {
       .bind(progress.cursor).first();
     if (!playlist) fail('migration_progress_invalid');
     if (verifyPrefix) {
+      const countMismatch = countMismatchFor(await playlistMembership(db));
       const mismatch = await db.prepare(`SELECT 1 AS mismatch FROM Member_Playlists
         WHERE id <= ? AND ${countMismatch} LIMIT 1`).bind(progress.cursor).first();
       if (mismatch) fail('migration_progress_invalid');
@@ -163,15 +166,16 @@ async function startOrResume(db, migration, ownerToken, now, leaseMs) {
 
 async function advanceBatch(db, migration, ownerToken, now, leaseMs, phase, cursor, ids) {
   const lastId = ids.at(-1);
+  const table = await playlistMembership(db);
   await db.batch([
     ownerFence(db, ownerToken, now, leaseMs),
     renewLease(db, ownerToken, now, leaseMs),
     controlFence(db, migration),
     cursorFence(db, phase, cursor),
     db.prepare(`UPDATE Member_Playlists SET cached_song_count =
-      (SELECT COUNT(*) FROM Member_Playlist_Songs WHERE playlist_id = Member_Playlists.id)
+      (SELECT COUNT(*) FROM ${table} WHERE playlist_id = Member_Playlists.id)
       WHERE id IN (${ids.map(() => '?').join(', ')}) AND cached_song_count !=
-      (SELECT COUNT(*) FROM Member_Playlist_Songs WHERE playlist_id = Member_Playlists.id)`).bind(...ids),
+      (SELECT COUNT(*) FROM ${table} WHERE playlist_id = Member_Playlists.id)`).bind(...ids),
     db.prepare(`UPDATE ft_migration_progress SET cursor = ?, updated_at = ?
       WHERE version = 2 AND phase = ? AND cursor IS ?`).bind(lastId, now, phase, cursor),
   ]);
@@ -192,6 +196,7 @@ async function finishPhase(db, migration, ownerToken, now, leaseMs, phase, curso
   }
   // A valid-looking saved cursor is not proof that earlier rows were verified.
   // This bounded-result integrity query catches skipped rows before v2 commits.
+  const countMismatch = countMismatchFor(await playlistMembership(db));
   const mismatch = await db.prepare(`SELECT 1 AS mismatch FROM Member_Playlists
     WHERE ${countMismatch} LIMIT 1`).first();
   if (mismatch) {

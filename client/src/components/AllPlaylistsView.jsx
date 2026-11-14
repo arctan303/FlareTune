@@ -9,6 +9,8 @@ import { accountPlaylistsStore, useAccountPlaylists } from '../accountPlaylists.
 import { showToast } from '../store/useUIStore.js';
 import { nearestPlaylistSlot } from '../playlistGridDrag.js';
 import { albumColumnsForWidth, albumGridLayout } from './catalog/albumGridLayout.js';
+import CatalogSkeleton from './catalog/CatalogSkeleton.jsx';
+import { useModalFocus } from '../hooks/useModalFocus.js';
 
 export default function AllPlaylistsView({
     playlists,
@@ -34,6 +36,9 @@ export default function AllPlaylistsView({
     const [isCreating, setIsCreating] = React.useState(false);
     const [errorMsg, setErrorMsg] = React.useState('');
     const nameInputRef = React.useRef(null);
+    const createModalRef = React.useRef(null);
+    useModalFocus({ active: isCreateOpen, modalRef: createModalRef, initialFocusRef: nameInputRef,
+        onClose: () => setIsCreateOpen(false), busy: isCreating });
 
     // 确保当前账号的「我的收藏」歌单必定合并在首位
     const favoriteInAccount = memberPlaylists.find((p) => p.kind === 'favorite');
@@ -90,7 +95,6 @@ export default function AllPlaylistsView({
             setName('');
             setDescription('');
             setErrorMsg('');
-            requestAnimationFrame(() => nameInputRef.current?.focus());
         }
     }, [isCreateOpen]);
 
@@ -423,6 +427,7 @@ export default function AllPlaylistsView({
                     </div>
                 )}
                 {isLoading && hasPlaylists && <p role="status" className="text-sm text-[var(--muted)] mb-4">{t("正在加载歌单…")}</p>}
+                {isLoading && !hasPlaylists && <CatalogSkeleton type="albums" overview={false} />}
                 {(hasPlaylists || (!isLoading && !failed)) && (
                 <PlaylistShelfGrid
                     className="record-shelf--bounded"
@@ -444,6 +449,8 @@ export default function AllPlaylistsView({
 
             {isCreateOpen && typeof document !== 'undefined' && createPortal(
                 <div
+                    ref={createModalRef}
+                    tabIndex={-1}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="create-playlist-title"
@@ -469,10 +476,14 @@ export default function AllPlaylistsView({
                         </div>
                         <form onSubmit={handleCreate} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-medium text-[var(--muted)] mb-1">{t("歌单名称")}{' '}<span className="text-red-500">*</span></label>
+                                <label htmlFor="create-playlist-name" className="block text-xs font-medium text-[var(--muted)] mb-1">{t("歌单名称")}{' '}<span className="text-red-500" aria-hidden="true">*</span></label>
                                 <input
+                                    id="create-playlist-name"
                                     ref={nameInputRef}
                                     type="text"
+                                    required
+                                    aria-invalid={errorMsg === '歌单名称需为 1 到 40 个字符。' || undefined}
+                                    aria-describedby={errorMsg ? 'create-playlist-error' : undefined}
                                     value={name}
                                     maxLength={40}
                                     onChange={(e) => setName(e.target.value)}
@@ -481,8 +492,11 @@ export default function AllPlaylistsView({
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-[var(--muted)] mb-1">{t("歌单简介")}</label>
+                                <label htmlFor="create-playlist-description" className="block text-xs font-medium text-[var(--muted)] mb-1">{t("歌单简介")}</label>
                                 <textarea
+                                    id="create-playlist-description"
+                                    aria-invalid={errorMsg === '歌单简介不能超过 300 个字符。' || undefined}
+                                    aria-describedby={errorMsg ? 'create-playlist-error' : undefined}
                                     value={description}
                                     maxLength={300}
                                     rows={3}
@@ -491,7 +505,7 @@ export default function AllPlaylistsView({
                                     className="playlist-modal-input resize-none"
                                 />
                             </div>
-                            {errorMsg && <p className="text-xs text-red-500">{t(errorMsg)}</p>}
+                            {errorMsg && <p id="create-playlist-error" role="alert" className="text-xs text-red-500">{t(errorMsg)}</p>}
                             <div className="flex items-center justify-end gap-3 pt-2">
                                 <button
                                     type="button"

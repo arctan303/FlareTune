@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { handleLocalAssistantRoute } from './localAssistant.js';
+import { prepareAssistantPluginFixture, assistantBuildHeaders } from '../plugins/assistant/test-support.js';
 import { assistantMemoryTool } from '../tools/assistantMemory.js';
 
 function fixture() {
@@ -24,7 +25,7 @@ function fixture() {
         async first() { return sqlite.prepare(sql).get(...values) ?? null; },
         async all() { return { results: sqlite.prepare(sql).all(...values) }; },
         async run() { return { meta: { changes: sqlite.prepare(sql).run(...values).changes } }; },
-        runSync() { return { meta: { changes: sqlite.prepare(sql).run(...values).changes } }; },
+        runSync() { if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: sqlite.prepare(sql).all(...values) }; return { meta: { changes: sqlite.prepare(sql).run(...values).changes } }; },
       };
     },
     async batch(statements) {
@@ -35,14 +36,13 @@ function fixture() {
       } catch (error) { sqlite.exec('ROLLBACK'); throw error; }
     },
   };
+  const session = prepareAssistantPluginFixture(sqlite);
   const route = (accountId, path, method = 'GET', body, chat) => {
     const request = new Request(`https://flare.test${path}`, {
-      method, ...(body === undefined ? {} : { body: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' } }),
+      method, headers: { ...assistantBuildHeaders(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     return handleLocalAssistantRoute(request, new URL(request.url), db, {},
-      { mode: 'normal', account: { accountId, username: accountId.toLowerCase(),
-        displayName: '', role: 'member' } }, { DEEPSEEK_API_KEY: 'test-key' },
+      session(accountId), { DEEPSEEK_API_KEY: 'test-key' },
       chat ? { chat } : {});
   };
   return { sqlite, route };

@@ -64,9 +64,10 @@ export function isValidSongLanguage(code) {
 }
 
 export function songLanguageHasLyrics(code) {
-  return isValidSongLanguage(code) && code !== 'instrumental';
+  // Unknown language does not establish that a recording is instrumental.
+  return code !== 'instrumental';
 }
 
 export function songLanguageNeedsTranslation(code) {
-  return songLanguageHasLyrics(code) && code !== 'zh';
+  return isValidSongLanguage(code) && songLanguageHasLyrics(code) && code !== 'zh';
 }

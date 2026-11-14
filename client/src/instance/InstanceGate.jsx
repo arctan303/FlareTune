@@ -6,6 +6,8 @@ import {
   verifySetupSecret, verifyMaintenanceSecret, runMaintenanceUpgrade,
 } from './api.js';
 import { AUTH_SESSION_CHECK_FAILED_EVENT, AUTH_SESSION_INVALIDATED_EVENT, AUTH_SESSION_UPDATED_EVENT } from '../authNavigation.js';
+import { SYSTEM_UPDATE_STATUS_EVENT, recheckSystemUpdateStatus } from '../services/systemUpdate.js';
+import SystemUpdatePanel from '../components/SystemUpdatePanel.jsx';
 import { imageLoadRegistry } from '../utils/imageLoadRegistry.js';
 import TuneWordmark from '../components/TuneWordmark.jsx';
 import { GoogleSignInButton } from '../components/GoogleLogin.jsx';
@@ -73,7 +75,7 @@ function Page({ title, description, children, footer }) {
   );
 }
 
-function SetupPage({ onComplete }) {
+export function SetupPage({ onComplete }) {
   const [setupSecret, setSetupSecret] = useState('');
   const [proof, setProof] = useState('');
   const [username, setUsername] = useState('');
@@ -117,6 +119,7 @@ function SetupPage({ onComplete }) {
       setConfirm('');
       onComplete();
     } catch (cause) {
+      if (cause?.code === 'invalid_setup') setProof('');
       setError(messageForError(cause, 'setup'));
       queueMicrotask(() => errorRef.current?.focus());
     } finally {
@@ -133,9 +136,56 @@ function SetupPage({ onComplete }) {
           <Field id="setup-confirm" label="确认密码" type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />
         </>}
         <button className="instance-primary" type="submit" disabled={busy} data-busy={busy ? 'true' : undefined}>{t(busy ? '请稍候…' : proof ? '初始化并创建管理员' : '验证密钥')}</button>
+        {proof && <button className="instance-link" type="button" disabled={busy} onClick={() => { setProof(''); setError(''); }}>{t('重新验证密钥')}</button>}
       </form>
     </Page>
   );
+}
+
+export function SystemUpdateWaitingPage({ onRefresh, children }) {
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState('');
+  const pending = useRef(false), mounted = useRef(true);
+  const check = useCallback(async () => {
+    if (pending.current) return;
+    pending.current = true; setChecking(true);
+    try {
+      const result = await onRefresh({ background: true });
+      if (mounted.current) setError(result ? '' : '暂时无法核实更新进度，将继续自动检查。');
+    } catch {
+      if (mounted.current) setError('暂时无法核实更新进度，将继续自动检查。');
+    } finally {
+      pending.current = false;
+      if (mounted.current) setChecking(false);
+    }
+  }, [onRefresh]);
+  useEffect(() => {
+    mounted.current = true;
+    const timer = setInterval(() => { void check(); }, 4000);
+    return () => { mounted.current = false; clearInterval(timer); };
+  }, [check]);
+  return <Page title="系统正在更新" description="实例暂时暂停服务，更新完成后会自动恢复。">
+    <div className="instance-form">
+      <p className="instance-progress" role="status">{t(checking ? '正在核实更新状态…' : '正在等待系统更新完成…')}</p>
+      <StatusMessage error={error} />
+      <button className="instance-link" type="button" disabled={checking} onClick={() => void check()}>{t('刷新状态')}</button>
+    </div>
+    {children && <div className="mt-6 space-y-4">{children}</div>}
+  </Page>;
+}
+
+export function MaintenanceScreen({ status, session, sessionUnavailable, onRefresh, onLogin, onLogout }) {
+  if (status?.reason !== 'system_update_running') return <MaintenancePage onRefresh={onRefresh} />;
+  const authenticated = session?.authenticated;
+  const administrator = authenticated && !session.mustChangePassword && session.user?.role === 'admin';
+  return <SystemUpdateWaitingPage onRefresh={onRefresh}>
+    {sessionUnavailable ? <p className="instance-hint" role="status">{t('暂时无法核实管理会话，请等待更新或联系部署者检查。')}</p>
+      : administrator ? <SystemUpdatePanel session={session} />
+        : authenticated ? <p className="instance-hint">{t('当前账号暂时不能管理更新，可等待完成或退出切换账号。')}</p>
+          : <div className="instance-form"><p className="instance-hint">{t('登录管理员账号可核实并继续本次更新。')}</p>
+            <button className="instance-primary" type="button" onClick={onLogin}>{t('登录管理更新')}</button></div>}
+    {authenticated && <button className="instance-link" type="button" onClick={onLogout}>{t('退出登录')}</button>}
+  </SystemUpdateWaitingPage>;
 }
 
 function MaintenancePage({ onRefresh }) {
@@ -190,7 +240,7 @@ function MaintenancePage({ onRefresh }) {
   </Page>;
 }
 
-function LoginPage({ onSuccess }) {
+export function LoginPage({ onSuccess, localOnly = false, onBack }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -263,7 +313,8 @@ function LoginPage({ onSuccess }) {
               <span>{t(busy ? '正在登录…' : '登录')}</span>
             </button>
           </form>
-          <GoogleSignInButton />
+          {localOnly ? <div className="mt-4 space-y-3"><p className="instance-hint">{t('当前仅开放本地账号登录，用于核实系统更新。')}</p>
+            <button className="instance-link" type="button" disabled={busy} onClick={onBack}>{t('返回更新状态')}</button></div> : <GoogleSignInButton />}
         </div>
       </section>
     </main>
@@ -325,26 +376,48 @@ export default function InstanceGate({ App }) {
   const [mode, setMode] = useState(null);
   const [busy, setBusy] = useState(true);
   const [readyShellSession, setReadyShellSession] = useState(null);
-  const refresh = useCallback(async () => {
+  const [maintenanceSessionUnavailable, setMaintenanceSessionUnavailable] = useState(false);
+  const updateStatusGeneration = useRef(0);
+  const refresh = useCallback(async ({ background = false } = {}) => {
+    const generation = ++updateStatusGeneration.current;
+    const isCurrent = () => updateStatusGeneration.current === generation;
     imageLoadRegistry.setSessionScope(null);
-    setBusy(true);
+    if (!background) setBusy(true);
     try {
       const nextStatus = await getInstanceStatus();
-      const nextSession = nextStatus.state === 'ready' ? await getSession() : null;
+      if (!isCurrent()) return null;
+      const updateMaintenance = nextStatus.state === 'maintenance' && nextStatus.reason === 'system_update_running';
+      let nextSession = null, sessionUnavailable = false;
+      if (nextStatus.state === 'ready' || updateMaintenance) {
+        try { nextSession = await getSession(); }
+        catch (error) { if (!updateMaintenance) throw error; sessionUnavailable = true; }
+      }
+      if (!isCurrent()) return null;
       imageLoadRegistry.setSessionScope(nextSession);
       setStatus(nextStatus);
       setSession(nextSession);
+      setMaintenanceSessionUnavailable(sessionUnavailable);
       setMode(null);
+      return nextStatus;
     } catch {
-      imageLoadRegistry.setSessionScope(null);
-      setStatus({ state: 'unavailable' });
-      setSession(null);
-      setMode(null);
+      if (!background && isCurrent()) {
+        imageLoadRegistry.setSessionScope(null);
+        setStatus({ state: 'unavailable' });
+        setSession(null);
+        setMode(null);
+      }
+      return null;
     } finally {
-      setBusy(false);
+      if (!background && isCurrent()) setBusy(false);
     }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => () => { ++updateStatusGeneration.current; }, []);
+  useEffect(() => {
+    const recheck = () => { void refresh({ background: true }); };
+    window.addEventListener(SYSTEM_UPDATE_STATUS_EVENT, recheck);
+    return () => window.removeEventListener(SYSTEM_UPDATE_STATUS_EVENT, recheck);
+  }, [refresh]);
   useEffect(() => {
     setUiLanguage(session?.authenticated ? session.user?.uiLanguage : 'auto');
   }, [session?.authenticated, session?.user?.uiLanguage]);
@@ -368,9 +441,12 @@ export default function InstanceGate({ App }) {
   }, []);
   useEffect(() => {
     const invalidate = () => {
+      ++updateStatusGeneration.current;
+      setBusy(false);
       imageLoadRegistry.setSessionScope(null);
       setUiLanguage('auto');
       setSession(normalizeSession(null));
+      setMaintenanceSessionUnavailable(false);
       setMode(null);
       void import('../store/useUIStore.js').then(({ useUIStore }) => {
         useUIStore.getState().setAuthSession(toShellAuthSession(null));
@@ -381,6 +457,8 @@ export default function InstanceGate({ App }) {
   }, []);
   useEffect(() => {
     const unavailable = () => {
+      const generation = ++updateStatusGeneration.current;
+      setBusy(false);
       imageLoadRegistry.setSessionScope(null);
       setUiLanguage('auto');
       setStatus({ state: 'unavailable' });
@@ -389,15 +467,22 @@ export default function InstanceGate({ App }) {
       void import('../store/useUIStore.js').then(({ useUIStore }) => {
         useUIStore.getState().setAuthSession(toShellAuthSession(null));
       });
+      // Returning focus during a migration can fail the ordinary session check
+      // before the update panel polls. Keep its normal failure behavior, then
+      // enter the waiting screen only after the public status confirms it.
+      void recheckSystemUpdateStatus({ isCurrent: () => updateStatusGeneration.current === generation });
     };
     window.addEventListener(AUTH_SESSION_CHECK_FAILED_EVENT, unavailable);
     return () => window.removeEventListener(AUTH_SESSION_CHECK_FAILED_EVENT, unavailable);
   }, []);
   useEffect(() => {
     const updated = (event) => {
+      ++updateStatusGeneration.current;
+      setBusy(false);
       const next = normalizeSession(event.detail);
       imageLoadRegistry.setSessionScope(next);
       setSession(next);
+      setMaintenanceSessionUnavailable(false);
       setMode(null);
       if (!next.authenticated || next.mustChangePassword) {
         void import('../store/useUIStore.js').then(({ useUIStore }) => {
@@ -423,10 +508,13 @@ export default function InstanceGate({ App }) {
     return () => { cancelled = true; };
   }, [current, session]);
   const handleLogin = async () => {
+    const generation = ++updateStatusGeneration.current;
     const nextSession = await getSession();
+    if (generation !== updateStatusGeneration.current) return;
     if (!nextSession.authenticated) throw new Error('login_session_missing');
     imageLoadRegistry.setSessionScope(nextSession);
     setSession(nextSession);
+    setMaintenanceSessionUnavailable(false);
     setMode(null);
   };
   const handleLogout = async () => {
@@ -443,7 +531,11 @@ export default function InstanceGate({ App }) {
   if (current === 'unavailable') return <Page title="暂时无法连接" description="实例状态暂时无法确认。为保护数据，应用尚未打开。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
   if (current === 'setup') return <SetupPage onComplete={() => setMode('setup_complete')} />;
   if (current === 'setup_complete') return <Page title="实例已准备好"><button className="instance-primary" type="button" onClick={refresh}>{t('前往登录')}</button></Page>;
-  if (current === 'maintenance') return <MaintenancePage onRefresh={refresh} />;
+  if (current === 'system_update_login' && status?.state === 'maintenance' && status.reason === 'system_update_running') {
+    return <LoginPage localOnly onSuccess={handleLogin} onBack={() => setMode(null)} />;
+  }
+  if (current === 'maintenance') return <MaintenanceScreen status={status} session={session} sessionUnavailable={maintenanceSessionUnavailable}
+    onRefresh={refresh} onLogin={() => setMode('system_update_login')} onLogout={handleLogout} />;
   if (current === 'instance_error') return <Page title="实例需要维护" description="当前实例暂时无法打开，请联系部署者检查实例状态。"><button className="instance-primary" type="button" onClick={refresh}>{t('重新检查')}</button></Page>;
   if (current === 'login') return <LoginPage onSuccess={handleLogin} />;
   if (current === 'change_password') return <ChangePasswordPage csrfToken={session?.csrfToken} onComplete={() => { imageLoadRegistry.setSessionScope(null); setSession(normalizeSession(null)); setMode('password_changed'); }} onLogout={handleLogout} />;

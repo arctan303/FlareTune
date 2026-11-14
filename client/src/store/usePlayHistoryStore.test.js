@@ -114,3 +114,14 @@ test('usePlayHistoryStore: enforces maximum 100 items limit', () => {
   assert.equal(usePlayHistoryStore.getState().history.length, MAX_HISTORY_COUNT);
   assert.equal(usePlayHistoryStore.getState().history[0].id, 'bulk-109');
 });
+
+
+test('YouTube browser history preserves source and artist/album identities for later playback', () => {
+  const store=usePlayHistoryStore.getState(); store.clearHistory();
+  store.addSong({id:'yt:QBtVFL0Qefs',source:'youtube',sourceId:'QBtVFL0Qefs',title:'Same',
+    audio_url:'/media/youtube/audio/QBtVFL0Qefs',artists:[{id:'yt:artist:UCtest',name:'A'}],albumId:'yt:album:MPREb_a'});
+  const saved=usePlayHistoryStore.getState().history[0];
+  assert.equal(saved.source,'youtube'); assert.equal(saved.sourceId,'QBtVFL0Qefs');
+  assert.equal(saved.artists[0].id,'yt:artist:UCtest'); assert.equal(saved.albumId,'yt:album:MPREb_a');
+  assert.equal(saved.audio_url,'/media/youtube/audio/QBtVFL0Qefs');
+});

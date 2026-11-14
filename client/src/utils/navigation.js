@@ -3,11 +3,15 @@
  * 规范化 URL 路径，支持浏览器前进/后退与深层链接 (Deep Linking)
  */
 
-export const SUPPORTED_PAGES = ['home', 'history', 'search', 'roam', 'library', 'settings', 'assistant', 'lyrics'];
+import { approvePluginNavigation } from '../plugins/leaveGuard.js';
+import { compiledPluginManifests } from '../../../shared/plugins/catalog.js';
+export const SUPPORTED_PAGES = ['home', 'history', 'search', 'roam', 'library', 'settings', 'assistant', 'lyrics', 'plugin'];
 export const DEFAULT_PAGE = 'home';
 const SETTINGS_PATHS = Object.freeze({
   personal: '/settings/personal',
   appearance: '/settings/appearance',
+  plugins: '/settings/plugins',
+  'admin-plugins': '/settings/admin/plugins',
   'admin-assistant': '/settings/admin/assistant',
   'admin-catalog': '/settings/admin/catalog',
   'admin-add-song': '/settings/admin/catalog/new',
@@ -18,7 +22,17 @@ const RESULT_TYPES = new Set(['songs', 'artists', 'albums']);
 const EXPLORE_TYPES = new Set(['songs', 'artists', 'albums']);
 const EXPLORE_LANGUAGES = new Set(['zh', 'en', 'instrumental', 'ja', 'other', 'ko']);
 const LYRICS_SECTIONS = new Set(['current', 'tools', 'candidates']);
-const SIDEBAR_WORKSPACES = new Set(['settings', 'assistant', 'lyrics']);
+const SIDEBAR_WORKSPACES = new Set(['settings', 'assistant', 'lyrics', 'plugin']);
+// Service tabs share their entry origin; administration keeps the settings scope.
+const sidebarWorkspace = route => {
+  if (route?.page !== 'plugin') return route?.page;
+  if (!route.pluginId || !route.pluginPage || route.pluginPage === 'overview') return 'settings';
+  const page = compiledPluginManifests.find(plugin => plugin.id === route.pluginId)?.pages
+    .find(page => page.id === route.pluginPage);
+  return page?.kind === 'settings' ? 'settings' : `plugin:${route.pluginId}:${page?.group || 'service'}`;
+};
+const isSidebarWorkspace = scope => SIDEBAR_WORKSPACES.has(scope) || scope?.startsWith('plugin:');
+export const isLyricsWorkspaceRoute = route => route?.page === 'lyrics' || (route?.page === 'plugin' && route.pluginId === 'lyrics-workbench' && LYRICS_SECTIONS.has(route.pluginPage));
 
 /**
  * 将当前路径解析为结构化路由对象
@@ -35,23 +49,49 @@ export function parsePathname(pathname = '') {
 
   const [firstSegment, ...rest] = segments;
 
+  if (firstSegment === 'roam' && rest.length === 0) return { type: 'page', page: 'roam' };
+
+  if (firstSegment === 'plugins') {
+    if (rest.length === 0) return { type: 'page', page: 'plugin', section: 'list' };
+    // '_' cannot be a plugin id, so workspace routes never reserve an author's id.
+    if (rest[0] === '_' && rest.length === 2 && ['install', 'sources', 'delivery'].includes(rest[1])) {
+      return { type: 'page', page: 'plugin', section: rest[1] === 'install' ? 'list' : 'delivery' };
+    }
+    if (rest[0] !== '_' && rest.length >= 1 && rest.length <= 2) {
+      if (decodeSegment(rest[0]) === 'roam' && decodeSegment(rest[1]) === 'browse') return { type: 'page', page: 'roam' };
+      const songId = new URLSearchParams((pathname.split('?')[1] || '').split('#')[0]).get('song');
+      return { type: 'page', page: 'plugin', pluginId: decodeSegment(rest[0]), pluginPage: decodeSegment(rest[1] || 'overview'),
+        ...(rest[0] === 'lyrics-workbench' && songId ? { songId } : {}) };
+    }
+    return rest[0] === '_' ? { type: 'page', page: 'plugin', section: 'missing' } : { type: 'page', page: DEFAULT_PAGE };
+  }
+
   if (firstSegment === 'settings') {
     if (segments.length === 1) return { type: 'page', page: 'settings', section: 'appearance' };
     if (segments.length === 2 && segments[1] === 'admin') return { type: 'page', page: 'settings', section: 'admin-system' };
     if (segments.length === 3 && segments[1] === 'admin' && segments[2] === 'instance') {
       return { type: 'page', page: 'settings', section: 'admin-system' };
     }
+    const pluginOffset = segments[1] === 'admin' ? 3 : 2;
+    if (segments[pluginOffset - 1] === 'plugins' && segments.length > pluginOffset && segments.length <= pluginOffset + 2) {
+      return { type: 'page', page: 'plugin', pluginId: decodeSegment(segments[pluginOffset]),
+        pluginPage: decodeSegment(segments[pluginOffset + 1] || 'overview') };
+    }
     const section = Object.keys(SETTINGS_PATHS).find((key) => SETTINGS_PATHS[key] === `/${segments.join('/')}`);
+    if (section === 'admin-assistant') return { type: 'page', page: 'plugin', pluginId: 'assistant', pluginPage: 'configuration' };
+    if (section === 'plugins' || section === 'admin-plugins') {
+      return { type: 'page', page: 'plugin', section: 'list' };
+    }
     return { type: 'page', page: 'settings', section: section || 'appearance' };
   }
 
-  if (firstSegment === 'assistant' && rest[0] === 'memory' && rest.length === 1) {
-    return { type: 'page', page: 'assistant', section: 'memory' };
+  if (['assistant', 'xiaoa'].includes(firstSegment) && (rest.length === 0 || (rest.length === 1 && rest[0] === 'memory'))) {
+    return { type: 'page', page: 'plugin', pluginId: 'assistant', pluginPage: rest[0] === 'memory' ? 'memory' : 'conversation' };
   }
 
   if (firstSegment === 'lyrics' && rest[0]) {
-    return { type: 'page', page: 'lyrics', songId: decodeSegment(rest[0]),
-      section: LYRICS_SECTIONS.has(rest[1]) ? rest[1] : 'current' };
+    return { type: 'page', page: 'plugin', pluginId: 'lyrics-workbench', songId: decodeSegment(rest[0]),
+      pluginPage: LYRICS_SECTIONS.has(rest[1]) ? rest[1] : 'current' };
   }
 
   if (firstSegment === 'album' && rest.length === 1) {
@@ -86,11 +126,9 @@ export function parsePathname(pathname = '') {
     }
 
     const rawName = nameSegments.join('/');
-    try {
-      return { type: 'artist', name: decodeURIComponent(rawName), view };
-    } catch {
-      return { type: 'artist', name: rawName, view };
-    }
+    const name = decodeSegment(rawName);
+    return { type: 'artist', name, view,
+      ...(name.startsWith('yt:artist:') ? { id: name, source: 'youtube' } : {}) };
   }
 
   // 2. 歌单路由: /playlist/:id
@@ -121,8 +159,13 @@ function decodeSegment(value) {
 
 export function parseAppLocation(location = {}) {
   const route = parsePathname(location.pathname || '/');
-  if (route.type !== 'page' || route.page !== 'search') return route;
   const params = new URLSearchParams(location.search || '');
+  if (route.page === 'plugin' && route.pluginId === 'lyrics-workbench' && params.get('song')) return { ...route, songId: params.get('song') };
+  if (route.type === 'page' && route.page === 'plugin' && route.pluginId && route.pluginPage === 'overview') {
+    const source = params.get('source'), version = params.get('version');
+    return source && version ? { ...route, catalogSource: source, catalogVersion: version } : route;
+  }
+  if (route.type !== 'page' || route.page !== 'search') return route;
   return {
     ...route,
     query: (params.get('q') || '').trim(),
@@ -138,22 +181,40 @@ export function parseAppLocation(location = {}) {
  */
 export function formatPath(route) {
   if (!route) return `/${DEFAULT_PAGE}`;
+  if (route.type === 'page' && (route.page === 'roam'
+    || route.page === 'plugin' && route.pluginId === 'roam' && route.pluginPage === 'browse')) return '/roam';
+
+  if (route.type === 'page' && route.page === 'plugin' && route.pluginId) {
+    const params = new URLSearchParams();
+    if (route.pluginId === 'lyrics-workbench' && route.songId) params.set('song', String(route.songId));
+    if ((!route.pluginPage || route.pluginPage === 'overview') && route.catalogSource && route.catalogVersion) {
+      params.set('source', route.catalogSource); params.set('version', route.catalogVersion);
+    }
+    return `/plugins/${encodeURIComponent(route.pluginId)}/${encodeURIComponent(route.pluginPage || 'overview')}${params.size ? '?' + params : ''}`;
+  }
+
+  if (route.type === 'page' && route.page === 'plugin') {
+    return ['sources', 'delivery'].includes(route.section) ? '/plugins/_/delivery' : '/plugins';
+  }
 
   if (route.type === 'page' && route.page === 'settings') {
+    if (route.section === 'admin-assistant') return '/plugins/assistant/configuration';
+    if (['plugins', 'admin-plugins'].includes(route.section) && route.pluginId) {
+      return formatPath({ type: 'page', page: 'plugin', pluginId: route.pluginId, pluginPage: route.pluginSection || 'overview' });
+    }
+    if (['plugins', 'admin-plugins'].includes(route.section)) return '/plugins';
     return SETTINGS_PATHS[route.section] || SETTINGS_PATHS.appearance;
   }
   if (route.type === 'page' && route.page === 'assistant') {
-    return route.section === 'memory' ? '/assistant/memory' : '/assistant';
+    return `/plugins/assistant/${route.section === 'memory' ? 'memory' : 'conversation'}`;
   }
 
   if (route.type === 'page' && route.page === 'lyrics' && route.songId) {
-    const base = `/lyrics/${encodeURIComponent(route.songId)}`;
-    return route.section && route.section !== 'current' && LYRICS_SECTIONS.has(route.section)
-      ? `${base}/${route.section}` : base;
+    return formatPath({ type: 'page', page: 'plugin', pluginId: 'lyrics-workbench', pluginPage: LYRICS_SECTIONS.has(route.section) ? route.section : 'current', songId: route.songId });
   }
 
   if (route.type === 'artist' && route.name) {
-    const encoded = encodeURIComponent(route.name);
+    const encoded = encodeURIComponent(route.id?.startsWith('yt:artist:') ? route.id : route.name);
     if (route.view === 'songs') return `/artist/${encoded}/songs`;
     if (route.view === 'albums') return `/artist/${encoded}/albums`;
     return `/artist/${encoded}`;
@@ -206,11 +267,12 @@ export function syncBrowserHistory(url, { replace = false, state = {} } = {}) {
 
   const currentPath = window.location.pathname + window.location.search;
   if (currentPath === url) return;
+  if (!approvePluginNavigation(url)) return;
 
-  const targetPage = parsePathname(url).page;
-  const currentPage = parsePathname(currentPath).page;
+  const targetPage = sidebarWorkspace(parsePathname(url));
+  const currentPage = sidebarWorkspace(parsePathname(currentPath));
   let sidebarState = {};
-  if (SIDEBAR_WORKSPACES.has(targetPage)) {
+  if (isSidebarWorkspace(targetPage)) {
     const previous = window.history.state;
     if (currentPage === targetPage) {
       const origin = previous?.sidebarPage === targetPage ? previous.sidebarOrigin : null;
@@ -241,7 +303,7 @@ export function returnFromSidebarWorkspace(fallbackUrl = '/home') {
   const origin = state?.sidebarOrigin;
   const depth = Number(state?.sidebarDepth);
   const validOrigin = state?.url === currentPath
-    && state?.sidebarPage === parsePathname(currentPath).page
+    && state?.sidebarPage === sidebarWorkspace(parsePathname(currentPath))
     && typeof origin === 'string' && origin.startsWith('/') && !origin.startsWith('//')
     && origin !== currentPath;
   if (validOrigin && Number.isInteger(depth) && depth > 0
@@ -257,9 +319,9 @@ export function returnFromSidebarWorkspace(fallbackUrl = '/home') {
 // on the page the user just attempted to leave for.
 export function restoreSidebarWorkspaceAfterRejectedBack(url, scrollEntryId) {
   if (typeof window === 'undefined' || !window.history) return null;
-  const sidebarPage = parsePathname(url).page;
+  const sidebarPage = sidebarWorkspace(parsePathname(url));
   const from = window.location.pathname + window.location.search;
-  if (!SIDEBAR_WORKSPACES.has(sidebarPage) || from === url) return null;
+  if (!isSidebarWorkspace(sidebarPage) || from === url) return null;
   const state = {
     url,
     from,

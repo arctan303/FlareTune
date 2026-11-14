@@ -1,190 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  LYRIC_OFFSET_MAX, LYRIC_OFFSET_MIN, clampLyricOffset, lyricsWorkspaceApi,
-} from './localLyricsWorkspaceApi.js';
-import { useUIStore } from '../store/useUIStore.js';
-
-function setSession(role = 'admin', csrfToken = 'local-csrf') {
-  useUIStore.setState({ authSession: {
-    authenticated: true, initialized: true,
-    user: { accountId: `local-${role}`, role }, csrfToken,
-  } });
+import { createLyricsWorkspaceApi, lyricsWorkspaceApi, clampLyricOffset, LYRIC_OFFSET_MIN, LYRIC_OFFSET_MAX } from './localLyricsWorkspaceApi.js';
+import { bindLyricsWorkspaceHost } from '../plugins/lyrics-workbench/api.js';
+function fixture(role = 'admin') {
+  const calls = []; const state = { current: true, ai: true };
+  const host = { isCurrent: () => state.current, session: { get: () => ({ authenticated: true, user: { role } }) },
+    features: { isAvailable: () => state.ai }, request: async (path, init) => { calls.push({ path, init }); return { ok: true, data: {} }; } };
+  return { host, state, calls, api: createLyricsWorkspaceApi(host) };
 }
-
-const okResponse = (data = {}) => ({
-  ok: true, status: 200, json: async () => ({ ok: true, data }),
+test('administrator workspace API encodes source ids and forwards only permitted document fields', async () => {
+  const f = fixture();
+  await f.api.getLyrics('yt:abcdefghijk');
+  await f.api.updateLyrics('song / 1', { source: 'lrclib', providerLyricId: 'one', ignored: 'private', etag: 'old' });
+  await f.api.saveLyricsDocument('s1', { lines: [{ text: 'Saved' }], etag: 'one', aiReceipt: 'receipt', translationLanguage: 'en' });
+  assert.equal(f.calls[0].path, 'workspace/yt%3Aabcdefghijk');
+  assert.equal(f.calls[1].path, 'workspace/song%20%2F%201');
+  assert.deepEqual(f.calls[1].init.body, { source: 'lrclib', providerLyricId: 'one', etag: 'old' });
+  assert.equal(f.calls[2].init.body.aiReceipt, 'receipt');
 });
-
-test('administrator lyrics requests use only the local workspace endpoint family', async () => {
-  setSession();
-  const originalFetch = globalThis.fetch;
-  const calls = [];
-  globalThis.fetch = async (url, init) => {
-    calls.push({ url: String(url), init });
-    return okResponse();
-  };
-  try {
-    await lyricsWorkspaceApi.getLyrics('song / 1');
-    await lyricsWorkspaceApi.getLyricsCandidates('song / 1');
-    await lyricsWorkspaceApi.inspectLyricsCandidates('song / 1', [{ source: 'custom_krc', providerLyricId: 'candidate-7' }]);
-    await lyricsWorkspaceApi.updateLyrics('song / 1', {
-      source: 'custom_krc', providerLyricId: 'candidate-7', etag: 'etag-1',
-      ignored: 'must not leave the browser',
-    });
-    await lyricsWorkspaceApi.updateLyricsOffset('song / 1', { offsetMs: -150, etag: 'etag-2' });
-    await lyricsWorkspaceApi.resetLyrics('song / 1', 'etag-3');
-    await lyricsWorkspaceApi.completeLyricsTranslation('song / 1');
-    await lyricsWorkspaceApi.clearLyricsTranslation('song / 1', 'etag-4');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-  assert.equal(calls.length, 8);
-  assert.match(calls[0].url, /\/api\/lyrics\/workspace\/song%20%2F%201$/);
-  assert.match(calls[1].url, /\/candidates$/);
-  assert.match(calls[2].url, /\/candidates\/inspect$/);
-  assert.deepEqual(JSON.parse(calls[2].init.body), {
-    candidates: [{ source: 'custom_krc', providerLyricId: 'candidate-7' }],
-  });
-  assert.deepEqual(JSON.parse(calls[3].init.body), {
-    source: 'custom_krc', providerLyricId: 'candidate-7', etag: 'etag-1',
-  });
-  assert.deepEqual(JSON.parse(calls[4].init.body), { offsetMs: -150, etag: 'etag-2' });
-  assert.deepEqual(JSON.parse(calls[5].init.body), { etag: 'etag-3' });
-  assert.deepEqual(JSON.parse(calls[6].init.body), {});
-  assert.deepEqual(JSON.parse(calls[7].init.body), { etag: 'etag-4' });
-  for (const call of calls) {
-    assert.equal(call.init.credentials, 'include');
-    assert.equal(call.init.headers['X-FlareTune-Expected-Account'], 'local-admin');
-    assert.equal(call.init.headers['x-admin-api-key'], undefined);
-    assert.equal(call.init.headers['X-Arc-CSRF'], undefined);
-  }
-  for (const call of calls.slice(2)) {
-    assert.equal(call.init.headers['X-Requested-With'], 'FlareTune');
-    assert.equal(call.init.headers['X-CSRF-Token'], 'local-csrf');
-  }
+test('members inspect and request permitted AI but cannot write shared lyrics or draft AI', async () => {
+  const f = fixture('member');
+  await f.api.getLyrics('s1'); await f.api.inspectLyricsCandidates('s1', []); await f.api.completeLyricsTranslation('s1');
+  for (const action of [() => f.api.updateLyrics('s1', { source: 'lrclib' }), () => f.api.resetLyrics('s1'),
+    () => f.api.completeDraftLyrics('s1', { lines: [], etag: 'one' })]) await assert.rejects(action, { status: 403 });
+  assert.equal(f.calls.length, 3);
 });
-
-test('member may inspect candidates and trigger AI, but cannot edit shared lyrics directly', async () => {
-  setSession('member');
-  const originalFetch = globalThis.fetch;
-  const calls = [];
-  globalThis.fetch = async (url, init) => {
-    calls.push({ url: String(url), init });
-    return okResponse();
-  };
-  try {
-    await lyricsWorkspaceApi.getLyrics('s1');
-    await lyricsWorkspaceApi.getLyricsCandidates('s1', { title: 'Custom Title', artist: 'Custom Artist' });
-    await lyricsWorkspaceApi.inspectLyricsCandidates('s1', [{ source: 'custom_krc', providerLyricId: 'k1' }], {
-      title: 'Custom Title', artist: 'Custom Artist',
-    });
-    await lyricsWorkspaceApi.completeLyricsTranslation('s1');
-    for (const operation of [
-      () => lyricsWorkspaceApi.updateLyrics('s1', { source: 'auto', etag: null }),
-      () => lyricsWorkspaceApi.updateLyricsOffset('s1', { offsetMs: 1, etag: 'e' }),
-      () => lyricsWorkspaceApi.resetLyrics('s1', 'e'),
-      () => lyricsWorkspaceApi.clearLyricsTranslation('s1', 'e'),
-    ]) await assert.rejects(operation(), { status: 403, code: 'FORBIDDEN' });
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-  assert.equal(calls.length, 4);
-  assert.match(calls[1].url, /\/candidates\?title=Custom\+Title&artist=Custom\+Artist$/);
-  assert.deepEqual(JSON.parse(calls[2].init.body), {
-    candidates: [{ source: 'custom_krc', providerLyricId: 'k1' }],
-    searchTitle: 'Custom Title', searchArtist: 'Custom Artist',
-  });
-  assert.deepEqual(JSON.parse(calls[3].init.body), {});
+test('optional Gateway blocks only AI, preserving ordinary editing and candidates', async () => {
+  const f = fixture(); f.state.ai = false;
+  await f.api.getLyrics('s1'); await f.api.updateLyricsOffset('s1', { offsetMs: 1 });
+  await assert.rejects(f.api.completeLyricsTranslation('s1'), { code: 'PLUGIN_DEPENDENCY_UNAVAILABLE' });
+  await assert.rejects(f.api.completeDraftLyrics('s1', { lines: [], etag: 'one' }), { code: 'PLUGIN_DEPENDENCY_UNAVAILABLE' });
+  assert.equal(f.calls.length, 2);
 });
-
-test('candidate adoption does not implicitly request AI completion and offset is clamped', async () => {
-  setSession();
-  const originalFetch = globalThis.fetch;
-  const calls = [];
-  globalThis.fetch = async (url, init) => {
-    calls.push({ url: String(url), init });
-    return okResponse();
-  };
-  try {
-    await lyricsWorkspaceApi.updateLyrics('s1', {
-      source: 'lrclib', providerLyricId: 'l1', searchTitle: 'Title', searchArtist: 'Artist',
-    });
-    await lyricsWorkspaceApi.updateLyricsOffset('s1', { offsetMs: 9000 });
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-  assert.equal(calls.length, 2);
-  assert.deepEqual(JSON.parse(calls[0].init.body), {
-    source: 'lrclib', providerLyricId: 'l1', etag: null,
-    searchTitle: 'Title', searchArtist: 'Artist',
-  });
-  assert.deepEqual(JSON.parse(calls[1].init.body), { offsetMs: 5000, etag: null });
+test('candidate filters and cancellation reach the plugin request without implicit AI', async () => {
+  const f = fixture(); const controller = new AbortController();
+  await f.api.getLyricsCandidates('s1', { title: 'Song', source: 'custom_lrc', signal: controller.signal });
+  await f.api.updateLyrics('s1', { source: 'lrclib', providerLyricId: 'one' });
+  assert.deepEqual(f.calls[0].init.query, { title: 'Song', source: 'custom_lrc' });
+  assert.equal(f.calls[0].init.signal, controller.signal);
+  assert.equal(f.calls.length, 2);
 });
-
-test('offset clamp remains integer, finite and bounded', () => {
-  assert.equal(clampLyricOffset(-9000), LYRIC_OFFSET_MIN);
-  assert.equal(clampLyricOffset(9000), LYRIC_OFFSET_MAX);
-  assert.equal(clampLyricOffset('149.6'), 150);
-  assert.equal(clampLyricOffset(Number.NaN), 0);
+test('offset clamp remains integer finite and bounded', () => {
+  assert.equal(clampLyricOffset(-9000), LYRIC_OFFSET_MIN); assert.equal(clampLyricOffset(9000), LYRIC_OFFSET_MAX);
+  assert.equal(clampLyricOffset('149.6'), 150); assert.equal(clampLyricOffset(NaN), 0);
 });
-
-test('candidate source selection is forwarded to discovery with cancellation signal', async () => {
-  setSession();
-  const originalFetch = globalThis.fetch;
-  const controller = new AbortController();
-  const calls = [];
-  globalThis.fetch = async (url, init) => { calls.push({ url: String(url), init }); return okResponse(); };
-  try {
-    await lyricsWorkspaceApi.getLyricsCandidates('s1', { title: 'Song', artist: 'Singer', source: 'custom_lrc', signal: controller.signal });
-    await lyricsWorkspaceApi.getLyricsCandidates('s1', { source: 'all' });
-  } finally { globalThis.fetch = originalFetch; }
-  assert.equal(new URL(calls[0].url, 'https://test.invalid').searchParams.get('source'), 'custom_lrc');
-  assert.equal(calls[0].init.signal, controller.signal);
-  assert.equal(new URL(calls[1].url, 'https://test.invalid').searchParams.has('source'), false);
+test('plugin errors preserve conflict status/code/data instead of claiming submission', async () => {
+  const f = fixture(); f.host.request = async () => { throw Object.assign(new Error('Conflict'), { status: 409, code: 'LYRIC_ASSET_CONFLICT', data: { etag: 'new' } }); };
+  await assert.rejects(f.api.resetLyrics('s1'), error => error.status === 409 && error.code === 'LYRIC_ASSET_CONFLICT' && error.data.etag === 'new');
 });
-
-test('lyrics conflict preserves status, code and current asset data', async () => {
-  setSession();
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({
-    ok: false, status: 409,
-    json: async () => ({ ok: false, error: 'LYRIC_ASSET_CONFLICT',
-      message: 'stale asset', data: { etag: 'new' } }),
-  });
-  try {
-    await assert.rejects(lyricsWorkspaceApi.updateLyricsOffset('s1', { offsetMs: 0, etag: 'old' }),
-      (error) => error.status === 409 && error.code === 'LYRIC_ASSET_CONFLICT'
-        && error.data?.etag === 'new');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+test('a retired host rejects requests and a response that completed after retirement', async () => {
+  const f = fixture(); let finish;
+  f.host.request = () => new Promise(resolve => { finish = resolve; });
+  const request = f.api.getLyrics('s1'); f.state.current = false; finish({ ok: true, data: { private: 'old' } });
+  await assert.rejects(request, { status: 409 }); await assert.rejects(f.api.getLyrics('s1'), { status: 409 });
 });
-
-test('AI completion POST failure rejects instead of reporting a submitted job', async () => {
-  setSession();
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({
-    ok: false, status: 503,
-    json: async () => ({ ok: false, error: 'LYRIC_WORKSPACE_UNAVAILABLE', message: 'AI request failed' }),
-  });
-  try {
-    await assert.rejects(lyricsWorkspaceApi.completeLyricsTranslation('s1'),
-      (error) => error.status === 503 && error.code === 'LYRIC_WORKSPACE_UNAVAILABLE');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('lyric mutations fail closed without a local CSRF token', async () => {
-  setSession('admin', null);
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => { throw new Error('fetch should not run'); };
-  try {
-    await assert.rejects(lyricsWorkspaceApi.resetLyrics('s1'), {
-      status: 401, code: 'UNAUTHORIZED',
-    });
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+test('legacy player client is bound only to the active plugin runtime and cleanup cannot retire a replacement', async () => {
+  const first = fixture(), second = fixture();
+  const retireFirst = bindLyricsWorkspaceHost(first.host); await lyricsWorkspaceApi.getLyrics('s1');
+  const retireSecond = bindLyricsWorkspaceHost(second.host); retireFirst(); await lyricsWorkspaceApi.getLyrics('s2');
+  assert.equal(first.calls.length, 1); assert.equal(second.calls.length, 1);
+  retireSecond(); await assert.rejects(lyricsWorkspaceApi.getLyrics('s1'), { status: 409 });
 });

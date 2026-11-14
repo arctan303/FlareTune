@@ -123,3 +123,43 @@ test('route rejects missing account and malformed IDs or query parameters withou
   assert.equal(await call(db, '/api/songs/random'), null);
   assert.equal(await call(db, '/api/init', 'owner-a', 'POST'), null);
 });
+
+test('search pagination distinguishes full final pages, further results and empty queries', async () => {
+  const db = createDb();
+  seed(db);
+  const insert = db.sqlite.prepare('INSERT INTO Songs (id,title,artist,audio_url,language) VALUES (?,?,?,?,?)');
+  for (let i = 0; i < 5; i++) insert.run(`paged-${i}`, `Paged ${i}`, 'Paged Artist', `/media/paged-${i}`, 'en');
+  const first = (await (await call(db, '/api/songs/search?q=Paged&limit=2')).json()).data;
+  assert.equal(first.songs.length, 2);
+  assert.deepEqual({ limit: first.limit, offset: first.offset, hasMore: first.hasMore,
+    nextOffset: first.nextOffset, capped: first.capped },
+  { limit: 2, offset: 0, hasMore: true, nextOffset: 2, capped: false });
+  const fullFinal = (await (await call(db, '/api/songs/search?q=Paged&limit=2&offset=3')).json()).data;
+  assert.equal(fullFinal.songs.length, 2);
+  assert.equal(fullFinal.hasMore, false);
+  assert.equal(fullFinal.nextOffset, null);
+  const partial = (await (await call(db, '/api/songs/search?q=Paged&limit=2&offset=4')).json()).data;
+  assert.equal(partial.songs.length, 1);
+  assert.equal(partial.hasMore, false);
+  const empty = (await (await call(db, '/api/songs/search?q=&limit=2')).json()).data;
+  assert.deepEqual(empty, { songs: [], query: '', limit: 2, offset: 0,
+    hasMore: false, nextOffset: null, capped: false });
+  assert.equal(first.query, 'Paged');
+  assert.equal(first.songs.some(song => fullFinal.songs.some(other => other.id === song.id)), false);
+});
+
+test('search probes beyond the maximum page size and exposes the offset cap without losing returned rows', async () => {
+  const db = createDb();
+  const insert = db.sqlite.prepare('INSERT INTO Songs (id,title,artist,audio_url,language) VALUES (?,?,?,?,?)');
+  for (let i = 0; i < 2051; i++) insert.run(`cap-${i}`, `Cap ${String(i).padStart(4, '0')}`, 'Artist', `/media/cap-${i}`, 'en');
+  const first = (await (await call(db, '/api/songs/search?q=Cap&limit=50')).json()).data;
+  assert.equal(first.songs.length, 50);
+  assert.equal(first.hasMore, true);
+  assert.equal(first.nextOffset, 50);
+  const last = (await (await call(db, '/api/songs/search?q=Cap&limit=50&offset=2000')).json()).data;
+  assert.equal(last.songs.length, 50);
+  assert.equal(last.hasMore, false);
+  assert.equal(last.nextOffset, null);
+  assert.equal(last.capped, true);
+  assert.equal(new Set([...first.songs, ...last.songs].map(song => song.id)).size, 100);
+});

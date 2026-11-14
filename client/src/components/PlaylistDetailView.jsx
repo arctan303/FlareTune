@@ -50,6 +50,8 @@ export default function PlaylistDetailView({
     onInsertNext,
     onAddToPlaylist,
     onOpenAssistant,
+    assistantAvailable = false,
+    onOpenSearch,
     onLoadMoreLibrarySongs,
     onChangeLibrarySort,
     onRefreshDailyRecommend,
@@ -386,8 +388,8 @@ export default function PlaylistDetailView({
                                     <h4 id="playlist-empty-title">{t("账号歌单还是空的")}</h4>
                                     <p>{invalidSongCount > 0 ? t("{p0} 首歌曲暂时无法播放。", { p0: (invalidSongCount) }) : t("歌单暂无歌曲")}</p>
                                 </div>
-                                <button type="button" className="primary-button local-playlist-empty__action inline-flex min-h-11 items-center gap-2 px-4 text-sm font-semibold" onClick={onOpenAssistant}>
-                                    <MessageCircle size={16} aria-hidden="true" />{t("前往助手挑歌")}</button>
+                                <button type="button" className="primary-button local-playlist-empty__action inline-flex min-h-11 items-center gap-2 px-4 text-sm font-semibold" onClick={assistantAvailable ? onOpenAssistant : onOpenSearch}>
+                                    {assistantAvailable && <MessageCircle size={16} aria-hidden="true" />}{assistantAvailable ? t("前往助手挑歌") : t("搜索歌曲")}</button>
                             </section>
                         ) : (
                             <section className="state-panel mt-6 p-8 text-center" aria-labelledby="playlist-empty-title">

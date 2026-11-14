@@ -1,3 +1,4 @@
+import { canReferenceAccountSong } from '../utils/musicSource.js';
 import { t } from '../i18n/index.js';
 import React from 'react';
 import {
@@ -37,6 +38,10 @@ export function useFavoriteSongAction() {
 
   const toggleFavorite = React.useCallback(async (song, event) => {
     event?.stopPropagation();
+    if (!canReferenceAccountSong(song)) {
+      showToast(t('当前未选择歌曲'));
+      return false;
+    }
     if (!song?.id) {
       showToast(t("当前未选择歌曲"));
       return false;

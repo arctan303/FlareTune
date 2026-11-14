@@ -16,7 +16,7 @@ test('old v2 reports the hotpath supplement and controlled upgrade backfills wit
     }
     const before = await (await f.api('admin/system/migration')).json();
     assert.equal(before.schemaVersion,2);
-    assert.deepEqual(before.supplementalMigrations.filter(r=>!r.ready),[{id:'hotpath_counts',ready:false}]);
+    assert.deepEqual(before.supplementalMigrations.filter(r=>!r.ready),[{id:'hotpath_counts',ready:false},{id:'external_music',ready:false}]);
     assert.equal((await f.api('admin/system/migration','POST',{})).status,200);
     const after = await (await f.api('admin/system/migration')).json();
     assert.equal(after.supplementalPending,false);
@@ -37,7 +37,7 @@ test('admin migration status explains pending v2 supplements and reports complet
     const get = async () => (await f.api('admin/system/migration')).json();
     const initial = await get();
     assert.equal(initial.supplementalPending, false);
-    assert.equal(initial.supplementalMigrations.length, 5);
+    assert.equal(initial.supplementalMigrations.length, 6);
     assert.ok(initial.supplementalMigrations.every(item => item.ready));
     f.sqlite.exec('DROP TRIGGER google_credentials_changed; DROP TRIGGER google_account_changed; DROP TABLE google_login_transactions; DROP TABLE account_google_bindings; DROP TABLE google_login_config');
     const before = await get();

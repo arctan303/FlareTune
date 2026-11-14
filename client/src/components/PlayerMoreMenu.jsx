@@ -1,10 +1,14 @@
+import { canUseLocalSongLibrary, canReferenceAccountSong } from '../utils/musicSource.js';
 import { t } from '../i18n/index.js';
+import { usePluginAvailable } from '../hooks/usePluginAvailable.js';
 import React from 'react';
-import { FolderPlus, MoreHorizontal, Pencil, Languages } from 'lucide-react';
+import { FolderPlus, MoreHorizontal, Pencil, Languages, Puzzle } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useUIStore } from '../store/useUIStore';
 import PlayerModeChoices from './PlayerModeChoices.jsx';
 import { usePlayerMenu } from '../hooks/usePlayerMenu.js';
+import { usePluginMenu } from '../hooks/usePluginMenu.js';
+import PluginActionDialog from './PluginActionDialog.jsx';
 
 /**
  * 播放器统一二级更多操作菜单 (支持向上下两个方向展开)
@@ -15,6 +19,7 @@ export default function PlayerMoreMenu({
     showPlayerModes = false,
 }) {
     const [isOpen, setIsOpen] = React.useState(false);
+    const pluginMenu = usePluginMenu('menu.player');
     const [mounted, setMounted] = React.useState(false);
     const [visible, setVisible] = React.useState(false);
     const moreButtonRef = React.useRef(null);
@@ -45,6 +50,7 @@ export default function PlayerMoreMenu({
     const openAddToPlaylist = useUIStore((state) => state.openAddToPlaylist);
     const openQuickSongEdit = useUIStore((state) => state.openQuickSongEdit);
     const openLyricsWorkspace = useUIStore((state) => state.openLyricsWorkspace);
+    const lyricsAvailable = usePluginAvailable('lyrics-workbench');
     const playerMode = useUIStore((state) => state.playerMode);
     const setPlayerMode = useUIStore((state) => state.setPlayerMode);
 
@@ -79,7 +85,7 @@ export default function PlayerMoreMenu({
                         aria-hidden={!isOpen || undefined}
                         inert={!isOpen ? '' : undefined}
                         aria-label={t("播放器更多操作")}
-                        className={`classic-controls__menu absolute right-0 glass-panel !rounded-2xl p-2 flex flex-col gap-1 w-52 shadow-2xl z-50 transform origin-${
+                        className={`classic-controls__menu absolute right-0 glass-panel !rounded-2xl p-2 flex flex-col gap-1 w-max min-w-52 max-w-[calc(100vw-2rem)] shadow-2xl z-50 transform origin-${
                             isDown ? 'top-right' : 'bottom-right'
                         } transition-all duration-200 ease-out ${
                             isDown ? 'top-full mt-2' : 'bottom-full mb-2'
@@ -99,7 +105,7 @@ export default function PlayerMoreMenu({
                             </div>
                         )}
 
-                        {isAuthenticated && currentSong?.id && (
+                        {isAuthenticated && currentSong?.id && canReferenceAccountSong(currentSong) && (
                             <button
                                 type="button"
                                 role="menuitem"
@@ -113,11 +119,11 @@ export default function PlayerMoreMenu({
                                 <div className="classic-controls__menu-icon shrink-0 text-white/70">
                                     <FolderPlus size={16} strokeWidth={iconStrokeWidth} />
                                 </div>
-                                <span>{t("加入歌单")}</span>
+                                <span className="classic-controls__menu-label">{t("加入歌单")}</span>
                             </button>
                         )}
 
-                        {isAdmin && currentSong?.id && (
+                        {isAdmin && currentSong?.id && canUseLocalSongLibrary(currentSong) && (
                             <button
                                 type="button"
                                 role="menuitem"
@@ -131,11 +137,24 @@ export default function PlayerMoreMenu({
                                 <div className="classic-controls__menu-icon shrink-0 text-white/70">
                                     <Pencil size={16} strokeWidth={iconStrokeWidth} />
                                 </div>
-                                <span>{t("编辑歌曲信息")}</span>
+                                <span className="classic-controls__menu-label">{t("编辑歌曲信息")}</span>
                             </button>
                         )}
 
-                        {isAuthenticated && currentSong?.id && (
+                        {pluginMenu.entries.map(entry => {
+                          const Icon = entry.icon || Puzzle;
+                          return (
+                            <button type="button" role="menuitem" tabIndex={-1}
+                                key={`${entry.pluginId}:${entry.id}`}
+                                onClick={() => { menu.closeMenu(false); pluginMenu.open(entry); }}
+                                className="classic-controls__menu-item flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all text-gray-300 hover:text-white hover:bg-white/10 text-left focus:outline-none cursor-pointer">
+                                <div className="classic-controls__menu-icon shrink-0 text-white/70"><Icon size={16} strokeWidth={iconStrokeWidth} /></div>
+                                <span className="classic-controls__menu-label">{entry.labelKey ? entry.label : t(entry.label)}</span>
+                            </button>
+                          );
+                        })}
+
+                        {lyricsAvailable && isAuthenticated && currentSong?.id && (
                             <button
                                 type="button"
                                 role="menuitem"
@@ -150,12 +169,13 @@ export default function PlayerMoreMenu({
                                 <div className="classic-controls__menu-icon shrink-0 text-white/70">
                                     <Languages size={16} strokeWidth={iconStrokeWidth} />
                                 </div>
-                                <span>{t("歌词工作台")}</span>
+                                <span className="classic-controls__menu-label">{t("歌词工作台")}</span>
                             </button>
                         )}
                     </div>
                 </>
             )}
+            {pluginMenu.selection && <PluginActionDialog selection={pluginMenu.selection} onClose={() => { pluginMenu.close(); moreButtonRef.current?.focus(); }} />}
         </div>
     );
 }

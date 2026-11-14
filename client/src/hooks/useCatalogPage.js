@@ -1,3 +1,6 @@
+import { useMusicSourcesRevision } from './useMusicSourcesRevision.js';
+import { getMusicSourcesRevision, subscribeMusicSources } from '../services/musicSources.js';
+import { isYouTubeEntity } from '../utils/musicSource.js';
 import React from 'react';
 import { readCatalog } from '../services/catalogRead.js';
 import { getApiBaseUrl } from '../services/apiBase.js';
@@ -7,6 +10,8 @@ const CACHE_TTL_MS = 5 * 60_000;
 const SEARCH_CACHE_TTL_MS = 15 * 60_000;
 const CACHE_LIMIT = 40;
 const pageCache = new Map();
+const unsubscribeSources = subscribeMusicSources(() => pageCache.clear());
+import.meta.hot?.dispose(unsubscribeSources);
 const emptyPage = (status) => ({ items: [], status, hasMore: false, total: status === 'idle' ? 0 : null });
 
 function cachedPage(key) {
@@ -41,19 +46,28 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export function useCatalogPage(type, { query = '', language = '', artist = '', limit = 20, enabled = true, retainWhileDisabled = false, refreshKey = 0 } = {}) {
+export function useCatalogPage(type, { query = '', language = '', artist = '', limit = 20, enabled = true, retainWhileDisabled = false, refreshKey = 0, recoverable = false } = {}) {
+  const sourceRevision = useMusicSourcesRevision();
   const key = JSON.stringify([getApiBaseUrl(), type, query.trim(), language, artist.trim(), limit]);
-  const [state, setState] = React.useState(() => ({ key, ...(cachedPage(key)?.page || emptyPage('loading')) }));
+  const [state, setState] = React.useState(() => ({ key, sourceRevision, ...(cachedPage(key)?.page || emptyPage('loading')) }));
   const [loadingMore, setLoadingMore] = React.useState(false);
+  const [retryVersion, setRetryVersion] = React.useState(0);
+  const [requestFailure, setRequestFailure] = React.useState(null);
+  const [refreshing, setRefreshing] = React.useState(false);
   const generationRef = React.useRef(0);
   const canLoad = enabled && (query.trim() || artist.trim() || (language && language !== 'all'));
-  const current = !canLoad && !retainWhileDisabled ? { key, ...emptyPage('idle') }
+  const previous = !canLoad && !retainWhileDisabled ? { key, ...emptyPage('idle') }
     : state.key === key && state.status !== 'idle' ? state
-      : { key, ...(cachedPage(key)?.page || emptyPage('loading')) };
+      : { key, sourceRevision, ...(cachedPage(key)?.page || emptyPage('loading')) };
+  const current = previous.sourceRevision === sourceRevision ? previous
+    : { ...previous, items: previous.items.filter(item => !isYouTubeEntity(item)), hasMore: false, sourceRevision };
 
   React.useEffect(() => {
     const generation = ++generationRef.current;
     const controller = new AbortController();
+    setLoadingMore(false);
+    setRequestFailure(null);
+    setRefreshing(false);
     if (!canLoad) {
       if (!retainWhileDisabled) setState({ key, ...emptyPage('idle') });
       return () => controller.abort();
@@ -63,38 +77,63 @@ export function useCatalogPage(type, { query = '', language = '', artist = '', l
       setState({ key, ...cached.page });
       // Keep expanded lists intact when returning from a detail page.
       if (cached.fresh || cached.page.items.length > limit) return () => controller.abort();
-    } else setState({ key, ...emptyPage('loading') });
+    } else setState(previous => recoverable && previous.key === key && previous.sourceRevision === sourceRevision && previous.status === 'ready'
+      ? previous
+      : previous.key === key && previous.sourceRevision !== sourceRevision
+      && previous.items.some(item => !isYouTubeEntity(item))
+      ? { ...previous, items: previous.items.filter(item => !isYouTubeEntity(item)), hasMore: false, sourceRevision }
+      : { key, sourceRevision, ...emptyPage('loading') });
+    if (recoverable) setRefreshing(true);
     readCatalog(type, { query, language, artist, offset: 0, limit, signal: controller.signal })
       .then((result) => {
-        if (generation === generationRef.current) {
-          const page = { ...result, status: 'ready' };
+        if (generation === generationRef.current && sourceRevision === getMusicSourcesRevision()) {
+          const page = { ...result, sourceRevision, status: 'ready' };
           rememberPage(key, page);
           setState({ key, ...page });
+          setRefreshing(false);
         }
       })
       .catch((error) => {
-        if (error.name !== 'AbortError' && generation === generationRef.current && !cached) setState({ key, ...emptyPage('error') });
+        if (error.name !== 'AbortError' && generation === generationRef.current && sourceRevision === getMusicSourcesRevision()) {
+          setRefreshing(false);
+          if (recoverable) {
+            setRequestFailure({ key, sourceRevision, kind: 'refresh' });
+            setState(previous => previous.key === key && previous.sourceRevision === sourceRevision && previous.status === 'ready'
+              ? previous : { key, sourceRevision, ...emptyPage('error') });
+          } else if (!cached) setState({ key, ...emptyPage('error') });
+        }
       });
     return () => controller.abort();
-  }, [type, query, language, artist, limit, canLoad, key, retainWhileDisabled, refreshKey]);
+  }, [type, query, language, artist, limit, canLoad, key, retainWhileDisabled, refreshKey, sourceRevision, recoverable, retryVersion]);
+
+  const retry = React.useCallback(() => {
+    pageCache.delete(key);
+    setRetryVersion(value => value + 1);
+  }, [key]);
 
   const loadMore = React.useCallback(async () => {
-    if (loadingMore || current.status !== 'ready' || !current.hasMore) return;
+    if (loadingMore || (recoverable && refreshing) || current.status !== 'ready' || !current.hasMore) return;
     const generation = generationRef.current;
     setLoadingMore(true);
+    if (recoverable) setRequestFailure(null);
     try {
-      const result = await readCatalog(type, { query, language, artist, offset: current.items.length, limit });
-      if (generation === generationRef.current) {
-        const page = { ...result, items: [...current.items, ...result.items], status: 'ready' };
+      const result = await readCatalog(type, { query, language, artist, offset: current.nextOffset ?? current.items.length, limit });
+      if (generation === generationRef.current && sourceRevision === getMusicSourcesRevision()) {
+        const page = { ...result, items: [...current.items, ...result.items], sourceRevision, status: 'ready' };
         rememberPage(key, page);
         setState({ key, ...page });
       }
     } catch {
-      // Keep the loaded page; the user can retry.
+      // Existing category pages retain their registered behavior; callers opt in.
+      if (recoverable && generation === generationRef.current && sourceRevision === getMusicSourcesRevision()) {
+        setRequestFailure({ key, sourceRevision, kind: 'more' });
+      }
     } finally {
       if (generation === generationRef.current) setLoadingMore(false);
     }
-  }, [artist, language, limit, loadingMore, query, current.hasMore, current.items.length, current.status, type, key]);
+  }, [artist, language, limit, loadingMore, refreshing, query, current.hasMore, current.items.length, current.nextOffset, current.status, type, key, sourceRevision, recoverable]);
 
-  return { ...current, loadingMore, loadMore };
+  return { ...current, loadingMore, loadMore, retry,
+    refreshing: recoverable && refreshing && current.status === 'ready',
+    requestError: recoverable && requestFailure?.key === key && requestFailure.sourceRevision === sourceRevision ? requestFailure.kind : null };
 }

@@ -95,11 +95,11 @@ test('same-language newline lyrics stay on one row instead of treating the secon
     });
 });
 
-test('intro metadata does not disable a complete bilingual lyric layout', () => {
+test('an untranslated row does not disable an otherwise bilingual lyric layout', () => {
     assert.deepEqual(getPlayerBarLyricLayout({
         translationEnabled: true,
         lyrics: [
-            { text: 'Artist — Title', isIntro: true },
+            { text: '(Instrumental)' },
             { text: 'First', translation: '第一句' },
             { text: 'Second', translation: '第二句' },
         ],

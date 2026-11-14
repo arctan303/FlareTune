@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { getPlugin, getPluginEntries, canAccessPluginDeclaration } from './plugins/registry.js';
+import { decideApiAccess } from '../../server/src/instance/accessPolicy.js';
 
 const readSource = (relativePath) => {
-  const url = new URL(relativePath, import.meta.url);
-  const content = readFileSync(url, 'utf8');
+  let url = new URL(relativePath, import.meta.url);
+  let content = readFileSync(url, 'utf8');
+  // Plugin implementation contracts run against their owning repository.
   if (relativePath.endsWith('.css')) {
     return content.replace(/@import\s+['"](\.[^'"]+)['"];/g, (_, importPath) => {
       const targetUrl = new URL(importPath, url);
@@ -211,7 +214,6 @@ test('artist player removes video gating and its transport uses the same width b
   assert.doesNotMatch(desktopPlayer, /settledVideoSrc|activeVideoSrc/);
   assert.doesNotMatch(background, /<video|videoSrc/);
 
-  assert.match(playerBar, /export default function PlayerBar\(\{\s*motionProfile\s*=\s*'full',\s*activePage\s*\}\)/);
   assert.match(playerBar, /const isDesktop = useMediaQuery\('\(min-width: 1024px\)', false\)/);
   assert.doesNotMatch(playerBar, /motionProfile !== VISUAL_MOTION_PROFILE\.COMPACT_TOUCH/);
   assert.match(playerBar, /case 'glass-invisible':/);
@@ -294,34 +296,14 @@ test('player surfaces share distinct playback-mode icons and keep the queue icon
   assert.match(controls, /<ListMusic size=\{22\}/);
 });
 
-test('assistant page follows rendered updates while preserving manual history scrolling', () => {
-  const page = readSource('./components/AssistantView.jsx');
-
-  assert.match(page, /const shouldFollowMessagesRef = React\.useRef\(true\)/);
-  assert.match(page, /const pendingAutoScrollRef = React\.useRef\(false\)/);
-  assert.match(page, /const scheduleScrollToLatest = React\.useCallback/);
-  assert.match(page, /if \(updateFollowing && !pendingAutoScrollRef\.current\) \{/);
-  assert.match(page, /if \(shouldFollowMessagesRef\.current\) \{\s*scrollToBottom\(\);/);
-});
-
 test('assistant visitor template is retired in favor of the standalone instance gate', () => {
   const app = readSource('./app.jsx');
   const gate = readSource('./instance/InstanceGate.jsx');
-  const page = readSource('./components/AssistantView.jsx');
-  const conversation = readSource('./components/AiReviewConversation.jsx');
-  const chrome = readSource('./components/AiReviewChrome.jsx');
 
   assert.doesNotMatch(app, /AuthGateView/);
   assert.match(gate, /current === 'app'/);
   assert.doesNotMatch(gate, /小A/);
-  assert.doesNotMatch(conversation, /!authenticated|登录后开启|立即登录|onLogin/);
-  assert.doesNotMatch(chrome, /登录后发送消息|onLogin/);
-  assert.doesNotMatch(page, /handleLogin|onLogin/);
-  assert.match(page, /setMessages\(\[\]\);/);
-  assert.match(page, /if \(!isAuthed\) \{\s*setPhase\('ready'\);/);
-  assert.match(page, /abortControllerRef\.current\?\.abort\(\)/);
-  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| sendingRef\.current \|\| phase !== 'ready'\) return;/);
-  assert.doesNotMatch(page, /localStorage|Turnstile|turnstile|captcha/i);
+
 });
 
 test('Song/music search only enters through the authenticated application shell', () => {
@@ -334,22 +316,19 @@ test('Song/music search only enters through the authenticated application shell'
   assert.match(gate, /getInstanceStatus\(\)[\s\S]*getSession\(\)/);
 });
 
-test('account playlists remain independent while the assistant page uses account threads', () => {
+test('account playlists and shared plugin transport retain independent Host ownership', () => {
   const main = `${readSource('./components/MainContent.jsx')}\n${readSource('./components/HomeOverview.jsx')}`;
   const detail = readSource('./components/PlaylistDetailView.jsx');
   const search = readSource('./components/SearchView.jsx');
   const moreMenu = readSource('./components/PlayerMoreMenu.jsx');
   const addToPlaylistModal = readSource('./components/AddToPlaylistModal.jsx');
   const favoriteAction = readSource('./hooks/useFavoriteSongAction.js');
-  const assistant = readSource('./components/AssistantView.jsx');
-  const conversation = readSource('./components/AiReviewConversation.jsx');
+
   const eventStream = readSource('./services/aiEventStream.js');
-  const playerActionDispatch = readSource('./services/aiPlayerActionDispatch.js');
-  const threadSync = readSource('./services/aiThreadSync.js');
+
+  const pluginHost = readSource('./plugins/host.js');
   const accountStore = `${readSource('./accountPlaylists.js')}\n${readSource('./services/accountApiRequest.js')}`;
   const accountOrdering = readSource('./accountPlaylistOrdering.js');
-  const manageTool = readSource('../../server/src/tools/managePlaylist.js');
-  const worker = readSource('../../server/src/routes/localAssistant.js');
 
   assert.match(main, /favoritePlaylist/);
   assert.match(main, /favoritePlaylist[\s\S]{0,80}source: 'member'[\s\S]{0,80}playlists\[0\]/);
@@ -370,7 +349,8 @@ test('account playlists remain independent while the assistant page uses account
   assert.match(addToPlaylistModal, /playlist\.kind === 'favorite'/);
   assert.match(addToPlaylistModal, /accountShelf\?\.items/);
   assert.match(addToPlaylistModal, /playlist\.songCount \|\| 0/);
-  assert.match(search, /\{songs\.length > 0 && \(/);
+  // Result loading, empty and failure rendering is exercised by
+  // catalog/CatalogReadState.behavior.test.js rather than a JSX spelling.
   assert.match(readSource('./components/PlayerControls.jsx'), /toggleFavorite\(currentSong, event\)/);
   assert.doesNotMatch(moreMenu, /setIsAiReviewOpen|data-ai-entry|助手/);
   assert.match(favoriteAction, /accountPlaylistsStore\.getState\(\)\.removeSong/);
@@ -383,16 +363,7 @@ test('account playlists remain independent while the assistant page uses account
   assert.match(homeOverview, /onClick=\{handleOpenDailyRecommend\}/);
   assert.match(homeOverview, /openPlaylist\(createDailyRecommendationPlaylist\(randomSongs\), e\)/);
 
-  assert.match(assistant, /consumeSseJsonStream\(response\.body/);
   assert.match(eventStream, /buffer\.split\('\\n'\)/);
-  assert.match(playerActionDispatch, /export async function dispatchAiPlayerAction/);
-  assert.match(assistant, /event\.type === 'player_action'/);
-  assert.match(conversation, /role="status" aria-live="polite"/);
-  assert.doesNotMatch(assistant, /client_tool_request/);
-  assert.doesNotMatch(assistant, /compactXiaoaHistoryForStorage|GUEST_CHAT_STORAGE_KEY|readGuestMessages/);
-  assert.match(conversation, /text-\[var\(--danger\)\]/);
-  assert.doesNotMatch(assistant, /playlistProposal|playlist_proposal|localPlaylist:|确认生成小A歌单/);
-  assert.doesNotMatch(assistant, /handleSaveSong|加入小A歌单|newPlaylistName|创建并加入/);
 
   assert.match(accountStore, /credentials: 'include'/);
   assert.match(accountStore, /'X-Requested-With': 'FlareTune'/);
@@ -402,41 +373,24 @@ test('account playlists remain independent while the assistant page uses account
   assert.match(accountStore, /throwBatchFailure\(data\)/);
   assert.match(accountStore, /refreshFailed/);
   assert.match(accountStore, /retainCurrentDetails/);
-  for (const action of ['list', 'read', 'create', 'add_songs', 'remove_songs', 'clear', 'replace_songs', 'reorder_songs', 'update_metadata', 'delete']) {
-    assert.match(manageTool, new RegExp(`'${action}'`));
-  }
-  assert.match(assistant, /import \{ getApiBaseUrl \} from '\.\.\/services\/apiBase\.js'/);
-  assert.doesNotMatch(assistant, /getXiaoaApiBase|if \(!xiaoaApiBase\)|getApiBaseUrl\(\) \|\| ''/);
-  assert.match(threadSync, /authenticatedFetch\(`\$\{apiBase\}\/api\/ai\/thread`/);
-  assert.doesNotMatch(assistant, /site: 'music'/);
-  assert.doesNotMatch(assistant, /capabilities:\s*\[/);
-  assert.doesNotMatch(assistant, /role:\s*['"]system['"]/);
-  assert.match(assistant, /message: text/);
-  assert.match(assistant, /revision: threadRevisionRef\.current/);
-  assert.doesNotMatch(assistant, /messages: normalizeXiaoaMessages/);
-  assert.match(assistant, /client_message_id: clientMessageId/);
-  assert.match(assistant, /localAssistantMutationHeaders\(authSession\?\.csrfToken\)/);
-  assert.doesNotMatch(assistant, /X-XiaoA-CSRF|context: normalizeXiaoaContext/);
-  assert.doesNotMatch(assistant, /XiaoaArticleCardGroup|assistantArticles|msg\.articles/);
-  assert.match(assistant, /`\$\{getApiBaseUrl\(\)\}\/api\/ai\/chat`/);
-  assert.match(worker, /\/api\/ai\/chat/);
-  assert.doesNotMatch(assistant, /applyPlaySongNow|insertAndPlay|applyReplacePlayerQueue|applyPlayerQueueEdit|applyPlayerControl/);
-  assert.doesNotMatch(worker, /playlist_proposal|normalizeLocalPlaylistContext|isPlaylistGenerationRequest/);
-  assert.doesNotMatch(worker, /localStorage/);
-  assert.doesNotMatch(worker, /\/api\/ai\/playlist/);
+
+  assert.match(pluginHost, /csrfToken: session\.csrfToken/);
+  assert.match(readSource('./plugins/transport.js'), /'X-CSRF-Token': session\.csrfToken/);
+  assert.match(pluginHost, /'X-FlareTune-Expected-Account': session\.user\.accountId/);
+
 });
 
-test('Xiaoa chat and bootstrap are authenticated-only and no longer ship visitor verification', () => {
-  const page = readSource('./components/AssistantView.jsx');
-  const worker = readSource('../../server/src/instance/httpRouter.js');
-  const assistantRoute = readSource('../../server/src/routes/localAssistant.js');
+test('chat and bootstrap require a normal authenticated Host session', () => {
 
-  assert.match(page, /if \(!isAuthed\) return undefined;[\s\S]*?\/api\/ai\/bootstrap/);
-  assert.match(page, /if \(!isAuthed \|\| \(!text && !attachments.length\) \|\| attachmentsBusy \|\| isLoading \|\| sendingRef\.current \|\| phase !== 'ready'\) return;/);
-  assert.doesNotMatch(page, /Turnstile|turnstile|captcha|cf_turnstile_response|PUBLIC_TURNSTILE_SITEKEY/i);
+  const worker = readSource('../../server/src/instance/httpRouter.js');
+
   assert.match(worker, /decideApiAccess\(\{ path, method: request\.method, instanceState: instance\.state, session \}\)/);
   assert.match(worker, /if \(!session && access\.category !== 'setup'/);
-  assert.match(assistantRoute, /path === '\/api\/ai\/chat' && request\.method === 'POST'/);
+  for (const [path, method] of [['/api/ai/bootstrap', 'GET'], ['/api/ai/chat', 'POST']]) {
+    assert.equal(decideApiAccess({ path, method, instanceState: 'ready' }).allowed, false);
+    assert.equal(decideApiAccess({ path, method, instanceState: 'ready', session: { mode: 'password_change_required', account: { role: 'member' } } }).allowed, false);
+    assert.equal(decideApiAccess({ path, method, instanceState: 'ready', session: { mode: 'normal', account: { role: 'member' } } }).allowed, true);
+  }
 });
 
 test('player mode stays a persisted runtime state independent from shell theme', () => {
@@ -466,8 +420,6 @@ test('current-only frontend rejects retired shell, URL, origin, storage, and pla
   const playerContext = readSource('./playerContext.js');
   const playerStore = readSource('./store/usePlayerStore.js');
   const uiStore = readSource('./store/useUIStore.js');
-  const drawer = readSource('./components/AssistantView.jsx');
-  const playerActions = readSource('./assistantPlayerActions.js');
 
   assert.doesNotMatch(index, /musicPlayer_shell_theme_v2|soundscape|shellThemes\.paper/);
   assert.doesNotMatch(headers, /https:\/\/(?:www\.|blog\.)?arctan\.top|arcinks\.com/);
@@ -481,8 +433,7 @@ test('current-only frontend rejects retired shell, URL, origin, storage, and pla
   assert.match(playerStore, /name: 'musicPlayer_player',[\s\S]{0,100}version: 1,[\s\S]{0,100}migrate: \(\) => undefined/);
   assert.match(uiStore, /name: 'musicPlayer_ui',[\s\S]{0,100}version: 1,[\s\S]{0,100}migrate: \(\) => undefined/);
   assert.doesNotMatch(uiStore, /migrate:\s*\(persistedState\)/);
-  assert.doesNotMatch(drawer, /const action = eventData\.action|eventData\.song \|\||eventData\.songs/);
-  assert.doesNotMatch(playerActions, /player_seek|seek_seconds|seek_percent|position_seconds \?\?|position_percent \?\?/);
+
 });
 
 test('all current overlays participate in inertness and browser-back closing', () => {
@@ -525,7 +476,7 @@ test('desktop mode icon shows current state and mobile more menu holds explicit 
 test('fullscreen lyric entry opens the shared workspace without a tools drawer', () => {
   const moreMenu = readSource('./components/PlayerMoreMenu.jsx');
   const toolsEntry = readSource('./components/LyricsWorkspaceEntry.jsx');
-  const lyricsWorkspace = readSource('./components/LyricsManagementWorkspace.jsx');
+
   const app = readSource('./app.jsx');
   const chrome = readSource('./components/fullscreen/ImmersiveChrome.jsx');
   const immersive = readSource('./components/fullscreen/DesktopImmersivePlayer.jsx');
@@ -535,20 +486,19 @@ test('fullscreen lyric entry opens the shared workspace without a tools drawer',
   assert.match(moreMenu, /Boolean\(state\.authSession\.authenticated\)/);
 
   assert.match(toolsEntry, /Boolean\(state\.authSession\.authenticated\)/);
-  assert.match(toolsEntry, /if \(!isAuthenticated \|\| !currentSong\?\.id\) return null;/);
+  assert.match(toolsEntry, /if \(!available \|\| !isAuthenticated \|\| !currentSong\?\.id\) return null;/);
   assert.match(toolsEntry, /openLyricsWorkspace\(currentSong\)/);
-  assert.match(lyricsWorkspace, /managed\.saveDocument/);
-  assert.match(lyricsWorkspace, /managed\.shiftTimeline/);
-  assert.match(lyricsWorkspace, /managed\.importLrc/);
-  assert.doesNotMatch(lyricsWorkspace, /updateSongLanguage|歌曲语言<select/);
-  assert.match(lyricsWorkspace, /authenticated && managed\.aiCompletionEnabled && \(!editing \|\| isAdmin\) && <button/);
-  assert.match(lyricsWorkspace, /managed\.isAiCompleting/);
-  assert.doesNotMatch(lyricsWorkspace, /manageApi\.updateSong/);
-  assert.match(lyricsWorkspace, /<LyricsCandidatePanel key=\{song\.id\}/);
-  assert.match(readSource('./components/LyricsCandidatePanel.jsx'), /lyricsWorkspaceApi\.getLyricsCandidates\(song\.id/);
-  assert.match(lyricsWorkspace, /managed\.completeTranslation\(\)/);
+
   assert.doesNotMatch(app, /PlayerToolsDrawer/);
-  assert.match(readSource('./components/MainContent.jsx'), /<LyricsManagementWorkspace route=\{activeRoute\}/);
+  assert.match(readSource('./components/MainContent.jsx'), /<PluginPageView route=\{activeRoute\}/);
+  const lyrics = getPlugin('lyrics-workbench');
+  assert.equal(typeof lyrics.loadContent, 'function');
+  const currentLyrics = lyrics.pages.find(page => page.id === 'current');
+  assert.equal(currentLyrics.kind, 'service');
+  assert.equal(currentLyrics.playerPlacement, 'sidebar');
+  assert.equal(canAccessPluginDeclaration(currentLyrics, null), false);
+  assert.equal(canAccessPluginDeclaration(currentLyrics, 'member'), true);
+  assert.equal(canAccessPluginDeclaration(currentLyrics, 'admin'), true);
   assert.doesNotMatch(app, /isLyricsWorkspaceOpen/);
 
   assert.match(chrome, /toolEntry = null/);
@@ -601,47 +551,15 @@ test('player context waits for identity and never repairs or persists an anonymo
 
   assert.match(playerContext, /if \(!authInitialized\) return undefined/);
   assert.match(playerContext, /if \(!authenticated\) \{[\s\S]*await clearPlayerContext\(\)/);
-  assert.match(playerContext, /if \(!useUIStore\.getState\(\)\.authSession\?\.authenticated\) return/);
+  assert.match(playerContext, /contextOwner\(useUIStore\.getState\(\)\.authSession\)/);
   assert.ok(
     playerContext.indexOf('if (!authenticated)')
       < playerContext.indexOf('repairSongLanguages(queue'),
   );
 });
 
-test('random roam has a home entry, queue switch, app-level continuation and local player persistence', () => {
-  const main = readSource('./components/MainContent.jsx');
-  const home = readSource('./components/HomeOverview.jsx');
-  const roam = readSource('./components/RoamOverview.jsx');
-  const queue = readSource('./components/PlaylistDrawer.jsx');
-  const app = readSource('./app.jsx');
-  const hook = readSource('./hooks/useRandomRoam.js');
-  const store = readSource('./store/usePlayerStore.js');
-  const worker = readSource('../../server/src/instance/httpRouter.js');
-  const songs = readSource('../../server/src/routes/localMusicDiscovery.js');
-
-  assert.match(home, /onClick=\{onToggleRoam\}/);
-  assert.match(main, /startRandomRoam\(randomSongs/);
-  assert.match(main, /setRandomRoamEnabled/);
-  assert.match(roam, /aria-label=\{randomRoam\.enabled \? t\("关闭漫游"\) : t\("开启漫游电台"\)\}/);
-  assert.match(queue, /队尾随机续播/);
-  assert.match(queue, /role="switch"/);
-  assert.match(queue, /retryRandomRoam/);
-  assert.match(app, /useRandomRoam\(\{ authenticated, isPlayerContextReady \}\)/);
-  assert.match(hook, /shouldPrefetchRandomRoam/);
-  assert.match(hook, /credentials: 'include'/);
-  assert.match(hook, /method: 'POST'/);
-  assert.match(store, /randomRoam: \{[\s\S]{0,120}\.\.\.state\.randomRoam[\s\S]{0,180}resumeWhenAppended: false/);
-  assert.match(store, /waitingAtQueueEnd/);
-  assert.match(store, /resumeWhenAppended/);
-  assert.match(store, /removePlaylistSong/);
-  assert.match(store, /当前范围暂无可补充的歌曲/);
-  assert.match(worker, /handleLocalMusicDiscoveryRoute\(request/);
-  assert.match(songs, /isRoam = pathname === '\/api\/songs\/roam' && request\.method === 'POST'/);
-  assert.match(songs, /totalPlayable: playable\.length/);
-  assert.match(songs, /remainingPlayable/);
-  assert.match(songs, /exhausted: remainingPlayable === 0/);
-  assert.match(songs, /s\.audio_url IS NOT NULL AND TRIM\(s\.audio_url\) <> ''/);
-});
+// The retired built-in roam source-shape contract is covered by behavior tests
+// in plugins/roam, store/queueContinuation and components/roamIntegration.
 
 test('playlist requests live in the DOM-free payload loader while MainContent keeps navigation orchestration', () => {
   const main = readSource('./components/MainContent.jsx');
@@ -704,7 +622,7 @@ test('identity-aware song reads include credentials and rely on the global sessi
   const songApi = readSource('./services/songApi.js');
   const songResolver = readSource('./resolveSongs.js');
   const lyrics = readSource('./hooks/useLyricsFetcher.js');
-  const drawer = readSource('./components/AssistantView.jsx');
+
   const worker = readSource('../../server/src/instance/httpRouter.js');
   const songs = readSource('../../server/src/routes/localMusicRead.js');
   const artistPhotos = readSource('./hooks/useArtistPhotos.js');
@@ -713,13 +631,13 @@ test('identity-aware song reads include credentials and rely on the global sessi
   assert.doesNotMatch(lyrics, /songUrl/);
   assert.match(lyrics, /songLanguageHasLyrics\(currentSong\?\.language\)/);
   assert.match(lyrics, /const url = `\$\{getApiBaseUrl\(\)\}\/api\/lyrics\?songId=/);
-  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include', cache: 'no-store', signal: requestOptions\.signal \}\)/);
+  assert.match(lyrics, /authenticatedFetch\(url, \{ credentials: 'include', cache: 'no-store', signal: requestOptions\.signal, headers:/);
+  assert.match(lyrics, /'Accept-Language': getLocale\(\)/);
   assert.doesNotMatch(lyrics, /\/api\/lyrics\/translation|source=/);
   assert.match(artistPhotos, /api\/artist-photo\?name=[\s\S]{0,120}credentials: 'include'/);
   // Decode sharing, concurrency and timeout behaviour are exercised by
   // artistPhotoResources.test.js; this contract only guards the session API.
-  assert.doesNotMatch(drawer, /fetchSongById\(songId\)|music-play-song-id/);
-  assert.doesNotMatch(drawer, /\/api\/songs\?id=/);
+
   assert.equal(existsSync(new URL('./utils/xiaoaSongResolver.js', import.meta.url)), false);
   assert.doesNotMatch(worker, /handleGetSongById|searchParams\.get\('id'\)/);
   assert.match(worker, /handleLocalMusicDiscoveryRoute\(request/);
@@ -751,12 +669,10 @@ test('library view displays full playlists and shelf management while home focus
   assert.doesNotMatch(allPlaylists, /createLatestRequestGuard|createExpiringAsyncCache|revalidateExpiringCache/);
 });
 
-test('home explore shelf displays direct 6 categories with carousel navigation and responsive scroll track', () => {
-  const main = readSource('./components/MainContent.jsx');
+test('catalog explore shelf supports 6 categories with carousel navigation and responsive scroll track', () => {
   const homeCollections = readSource('./components/HomeCollectionSections.jsx');
   const trackCss = readSource('./styles/track.css');
 
-  assert.match(main, /items=\{EXPLORE_CATEGORIES\}/);
   assert.match(homeCollections, /className="explore-shelf"/);
   assert.match(homeCollections, /<HorizontalScrollButtons variant="header"/);
   assert.match(homeCollections, /handleScroll/);
@@ -797,14 +713,17 @@ test('assistant entry remains on the main sidebar and empty playlist', () => {
   const main = readSource('./components/MainContent.jsx');
   const gate = readSource('./instance/InstanceGate.jsx');
 
-  assert.match(sidebar, /data-ai-entry="sidebar"/);
-  assert.match(sidebar, /navigate\('assistant'\)/);
-  assert.match(sidebar, /<span>\{t\("助手"\)\}<\/span>/);
+  assert.match(sidebar, /usePluginMenu\('sidebar.primary'\)/);
+  const assistant = getPlugin('assistant');
+  assert.ok(assistant.entries.some(entry => entry.slot === 'sidebar.primary' && entry.page === 'conversation'));
+  assert.deepEqual(getPluginEntries('sidebar.primary', { authenticated: false, installedIds: ['assistant', 'ai-gateway'] }), []);
+  assert.equal(canAccessPluginDeclaration(assistant.pages.find(page => page.id === 'conversation'), null), false);
   assert.doesNotMatch(sidebar, /<span>小A<\/span>|data-tooltip="小A"/);
   assert.doesNotMatch(moreMenu, /<span>助手<\/span>|data-ai-entry|setIsAiReviewOpen/);
   assert.doesNotMatch(immersive, /onOpenAssistant|data-ai-entry/);
   assert.match(detail, /前往助手挑歌/);
-  assert.match(main, /<AssistantView isAuthenticated\b/);
+  assert.match(main, /<PluginPageView route=\{activeRoute\}/);
+  assert.equal(typeof assistant.loadContent, 'function');
   assert.doesNotMatch(app, /AiReviewDrawer|isAiReviewOpen|hasOpenedAiDrawer/);
   assert.doesNotMatch(
     `${moreMenu}\n${immersive}\n${detail}\n${app}\n${gate}`,
@@ -815,16 +734,16 @@ test('assistant entry remains on the main sidebar and empty playlist', () => {
 test('protected pages rely on the app auth gate without shipping visitor UI branches', () => {
   const home = readSource('./components/HomeOverview.jsx');
   const search = readSource('./components/SearchView.jsx');
-  const lyrics = readSource('./components/LyricsManagementWorkspace.jsx');
+
   const main = readSource('./components/MainContent.jsx');
 
   assert.doesNotMatch(home, /isAuthenticated|SELECTED TRACKS|精选单曲/);
   assert.doesNotMatch(search, /登录后才能使用曲库搜索|isAuthenticated && status/);
-  assert.doesNotMatch(lyrics, /lyrics-workspace__auth|访客状态|登录后管理共享歌词/);
+
   assert.doesNotMatch(main, /曲库探索仅对登录用户开放|isAuthenticated \? toggleLikedWithFeedback/);
 
   assert.match(search, /if \(!isAuthenticated\) \{/);
-  assert.match(lyrics, /enabled: Boolean\(baseSong\?\.id\) && authenticated/);
+
   assert.match(main, /useRandomSongs\(isAuthenticated, \{/);
 });
 
@@ -833,10 +752,8 @@ test('Explore library section is gated for authenticated members only on client 
   const languageCounts = readSource('./hooks/useSongLanguageCounts.js');
   const worker = readSource('../../server/src/instance/httpRouter.js');
 
-  // Client gates explore section with isAuthenticated
-  assert.match(main, /<RoamOverview[\s\S]*isAuthenticated/);
-  // Client gates remote language counts fetch
-  assert.match(main, /useSongLanguageCounts\(isAuthenticated && activePage === 'roam' && activeRoute\?\.type === 'page'\)/);
+  // Catalog browsing remains in the authenticated host, independently of roam.
+  assert.match(main, /<CatalogBrowserView route=\{activeRoute\}/);
   assert.match(languageCounts, /if \(!isAuthenticated\) return undefined;[\s\S]*\/api\/songs\?counts=language/);
   // Server applies one session gate before all Tune business routes.
   assert.match(worker, /decideApiAccess\(/);

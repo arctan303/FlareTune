@@ -4,6 +4,7 @@ import { BookOpen, RefreshCw, X } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore.js';
 import PageBackButton from './PageBackButton.jsx';
 import { localizeLibraryPlaylist } from '../constants/roamLanguages.js';
+import { useModalFocus } from '../hooks/useModalFocus.js';
 
 export const cleanPlaylistDescription = (value) => value
     ? value.replace(/\\r\\n|\\n|\\r/g, '\n')
@@ -14,6 +15,8 @@ export function PlaylistDescriptionDrawer({ playlist, info, isOpen, onClose }) {
     const [mounted, setMounted] = React.useState(false);
     const [isClosing, setIsClosing] = React.useState(false);
     const closeButtonRef = React.useRef(null);
+    const modalRef = React.useRef(null);
+    useModalFocus({ active: isOpen && mounted, modalRef, initialFocusRef: closeButtonRef, onClose });
 
     React.useEffect(() => {
         if (isOpen) {
@@ -27,22 +30,9 @@ export function PlaylistDescriptionDrawer({ playlist, info, isOpen, onClose }) {
         return undefined;
     }, [isOpen, mounted]);
 
-    React.useEffect(() => {
-        if (isOpen && mounted) requestAnimationFrame(() => closeButtonRef.current?.focus());
-    }, [isOpen, mounted]);
-
-    React.useEffect(() => {
-        if (!isOpen) return undefined;
-        const handleEscape = (event) => {
-            if (event.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleEscape);
-        return () => window.removeEventListener('keydown', handleEscape);
-    }, [isOpen, onClose]);
-
     if (!mounted) return null;
     return (
-        <div role="dialog" aria-modal="true" aria-labelledby="playlist-desc-drawer-title" className={`fixed inset-0 z-[100] flex justify-end ${isFullScreen ? 'dark' : ''}`}>
+        <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-hidden={!isOpen || undefined} inert={!isOpen ? '' : undefined} aria-labelledby="playlist-desc-drawer-title" className={`fixed inset-0 z-[100] flex justify-end ${isFullScreen ? 'dark' : ''}`}>
             <div className={`absolute inset-0 transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'} drawer-backdrop`} onClick={onClose} />
             <div className={`theme-drawer w-full sm:w-[440px] h-full relative z-10 flex flex-col ${isClosing ? 'animate-[slide-out-right_0.3s_ease-in]' : 'animate-[slide-in-right_0.3s_ease-out]'} overflow-y-auto`}>
                 <div className="theme-drawer__header sticky top-0 z-10 flex items-center justify-between px-6 py-5">

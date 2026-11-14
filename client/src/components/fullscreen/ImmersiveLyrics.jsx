@@ -17,6 +17,7 @@ import {
 } from '../../utils/immersiveLyricState';
 import SyncedLyricText from '../lyrics/SyncedLyricText';
 import { useLyricSurfacePresentation } from '../lyrics/lyricSurfacePresentation';
+import { localizeLyricStatusText } from '../../utils/lyricStatusText.js';
 
 const NATURAL_ADVANCE_REASONS = new Set(['animation-frame', 'timeupdate']);
 const EXIT_ANIMATION_BY_GROUP = Object.freeze({
@@ -265,7 +266,6 @@ export default function ImmersiveLyrics({
     currentSong,
     translationEnabled = false,
     lyricSyncMode = 'line',
-    lyricIntro = null,
     isPlaying = false,
     isBuffering = false,
     surfaceVisible = true,
@@ -295,7 +295,6 @@ export default function ImmersiveLyrics({
     const presentation = useLyricSurfacePresentation({
         lyrics: isLyricsLoading ? [] : safeLyrics,
         currentLyricIndex,
-        lyricIntro,
         lyricSyncMode,
         surfaceVisible,
         clock,
@@ -318,11 +317,11 @@ export default function ImmersiveLyrics({
     );
     const transition = resolveImmersiveLyricTransition(clockSnapshot, motionRunning);
     const presentationLine = presentation.line;
+    // Loader status rows (instrumental, missing, failed) follow the interface
+    // language, as in the classic scroller; real lyric text stays original.
     const presentationText = presentation.kind === 'none'
         ? ''
-        : typeof presentationLine === 'string'
-            ? presentationLine
-            : stringValue(presentationLine?.text);
+        : localizeLyricStatusText(stringValue(presentationLine?.text), t);
     const presentationTranslation = typeof presentationLine === 'object' && presentationLine !== null
         ? stringValue(presentationLine.translation)
         : '';

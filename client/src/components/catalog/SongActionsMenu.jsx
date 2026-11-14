@@ -1,12 +1,16 @@
+import { canUseLocalSongLibrary, canReferenceAccountSong } from '../../utils/musicSource.js';
 import { t } from '../../i18n/index.js';
 import React from 'react';
-import { FolderPlus, ListPlus, Pencil, Star, Trash2 } from 'lucide-react';
+import { FolderPlus, ListPlus, Pencil, Puzzle, Star, Trash2 } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore.js';
 import FloatingTrackMenu from './FloatingTrackMenu.jsx';
+import { usePluginMenu } from '../../hooks/usePluginMenu.js';
+import PluginActionDialog from '../PluginActionDialog.jsx';
 
 export default function SongActionsMenu({ song, anchorRef, onClose, isLiked, isLikePending = false,
   onToggleLiked, onInsertNext, onAddToPlaylist, onRemove, removeLabel = '移除', autoFocusFirstItem = true }) {
   const isAdmin = useUIStore((state) => state.authSession?.user?.role === 'admin');
+  const pluginMenu = usePluginMenu('menu.song', { song });
   const openQuickSongEdit = useUIStore((state) => state.openQuickSongEdit);
 
   const dismiss = React.useCallback(() => {
@@ -16,6 +20,7 @@ export default function SongActionsMenu({ song, anchorRef, onClose, isLiked, isL
 
   React.useEffect(() => {
     const onKeyDown = (event) => {
+      if (pluginMenu.selection) return;
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
@@ -23,7 +28,7 @@ export default function SongActionsMenu({ song, anchorRef, onClose, isLiked, isL
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [dismiss]);
+  }, [dismiss, pluginMenu.selection]);
 
   const run = (action) => (event) => {
     event.stopPropagation();
@@ -38,10 +43,12 @@ export default function SongActionsMenu({ song, anchorRef, onClose, isLiked, isL
     onToggleLiked?.(song, event);
   };
 
+  if (pluginMenu.selection) return <PluginActionDialog selection={pluginMenu.selection} onClose={dismiss} />;
+
   return <FloatingTrackMenu anchorRef={anchorRef} onDismiss={dismiss}
     label={t("{p0} 的歌曲选项", { p0: (song.title) })} autoFocusFirstItem={autoFocusFirstItem}
     onClick={(event) => event.stopPropagation()}>
-    {onToggleLiked && <button type="button" role="menuitem" className={`track-row__menu-item ${isLiked ? 'text-[var(--danger)]' : ''}`}
+    {canReferenceAccountSong(song) && onToggleLiked && <button type="button" role="menuitem" className={`track-row__menu-item ${isLiked ? 'text-[var(--danger)]' : ''}`}
       disabled={isLikePending} onClick={toggleLiked}>
       <Star size={18} fill={isLiked ? 'currentColor' : 'none'} aria-hidden="true" />
       <span>{isLiked ? t("移出我的收藏") : t("加入我的收藏")}</span>
@@ -49,10 +56,16 @@ export default function SongActionsMenu({ song, anchorRef, onClose, isLiked, isL
     {onInsertNext && <button type="button" role="menuitem" className="track-row__menu-item" onClick={run(onInsertNext)}>
       <ListPlus size={16} aria-hidden="true" /><span>{t("插播到下一首")}</span>
     </button>}
-    {onAddToPlaylist && <button type="button" role="menuitem" className="track-row__menu-item" onClick={run(onAddToPlaylist)}>
+    {canReferenceAccountSong(song) && onAddToPlaylist && <button type="button" role="menuitem" className="track-row__menu-item" onClick={run(onAddToPlaylist)}>
       <FolderPlus size={16} aria-hidden="true" /><span>{t("加入歌单")}</span>
     </button>}
-    {isAdmin && <button type="button" role="menuitem" className="track-row__menu-item" onClick={(event) => {
+    {pluginMenu.entries.map(entry => {
+      const Icon = entry.icon || Puzzle;
+      return <button key={`${entry.pluginId}:${entry.id}`} type="button" role="menuitem" className="track-row__menu-item" onClick={event => {
+        event.stopPropagation(); pluginMenu.open(entry);
+      }}><Icon size={16} aria-hidden="true" /><span>{entry.labelKey ? entry.label : t(entry.label)}</span></button>;
+    })}
+    {isAdmin && canUseLocalSongLibrary(song) && <button type="button" role="menuitem" className="track-row__menu-item" onClick={(event) => {
       event.stopPropagation();
       onClose?.();
       openQuickSongEdit(song.id, anchorRef.current);

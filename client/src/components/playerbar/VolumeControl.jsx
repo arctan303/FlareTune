@@ -2,18 +2,11 @@ import { t } from '../../i18n/index.js';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
-import { usePlayerStore } from '../../store/usePlayerStore';
-import { useShallow } from 'zustand/react/shallow';
+import { usePlaybackVolume } from '../../hooks/usePlaybackVolume.js';
 import { usePlayerInteractionLock } from '../../hooks/usePlayerAutoHide.js';
 
 export default function VolumeControl({ isExpanded = false }) {
-    const { volume, setVolume, audioRef } = usePlayerStore(useShallow((state) => ({
-        volume: state.volume,
-        setVolume: state.setVolume,
-        audioRef: state.audioRef,
-    })));
-    const [isMuted, setIsMuted] = React.useState(false);
-    const [prevVolume, setPrevVolume] = React.useState(volume > 0 ? volume : 0.8);
+    const { volume, setVolume, toggleMute } = usePlaybackVolume();
     const [isVolumePanelOpen, setIsVolumePanelOpen] = React.useState(false);
     const [coords, setCoords] = React.useState({ left: 0, bottom: 0 });
     const buttonRef = React.useRef(null);
@@ -60,8 +53,6 @@ export default function VolumeControl({ isExpanded = false }) {
     const handleVolumeChange = (e) => {
         const newVol = parseFloat(e.target.value);
         setVolume(newVol);
-        if (audioRef?.current) audioRef.current.volume = newVol;
-        setIsMuted(newVol === 0);
         openVolumePanel();
     };
 
@@ -74,17 +65,7 @@ export default function VolumeControl({ isExpanded = false }) {
             return;
         }
         // 已弹出状态下再次点击：切换静音与解除静音
-        if (isMuted || volume === 0) {
-            const restored = prevVolume || 0.8;
-            setVolume(restored);
-            if (audioRef?.current) audioRef.current.volume = restored;
-            setIsMuted(false);
-        } else {
-            setPrevVolume(volume);
-            setVolume(0);
-            if (audioRef?.current) audioRef.current.volume = 0;
-            setIsMuted(true);
-        }
+        toggleMute();
         openVolumePanel();
         scheduleCloseVolumePanel(3000);
     };
@@ -95,8 +76,6 @@ export default function VolumeControl({ isExpanded = false }) {
         let newVol = volume + delta;
         newVol = Math.max(0, Math.min(1, newVol));
         setVolume(newVol);
-        if (audioRef?.current) audioRef.current.volume = newVol;
-        setIsMuted(newVol === 0);
         openVolumePanel();
         scheduleCloseVolumePanel(3000);
     };
@@ -118,14 +97,14 @@ export default function VolumeControl({ isExpanded = false }) {
             <button 
                 ref={buttonRef}
                 onClick={handleButtonClick} 
-                aria-label={isMuted || volume === 0 ? t("取消静音") : t("静音")}
+                aria-label={volume === 0 ? t("取消静音") : t("静音")}
                 className={isExpanded
                     ? 'transition-all hover:scale-110 active:scale-95 outline-none p-1 flex items-center justify-center cursor-pointer'
                     : 'player-console__icon p-1.5 transition-all duration-300 active:scale-90 text-[var(--muted)] hover:text-[var(--ink)]'
                 }
                 title={isVolumePanelOpen ? (volume === 0 ? t("点击恢复音量") : t("点击静音")) : t("当前音量 {p0}%（点击或悬停展开）", { p0: (Math.round(volume * 100)) })}
             >
-                {isMuted || volume === 0 ? <VolumeX size={isExpanded ? 18 : 20} /> : <Volume2 size={isExpanded ? 18 : 20} />}
+                {volume === 0 ? <VolumeX size={isExpanded ? 18 : 20} /> : <Volume2 size={isExpanded ? 18 : 20} />}
             </button>
 
             {/* 通过 Portal 渲染到 body，彻底摆脱父级 overflow-hidden 裁切 */}
@@ -150,7 +129,7 @@ export default function VolumeControl({ isExpanded = false }) {
                         if (!panelRef.current?.contains(event.relatedTarget)) scheduleCloseVolumePanel(1200);
                     }}
                 >
-                    <div 
+                    <div
                         className={`player-volume-panel w-9 h-[112px] py-2.5 rounded-full flex flex-col items-center select-none relative ${
                             isExpanded
                                 ? 'bg-black/80 backdrop-blur-2xl text-white shadow-[0_12px_32px_rgba(0,0,0,0.6)] border border-white/15'
@@ -184,8 +163,10 @@ export default function VolumeControl({ isExpanded = false }) {
                             }}
                             onPointerUp={() => { draggingRef.current = false; scheduleCloseVolumePanel(2500); }}
                             onPointerCancel={() => { draggingRef.current = false; scheduleCloseVolumePanel(2500); }}
-                            onTouchStart={cancelCloseVolumePanel}
-                            onTouchEnd={() => scheduleCloseVolumePanel(2500)}
+                            onLostPointerCapture={() => { draggingRef.current = false; scheduleCloseVolumePanel(2500); }}
+                            onTouchStart={() => { draggingRef.current = true; cancelCloseVolumePanel(); }}
+                            onTouchEnd={() => { draggingRef.current = false; scheduleCloseVolumePanel(2500); }}
+                            onTouchCancel={() => { draggingRef.current = false; scheduleCloseVolumePanel(2500); }}
                             onChange={handleVolumeChange}
                             aria-label={t("音量")}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"

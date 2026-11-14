@@ -21,26 +21,26 @@ test('unchanged partialized fields skip serialization before string storage', ()
   let serializedSongs = 0;
   const song = { id: 'a', toJSON() { serializedSongs += 1; return { id: this.id }; } };
   const state = { currentSong: song, playlist: [song], volume: 0.8,
-    randomRoam: { enabled: false, seenSongIds: [], resumeWhenAppended: false } };
+    legacyPluginPreferences: { sample: { language: 'all' } } };
   storage.setItem('player', snapshot(state));
   const firstSerializationCount = serializedSongs;
   for (let index = 0; index < 120; index += 1) {
-    storage.setItem('player', snapshot({ ...state, randomRoam: { ...state.randomRoam } }));
+    storage.setItem('player', snapshot({ ...state }));
   }
   assert.equal(serializedSongs, firstSerializationCount);
   assert.equal(memory.writes.length, 1);
   assert.deepEqual(JSON.parse(memory.values.get('player')), {
     version: 1, state: { currentSong: { id: 'a' }, playlist: [{ id: 'a' }], volume: 0.8,
-      randomRoam: { enabled: false, seenSongIds: [], resumeWhenAppended: false } },
+      legacyPluginPreferences: { sample: { language: 'all' } } },
   });
 });
 
-test('queue, metadata, preferences, roam changes and version changes retain the saved format', () => {
+test('queue, metadata, preferences and version changes retain the saved format', () => {
   const memory = memoryStorage();
   const storage = createPlayerPersistenceStorage(() => memory);
   let state = { currentSong: { id: 'a' }, playlist: [{ id: 'a' }, { id: 'b' }],
     volume: 0.8, playMode: 'loop', translationEnabled: false,
-    randomRoam: { enabled: false, seenSongIds: [], resumeWhenAppended: false } };
+    legacyPluginPreferences: { sample: { language: 'all' } } };
   const edits = [
     (previous) => previous,
     (previous) => ({ ...previous, playlist: [...previous.playlist].reverse() }),
@@ -48,7 +48,7 @@ test('queue, metadata, preferences, roam changes and version changes retain the 
     (previous) => ({ ...previous, volume: 0.4 }),
     (previous) => ({ ...previous, playMode: 'sequence' }),
     (previous) => ({ ...previous, translationEnabled: true }),
-    (previous) => ({ ...previous, randomRoam: { ...previous.randomRoam, seenSongIds: ['a'] } }),
+    (previous) => ({ ...previous, legacyPluginPreferences: { sample: { language: 'zh' } } }),
     (previous) => ({ ...previous, playlist: [], currentSong: null }),
   ];
   for (const edit of edits) {

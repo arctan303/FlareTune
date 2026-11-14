@@ -818,15 +818,15 @@ html[data-page-hidden='true'] .lazy-image:not([data-image-state='ready'])::after
 }
 
 .primary-button {
-  border: 1px solid var(--accent);
-  color: #ffffff;
-  background: var(--accent);
+  border: 1px solid var(--accent-fill);
+  color: var(--accent-contrast);
+  background: var(--accent-fill);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .primary-button:hover {
-  border-color: color-mix(in srgb, var(--accent) 85%, white);
-  background: color-mix(in srgb, var(--accent) 88%, white);
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
   box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 42%, transparent);
   transform: translateY(-1px);
 }

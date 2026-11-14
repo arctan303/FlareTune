@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { startPreview } from '../dev/preview-worker.mjs';
+import { pluginBuilds } from '../../shared/plugins/build.generated.js';
 
 const setupSecret = 'local-preview-only-claim-secret-not-for-deployment-2026';
 const password = 'pass2026';
@@ -8,7 +9,12 @@ const password = 'pass2026';
 test('real local D1 Worker serves setup, login, settings and CSRF', async () => {
   const preview = await startPreview({ ephemeral: true, seedEmpty: true,
     workerTestBindings: { SETUP_SECRET: setupSecret } });
-  const api = (path, options) => fetch(`${preview.origin}${path}`, options);
+  const api = (path, options = {}) => {
+    const pluginId = path.startsWith('/api/admin/ai/') ? 'ai-gateway' : path.startsWith('/api/ai/') ? 'assistant'
+      : path.startsWith('/api/lyrics/workspace/') || path === '/api/lyrics/sources' ? 'lyrics-workbench' : null;
+    return fetch(`${preview.origin}${path}`, { ...options, headers: { ...options.headers,
+      ...(pluginId ? { 'X-FlareTune-Plugin-Build': pluginBuilds.find(row => row.id === pluginId).sourceDigest } : {}) } });
+  };
   const post = (path, body, headers = {}, method = 'POST') => api(path, {
     method, body: JSON.stringify(body), headers: {
       'Content-Type': 'application/json', Origin: preview.origin,
@@ -34,6 +40,10 @@ test('real local D1 Worker serves setup, login, settings and CSRF', async () => 
     const { csrfToken, user } = await session.json();
     assert.equal(user.username, 'owner');
     assert.ok(csrfToken);
+    for (const id of ['ai-gateway', 'assistant', 'lyrics-workbench']) {
+      const installed = await post(`/api/admin/plugins/${id}`, { installed: true, revision: 0 }, { Cookie: cookie, 'X-CSRF-Token': csrfToken }, 'PUT');
+      assert.equal(installed.status, 200, await installed.clone().text());
+    }
     const avatarBytes = new Uint8Array(26); const avatarView = new DataView(avatarBytes.buffer);
     avatarBytes.set(new TextEncoder().encode('RIFF')); avatarView.setUint32(4,18,true);
     avatarBytes.set(new TextEncoder().encode('WEBPVP8L'),8); avatarView.setUint32(16,5,true);

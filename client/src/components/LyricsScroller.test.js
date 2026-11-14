@@ -84,17 +84,15 @@ test('classic lyrics mounts InterludeHost in-place exclusively while other lyric
 test('classic lyrics uses the shared renderer only for original text and leaves translation static', () => {
   assert.match(source, /import SyncedLyricText from '\.\/lyrics\/SyncedLyricText'/);
   assert.match(source, /<SyncedLyricText[\s\S]*?line=\{displayLine\}[\s\S]*?active=\{isActive\}[\s\S]*?visible=\{surfaceVisible\}[\s\S]*?syncMode=\{lyricSyncMode\}/);
-  const translationBlock = source.match(/\{\(!isIntroRow && lrc\.translation && translationEnabled\)[\s\S]*?\{lrc\.translation\}[\s\S]*?<\/p>/)?.[0] || '';
+  const translationBlock = source.match(/\{\(lrc\.translation && translationEnabled\)[\s\S]*?\{lrc\.translation\}[\s\S]*?<\/p>/)?.[0] || '';
   assert.ok(translationBlock, 'translation should retain its dedicated static paragraph');
   assert.doesNotMatch(translationBlock, /SyncedLyricText|synced-word|--synced/);
 });
 
-test('classic lyrics presents intro in canonical row zero without inserting or shifting lyrics', () => {
-  assert.match(source, /lyricPresentation\.kind === 'intro' && index === 0/);
-  assert.match(source, /const sourceLine = isIntroRow \? lyricPresentation\.line : lrc/);
-  assert.match(source, /const displayLine = LYRIC_STATUS_LINES\.has\(sourceLine\?\.text\)/);
+test('classic lyrics preserves canonical row content and seek targets', () => {
+  assert.match(source, /const displayLine = LYRIC_STATUS_LINES\.has\(lrc\?\.text\)/);
   assert.match(source, /const canSeek = Number\.isFinite\(lrc\.time\)/);
-  assert.doesNotMatch(source, /unshift|\[lyricIntro,\s*\.\.\.lyrics\]|lyrics\.splice/);
+  assert.doesNotMatch(source, /lyricIntro|isIntroRow|unshift|lyrics\.splice/);
 });
 
 test('classic lyric clock work is explicitly gated by surface visibility', () => {
@@ -111,11 +109,12 @@ test('untimed plain lyric lines cannot seek or advertise a clickable cursor', ()
   assert.match(source, /onClick=\{canSeek \? \(\) => handleLineClick\(lrc\.time\) : undefined\}/);
 });
 
-test('classic translation action exposes the shared five-state waiting contract', () => {
+test('classic translation action exposes provider state while allowing the display preference to change', () => {
   assert.match(source, /translationState/);
   assert.match(source, /data-translation-state=\{resolvedTranslationState\}/);
   assert.match(source, /aria-busy=\{translationPending \|\| undefined\}/);
-  assert.match(source, /disabled=\{translationPending\}/);
+  assert.doesNotMatch(source, /disabled=\{translationPending\}/);
+  assert.match(source, /translationPending = resolvedTranslationState === 'pending' && translationEnabled/);
   assert.match(source, /data-active=\{translationReady && translationEnabled\}/);
   assert.match(source, /resolvedTranslationState === 'failed'/);
 

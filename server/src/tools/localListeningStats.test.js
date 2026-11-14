@@ -36,6 +36,8 @@ function baselineDb(extraSongs = 0) {
       prepare(sql) {
         const statement = sqlite.prepare(sql);
         return {
+          all: async () => ({ results: statement.all() }),
+          first: async () => statement.get() ?? null,
           bind(...values) {
             return {
               all: async () => ({ results: statement.all(...values) }),

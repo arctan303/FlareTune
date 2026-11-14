@@ -1,14 +1,9 @@
 import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
-import { buildSongLanguageFilter } from '../utils/songLanguage.js';
 import { runtimeSongColumns } from '../utils/songProjection.js';
-import { createRoamSampler } from '../services/roamSampler.js';
-
-const roamSampler = createRoamSampler();
 
 const SONG_COLUMNS = runtimeSongColumns('s');
 const MAX_ID_LENGTH = 80;
 const MAX_RESOLVE_IDS = 500;
-const MAX_SEEN_IDS = 5000;
 const MAX_BATCH = 50;
 
 const json = (data, status, headers) => new Response(JSON.stringify(data), {
@@ -97,50 +92,6 @@ async function resolveSongs(request, db, headers) {
   }, headers);
 }
 
-async function roamSongs(request, db, headers, options) {
-  const parsed = await bodyJson(request, headers, 1024 * 1024);
-  if (parsed.response) return parsed.response;
-  if (parsed.body.strategy === 'recent') {
-    const recent = normalizeIds(parsed.body.recentSongIds, MAX_SEEN_IDS);
-    const queued = normalizeIds(parsed.body.queuedSongIds, MAX_SEEN_IDS);
-    const limit = parseBatch(parsed.body.limit, 10);
-    const language = parsed.body.language ?? 'all';
-    if (!recent || !queued || limit === null || typeof language !== 'string'
-      || !buildSongLanguageFilter(language === 'all' ? null : language)) return invalid('Invalid roam parameters', headers);
-    const result = await roamSampler.sample(db, { recent, queued, limit, language, executionContext: options?.executionContext });
-    return success({ songs: result.songs, strategy: 'recent', language, limit,
-      totalPlayable: result.rangeSize, remainingPlayable: Math.max(0, result.eligible - result.songs.length),
-      recentWindow: result.windowSize, relaxed: result.relaxed,
-      // A full queue is temporary; playing it makes older songs eligible again.
-      exhausted: result.rangeSize === 0 || (result.songs.length === 0 && queued.length <= 1 && !result.stale),
-    }, headers);
-  }
-  const seenIds = normalizeIds(parsed.body.seenSongIds, MAX_SEEN_IDS);
-  const limit = parseBatch(parsed.body.limit ?? parsed.body.batchSize, 10);
-  const language = parsed.body.language === undefined || parsed.body.language === 'all'
-    ? null : parsed.body.language;
-  if (!seenIds || limit === null || (language !== null && (typeof language !== 'string' || !language.trim()))) {
-    return invalid('Invalid roam parameters', headers);
-  }
-  const filter = language ? buildSongLanguageFilter(language) : { sql: '', bindings: [] };
-  if (!filter) return invalid('invalid_language', headers);
-  const clause = filter.sql ? `AND ${filter.sql}` : '';
-  const playable = rows(await db.prepare(`SELECT ${SONG_COLUMNS} FROM Songs s
-    WHERE s.audio_url IS NOT NULL AND TRIM(s.audio_url) <> '' ${clause}
-    ORDER BY RANDOM()`).bind(...filter.bindings).all());
-  const seen = new Set(seenIds);
-  const unseen = playable.filter((song) => !seen.has(String(song.id)));
-  const songs = unseen.slice(0, limit);
-  const remainingPlayable = unseen.length - songs.length;
-  return success({
-    songs, language: language || 'all', limit,
-    totalPlayable: playable.length,
-    seenPlayable: playable.length - unseen.length,
-    remainingPlayable,
-    exhausted: remainingPlayable === 0,
-  }, headers);
-}
-
 async function spotlightArtist(url, db, headers) {
   const exclude = parseCommaList(url.searchParams.get('exclude'), 20, 100, 1000);
   if (exclude === null) return invalid('Invalid artist exclusions', headers);
@@ -177,19 +128,17 @@ async function spotlightArtist(url, db, headers) {
 
 // The outer router must verify a normal local-account session before calling this.
 // Requiring the account ID again keeps accidental direct invocation closed.
-export async function handleLocalMusicDiscoveryRoute(request, url, db, headers = {}, accountId, options = {}) {
+export async function handleLocalMusicDiscoveryRoute(request, url, db, headers = {}, accountId) {
   const { pathname } = url;
   const isRandom = pathname === '/api/songs/random' && request.method === 'GET';
   const isResolve = pathname === '/api/songs/resolve' && request.method === 'POST';
-  const isRoam = pathname === '/api/songs/roam' && request.method === 'POST';
   const isSpotlight = pathname === '/api/songs/spotlight-artist' && request.method === 'GET';
-  if (!isRandom && !isResolve && !isRoam && !isSpotlight) return null;
+  if (!isRandom && !isResolve && !isSpotlight) return null;
   if (typeof accountId !== 'string' || !accountId.trim()) {
     return json({ code: 401, message: 'Authentication required' }, 401, headers);
   }
   if (!db?.prepare) return json({ code: 503, message: 'Database unavailable' }, 503, headers);
   if (isRandom) return randomSongs(url, db, headers);
   if (isResolve) return resolveSongs(request, db, headers);
-  if (isRoam) return roamSongs(request, db, headers, options);
   return spotlightArtist(url, db, headers);
 }

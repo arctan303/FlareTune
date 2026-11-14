@@ -1,3 +1,4 @@
+import { canUseLocalSongLibrary, canReferenceAccountSong } from '../utils/musicSource.js';
 import { create } from 'zustand';
 import { t } from '../i18n/index.js';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -112,11 +113,11 @@ export const useUIStore = create(
       openLyricsWorkspace: (song) => {
         if (!song?.id) return false;
         if (!get().authSession?.authenticated) return false;
-        if (get().lyricsWorkspaceBeforeCloseGuard?.() === false) return false;
+        if (!get().approveLyricsWorkspaceExit()) return false;
         if (get().setIsAccountPlaylistOpen(false) === false) return false;
         set({
           lyricsWorkspaceSong: { ...song },
-          lyricsWorkspaceExitApproved: false,
+          lyricsWorkspaceExitApproved: true,
           isFullScreen: false,
           isPlaylistOpen: false,
           isBackgroundDrawerOpen: false,
@@ -185,7 +186,7 @@ export const useUIStore = create(
       quickSongEditId: null,
       quickSongEditReturnFocus: null,
       openQuickSongEdit: (songId, returnFocus = null) => {
-        if (get().authSession?.user?.role !== 'admin' || !songId) return false;
+        if (get().authSession?.user?.role !== 'admin' || !songId || !canUseLocalSongLibrary(songId)) return false;
         set({ quickSongEditId: String(songId), quickSongEditReturnFocus: returnFocus });
         return true;
       },
@@ -219,6 +220,10 @@ export const useUIStore = create(
       openAddToPlaylist: (songsOrSong) => {
         if (!get().authSession?.authenticated) return false;
         const songs = Array.isArray(songsOrSong) ? songsOrSong : (songsOrSong ? [songsOrSong] : []);
+        if (songs.some(song => !canReferenceAccountSong(song))) {
+          showToast(t('当前未选择歌曲'));
+          return false;
+        }
         set({ isAddToPlaylistOpen: true, addToPlaylistSongs: songs });
         return true;
       },

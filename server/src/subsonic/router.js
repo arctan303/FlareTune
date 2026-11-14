@@ -1,5 +1,5 @@
 import { resolveInstanceState } from '../instance/state.js';
-import { authenticate } from './credentials.js';
+import { authenticate, subsonicPrincipalForAccount } from './credentials.js';
 import { reply, reject, ProtocolError, required } from './response.js';
 import { library } from './library.js';
 import { state } from './state.js';
@@ -7,6 +7,7 @@ import { media } from './media.js';
 import { LyricSourceError } from '../services/lyricSourceError.js';
 import { LyricArtifactStoreError } from '../services/lyricArtifactStore.js';
 import { PlaybackLyricsError } from '../services/playbackLyrics.js';
+import { createInvocationDatabase as createLyricsInvocationDatabase } from '../services/invocationDatabase.js';
 
 const MEDIA = new Set(['stream', 'download', 'getCoverArt', 'getCoverArt2', 'getLyrics', 'getLyricsBySongId']);
 const BINARY = new Set(['stream', 'download', 'getCoverArt', 'getCoverArt2']);
@@ -67,6 +68,8 @@ export async function handleSubsonic(request, env, executionContext) {
     const match = /^\/rest\/([A-Za-z0-9]+)(?:\.view)?$/.exec(url.pathname);
     if (!match) reject(70, 'Endpoint was not found');
     method = match[1];
+    if (['getLyrics', 'getLyricsBySongId'].includes(method)) env = { ...env, DB: createLyricsInvocationDatabase(env.DB, request.signal,
+      { settlementReserve: 6, exhaustedCode: 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' }) };
     if (request.method === 'HEAD' && !['stream', 'download', 'getCoverArt', 'getCoverArt2'].includes(method)) reject(0, 'HEAD is only supported for media');
     // Subsonic mutates through GET: writes must validate the current structure.
     const instance = await resolveInstanceState(env.DB, Date.now(), { cacheSchema: !MUTATIONS.has(method), executionContext });
@@ -88,7 +91,8 @@ export async function handleSubsonic(request, env, executionContext) {
         jukeboxRole: false, shareRole: false, videoConversionRole: false, folder: [1] } }, format);
     }
     if (method === 'scrobble') reject(0, 'Playback reporting is not supported');
-    const result = MEDIA.has(method) ? await media(method, p, request, env, executionContext, account.accountId)
+    const result = MEDIA.has(method) ? await media(method, p, request, env, executionContext, account.accountId,
+      subsonicPrincipalForAccount(account))
       : STATE.has(method) ? await state(method, p, env.DB, account)
         : await library(method, p, env.DB, account.accountId, executionContext);
     if (binary && result instanceof Response && result.status === 503) {

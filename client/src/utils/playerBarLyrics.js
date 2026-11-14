@@ -12,10 +12,7 @@ export function getPlayerBarLyricLayout({
         const translatedHasHan = /[\u3400-\u9fff]/.test(parts.slice(1).join(' '));
         return translatedHasHan && !originalHasHan;
     };
-    const translatableLines = Array.isArray(lyrics)
-        ? lyrics.filter((line) => !line?.isIntro)
-        : [];
-    const hasTranslation = translatableLines.some((line) => {
+    const hasTranslation = Array.isArray(lyrics) && lyrics.some((line) => {
         if (typeof line?.translation === 'string' && line.translation.trim()) return true;
         return hasInlineTranslation(line);
     });

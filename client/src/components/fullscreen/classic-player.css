@@ -134,11 +134,11 @@
   pointer-events: none;
 }
 
-.paper-classic-player .lyrics-translation-action[data-translation-state='pending'] {
+.paper-classic-player .lyrics-translation-action[data-translation-state='pending'][aria-busy='true'] {
   cursor: wait;
 }
 
-.paper-classic-player .lyrics-translation-action[data-translation-state='pending']::after {
+.paper-classic-player .lyrics-translation-action[data-translation-state='pending'][aria-busy='true']::after {
   animation: lyrics-translation-breathe 1.6s ease-in-out infinite;
 }
 

@@ -21,7 +21,8 @@ test('source test discovery includes every source area and excludes old/generate
   }
   for (const relative of ['output/old.test.js', 'dist/old.test.mjs',
     'client/node_modules/vendor.test.js', 'server/.wrangler/old.test.js',
-    'tooling/output/snapshot.test.mjs', 'tests/nested/helper.js']) {
+    'tooling/output/snapshot.test.mjs', 'shared/plugins/.delivery/vendor/package.test.js',
+    'server/src/plugins/.generated/vendor.test.js', 'tooling/plugins/.delivery-recovery/old.test.js', 'tests/nested/helper.js']) {
     const file = join(directory, relative);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, '');

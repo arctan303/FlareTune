@@ -1,6 +1,7 @@
 import React from 'react';
 import { Edit3, KeyRound } from 'lucide-react';
 import { SettingsInput, SettingsWriteButton } from './SettingsReadOnly.jsx';
+import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import SelectControl from './SelectControl.jsx';
 import { t } from '../i18n/index.js';
 import { validLocalPassword } from '../instance/state.js';
@@ -13,18 +14,20 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
   const [displayName, setDisplayName] = React.useState(account.displayName || '');
   const [role, setRole] = React.useState(account.role);
   const [status, setStatus] = React.useState(account.status);
+  const [rowError, setRowError] = React.useState('');
 
   async function save(event) {
     event.preventDefault();
     setBusy(true);
     onMessage('');
+    setRowError('');
     try {
       const result = await patchManagedAccount(account.accountId,
         { displayName, role, status, expectedUpdatedAt: account.updatedAt }, csrfToken);
       onSaved(result.account);
       setEditOpen(false);
       onMessage('账号已更新。');
-    } catch (error) { onMessage(adminErrorMessage(error)); }
+    } catch (error) { setRowError(adminErrorMessage(error)); }
     finally { setBusy(false); }
   }
 
@@ -33,17 +36,18 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
     const form = event.currentTarget;
     const password = new FormData(form).get('temporaryPassword');
     if (!validLocalPassword(password)) {
-      onMessage('临时密码至少需要 8 个字符，且不能超过 1024 字节。');
+      setRowError('临时密码至少需要 8 个字符，且不能超过 1024 字节。');
       return;
     }
     setBusy(true);
     onMessage('');
+    setRowError('');
     try {
       await resetManagedPassword(account.accountId, password, csrfToken);
       form.reset();
       setResetOpen(false);
       onMessage(t("已重置 {p0} 的临时密码；请通过安全渠道交给本人，首次登录须改密。", { p0: (account.username) }));
-    } catch (error) { onMessage(adminErrorMessage(error)); }
+    } catch (error) { setRowError(adminErrorMessage(error)); }
     finally { setBusy(false); }
   }
 
@@ -52,6 +56,7 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
     setRole(account.role);
     setStatus(account.status);
     setEditOpen(false);
+    setRowError('');
   };
 
   return (
@@ -92,15 +97,12 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
         </div>
 
         {/* 操作按钮组 */}
-        <div className="flex items-center gap-2 ml-auto">
-          <button
+        <SettingsActions>
+          <SettingsButton
             type="button"
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              editOpen
-                ? 'bg-current/10 text-[var(--ink)] font-semibold'
-                : 'text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/5'
-            }`}
+            variant={editOpen ? 'primary' : 'secondary'}
             onClick={() => {
+              setRowError('');
               setEditOpen((v) => !v);
               if (!editOpen) setResetOpen(false);
             }}
@@ -108,16 +110,13 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
           >
             <Edit3 size={12} />
             <span>{editOpen ? t("收起") : t("编辑")}</span>
-          </button>
+          </SettingsButton>
 
-          <button
+          <SettingsButton
             type="button"
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              resetOpen
-                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold'
-                : 'text-[var(--accent)] hover:opacity-80 hover:bg-[var(--accent)]/10'
-            }`}
+            variant={resetOpen ? 'primary' : 'secondary'}
             onClick={() => {
+              setRowError('');
               setResetOpen((v) => !v);
               if (!resetOpen) setEditOpen(false);
             }}
@@ -125,9 +124,11 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
           >
             <KeyRound size={12} />
             <span>{resetOpen ? t("收起重置") : t("重置密码")}</span>
-          </button>
-        </div>
+          </SettingsButton>
+        </SettingsActions>
       </div>
+
+      {rowError && <p role="alert" className="text-sm text-[var(--danger)]">{t(rowError)}</p>}
 
       {/* 编辑表单：折叠展开 */}
       {editOpen && (
@@ -147,33 +148,26 @@ export default function AccountRow({ account, csrfToken, onSaved, onMessage, bus
               <option value="disabled">{t("停用")}</option>
             </SelectControl>
           </Field>
-          <div className="flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
-            >{t("取消")}</button>
+          <SettingsActions>
+            <SettingsButton type="button" variant="quiet" onClick={cancelEdit}>{t("取消")}</SettingsButton>
             <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("保存")}</SettingsWriteButton>
-          </div>
+          </SettingsActions>
         </form>
       )}
 
       {/* 密码重置表单：折叠展开 */}
       {resetOpen && (
         <form onSubmit={reset} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] p-3 animate-[fade-in_0.15s_ease-out]">
+          <p className="w-full text-xs leading-relaxed text-[var(--muted)]">{t('重置将退出该账号的所有会话；本人下次登录必须修改临时密码。')}</p>
           <div className="flex-1 min-w-[200px]">
             <Field label={t("一次性临时密码")}>
               <SettingsInput className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("输入新的临时密码（至少 8 位）")} />
             </Field>
           </div>
-          <div className="flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={() => setResetOpen(false)}
-              className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
-            >{t("取消")}</button>
+          <SettingsActions>
+            <SettingsButton type="button" variant="quiet" onClick={() => { setResetOpen(false); setRowError(''); }}>{t("取消")}</SettingsButton>
             <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("确认重置")}</SettingsWriteButton>
-          </div>
+          </SettingsActions>
         </form>
       )}
     </div>

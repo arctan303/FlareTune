@@ -20,7 +20,7 @@ export default function PlayerModeChoices({ currentMode, onSelect }) {
         className={`classic-controls__menu-item flex min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${selected ? 'bg-white/15 font-medium text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
       >
         <Icon size={17} strokeWidth={1.8} className="classic-controls__menu-icon shrink-0" />
-        <span className="flex-1">{t(name)}</span>
+        <span className="classic-controls__menu-label">{t(name)}</span>
         {selected && <Check size={16} aria-hidden="true" />}
       </button>
     );

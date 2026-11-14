@@ -2,6 +2,22 @@ name = "flaretune-local"
 main = "src/flaretune.js"
 compatibility_date = "2026-09-23"
 
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
+
+[[kv_namespaces]]
+binding = "YTM_KV"
+id = "00000000000000000000000000000006"
+
+[durable_objects]
+bindings = [{ name = "YTM_RUNTIME", class_name = "YouTubeRuntime" }]
+
+[[migrations]]
+tag = "yt-runtime-v1"
+new_sqlite_classes = ["YouTubeRuntime"]
+
 [vars]
 MEDIA_PREFIX = "media"
 

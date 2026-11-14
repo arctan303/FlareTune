@@ -166,7 +166,6 @@ export default function IngestDeviceSource({ disabled, onAdd, sessionGuardRef, q
       </div>
       <details>
         <summary className="cursor-pointer text-sm font-semibold">{t("文件夹语言映射")}</summary>
-        <p className="mt-1 text-xs text-[var(--muted)]">{t("仅应用于随后加入清单的歌曲。")}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {folders.map(([folder, count]) => <label key={folder}
             className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-[var(--line)] px-3 py-2 text-xs">

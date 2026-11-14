@@ -1,9 +1,12 @@
 import { parseArtistNames } from '../utils/artistParser.js';
 import { LyricArtifactStoreError } from '../services/lyricArtifactStore.js';
-import { PlaybackLyricsError, readPlaybackLyrics } from '../services/playbackLyrics.js';
+import { PlaybackLyricsError, readPlaybackLyrics, resolveLyricSong, isExternalLyricSongId } from '../services/playbackLyrics.js';
 import { LyricSourceError } from '../services/lyricSourceLoader.js';
 import { fetchArtistPhotosFromSources } from '../services/artistPhotoSources.js';
 import { saveArtistPhotoToDb } from '../services/artistPhotoStore.js';
+import { readLyricsFromChain } from '../services/lyricSourceChain.js';
+import { lyricRouteErrorMessage } from './lyricSourceRoutes.js';
+import { beginLyricReadCache, storeLyricReadCache } from '../services/lyricReadCache.js';
 
 const MAX_ARTIST_NAMES = 8;
 const MAX_PHOTOS = 12;
@@ -85,26 +88,42 @@ async function artistInCatalog(db, artist) {
   return (result?.results || []).some((row) => parseArtistNames(row.artist).includes(artist));
 }
 
-async function readLyrics(url, db, headers, env, accountId, deps = {}) {
-  if (!onlyQuery(url, 'songId')) return invalid('Only songId is accepted', headers);
+async function readLyrics(request, url, db, headers, env, accountId, deps = {}) {
+  if (!url.searchParams.has('songId') || [...url.searchParams.keys()].some(key => !['songId', 'resultRef'].includes(key))
+    || url.searchParams.getAll('songId').length !== 1 || url.searchParams.getAll('resultRef').length > 1) return invalid('Only songId and resultRef are accepted', headers);
   const songId = url.searchParams.get('songId');
   if (!safeSongId(songId)) return invalid('Invalid song id', headers);
 
+  let cached;
+  try { cached = await beginLyricReadCache({ request, env, db, session: deps.session, accountId, songId, allowFill: false }); }
+  catch { /* Cache failures do not affect the authoritative read. */ }
+  if (cached?.hitPayload) return json(cached.hitPayload, 200, headers);
+
   let song;
   try {
-    song = await db.prepare(`SELECT id, title, artist, album, duration, language
-      FROM Songs WHERE id = ?`).bind(songId).first();
+    song = await resolveLyricSong(db, songId, { ...deps, accountId });
   } catch {
+    if (isExternalLyricSongId(songId)) return json({ code: 503, message: 'Song source unavailable', reason: 'source_unavailable' }, 503, headers);
     return json({ code: 503, message: 'Database unavailable' }, 503, headers);
   }
   if (!song) return json({ code: 404, message: 'Song not found', reason: 'song_not_found' }, 404, headers);
+  if (song.language !== 'instrumental') {
+    try { cached = await beginLyricReadCache({ request, env, db, session: deps.session, accountId, songId }); }
+    catch { /* A cold cache observation is optional after resolving the song. */ }
+    if (cached?.hitPayload) return json(cached.hitPayload, 200, headers);
+  }
   try {
-    const read = await readPlaybackLyrics({ env, db, song, accountId,
-      executionContext: deps.ctx, signal: deps.signal, deps });
+    const reader = deps.readLyrics || (deps.session ? readLyricsFromChain : readPlaybackLyrics);
+    const read = await reader({ env, db, session: deps.session, song, accountId,
+      executionContext: deps.ctx, signal: deps.signal, resultRef: url.searchParams.get('resultRef') || undefined, deps });
     if (read.state === 'song_deleted') return json({ code: 404, message: 'Song not found', reason: 'song_not_found' }, 404, headers);
     if (!read.lyrics) return json({ code: 404, data: null, message: 'No lyrics found', reason: 'lyrics_not_found' }, 404, headers);
-    return json({ code: 200, data: read.lyrics }, 200, headers);
+    const payload = { code: 200, data: read.lyrics };
+    try { await storeLyricReadCache(cached?.ticket, request, payload); }
+    catch { /* Publishing a response does not depend on the optional cache. */ }
+    return json(payload, 200, headers);
   } catch (error) {
+    if (error?.name === 'AuthError') return json({ code: error.status, message: lyricRouteErrorMessage(error.status, deps.locale), error: error.code }, error.status, headers);
     if (error instanceof PlaybackLyricsError) return json({ code: 503, message: error.message }, 503, headers);
     if (error instanceof LyricSourceError) {
       return json({ code: 503, message: 'Lyric source temporarily unavailable' }, 503, headers);
@@ -185,6 +204,6 @@ export async function handleLocalMetadataReadRoute(request, url, db, headers = {
   }
   if (!db?.prepare) return json({ code: 503, message: 'Database unavailable' }, 503, headers);
   return url.pathname === '/api/lyrics'
-    ? readLyrics(url, db, headers, env, accountId, { ...deps, signal: request.signal })
+    ? readLyrics(request, url, db, headers, env, accountId, { ...deps, locale: request.headers.get('Accept-Language')?.split(',')[0], signal: request.signal })
     : readArtistPhotos(url, db, headers);
 }

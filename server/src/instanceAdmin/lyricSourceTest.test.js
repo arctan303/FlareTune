@@ -8,6 +8,7 @@ import { handleApi } from '../instance/httpRouter.js';
 import { sessionCookie } from '../auth/local/index.js';
 import { csrfTokenForSession, tokenDigest } from '../auth/local/crypto.js';
 import { testLyricSource } from './lyricSourceTest.js';
+import { pluginBuilds } from '../../../shared/plugins/build.generated.js';
 
 const SONG = { title: '夜航', artist: '歌手甲', duration: 200 };
 const SOURCE = { protocol: 'custom_krc', searchUrl: 'https://lyrics.example.com/search',
@@ -48,7 +49,10 @@ function fixture(t) {
     bind(...values) { args = values; return this; },
     async first() { return sqlite.prepare(sql).get(...args) || null; },
     async all() { return { results: sqlite.prepare(sql).all(...args) }; },
-    async run() { writes++; return { success: true, meta: { changes: sqlite.prepare(sql).run(...args).changes } }; },
+    async run() {
+      if (/^\s*(?:SELECT|PRAGMA)\b/i.test(sql)) return { success: true, results: sqlite.prepare(sql).all(...args), meta: { changes: 0 } };
+      writes++; return { success: true, meta: { changes: sqlite.prepare(sql).run(...args).changes } };
+    },
   }; }, async batch(statements) {
     sqlite.exec('BEGIN IMMEDIATE');
     try { const results = []; for (const item of statements) results.push(await item.run()); sqlite.exec('COMMIT'); return results; }
@@ -259,9 +263,16 @@ test('service rejects anonymous, member, missing and disabled administrators bef
 test('actual HTTP route rejects anonymous/member/CSRF/Origin failures and permits an authenticated draft test without persistence', async t => {
   const f = fixture(t);
   const admin = await f.signIn('admin'), member = await f.signIn('member');
+  const installationPath = '/api/admin/plugins/lyrics-workbench';
+  const installed = await handleApi(new Request(`https://app.example.com${installationPath}`, { method: 'PUT',
+    headers: { Origin: 'https://app.example.com', 'X-Requested-With': 'FlareTune', 'Content-Type': 'application/json', ...admin },
+    body: JSON.stringify({ installed: true, revision: 0 }) }), { DB: f.db }, installationPath);
+  assert.equal(installed.status, 200, await installed.clone().text());
   const before = f.snapshot();
+  const baselineWrites = f.writes();
   const path = '/api/admin/lyrics/source-test';
-  const headers = { Origin: 'https://app.example.com', 'X-Requested-With': 'FlareTune', 'Content-Type': 'application/json' };
+  const headers = { Origin: 'https://app.example.com', 'X-Requested-With': 'FlareTune', 'Content-Type': 'application/json',
+    'X-FlareTune-Plugin-Build': pluginBuilds.find(row => row.id === 'lyrics-workbench').sourceDigest };
   const mock = t.mock.method(globalThis, 'fetch', async url => new URL(url).pathname === '/search'
     ? Response.json({ candidates: [candidate()] }) : Response.json({ content: WORD_CONTENT }));
   for (const [auth, extra, status, error] of [
@@ -280,5 +291,5 @@ test('actual HTTP route rejects anonymous/member/CSRF/Origin failures and permit
   const result = await response.json();
   assert.equal(result.status, 'ready'); assert.equal(result.syncMode, 'word'); assertSafeSummary(result);
   assert.equal(mock.mock.callCount(), 2);
-  assert.deepEqual(f.snapshot(), before); assert.equal(f.writes(), 0);
+  assert.deepEqual(f.snapshot(), before); assert.equal(f.writes(), baselineWrites);
 });

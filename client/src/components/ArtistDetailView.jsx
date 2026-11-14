@@ -1,3 +1,6 @@
+import { useMusicSourcesRevision } from '../hooks/useMusicSourcesRevision.js';
+import { getMusicSourcesRevision } from '../services/musicSources.js';
+import { artistIdentity, isYouTubeEntity } from '../utils/musicSource.js';
 import { t } from '../i18n/index.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Play, Pause, ListPlus } from 'lucide-react';
@@ -18,6 +21,7 @@ import { usePrivateMediaImage } from '../hooks/usePrivateMediaSource.js';
 import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
 import CatalogSkeleton from './catalog/CatalogSkeleton.jsx';
+import CatalogReadState from './catalog/CatalogReadState.jsx';
 import SectionHeading from './catalog/SectionHeading.jsx';
 import { hasPreviewOverflow } from './catalog/previewVisibility.js';
 import PageBackButton from './PageBackButton.jsx';
@@ -44,13 +48,13 @@ export default function ArtistDetailView({
 
   const navigateSubView = (targetView) => {
     if (targetView === 'overview') {
-      const overviewUrl = formatPath({ type: 'artist', name: artist?.name, view: 'overview' });
+      const overviewUrl = formatPath({ type: 'artist', name: artist?.name, id: artist?.id, view: 'overview' });
       if (returnToParentRoute(overviewUrl) === 'replace') {
         useUIStore.getState().openArtistDrawer({ ...artist, view: 'overview' });
       }
       return;
     }
-    syncBrowserHistory(formatPath({ type: 'artist', name: artist?.name, view: targetView }));
+    syncBrowserHistory(formatPath({ type: 'artist', name: artist?.name, id: artist?.id, view: targetView }));
     useUIStore.getState().openArtistDrawer({ ...artist, view: targetView });
   };
 
@@ -66,43 +70,70 @@ export default function ArtistDetailView({
     return () => scrollEl.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const artistName = artist?.name || '';
-  const fallbackCover = artist?.coverUrl || '';
+  const sourceRevision = useMusicSourcesRevision();
+  const artistKey = artistIdentity(artist);
+  const isYouTubeArtist = isYouTubeEntity(artist);
+  const [remoteArtist, setRemoteArtist] = useState(null);
+  const profile = remoteArtist?.key === artistKey && (!isYouTubeArtist || remoteArtist.revision === sourceRevision) ? remoteArtist.data : null;
+  const artistName = profile?.name || artist?.name || '';
+  const fallbackCover = profile?.photoUrl || profile?.coverUrl || artist?.coverUrl || '';
   const [artistPhoto, setArtistPhoto] = useState(null);
   const [isPhotoLoading, setIsPhotoLoading] = useState(false);
 
   const [fetchedSongs, setFetchedSongs] = useState([]);
+  const artistGenerationRef = useRef(0);
+  const songsOwnerRef = useRef(null);
   const [songsStatus, setSongsStatus] = useState('loading');
+  const [retryVersion, setRetryVersion] = useState(0);
+  const retryArtist = () => setRetryVersion(value => value + 1);
   const [artistPage, setArtistPage] = useState({ hasMore: false, total: 0, loadingMore: false });
-  const albumResults = useCatalogPage('albums', { artist: artistName, limit: currentSubView === 'albums' ? 50 : 10 });
+  const localAlbumResults = useCatalogPage('albums', { artist: artistName,
+    limit: currentSubView === 'albums' ? 50 : 10, enabled: !isYouTubeArtist, recoverable: true });
+  const albumResults = isYouTubeArtist
+    ? { items: profile?.albums || [], status: songsStatus, hasMore: false, total: profile?.albums?.length ?? 0, retry: retryArtist }
+    : localAlbumResults;
 
   // Use the artist endpoint so the full view is not capped by the first search page.
   useEffect(() => {
-    const name = artistName.trim();
+    const generation = ++artistGenerationRef.current;
+    const name = artistKey.trim();
     if (!name) return;
     const controller = new AbortController();
-    setFetchedSongs([]);
+    const owner = `${artistKey}:${isYouTubeArtist ? sourceRevision : 0}`;
+    if (songsOwnerRef.current !== owner) setFetchedSongs([]);
+    songsOwnerRef.current = owner;
+    setArtistPage(previous => ({ ...previous, error: false, loadingMore: false }));
     setSongsStatus('loading');
     readArtist(name, { signal: controller.signal })
-      .then((data) => { setFetchedSongs(data.songs); setArtistPage({ hasMore: data.hasMore, total: data.total, loadingMore: false }); setSongsStatus('ready'); })
-      .catch((error) => { if (error.name !== 'AbortError') { console.warn('获取歌手歌曲失败:', error); setSongsStatus('error'); } });
+      .then((data) => {
+        if (controller.signal.aborted || (generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
+        setRemoteArtist({ key: artistKey, data, revision: sourceRevision });
+        setFetchedSongs(data.songs);
+        setArtistPage({ hasMore: data.hasMore, total: data.total, loadingMore: false });
+        setSongsStatus('ready');
+      })
+      .catch((error) => { if (error.name !== 'AbortError' && !controller.signal.aborted && generation === artistGenerationRef.current && (!isYouTubeArtist || sourceRevision === getMusicSourcesRevision())) { console.warn('获取歌手歌曲失败:', error); setSongsStatus('error'); } });
     return () => controller.abort();
-  }, [artistName]);
+  }, [artistKey, isYouTubeArtist ? sourceRevision : 0, retryVersion]);
 
   const loadMoreArtistSongs = async () => {
     if (!artistPage.hasMore || artistPage.loadingMore) return;
-    setArtistPage((previous) => ({ ...previous, loadingMore: true }));
+    const generation = artistGenerationRef.current;
+    setArtistPage((previous) => ({ ...previous, loadingMore: true, error: false }));
     try {
-      const data = await readArtist(artistName, { offset: fetchedSongs.length });
+      const data = await readArtist(artistKey, { offset: fetchedSongs.length });
+      if ((generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
       setFetchedSongs((previous) => [...previous, ...data.songs]);
       setArtistPage({ hasMore: data.hasMore, total: data.total, loadingMore: false });
     } catch {
-      setArtistPage((previous) => ({ ...previous, loadingMore: false }));
+      if ((generation !== artistGenerationRef.current || (isYouTubeArtist && sourceRevision !== getMusicSourcesRevision()))) return;
+      setArtistPage((previous) => ({ ...previous, loadingMore: false, error: true }));
     }
   };
 
   // 解析并格式化歌曲列表
   const songs = useMemo(() => {
+    if (isYouTubeArtist && !profile) return [];
     if (fetchedSongs.length > 0) {
       return fetchedSongs.map((s) => hydrateSong(s));
     }
@@ -110,15 +141,20 @@ export default function ArtistDetailView({
       return artist.songs.map((s) => hydrateSong(s));
     }
     return [];
-  }, [artist?.songs, fetchedSongs]);
+  }, [artist?.songs, fetchedSongs, isYouTubeArtist, profile]);
 
   const albums = albumResults.items;
+  const songFailure = (songsStatus === 'error' || artistPage.error) && <div role="alert" className="app-inline-notice mb-4">
+    <span>{t('歌曲加载失败')}</span>
+    <button type="button" className="app-section-link" onClick={artistPage.error ? loadMoreArtistSongs : retryArtist} disabled={artistPage.loadingMore}>{t('重试')}</button>
+  </div>;
   const openAlbum = (album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }));
 
   // 获取歌手高清写真
   useEffect(() => {
-    if (!artistName.trim()) {
+    if (isYouTubeArtist || !artistName.trim()) {
       setArtistPhoto(null);
+      setIsPhotoLoading(false);
       return;
     }
 
@@ -160,7 +196,7 @@ export default function ArtistDetailView({
     return () => {
       isCancelled = true;
     };
-  }, [artistName]);
+  }, [artistName, isYouTubeArtist]);
 
   // 视觉大片兜底：写真优先 -> 外部传入封面 -> 第一首歌曲专辑封面
   const firstSongCover = songs.length > 0 ? (songs[0].cover_url || songs[0].coverUrl) : '';
@@ -185,8 +221,9 @@ export default function ArtistDetailView({
   };
 
   const isCurrentArtistPlaying = isPlaying && currentSong && (
-    (currentSong.artist || '').toLowerCase() === artistName.toLowerCase() ||
-    (currentSong.artist_name || '').toLowerCase() === artistName.toLowerCase()
+    (isYouTubeArtist === isYouTubeEntity(currentSong)) && (
+      (currentSong.artist || '').toLowerCase() === artistName.toLowerCase() ||
+      (currentSong.artist_name || '').toLowerCase() === artistName.toLowerCase())
   );
 
   const isScrolled = scrollTop > 240;
@@ -244,6 +281,7 @@ export default function ArtistDetailView({
           </div>
 
           {/* 全量歌曲列表 */}
+          {songs.length > 0 && songFailure}
           {songs.length > 0 ? (
             <div className="full-song-grid">
               {songs.map((song) => (
@@ -265,7 +303,7 @@ export default function ArtistDetailView({
           ) : songsStatus === 'loading' ? (
             <CatalogSkeleton type="songs" overview={false} trackGridClassName="full-song-grid" />
           ) : songsStatus === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
+            songFailure
           ) : (
             <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
               <span>{t("该歌手暂无可播放歌曲")}</span>
@@ -294,20 +332,12 @@ export default function ArtistDetailView({
           </div>
 
           {/* 全量专辑网格 */}
-          {albums.length > 0 ? (
+          <CatalogReadState resource={albumResults} type="albums" emptyLabel={t('该歌手暂无收录专辑')}>
             <>
               <AlbumPreviewGrid albums={albums} maxRows={Infinity} onOpen={openAlbum} />
-              {albumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={albumResults.loadMore} disabled={albumResults.loadingMore}>{albumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
+              {albumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={albumResults.loadMore} disabled={albumResults.loadingMore || albumResults.refreshing}>{albumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
             </>
-          ) : albumResults.status === 'loading' ? (
-            <CatalogSkeleton type="albums" overview={false} />
-          ) : albumResults.status === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("专辑加载失败")}</p>
-          ) : (
-            <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
-              <span>{t("该歌手暂无收录专辑")}</span>
-            </div>
-          )}
+          </CatalogReadState>
         </div>
       </div>
     );
@@ -351,6 +381,8 @@ export default function ArtistDetailView({
 
         {/* 右侧：迷你播放控制钮 (仅滚动后淡入) */}
         <div
+          aria-hidden={!isScrolled || undefined}
+          inert={!isScrolled ? '' : undefined}
           className={`pointer-events-auto flex items-center gap-2 transition-all duration-300 ${
             isScrolled ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'
           }`}
@@ -464,6 +496,7 @@ export default function ArtistDetailView({
               }) ? () => navigateSubView('songs') : null} />
           </div>
 
+          {visibleSongs.length > 0 && songFailure}
           {visibleSongs.length > 0 ? (
             <SongColumnShelf key={artistName} label={t("歌曲")} onOverflowChange={setSongScrollOverflow}>
               {visibleSongs.map((song) => (
@@ -484,7 +517,7 @@ export default function ArtistDetailView({
           ) : songsStatus === 'loading' ? (
             <CatalogSkeleton type="songs" />
           ) : songsStatus === 'error' ? (
-            <p role="alert" className="py-10 text-center text-sm text-[var(--muted)]">{t("歌曲加载失败")}</p>
+            songFailure
           ) : (
             <div className="theme-empty text-xs py-14 rounded-2xl border-0 bg-[var(--surface)] text-[var(--muted)] flex flex-col items-center justify-center gap-2 shadow-xs">
               <span>{t("该歌手暂无可播放歌曲")}</span>
@@ -504,9 +537,9 @@ export default function ArtistDetailView({
                 }) ? () => navigateSubView('albums') : null} />
             </div>
 
-            {albums.length > 0 ? <AlbumPreviewGrid albums={visibleAlbums} onOpen={openAlbum}
-              onVisibleCountChange={setAlbumVisibleCount} /> : albumResults.status === 'loading' ? <CatalogSkeleton type="albums" />
-                : <p role="alert" className="text-sm text-[var(--muted)]">{t('专辑加载失败')}</p>}
+            <CatalogReadState resource={albumResults} type="albums" overview>
+              <AlbumPreviewGrid albums={visibleAlbums} onOpen={openAlbum} onVisibleCountChange={setAlbumVisibleCount} />
+            </CatalogReadState>
           </section>
         )}
       </div>

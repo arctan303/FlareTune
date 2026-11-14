@@ -5,14 +5,18 @@ import {
 } from './lyricSourceLoader.js';
 import { applyLyricOffset } from './lyricResolution.js';
 import { createLyricDocument, projectCanonicalLrc } from '../utils/lyricDocument.js';
-import { analyzeLrcLanguage, computeHash } from '../utils/lyricsParsing.js';
-import { resolveSongTranslationNeed, isValidSongLanguage } from '../utils/songLanguage.js';
+import { computeHash } from '../utils/lyricsParsing.js';
 import { scheduleLyricAssetUpgrade } from './lyricAssetUpgrade.js';
 import { lyricSourceLoaderForDb } from './lyricSourcesConfig.js';
-import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId } from '../../../shared/lyricSources.js';
+import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId, lyricTranslationLanguageMatches, isValidLyricTranslationTarget, storedLyricTranslationLanguage } from '../../../shared/lyricSources.js';
 import { createLyricRequestBudget } from './lyricRequestBudget.js';
+import { preferredAutomaticDocument } from './lyricAutomaticSelection.js';
+import { LyricSourceError } from './lyricSourceError.js';
+import { meaningfulLyricLines, resolveLyricTranslationNeed, getCurrentLyricTranslationDecision,
+  hasCurrentLyricNoTranslationDecision } from './lyricTranslationPolicy.js';
+export { LYRIC_TRANSLATION_POLICY_VERSION, resolveLyricTranslationNeed, getCurrentLyricTranslationDecision,
+  hasCurrentLyricNoTranslationDecision, buildLyricNoTranslationDecision, buildLyricTranslationDecision } from './lyricTranslationPolicy.js';
 
-const PLACEHOLDER_LYRIC_PATTERN = /^(?:暂无歌词|无歌词|纯音乐(?:\s*[，,、-]?\s*请欣赏)?|此歌曲为纯音乐)[。.!！]?$/u;
 export const LYRIC_AI_PENDING_FRESH_MS = 30_000;
 export const LYRIC_NOT_FOUND_RETRY_MS = 10 * 60_000;
 const storesByBucket = new WeakMap();
@@ -64,14 +68,7 @@ export function lyricTextForHash(lines) {
 }
 
 export function shouldAiCompleteLyrics(original, song = {}, { targetLanguage = 'zh' } = {}) {
-  const lrc = projectCanonicalLrc(original?.lines || []);
-  const meaningfulLines = (original?.lines || [])
-    .map((line) => String(line?.text || '').trim())
-    .filter((text) => text && !PLACEHOLDER_LYRIC_PATTERN.test(text));
-  if (meaningfulLines.length === 0) return false;
-  if (targetLanguage !== 'zh') return song.language !== 'instrumental' && song.language !== targetLanguage;
-  const analysis = analyzeLrcLanguage(lrc);
-  return resolveSongTranslationNeed(song.language, analysis);
+  return resolveLyricTranslationNeed(original, song, { targetLanguage }).state !== 'not_needed';
 }
 
 export async function buildReadyLyricArtifact(song, document, {
@@ -113,7 +110,8 @@ export async function buildReadyLyricArtifact(song, document, {
       songId: song.id,
       status: 'ready',
       original,
-      translation,
+      translation: projectLyricTranslation(original, translation, { song,
+        targetLanguage: targetLanguage || translation?.language || null }),
       aiCompletion: null,
       offsetMs,
       textHash,
@@ -126,7 +124,7 @@ export async function buildReadyLyricArtifact(song, document, {
 export async function buildEditedLyricArtifact(song, lines, {
   now = Date.now(), targetLanguage = 'zh', translationLanguage = targetLanguage,
 } = {}) {
-  if (!isValidSongLanguage(translationLanguage) || ['other', 'instrumental'].includes(translationLanguage)) {
+  if (!isValidLyricTranslationTarget(translationLanguage) && !['zh-CN', 'zh-TW'].includes(translationLanguage)) {
     throw new RangeError('translation language is invalid');
   }
   const hasWords = lines.some((line) => Array.isArray(line.words) && line.words.length > 0);
@@ -147,10 +145,10 @@ export async function buildEditedLyricArtifact(song, lines, {
     original: {
       source: 'manual', format: canonical.format, syncMode: canonical.syncMode, lines: originalLines,
     },
-    translation: translations.some(Boolean) ? {
+    translation: projectLyricTranslation({ lines: originalLines }, translations.some(Boolean) ? {
       source: 'manual', originalTextHash: textHash, lines: translations,
       language: translationLanguage, updatedAt,
-    } : null,
+    } : null, { song, targetLanguage: translationLanguage }),
     aiCompletion: null,
     offsetMs: 0,
     textHash,
@@ -175,6 +173,7 @@ export async function readOrCreateLyricArtifact({
   executionContext,
   store,
   fetchDocument = fetchSourceLyricsDocument,
+  fetchNativeDocument,
   requestBudget = createLyricRequestBudget(),
   songStillExists,
   now = Date.now,
@@ -209,6 +208,7 @@ export async function readOrCreateLyricArtifact({
   if (isTerminalArtifact(current)) {
     scheduleLyricAssetUpgrade({ store: artifactStore, song, read: current, executionContext,
       buildArtifact: buildReadyLyricArtifact, songStillExists, now, enabledSources, requestBudget,
+      fetchNativeDocument,
       ...(upgradeFetcher !== fetchSourceLyricsDocument ? { fetchDocument: upgradeFetcher } : {}),
     });
     return current;
@@ -218,20 +218,38 @@ export async function readOrCreateLyricArtifact({
     const afterWait = ensureReadable(await artifactStore.get(song.id));
     if (isTerminalArtifact(afterWait)) return afterWait;
 
-    const document = await fetchLyricsDocumentWithFallback(
-      'auto',
-      song,
-      fetchDocument,
-      { signal: sharedSignal, executionContext, enabledSources, requestBudget },
-    );
+    const options = { signal: sharedSignal, executionContext, enabledSources, requestBudget };
+    const automatic = () => fetchLyricsDocumentWithFallback('auto', song, fetchDocument, options);
+    let document;
+    if (typeof fetchNativeDocument === 'function') {
+      // The exact-resource native document and existing automatic scrapers run
+      // once inside the same asset singleflight. Keep real word/line timing when
+      // it is a better match; native plain lines never receive invented times.
+      const [scraped, native] = await Promise.allSettled([
+        automatic(), Promise.resolve().then(() => fetchNativeDocument(song, options)),
+      ]);
+      sharedSignal?.throwIfAborted();
+      document = scraped.status === 'fulfilled' ? scraped.value : null;
+      let nativeDocument = null;
+      if (native.status === 'fulfilled' && native.value) {
+        nativeDocument = createLyricDocument(native.value);
+        if (nativeDocument.source !== 'youtube') throw new TypeError('Invalid native lyric source');
+      }
+      if (preferredAutomaticDocument(nativeDocument, document)) document = nativeDocument;
+      if (!document && scraped.status === 'rejected') throw scraped.reason;
+      if (!document && native.status === 'rejected') {
+        throw new LyricSourceError('upstream', 'youtube', 'native', 'Native lyric source temporarily unavailable');
+      }
+    } else document = await automatic();
     const built = document
       ? await buildReadyLyricArtifact(song, document, { now: now() })
       : { artifact: buildNotFoundLyricArtifact(song.id, now()) };
     if (songStillExists && !await songStillExists()) {
       return { state: 'song_deleted', artifact: null, etag: null };
     }
+    sharedSignal?.throwIfAborted();
     const writeOptions = built.artifact.status === 'ready'
-      ? { automation: { checkedAt: nowIso(now()) } } : {};
+      ? { automation: { checkedAt: nowIso(now()) }, signal: sharedSignal } : { signal: sharedSignal };
     const written = afterWait.state === 'legacy'
       || (afterWait.state === 'found' && ['reset', 'not_found'].includes(afterWait.artifact.status))
       ? await artifactStore.putIfMatch(song.id, built.artifact, afterWait.etag, writeOptions)
@@ -258,23 +276,63 @@ export function isFreshLyricAiPending(aiCompletion, now = Date.now()) {
   return Number.isFinite(startedAt) && ageMs >= 0 && ageMs <= LYRIC_AI_PENDING_FRESH_MS;
 }
 
-function activeTranslation(artifact, targetLanguage) {
-  const translation = artifact?.translation;
-  if (!translation || !targetLanguage) return translation;
-  const language = translation.language || (translation.source === 'ai' ? 'zh' : null);
-  return language === targetLanguage || (language === null && targetLanguage === 'zh')
-    ? translation : null;
+function languageScript(language) {
+  return ['zh', 'zh-CN', 'zh-TW', 'zh-Hant', 'yue'].includes(language) ? /\p{Script=Han}/u
+    : language === 'ja' ? /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
+      : language === 'ko' ? /\p{Script=Hangul}/u : language === 'ru' ? /\p{Script=Cyrillic}/u
+        : language === 'th' ? /\p{Script=Thai}/u
+          : ['en', 'es', 'fr', 'de', 'sv', 'vi', 'it', 'pt'].includes(language) ? /\p{Script=Latin}/u : null;
+}
+
+export function projectLyricTranslation(original, translation, { targetLanguage = null, song = {} } = {}) {
+  if (!translation) return null;
+  const language = storedLyricTranslationLanguage(translation);
+  if (targetLanguage && !lyricTranslationLanguageMatches(language, targetLanguage)) return null;
+  // Hide old same-language rewrites without deleting user assets. A different
+  // target and genuine foreign passages still retain their valid translations.
+  if (language && !shouldAiCompleteLyrics(original, song, { targetLanguage: language })) return null;
+  const normalize = text => String(text || '').normalize('NFKC').replace(/\s+/gu, ' ').trim().toLowerCase();
+  const semantic = meaningfulLyricLines(original, song);
+  const translatedBody = semantic.filter(({ text, index }) => normalize(translation.lines[index])
+    && normalize(text) !== normalize(translation.lines[index]))
+    .map(({ index }) => translation.lines[index]).join('\n');
+  if (!translatedBody) return null;
+  // A declared language cannot make an obviously incompatible script valid.
+  // Latin remains ambiguous between several languages; this is rejection
+  // evidence only, never language inference or a catalog metadata update.
+  const script = languageScript(language);
+  if (script && !script.test(translatedBody)) return null;
+  // A translated song may keep a name or phrase unchanged. Render that row
+  // once while retaining alignment and the rest of the useful translation.
+  const lines = translation.lines.map((text, index) => normalize(text) === normalize(original.lines[index]?.text) ? '' : text);
+  return { ...translation, lines };
+}
+function activeTranslation(artifact, targetLanguage, song = {}) {
+  const target = targetLanguage || storedLyricTranslationLanguage(artifact.translation);
+  const decision = target ? getCurrentLyricTranslationDecision(artifact, song, { targetLanguage: target }) : null;
+  if (decision?.status === 'not_needed') return null;
+  if (artifact.translation?.source === 'ai' && artifact.translationDecision && !decision) return null;
+  const need = target ? resolveLyricTranslationNeed(artifact.original, song, { targetLanguage: target }) : null;
+  // Legacy unassessed AI layers retain their read-only script sanity check.
+  // This neither classifies a song nor reopens tagged dominant-language rules.
+  const targetScript = languageScript(target);
+  const originalText = meaningfulLyricLines(artifact.original, song).map(line => line.text).join('\n');
+  if (artifact.translation?.source === 'ai' && need?.state === 'unknown' && decision?.status !== 'translated'
+    && decision?.status !== 'needed' && (!targetScript || targetScript.test(originalText))) return null;
+  const effectiveSong = ['needed', 'translated'].includes(decision?.status)
+    ? { ...song, language: decision.sourceLanguage } : song;
+  return projectLyricTranslation(artifact.original, artifact.translation, { targetLanguage, song: effectiveSong });
 }
 
 export function resolveLyricTranslationState(artifact, song = {}, now = Date.now(), targetLanguage = null) {
   if (!artifact || artifact.status !== 'ready') return 'unavailable';
   if (artifact.aiCompletion?.status === 'failed'
     && artifact.aiCompletion.errorCode === 'language_update_failed') return 'failed';
+  if (targetLanguage && hasCurrentLyricNoTranslationDecision(artifact, song, { targetLanguage })) return 'unavailable';
+  if (!shouldAiCompleteLyrics(artifact.original, song, { targetLanguage: targetLanguage || 'zh' })
+    && !activeTranslation(artifact, targetLanguage, song)) return 'unavailable';
   if (isFreshLyricAiPending(artifact.aiCompletion, now)) return 'pending';
-  if (!shouldAiCompleteLyrics(artifact.original, song, { targetLanguage: targetLanguage || 'zh' })) {
-    return 'unavailable';
-  }
-  if (activeTranslation(artifact, targetLanguage)) return 'ready';
+  if (activeTranslation(artifact, targetLanguage, song)) return 'ready';
   if (artifact.aiCompletion?.status === 'completed') return 'unavailable';
   if (artifact.aiCompletion?.status === 'failed' || artifact.aiCompletion?.status === 'pending') {
     return 'failed';
@@ -297,7 +355,7 @@ export function projectLyricArtifact(artifact, { song = {}, now = Date.now(), ta
     ...artifact.original,
     lrc: projectCanonicalLrc(artifact.original.lines),
   }, artifact.offsetMs);
-  const selectedTranslation = activeTranslation(artifact, targetLanguage);
+  const selectedTranslation = activeTranslation(artifact, targetLanguage, song);
   const translatedLines = selectedTranslation?.lines || [];
   const lines = document.lines.map((line, index) => {
     const tlyric = String(translatedLines[index] || '').trim();

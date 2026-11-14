@@ -7,18 +7,19 @@ const readSource = (path) => {
   return readFileSync(url, 'utf8');
 };
 
-test('PlaylistDrawer integrates text-only manual roam trigger action at queue end', () => {
+test('PlaylistDrawer renders public queue contributions and keeps manual actions disabled while loading', () => {
   const drawer = readSource('./PlaylistDrawer.jsx');
 
-  // 1. 验证引入 Loader2 和 triggerManualRandomRoam，不再使用 Sparkles 图标
+  // The Host renders the contribution; the plugin owns its controller and footer.
   assert.match(drawer, /Loader2/);
   assert.doesNotMatch(drawer, /Sparkles/);
-  assert.match(drawer, /triggerManualRandomRoam/);
+  assert.match(drawer, /usePluginContribution\('roam', 'queue-controls', inactiveQueueControls\)/);
+  assert.doesNotMatch(drawer, /useRoamState|roamActions|plugins\/roam\/state/);
 
   // 2. 验证 handleManualRoamAppend 逻辑
   assert.match(drawer, /handleManualRoamAppend/);
-  assert.match(drawer, /请先登录后体验漫游功能/);
-  assert.match(drawer, /t\("正在补充 \{p0\} 首漫游歌曲…", \{ p0: \(randomRoam\.batchSize \|\| 10\) \}\)/);
+  assert.match(drawer, /randomRoam\.actions\.appendFromQueue\?\.\(\)/);
+  assert.match(drawer, /QueueFooter && <QueueFooter authenticated=\{authenticated\} actions=\{randomRoam\.actions\}/);
 
   // 3. 验证漫游开关旁不再放置补充按钮（已移除）
   assert.doesNotMatch(drawer, /<span>补充歌曲<\/span>/);

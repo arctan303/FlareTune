@@ -1,3 +1,4 @@
+import { isYouTubeEntity } from '../../utils/musicSource.js';
 import { t } from '../../i18n/index.js';
 import React from 'react';
 import LazyImage from '../LazyImage.jsx';
@@ -24,7 +25,7 @@ export default function CollectionCard({ kind, item, songsMap, onOpen, onPrefetc
         )}
       </div>
       <h3 className="record-card__title truncate text-sm font-semibold">{title}</h3>
-      <p className="record-card__meta mt-1 truncate text-xs">{meta}</p>
+      <p className="record-card__meta mt-1 truncate text-xs">{meta}{isYouTubeEntity(item) ? ' · YouTube Music' : ''}</p>
       {isOpening && <span className="record-card__opening" role="status">{t("正在打开")}</span>}
     </button>
   );

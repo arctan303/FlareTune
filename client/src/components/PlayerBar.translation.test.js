@@ -8,12 +8,15 @@ const playerBarCss = readFileSync(new URL('../styles/player-bar.css', import.met
 test('PlayerBar translation button consumes the source-agnostic lifecycle', () => {
   assert.match(playerBar, /translationState: state\.translationState/);
   assert.match(playerBar, /setTranslationEnabled: state\.setTranslationEnabled/);
-  assert.match(playerBar, /showTranslationButton = translationState !== 'unavailable'/);
+  assert.match(playerBar, /showTranslationButton = translationSupported/);
+  assert.match(playerBar, /translationSupported: state\.translationSupported/);
+  assert.doesNotMatch(playerBar, /lyricsAiAvailable|canManageLyrics|usePluginAvailable/);
   assert.match(playerBar, /setTranslationEnabled\(true\)/);
   assert.match(playerBar, /requestLyricsTranslationCompletion\(\{/);
   assert.match(playerBar, /authenticated,[\s\S]*notify: showToast/);
   assert.match(playerBar, /aria-busy=\{translationPending \|\| undefined\}/);
-  assert.match(playerBar, /disabled=\{translationPending\}/);
+  assert.doesNotMatch(playerBar, /disabled=\{translationPending\}/);
+  assert.match(playerBar, /if \(translationReady \|\| translationState === 'pending'\) \{[\s\S]*toggleTranslation\(\)/);
   assert.match(playerBar, /data-translation-state=\{translationState\}/);
   assert.match(playerBar, /data-active=\{translationReady && translationEnabled\}/);
   assert.match(playerBar, /translationState === 'failed'[\s\S]*歌词翻译补全失败，重试/);
@@ -24,8 +27,9 @@ test('PlayerBar translation button consumes the source-agnostic lifecycle', () =
 
 test('PlayerBar pending animation remains confined to its outer ring', () => {
   assert.match(playerBarCss, /lyrics-translation-action::after[\s\S]*inset: -4px/);
-  assert.match(playerBarCss, /lyrics-translation-action\[data-translation-state='pending'\]::after[\s\S]*animation: lyrics-translation-breathe/);
-  assert.doesNotMatch(playerBarCss, /lyrics-translation-action\[data-translation-state='pending'\]\s*\{[^}]*animation:/);
+  assert.match(playerBarCss, /lyrics-translation-action\[data-translation-state='pending'\]\[aria-busy='true'\]::after[\s\S]*animation: lyrics-translation-breathe/);
+  assert.doesNotMatch(playerBarCss, /lyrics-translation-action\[data-translation-state='pending'\](?:\[aria-busy='true'\])?\s*\{[^}]*animation:/);
+  assert.match(playerBar, /translationPending = translationState === 'pending' && translationEnabled/);
 
   assert.doesNotMatch(readFileSync(new URL("../styles/player-bar.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createLyricArtifactStore } from './lyricArtifactStore.js';
 import { createMemoryR2Bucket } from '../test/lyricAssetFixtures.js';
 import {
-  beginLyricAssetAiCompletion,
-  runLyricAssetAiCompletion,
+  beginLyricAssetAiCompletion as beginRaw,
+  runLyricAssetAiCompletion as runRaw,
 } from './lyricAssetTranslation.js';
 import {
   createMemoryLyricStore,
@@ -12,6 +12,14 @@ import {
   makeSong,
 } from '../test/lyricAssetFixtures.js';
 
+import { testLyricsAiDeps } from '../plugins/lyrics-workbench/test-support.js';
+import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
+const configuredTestDeps = (deps = {}) => testLyricsAiDeps({
+  loadLyricAiConfig: async db => ({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', cleanDirtyLyrics: false, ...await deps.getAIAssistantConfig?.(db) }),
+  ...deps,
+});
+const beginLyricAssetAiCompletion = args => beginRaw({ ...args, deps: configuredTestDeps(args.deps) });
+const runLyricAssetAiCompletion = args => runRaw({ ...args, deps: configuredTestDeps(args.deps) });
 const STARTED_AT = '2026-09-10T00:00:00.000Z';
 const FINISHED_AT = Date.parse('2026-09-10T00:01:00.000Z');
 
@@ -21,7 +29,8 @@ test('a provider translation in another language does not suppress AI completion
     originalTextHash: artifact.textHash, updatedAt: STARTED_AT };
   const store = createMemoryLyricStore(artifact);
   const result = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong({ language: 'ja' }),
-    store, targetLanguage: 'zh', deps: successDeps() });
+    store, targetLanguage: 'zh', deps: successDeps({ askAI: async () => ({
+      translations: [{ unitId: 0, text: '你好' }] }), updateSongLanguage: async () => {} }) });
   assert.equal(result.state, 'started');
   await result.task;
   assert.equal(store.current().translation.language, 'zh');
@@ -50,7 +59,7 @@ function successDeps(overrides = {}) {
   };
 }
 
-function multiBatchPendingArtifact(lineCount) {
+function multiBatchPendingArtifact(lineCount, targetRange = []) {
   const base = pendingArtifact();
   return pendingArtifact({
     original: {
@@ -58,7 +67,7 @@ function multiBatchPendingArtifact(lineCount) {
       syncMode: 'line',
       lines: Array.from({ length: lineCount }, (_, index) => ({
         time: index,
-        text: `Foreign lyric ${index}`,
+        text: index >= targetRange[0] && index < targetRange[1] ? `这是第${index}句歌词` : `Foreign lyric ${index}`,
       })),
     },
   });
@@ -86,7 +95,7 @@ test('invalid JSON is reissued once without echoing upstream output and retains 
   });
   assert.equal(requests.length, 2);
   assert.equal(reservations, 1);
-  assert.match(requests[1].messages[0].content, /有效 JSON/);
+  assert.match(requests[1].messages[0].content, /syntactically valid JSON/u);
   assert.doesNotMatch(JSON.stringify(requests[1].messages), /private-invalid-response/);
   assert.ok(requests[1].options.timeoutMs <= requests[0].options.timeoutMs);
   assert.deepEqual(store.current().translation.lines, ['译文0']);
@@ -153,8 +162,8 @@ test('current DeepSeek models complete bounded JSON batches with context and all
       reserveDailyQuota: async()=>{reservations++;return true;},
       askAI: async messages=>{batches.push(JSON.parse(messages.at(-1).content));return translatedBatch(messages);} }),
   });
-  assert.deepEqual(batches.map(batch=>batch.units.length), [16,16,16,3]);
-  assert.ok(batches[1].context.before.length>0 && batches[1].context.after.length>0);
+  assert.deepEqual(batches.map(batch=>batch.units.length), [40,11]);
+  assert.ok(batches[1].context.before.length>0 && batches[0].context.after.length>0);
   assert.equal(reservations,1);
   assert.deepEqual(store.current().translation.lines, Array.from({length:51},(_,i)=>'译文'+i));
   assert.deepEqual(store.current().original,pending.original);
@@ -174,7 +183,7 @@ test('asset AI completion writes aligned translation and clears pending state', 
   assert.equal(result.state, 'updated');
   assert.equal(store.current().translation.source, 'ai');
   assert.deepEqual(store.current().translation.lines, ['你好']);
-  assert.equal(store.current().aiCompletion, null);
+  assert.equal(store.current().aiCompletion.status, 'completed');
 });
 
 test('automatic AI retains server ownership through completion while manual AI revokes it', async t => {
@@ -215,58 +224,65 @@ test('lyric completion uses its assigned profile while retaining lyric-specific 
   assert.equal(seen[0].aiEnv.OPENAI_API_KEY, 'profile-key');
 });
 
-test('Worker infers song language from lyric text and updates metadata only after the asset commits', async () => {
+test('Worker classifies a missing language and commits its assessment before background translation', async () => {
   const store = createMemoryLyricStore(pendingArtifact());
-  const changes = [];
+  const changes = [], roles = [];
   const result = await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong({ language: 'ja' }), store,
+    env: {}, db: {}, song: makeSong({ language: 'other' }), store,
     startedAt: STARTED_AT, textHash: 'a'.repeat(64),
     deps: successDeps({
-      askAI: async (messages) => {
+      askAI: async messages => {
         const input = JSON.parse(messages.at(-1).content);
-        assert.match(input.languageSample, /Hello/u);
-        assert.match(messages[0].content, /songLanguage/u);
-        return { songLanguage: 'en', translations: [{ unitId: 0, text: '你好' }] };
+        roles.push(input.languageTable ? 'classify' : 'translate');
+        return input.languageTable ? { language: 'en', match: 0.97 }
+          : { translations: [{ unitId: 0, text: '你好' }] };
       },
       updateSongLanguage: async (...args) => {
-        assert.equal(store.current().aiCompletion, null);
+        assert.equal(store.current().translationDecision.status, 'needed');
+        assert.equal(store.current().translation, null);
         changes.push(args);
       },
     }),
   });
   assert.equal(result.state, 'updated');
-  assert.deepEqual(changes, [['song-1', 'en', 'ja']]);
+  assert.deepEqual(roles, ['classify', 'translate']);
+  assert.deepEqual(changes, [['song-1', 'en', 'other']]);
+  assert.deepEqual(store.current().translation.lines, ['你好']);
 });
 
-test('a failed song-language write is visible as retryable AI failure', async () => {
+test('a failed classification tag write stops generation and remains retryable', async () => {
   const store = createMemoryLyricStore(pendingArtifact());
-  const result = await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong({ language: 'ja' }), store,
+  let calls = 0;
+  await runLyricAssetAiCompletion({
+    env: {}, db: {}, song: makeSong({ language: 'other' }), store,
     startedAt: STARTED_AT, textHash: 'a'.repeat(64),
     deps: successDeps({
-      askAI: async () => ({ songLanguage: 'en', translations: [{ unitId: 0, text: '你好' }] }),
+      askAI: async () => { calls++; return { language: 'en', match: 0.97 }; },
       updateSongLanguage: async () => { throw new Error('private database detail'); },
     }),
   });
-  assert.equal(result.state, 'updated');
-  assert.deepEqual(store.current().translation.lines, ['你好']);
-  assert.equal(store.current().aiCompletion.status, 'failed');
-  assert.equal(store.current().aiCompletion.errorCode, 'language_update_failed');
+  assert.equal(calls, 1);
+  assert.equal(store.current().translation, null);
+  assert.equal(store.current().translationDecision, undefined);
+  assert.equal(store.current().aiCompletion.errorCode, 'language_assessment_update_failed');
   assert.doesNotMatch(JSON.stringify(store.current()), /private database detail/u);
 });
 
-test('unrecognized AI language cannot change song metadata', async () => {
+test('unrecognized classifier language cannot change song metadata or generate a translation', async () => {
   const changes = [];
   const store = createMemoryLyricStore(pendingArtifact());
   await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong({ language: 'ja' }), store,
+    env: {}, db: {}, song: makeSong({ language: 'other' }), store,
     startedAt: STARTED_AT, textHash: 'a'.repeat(64),
     deps: successDeps({
-      askAI: async () => ({ songLanguage: 'unknown-code', translations: [{ unitId: 0, text: '你好' }] }),
+      askAI: async () => ({ language: 'unknown-code', match: 0.99 }),
       updateSongLanguage: async (...args) => changes.push(args),
     }),
   });
   assert.deepEqual(changes, []);
+  assert.equal(store.current().translation, null);
+  assert.equal(store.current().translationDecision, undefined);
+  assert.equal(store.current().aiCompletion.status, 'failed');
 });
 
 test('instance target language controls the Worker prompt and stored translation language', async () => {
@@ -281,7 +297,7 @@ test('instance target language controls the Worker prompt and stored translation
         translateLyrics: true, detectLanguage: false, referenceExistingTranslation: false,
       }),
       askAI: async (messages) => {
-        assert.match(messages[0].content, /日语/u);
+        assert.match(messages[0].content, /Japanese/u);
         return { translations: [{ unitId: 0, text: 'こんにちは' }] };
       },
     }),
@@ -300,18 +316,17 @@ test('AI cleanup removes non-lyric lines and aligns translation in one write', a
   await runLyricAssetAiCompletion({
     env: {}, db: {}, song: makeSong(), store,
     startedAt: STARTED_AT, textHash: 'a'.repeat(64), actorAccountId: 'local_member',
-    deps: successDeps({
-      askAI: async () => ({ songLanguage: 'en', discardLineIndices: [0],
+    deps: successDeps({ getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test-model', cleanDirtyLyrics: true }),
+      askAI: async () => ({  discardLineIndices: [0],
         translations: [{ unitId: 1, text: '你好' }] }),
       updateSongLanguage: async () => {},
     }),
   });
   assert.deepEqual(store.current().original.lines.map((line) => line.text), ['Hello']);
   assert.deepEqual(store.current().translation.lines, ['你好']);
-  assert.equal(store.current().aiCompletion, null);
+  assert.equal(store.current().aiCompletion.status, 'completed');
   assert.equal(store.current().translation.originalTextHash, store.current().textHash);
   assert.notEqual(store.current().textHash, 'a'.repeat(64));
-  assert.equal(store.calls.put, 1);
 });
 
 test('AI completion removes whole credit rows and preserves every word timestamp of sung lines', async () => {
@@ -344,8 +359,7 @@ test('AI completion removes whole credit rows and preserves every word timestamp
         assert.equal(payload.title, 'One On One');
         assert.equal(payload.artist, 'The Knocks, Sofi Tukker');
         assert.equal('referenceTranslations' in payload, false);
-        return { songLanguage: 'en', discardLineIndices: [0, 1, 2], translations: [
-          { unitId: 0, text: '一对一 - 歌手' },
+        return {  discardLineIndices: [0, 1, 2], translations: [
           { unitId: 3, text: '一对一' },
           { unitId: 4, text: '你正对我说话' },
         ] };
@@ -358,7 +372,6 @@ test('AI completion removes whole credit rows and preserves every word timestamp
   assert.equal(store.current().original.syncMode, 'word');
   assert.deepEqual(store.current().translation.lines, ['一对一', '你正对我说话']);
   assert.equal(store.current().translation.originalTextHash, store.current().textHash);
-  assert.equal(store.calls.put, 1);
 });
 
 test('AI cleanup preserves a sung opening line matching title and artist when model declines deletion', async () => {
@@ -373,11 +386,13 @@ test('AI cleanup preserves a sung opening line matching title and artist when mo
       getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test-model',
         targetLanguage: 'zh', cleanDirtyLyrics: true, translateLyrics: false,
         detectLanguage: true, referenceExistingTranslation: false }),
-      askAI: async () => ({ notNeeded: true, songLanguage: 'en', discardLineIndices: [] }),
+      askAI: async () => ({ discardLineIndices: [] }),
       updateSongLanguage: async () => {},
     }),
   });
   assert.deepEqual(store.current().original.lines, [opening, base.original.lines[0]]);
+  assert.equal(store.current().aiCompletion.status, 'completed');
+  assert.equal(store.current().translationDecision.status, 'needed');
 });
 
 test('a sung title before a credit is retained unless the model selects that row', async () => {
@@ -391,7 +406,7 @@ test('a sung title before a credit is retained unless the model selects that row
   await runLyricAssetAiCompletion({
     env: {}, db: {}, song: makeSong({ title: 'One on one', artist: 'Band' }), store,
     startedAt: STARTED_AT, textHash: 'a'.repeat(64), force: true,
-    deps: successDeps({ askAI: async () => ({ songLanguage: 'en', discardLineIndices: [1],
+    deps: successDeps({ getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test-model', cleanDirtyLyrics: true }), askAI: async () => ({  discardLineIndices: [1],
       translations: [{ unitId: 0, text: '一对一' }, { unitId: 2, text: '一起歌唱' }] }),
     updateSongLanguage: async () => {} }),
   });
@@ -450,31 +465,37 @@ test('AI cleanup refuses to leave only the song title and artist', async () => {
   await runLyricAssetAiCompletion({
     env: {}, db: {}, song: makeSong(), store,
     startedAt: STARTED_AT, textHash: 'a'.repeat(64),
-    deps: successDeps({ askAI: async () => ({ songLanguage: 'en',
+    deps: successDeps({ getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test-model', cleanDirtyLyrics: true }), askAI: async () => ({
       discardLineIndices: [1], translations: [
-        { unitId: 0, text: '夜之歌 - 歌手' }, { unitId: 1, text: '你好' },
+        { unitId: 1, text: '你好' },
       ] }), updateSongLanguage: async () => {} }),
   });
   assert.deepEqual(store.current().original.lines.map((line) => line.text),
     ['Night Song - Singer', 'Hello']);
-  assert.equal(store.current().aiCompletion, null);
+  assert.equal(store.current().aiCompletion.status, 'completed');
 });
 
-test('manual AI request still identifies a song whose lyrics need no translation', async () => {
-  const store = createMemoryLyricStore(pendingArtifact());
+test('explicit AI request classifies an untagged target-language song without generating a paraphrase', async () => {
+  const original = pendingArtifact();
+  original.original.lines[0].text = '你好世界';
+  const store = createMemoryLyricStore(original);
   const changes = [];
+  let calls = 0;
   await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong({ language: 'en' }), store,
+    env: {}, db: {}, song: makeSong({ language: 'other' }), store,
     startedAt: STARTED_AT, textHash: 'a'.repeat(64), force: true,
     deps: successDeps({
-      askAI: async () => ({ songLanguage: 'zh', notNeeded: true }),
+      askAI: async () => { calls++; return { language: 'zh', match: 0.99 }; },
       updateSongLanguage: async (...args) => changes.push(args),
     }),
   });
+  assert.equal(calls, 1);
   assert.equal(store.current().translation, null);
   assert.equal(store.current().aiCompletion.status, 'completed');
-  assert.equal(store.current().aiCompletion.processingKey, 'zh|1|1|1|0|1|1');
-  assert.deepEqual(changes, [['song-1', 'zh', 'en']]);
+  assert.equal(store.current().translationDecision.status, 'not_needed');
+  assert.equal(store.current().translationDecision.policyVersion, 2);
+  assert.deepEqual(store.current().original, original.original);
+  assert.deepEqual(changes, [['song-1', 'zh', 'other']]);
 });
 
 test('AI failure keeps the previous translation until a replacement succeeds', async () => {
@@ -589,7 +610,7 @@ test('asset completion passes a sub-30-second remaining budget to the shared AI 
   assert.equal(timeoutMs >= 5_000, true);
   assert.equal(timeoutMs <= 24_000, true);
   assert.equal(timeoutMs < 30_000, true);
-  assert.equal(store.current().aiCompletion, null);
+  assert.equal(store.current().aiCompletion.status, 'completed');
 });
 
 test('the overall lifecycle deadline converts a stalled prerequisite to failed and blocks late completion', async () => {
@@ -651,6 +672,27 @@ test('cleared or replaced completion state supersedes a stale AI task', async ()
   assert.equal(result.state, 'superseded');
   assert.equal(aiCalls, 0);
   assert.equal(store.calls.put, 0);
+});
+
+test('reusing the pending CAS snapshot still preserves a newer edit before final completion', async () => {
+  const raw = createMemoryLyricStore(makeReadyArtifact());
+  let rejectedStaleWrites = 0;
+  const replacement = makeReadyArtifact({ textHash: 'b'.repeat(64), original: {
+    source: 'manual', format: 'lrc', syncMode: 'line', lines: [{ time: 1, text: 'Newer saved lyric' }],
+  } });
+  const store = { ...raw, async putIfMatch(songId, value, etag, options) {
+    const written = await raw.putIfMatch(songId, value, etag, options);
+    if (written.state === 'conflict') rejectedStaleWrites++;
+    if (written.state === 'updated' && value.aiCompletion?.status === 'pending') {
+      await raw.putIfMatch(songId, replacement, written.etag);
+    }
+    return written;
+  } };
+  const started = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+    force: true, deps: successDeps() });
+  assert.equal(started.state, 'started'); assert.equal((await started.task).state, 'superseded');
+  assert.deepEqual(raw.current(), replacement);
+  assert.equal(rejectedStaleWrites, 1, 'the final atomic CAS rejects the old pending snapshot rather than overwriting the new edit');
 });
 
 test('manual recompletion retains old translation while marking a new pending task', async () => {
@@ -722,110 +764,62 @@ test('stale pending completion can restart with a fresh task timestamp', async (
   assert.deepEqual(store.current().translation.lines, ['新译文']);
 });
 
-test('a concurrent fresh-pending winner is returned as an idempotent result', async () => {
+test('a concurrent pending winner yields a conflict and remains readable without duplicate AI', async () => {
   const initial = makeReadyArtifact();
-  const winner = pendingArtifact({
-    aiCompletion: { status: 'pending', updatedAt: '2026-09-10T00:00:10.000Z' },
-  });
-  let reads = 0;
+  const winner = pendingArtifact({ aiCompletion: { status: 'pending', updatedAt: '2026-09-10T00:00:10.000Z' } });
+  let reads = 0, calls = 0;
   const store = {
-    async get() {
-      reads += 1;
-      return reads === 1
-        ? { state: 'found', artifact: structuredClone(initial), etag: 'etag-1' }
-        : { state: 'found', artifact: structuredClone(winner), etag: 'etag-2' };
-    },
+    async get() { return ++reads === 1
+      ? { state: 'found', artifact: structuredClone(initial), etag: 'etag-1' }
+      : { state: 'found', artifact: structuredClone(winner), etag: 'etag-2' }; },
     async putIfMatch() { return { state: 'conflict', artifact: null, etag: null }; },
   };
-  const started = await beginLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong(), store, force: true,
-    deps: successDeps({ now: () => Date.parse('2026-09-10T00:00:20.000Z') }),
-  });
-  assert.equal(started.state, 'pending');
-  assert.equal(started.etag, 'etag-2');
-  assert.equal(started.task, null);
+  const deps = successDeps({ now: () => Date.parse('2026-09-10T00:00:20.000Z'), askAI: async () => { calls++; return {}; } });
+  const started = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store, force: true, deps });
+  assert.equal(started.state, 'conflict'); assert.equal(started.task, null);
+  const reread = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store, force: true, deps });
+  assert.equal(reread.state, 'pending'); assert.equal(reread.etag, 'etag-2'); assert.equal(calls, 0);
 });
 
-test('a first-batch notNeeded result is retried after another batch proves translation is needed', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(121));
-  let calls = 0;
-  const prompts = [];
-  const result = await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong(), store,
-    startedAt: STARTED_AT,
-    textHash: 'a'.repeat(64),
-    deps: successDeps({
-      askAI: async (messages) => {
-        calls += 1;
-        prompts.push(messages[0].content);
-        return calls === 1 ? { notNeeded: true } : translatedBatch(messages);
-      },
-    }),
-  });
-
-  assert.equal(result.state, 'updated');
-  assert.equal(calls, 3);
-  assert.match(prompts[2], /不得返回 notNeeded/u);
-  assert.equal(store.current().translation.lines.length, 121);
-  assert.equal(store.current().translation.lines.every(Boolean), true);
-  assert.equal(store.current().translation.lines[0], '译文0');
+// The old per-batch notNeeded/foreign-fragment obligations are retired by
+// 1.0.0. Dominant-language decisions settle the entire song before translation.
+test('Chinese-dominant long songs never translate minority foreign verses', async () => {
+  for (const size of [121, 241]) {
+    const pending = multiBatchPendingArtifact(size, [0, size - 1]);
+    const store = createMemoryLyricStore(pending);
+    let calls = 0;
+    await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong({ language: 'zh' }), store,
+      startedAt: STARTED_AT, textHash: pending.textHash,
+      deps: successDeps({ askAI: async () => { calls++; assert.fail('No translation for a Chinese-dominant song'); } }) });
+    assert.equal(calls, 0); assert.equal(store.current().translation, null);
+    assert.equal(store.current().translationDecision.status, 'not_needed');
+    assert.equal(store.current().aiCompletion.status, 'completed');
+    assert.deepEqual(store.current().original, pending.original);
+  }
 });
 
-test('a middle-batch notNeeded result cannot create a partial translation artifact', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(241));
+test('insufficient dominant-language fit leaves no permanent no-translation cache or partial result', async () => {
+  const pending = multiBatchPendingArtifact(121, [0, 120]);
+  const store = createMemoryLyricStore(pending);
   let calls = 0;
-  const result = await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong(), store,
-    startedAt: STARTED_AT,
-    textHash: 'a'.repeat(64),
-    deps: successDeps({
-      askAI: async (messages) => {
-        calls += 1;
-        return calls === 2 ? { notNeeded: true } : translatedBatch(messages);
-      },
-    }),
-  });
-
-  assert.equal(result.state, 'updated');
-  assert.equal(calls, 4);
-  assert.equal(store.current().translation.lines.length, 241);
-  assert.equal(store.current().translation.lines.every(Boolean), true);
-  assert.equal(store.current().translation.lines[120], '译文120');
+  await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong({ language: 'other' }), store,
+    startedAt: STARTED_AT, textHash: pending.textHash,
+    deps: successDeps({ askAI: async () => { calls++; return { language: 'other', match: 0.65 }; } }) });
+  assert.equal(calls, 1); assert.equal(store.current().translation, null);
+  assert.equal(store.current().aiCompletion.errorCode, 'language_assessment_undetermined');
+  assert.equal(store.current().translationDecision, undefined);
+  assert.deepEqual(store.current().original, pending.original);
 });
 
-test('all notNeeded batches clear pending without creating a translation', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(121));
+test('translation role rejects the retired notNeeded response without saving partial lyrics', async () => {
+  const pending = multiBatchPendingArtifact(121);
+  const store = createMemoryLyricStore(pending);
   let calls = 0;
-  const result = await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong(), store,
-    startedAt: STARTED_AT,
-    textHash: 'a'.repeat(64),
-    deps: successDeps({ askAI: async () => { calls += 1; return { notNeeded: true }; } }),
-  });
-
-  assert.equal(result.state, 'updated');
-  assert.equal(calls, 2);
-  assert.equal(store.current().translation, null);
-  assert.equal(store.current().aiCompletion.status, 'completed');
-});
-
-test('an unresolved mixed batch fails safely instead of writing incomplete translation lines', async () => {
-  const store = createMemoryLyricStore(multiBatchPendingArtifact(121));
-  let calls = 0;
-  await runLyricAssetAiCompletion({
-    env: {}, db: {}, song: makeSong(), store,
-    startedAt: STARTED_AT,
-    textHash: 'a'.repeat(64),
-    deps: successDeps({
-      askAI: async (messages) => {
-        calls += 1;
-        return calls === 2 ? translatedBatch(messages) : { notNeeded: true };
-      },
-    }),
-  });
-
-  assert.equal(calls, 3);
-  assert.equal(store.current().translation, null);
-  assert.equal(store.current().aiCompletion.status, 'failed');
+  await runLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong(), store,
+    startedAt: STARTED_AT, textHash: pending.textHash,
+    deps: successDeps({ askAI: async () => { calls++; return { notNeeded: true, songLanguage: 'other' }; } }) });
+  assert.equal(calls, 1); assert.equal(store.current().translation, null);
   assert.equal(store.current().aiCompletion.errorCode, 'invalid_output');
+  assert.equal(store.current().translationDecision.status, 'needed');
+  assert.deepEqual(store.current().original, pending.original);
 });

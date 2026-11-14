@@ -19,10 +19,9 @@ const compactSqlField = (field) => (
 
 const MAX_SEARCH_OFFSET = 2000;
 
-export async function querySongs(db, rawQuery, limit, offset = 0, { language = null } = {}) {
+async function querySongResults(db, rawQuery, lim, offset = 0, { language = null } = {}) {
   const q0 = String(rawQuery || '').trim();
   if (!q0) return [];
-  const lim = Math.min(Math.max(limit === undefined ? 8 : Number(limit), 1), 50);
   const off = Math.min(Math.max(Number(offset) || 0, 0), MAX_SEARCH_OFFSET);
   const languageFilter = buildSongLanguageFilter(language);
   if (languageFilter === null) throw new TypeError('invalid_language');
@@ -109,4 +108,19 @@ export async function querySongs(db, rawQuery, limit, offset = 0, { language = n
       languageFilter, excludeIds: directIds.map(song => song.id),
     });
   return [...direct, ...romanized];
+}
+
+const searchLimit = (limit) => Math.min(Math.max(limit === undefined ? 8 : Number(limit), 1), 50);
+
+export async function querySongs(db, rawQuery, limit, offset = 0, options = {}) {
+  return querySongResults(db, rawQuery, searchLimit(limit), offset, options);
+}
+
+// Keep the same candidate selection, ordering and romanized fallback as other
+// callers. One additional result distinguishes a full final page from a next
+// page without an additional count/scan or a differently widened query.
+export async function querySongPage(db, rawQuery, limit, offset = 0, options = {}) {
+  const pageSize = searchLimit(limit);
+  const results = await querySongResults(db, rawQuery, pageSize + 1, offset, options);
+  return { songs: results.slice(0, pageSize), hasMore: results.length > pageSize };
 }

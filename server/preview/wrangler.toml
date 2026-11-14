@@ -10,7 +10,7 @@ invocation_logs = false
 [assets]
 directory = "../../dist"
 binding = "ASSETS"
-run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*", "/rest", "/rest/*"]
+run_worker_first = ["/api", "/api/*", "/auth", "/auth/*", "/media", "/media/*", "/rest", "/rest/*", "/speaker-media", "/speaker-media/*"]
 html_handling = "auto-trailing-slash"
 not_found_handling = "404-page"
 

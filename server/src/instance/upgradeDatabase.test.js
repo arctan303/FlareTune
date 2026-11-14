@@ -6,6 +6,8 @@ import { runKnownDatabaseUpgrade } from './upgradeDatabase.js';
 import { resolveInstanceState } from './state.js';
 import { MIGRATION_BUNDLE } from './migrationBundle.generated.js';
 import { KNOWN_MIGRATIONS } from './schemaManifest.js';
+import { getSupplementalMigrationStatus } from './migrationStatus.js';
+import { HOTPATH_OBJECTS } from './hotpathSchema.js';
 
 const baseline = readFileSync(new URL('../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8');
 
@@ -233,4 +235,114 @@ test('partially expanded v1 is rejected before supplemental migrations write dat
   assert.equal(sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'ai_model_profiles'").get(), undefined);
   assert.equal(sqlite.prepare('SELECT schema_version FROM ft_instance WHERE id = 1').get().schema_version, 1);
   sqlite.close();
+});
+
+function completeV2(sqlite, { external = false } = {}) {
+  for (const migration of MIGRATION_BUNDLE.slice(1, external ? undefined : -1)) {
+    for (const statement of migration.statements) sqlite.prepare(statement).run();
+  }
+  const migration = KNOWN_MIGRATIONS[1];
+  sqlite.prepare(`INSERT INTO ft_migrations(version,name,checksum,stage,state,started_at,completed_at)
+    VALUES (2,?,?,'migrate','completed',1,1)`).run(migration.name, migration.checksum);
+  sqlite.exec('UPDATE ft_instance SET schema_version=2 WHERE id=1');
+}
+function seedLocalAndExternal(sqlite, external = false) {
+  sqlite.exec(`INSERT INTO accounts(account_id,username,role,created_at,updated_at) VALUES ('a','alice','admin',1,1);
+    INSERT INTO account_credentials(account_id,kdf,kdf_version,kdf_params_json,salt,password_hash,updated_at)
+      VALUES ('a','pbkdf2-sha256-chain',2,'{"iterations":100000,"rounds":6}',
+        '${Buffer.alloc(16, 1).toString('base64url')}','${Buffer.alloc(32, 2).toString('base64url')}',1);
+    UPDATE ft_instance SET initialized_at=1 WHERE id=1;
+    INSERT INTO Songs(id,title) VALUES ('local','Song');
+    INSERT INTO Member_Playlists(id,account_id,kind,name,created_at,updated_at) VALUES ('p','a','regular','Playlist',1,1);
+    INSERT INTO Member_Playlist_Songs VALUES ('p','local',0,1);
+    INSERT INTO Member_Play_Events VALUES ('a','local-event','local',1,1);`);
+  if (external) sqlite.exec(`INSERT INTO Member_External_Songs VALUES ('a','yt:abcdefghijk','youtube','abcdefghijk','{"title":"Trusted snapshot"}',1);
+    INSERT INTO Member_External_Playlist_Songs VALUES ('p','a','yt:abcdefghijk',1,1);
+    INSERT INTO Member_External_Play_Events VALUES ('a','youtube-event','yt:abcdefghijk',2,2);`);
+}
+
+test('complete old v2 missing only 0014 upgrades through the compatible supplement without replaying old migrations or changing local data', async () => {
+  const { sqlite, db } = fixture();
+  try {
+    completeV2(sqlite); seedLocalAndExternal(sqlite);
+    const before = Object.fromEntries(['Songs','Member_Playlists','Member_Playlist_Songs','Member_Play_Events','Member_Song_Plays','ft_migrations'].map(name => [name, sqlite.prepare(`SELECT * FROM ${name}`).all()]));
+    assert.deepEqual((await getSupplementalMigrationStatus(db)).supplementalMigrations.filter(item => !item.ready), [{ id: 'external_music', ready: false }]);
+    const queries = [];
+    const original = db.prepare;
+    db.prepare = sql => { queries.push(sql); return original(sql); };
+    assert.deepEqual(await runKnownDatabaseUpgrade(db), { status: 'current', schemaVersion: 2 });
+    for (const [name, rows] of Object.entries(before)) assert.deepEqual(sqlite.prepare(`SELECT * FROM ${name}`).all(), rows, name);
+    assert.equal(queries.some(sql => /DROP TABLE|ALTER TABLE|INSERT.*ai_model_profiles|INSERT.*google_login_config/i.test(sql)), false);
+    assert.equal((await getSupplementalMigrationStatus(db)).supplementalPending, false);
+    assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length, 0);
+    assert.equal((await runKnownDatabaseUpgrade(db)).status, 'current');
+    assert.deepEqual(sqlite.prepare('SELECT * FROM ft_migrations').all(), before.ft_migrations);
+  } finally { sqlite.close(); }
+});
+
+test('0013 repair atomically restores combined playlist and receipt counts without losing either source', async () => {
+  const { sqlite, db } = fixture();
+  try {
+    completeV2(sqlite, { external: true }); seedLocalAndExternal(sqlite, true);
+    const ledger = sqlite.prepare('SELECT * FROM ft_migrations').all();
+    for (const name of [...HOTPATH_OBJECTS].reverse()) {
+      const type = sqlite.prepare('SELECT type FROM sqlite_master WHERE name=?').get(name).type;
+      sqlite.exec(`DROP ${type} ${name}`);
+    }
+    // Inspect the first committed repair transaction, before later status reads.
+    const batch = db.batch;
+    let checked = false;
+    db.batch = async statements => {
+      const result = await batch(statements);
+      assert.equal(sqlite.prepare("SELECT cached_song_count n FROM Member_Playlists WHERE id='p'").get().n, 2);
+      assert.equal(sqlite.prepare("SELECT receipt_count n FROM Member_Play_Receipt_Counts WHERE account_id='a'").get().n, 2);
+      checked = true; return result;
+    };
+    assert.equal((await runKnownDatabaseUpgrade(db)).status, 'current');
+    assert.equal(checked, true);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM Member_All_Play_Events').get().n, 2);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM Member_All_Playlist_Songs').get().n, 2);
+    assert.deepEqual(sqlite.prepare('SELECT * FROM ft_migrations').all(), ledger);
+    assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length, 0);
+  } finally { sqlite.close(); }
+});
+
+test('partially missing external core tables fail closed before any supplemental repair', async () => {
+  const { sqlite, db } = fixture();
+  try {
+    completeV2(sqlite, { external: true });
+    sqlite.exec('DROP TABLE Member_External_Song_Plays; DROP TRIGGER ft_play_receipts_insert_count');
+    const ledger = sqlite.prepare('SELECT * FROM ft_migrations').all();
+    await assert.rejects(runKnownDatabaseUpgrade(db), { code: 'migration_schema_inconsistent' });
+    assert.equal(sqlite.prepare("SELECT name FROM sqlite_master WHERE name='ft_play_receipts_insert_count'").get(), undefined);
+    assert.deepEqual(sqlite.prepare('SELECT * FROM ft_migrations').all(), ledger);
+  } finally { sqlite.close(); }
+});
+
+test('resumable v1 playlist count backfill and verification count mixed membership when 0014 already exists', async () => {
+  const { sqlite, db } = fixture();
+  try {
+    for (const migration of MIGRATION_BUNDLE.slice(1)) for (const statement of migration.statements) sqlite.prepare(statement).run();
+    seedLocalAndExternal(sqlite, true);
+    sqlite.exec("UPDATE Member_Playlists SET cached_song_count=0 WHERE id='p'");
+    let result;
+    for (let step = 0; step < 8; step++) { result = await runKnownDatabaseUpgrade(db); if (result.status === 'completed') break; }
+    assert.equal(result.status, 'completed');
+    assert.equal(sqlite.prepare("SELECT cached_song_count n FROM Member_Playlists WHERE id='p'").get().n, 2);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM Member_All_Playlist_Songs').get().n, 2);
+    assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length, 0);
+  } finally { sqlite.close(); }
+});
+
+test('a missing external trigger is reported pending and admin upgrade repairs it without losing mixed membership', async () => {
+  const { sqlite, db } = fixture();
+  try {
+    completeV2(sqlite, { external: true }); seedLocalAndExternal(sqlite, true);
+    sqlite.exec('DROP TRIGGER ft_external_playlist_insert_count');
+    assert.deepEqual((await getSupplementalMigrationStatus(db)).supplementalMigrations.filter(item => !item.ready), [{ id: 'external_music', ready: false }]);
+    assert.equal((await runKnownDatabaseUpgrade(db)).status, 'current');
+    assert.equal((await getSupplementalMigrationStatus(db)).supplementalPending, false);
+    assert.equal(sqlite.prepare("SELECT cached_song_count n FROM Member_Playlists WHERE id='p'").get().n, 2);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM Member_All_Playlist_Songs').get().n, 2);
+  } finally { sqlite.close(); }
 });

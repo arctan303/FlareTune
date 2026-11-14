@@ -5,6 +5,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { verifyWorkerHttp } from '../verify/verify-worker-http.mjs';
 import { runPlaylistCountMigration } from '../../server/src/instance/playlistCountMigration.js';
+import { bundleWorkerModules } from './bundle-worker-modules.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const configPath = resolve(root, 'server/preview/wrangler.toml');
@@ -84,7 +85,7 @@ async function startRuntime({ runtime: { wrangler, miniflare, esbuild }, statePa
   workerTestBindings = null, seedMigrationPending = false, seedEmpty = false, port = 8790 }) {
   const [generated, bundle] = await Promise.all([
     wrangler.unstable_getMiniflareWorkerOptions(configPath),
-    esbuild.build({ entryPoints: [resolve(root, 'server/src/flaretune.js')], bundle: true, write: false, format: 'esm', platform: 'browser' }),
+    bundleWorkerModules({ esbuild, entryPoint: resolve(root, 'server/src/flaretune.js') }),
   ]);
   const options = JSON.parse(JSON.stringify(generated.workerOptions));
   delete options.modulesRules;
@@ -93,7 +94,7 @@ async function startRuntime({ runtime: { wrangler, miniflare, esbuild }, statePa
     mf = new miniflare.Miniflare(miniflare.convertV4MiniflareOptions({
       host: '127.0.0.1', port, cachePersist: statePath, d1Persist: statePath, r2Persist: statePath,
       workers: [{ ...options, bindings: { ...options.bindings, ...workerTestBindings },
-        name: 'flaretune-preview', modules: true, script: bundle.outputFiles[0].text,
+        name: 'flaretune-preview', ...bundle,
         outboundService: () => { throw new Error('PREVIEW_OUTBOUND_BLOCKED'); } }, ...generated.externalWorkers],
     }));
     await mf.ready;

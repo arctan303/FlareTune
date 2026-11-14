@@ -1,3 +1,4 @@
+import { songSourceMetadata } from './utils/musicSource.js';
 import { isValidSongLanguage } from './constants/language.js';
 
 const DB_NAME = 'arc-player-context';
@@ -45,6 +46,7 @@ export const toCanonicalSong = (song) => {
         audio_url: audioUrl,
         cover_url: cleanAssetUrl(song.cover_url),
         language: isValidSongLanguage(song.language) ? song.language : null,
+        ...songSourceMetadata({ ...song, id }),
     };
 };
 

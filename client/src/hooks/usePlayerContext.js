@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getApiBaseUrl, hydratePlayableSong } from '../utils';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useUIStore } from '../store/useUIStore';
@@ -24,6 +24,9 @@ const getQueueIdSignature = (queue) => (
     Array.isArray(queue) ? queue.map((song) => song?.id || '').join('\u0000') : ''
 );
 
+const contextOwner = session => session?.authenticated
+    ? JSON.stringify([session.user?.accountId, session.user?.role, session.csrfToken]) : '';
+
 const normalizeMediaUrl = (value) => {
     try {
         const url = new URL(value, window.location.href);
@@ -45,18 +48,44 @@ const audioMatchesSong = (audio, song) => {
 export function usePlayerContext(audioRef) {
     const authInitialized = useUIStore((state) => Boolean(state.authSession?.initialized));
     const authenticated = useUIStore((state) => Boolean(state.authSession?.authenticated));
-    const [isPlayerContextReady, setIsPlayerContextReady] = useState(false);
+    const owner = useUIStore((state) => contextOwner(state.authSession));
+    const [readyOwner, setReadyOwner] = useState(null);
+    const ownerRef = useRef(owner);
+    const contextKey = JSON.stringify([authInitialized, authenticated, owner]);
+    const contextKeyRef = useRef(contextKey);
     const isReadyRef = useRef(false);
     const pendingRestoreRef = useRef(null);
     const ignoreNextSeekedRef = useRef(false);
     const lastPositionSaveRef = useRef(0);
     const playbackSessionIdRef = useRef(null);
     const ownerWriteRef = useRef(Promise.resolve());
+    if (contextKeyRef.current !== contextKey) {
+        contextKeyRef.current = contextKey;
+        ownerRef.current = owner;
+        isReadyRef.current = false;
+        pendingRestoreRef.current = null;
+        playbackSessionIdRef.current = null;
+    }
     if (!playbackSessionIdRef.current) playbackSessionIdRef.current = createPlaybackSessionId();
+    const isPlayerContextReady = authInitialized && authenticated && readyOwner === owner && isReadyRef.current;
+
+    // Retire the old queue before passive effects can mount a new account's
+    // plugin runtime. Readiness returned from this render is owner-bound too.
+    useLayoutEffect(() => {
+        isReadyRef.current = false;
+        setReadyOwner(null);
+        usePlayerStore.getState().setQueueContextReady?.(false);
+        return () => {
+            isReadyRef.current = false;
+            usePlayerStore.getState().setQueueContextReady?.(false);
+        };
+    }, [authInitialized, authenticated, owner]);
 
     useEffect(() => {
         if (!authInitialized) return undefined;
         let cancelled = false;
+        const ownsRestore = () => !cancelled && contextKeyRef.current === contextKey
+            && contextOwner(useUIStore.getState().authSession) === owner;
         const repairController = new AbortController();
         const hydrate = async () => {
             try {
@@ -65,7 +94,7 @@ export function usePlayerContext(audioRef) {
                     return;
                 }
                 let context = await readPlayerContext();
-                if (cancelled || !context) return;
+                if (!ownsRestore() || !context) return;
                 let queue = context.queue.map((song) => {
                     const hydrated = hydratePlayableSong(song);
                     if (!hydrated) return null;
@@ -76,13 +105,13 @@ export function usePlayerContext(audioRef) {
                         apiBase: getApiBaseUrl(),
                         signal: repairController.signal,
                     });
-                    if (cancelled) return;
+                    if (!ownsRestore()) return;
                     queue = repaired.songs;
                     if (repaired.repairedSongIds.length > 0) {
                         const repairedIdSet = new Set(repaired.repairedSongIds);
                         const authoritativeSongs = queue.filter((song) => repairedIdSet.has(String(song.id)));
                         const latestContext = await patchPlayerContextSongMetadata(authoritativeSongs);
-                        if (cancelled || !latestContext) return;
+                        if (!ownsRestore() || !latestContext) return;
                         context = latestContext;
                         queue = context.queue.map(hydratePlayableSong).filter(Boolean);
                     }
@@ -94,7 +123,7 @@ export function usePlayerContext(audioRef) {
                         console.warn('补全播放队列歌曲语言失败，保留原播放记录:', error);
                     }
                 }
-                if (cancelled) return;
+                if (!ownsRestore()) return;
                 const currentSong = queue.find((song) => song.id === context.currentSongId) || queue[0];
                 if (!currentSong) {
                     await clearPlayerContext();
@@ -119,9 +148,10 @@ export function usePlayerContext(audioRef) {
             } catch (error) {
                 console.warn('读取本地播放记录失败，将使用默认歌单:', error);
             } finally {
-                if (!cancelled) {
-                    isReadyRef.current = true;
-                    setIsPlayerContextReady(true);
+                if (ownsRestore()) {
+                    isReadyRef.current = authenticated;
+                    setReadyOwner(authenticated ? owner : null);
+                    usePlayerStore.getState().setQueueContextReady?.(authenticated);
                 }
             }
         };
@@ -130,11 +160,11 @@ export function usePlayerContext(audioRef) {
             cancelled = true;
             repairController.abort();
         };
-    }, [authInitialized, authenticated]);
+    }, [authInitialized, authenticated, owner]);
 
     useEffect(() => usePlayerStore.subscribe((state, previous) => {
         if (!isReadyRef.current) return;
-        if (!useUIStore.getState().authSession?.authenticated) return;
+        if (contextOwner(useUIStore.getState().authSession) !== ownerRef.current || !ownerRef.current) return;
         const songChanged = state.currentSong?.id !== previous.currentSong?.id;
         const queueChanged = getQueueIdSignature(state.playlist) !== getQueueIdSignature(previous.playlist);
         if (!songChanged && !queueChanged) return;
@@ -159,7 +189,7 @@ export function usePlayerContext(audioRef) {
 
     const claimPlayback = useCallback(() => {
         if (!isReadyRef.current) return Promise.resolve(null);
-        if (!useUIStore.getState().authSession?.authenticated) return Promise.resolve(null);
+        if (contextOwner(useUIStore.getState().authSession) !== ownerRef.current || !ownerRef.current) return Promise.resolve(null);
         const state = usePlayerStore.getState();
         const audio = audioRef.current;
         if (!state.currentSong || !audioMatchesSong(audio, state.currentSong)) return Promise.resolve(null);
@@ -192,7 +222,7 @@ export function usePlayerContext(audioRef) {
 
     const persistPosition = useCallback(() => {
         if (!isReadyRef.current) return Promise.resolve(null);
-        if (!useUIStore.getState().authSession?.authenticated) return Promise.resolve(null);
+        if (contextOwner(useUIStore.getState().authSession) !== ownerRef.current || !ownerRef.current) return Promise.resolve(null);
         const state = usePlayerStore.getState();
         const audio = audioRef.current;
         if (!state.currentSong || !audioMatchesSong(audio, state.currentSong)) return Promise.resolve(null);

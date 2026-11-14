@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { handleLocalAssistantRoute } from './localAssistant.js';
+import { prepareAssistantPluginFixture, assistantBuildHeaders } from '../plugins/assistant/test-support.js';
 
-export function fixture() {
+export function fixture(options = {}) {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   sqlite.exec(readFileSync(new URL('../../db/migrations-flaretune/0001_baseline.sql', import.meta.url), 'utf8'));
@@ -21,6 +22,8 @@ export function fixture() {
         async all() { return { results: sqlite.prepare(sql).all(...bindings) }; },
         async run() { return { meta: { changes: sqlite.prepare(sql).run(...bindings).changes } }; },
         runSync() {
+          if (/^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql)) return { results: sqlite.prepare(sql).all(...bindings) };
+          if (/\bRETURNING\b/i.test(sql)) { const results = sqlite.prepare(sql).all(...bindings); return { results, meta: { changes: results.length } }; }
           const result = sqlite.prepare(sql).run(...bindings);
           return { meta: { changes: result.changes } };
         },
@@ -43,13 +46,10 @@ export function fixture() {
       (account_id, username, display_name, role, status, created_at, updated_at)
       VALUES (?, ?, ?, 'member', 'active', 1, 1)`).run(accountId, accountId.toLowerCase(), accountId);
   }
-  const session = (accountId) => ({ mode: 'normal', account: {
-    accountId, username: accountId.toLowerCase(), displayName: accountId, role: 'member',
-  } });
+  const session = prepareAssistantPluginFixture(sqlite, options);
   const request = (path, method = 'GET', body) => new Request(`https://flare.test${path}`, {
-    method,
-    ...(body === undefined ? {} : { body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' } }),
+    method, headers: { ...assistantBuildHeaders(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const route = (path, method, body, actor = 'account-A', options = {}) => {
     const req = request(path, method, body);

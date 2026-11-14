@@ -1,3 +1,5 @@
+import { subscribeMusicSources } from '../services/musicSources.js';
+import { artistFromSong, artistIdentity, isYouTubeEntity, canUseLocalSongLibrary, canReferenceAccountSong, youtubeSearchWarning } from '../utils/musicSource.js';
 import { t } from '../i18n/index.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { Search, Play, ListPlus, Loader2, X, FolderPlus, MoreHorizontal, History, Disc, User, Music, Trash2, ChevronRight, Sparkles } from 'lucide-react';
@@ -24,6 +26,8 @@ import ArtistPreviewRow from './catalog/ArtistPreviewRow.jsx';
 import SectionHeading from './catalog/SectionHeading.jsx';
 import SongColumnShelf from './catalog/SongColumnShelf.jsx';
 import AlbumPreviewGrid from './catalog/AlbumPreviewGrid.jsx';
+import CatalogReadState from './catalog/CatalogReadState.jsx';
+import CatalogSkeleton from './catalog/CatalogSkeleton.jsx';
 import { hasPreviewOverflow } from './catalog/previewVisibility.js';
 import { useFavoriteSongAction } from '../hooks/useFavoriteSongAction.js';
 import { insertNextWithFeedback } from '../services/playerActions.js';
@@ -53,7 +57,7 @@ function RecentSearchCard({ item, onPlaySong, onOpenArtist, onRemove }) {
   const [photoUrl, setPhotoUrl] = useState(null);
 
   useEffect(() => {
-    if (item.type !== 'artist' || !item.name) return;
+    if (item.type !== 'artist' || !item.name || isYouTubeEntity(item)) return;
     const trimmed = item.name.trim();
     if (ARTIST_PHOTO_CACHE.has(trimmed)) {
       const cached = ARTIST_PHOTO_CACHE.get(trimmed);
@@ -86,6 +90,7 @@ function RecentSearchCard({ item, onPlaySong, onOpenArtist, onRemove }) {
   const handleClick = () => {
     if (item.type === 'artist') {
       onOpenArtist?.({
+        ...item,
         name: item.name,
         coverUrl: displayAvatar,
       });
@@ -178,6 +183,8 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   const searchCacheRef = useRef(cache || createSearchPageCache());
   const initialPage = searchCacheRef.current.get(searchPageKey(route?.query || '', route?.language || 'all'));
   const [songs, setSongs] = useState(() => initialPage?.songs || []);
+  const [songSourceWarnings, setSongSourceWarnings] = useState(() => initialPage?.sourceWarnings || []);
+  const [nextOffset, setNextOffset] = useState(() => initialPage?.nextOffset ?? PAGE_SIZE);
   useEffect(() => {
     const handleSongUpdated = (event) => {
       const updated = event.detail;
@@ -205,6 +212,14 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   const inputRef = useRef(null);
   const searchGenerationRef = useRef(0);
   const loadMoreControllerRef = useRef(null);
+  useEffect(() => subscribeMusicSources(() => {
+    searchGenerationRef.current += 1;
+    loadMoreControllerRef.current?.abort();
+    searchCacheRef.current.clear();
+    setSongs(previous => previous.filter(canUseLocalSongLibrary));
+    setSongSourceWarnings([]);
+    setRefreshVersion(value => value + 1);
+  }), []);
   const prevQueryRef = useRef(initialPage ? (route?.query || '').trim() : '');
   const prevSubCategoryRef = useRef('all');
 
@@ -212,6 +227,12 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
 
   const recordRecentEntity = (entity) => {
     setRecentEntities(saveRecentSearchEntity(entity, accountId));
+  };
+
+  const handleOpenArtist = (artist) => {
+    const entity = { ...artist, type: 'artist', coverUrl: artist.photoUrl || artist.coverUrl };
+    recordRecentEntity(entity);
+    useUIStore.getState().openArtistDrawer(entity);
   };
 
   const handleRemoveRecentEntity = (entity, e) => {
@@ -276,12 +297,12 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
   };
 
   const hasCatalogQuery = Boolean(catalogQuery.trim());
-  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7, refreshKey: refreshVersion, retainWhileDisabled: true,
+  const artistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 7, refreshKey: refreshVersion, retainWhileDisabled: true, recoverable: true,
     enabled: hasCatalogQuery && subView === 'overview' });
-  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10, refreshKey: refreshVersion, retainWhileDisabled: true,
+  const albumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 10, refreshKey: refreshVersion, retainWhileDisabled: true, recoverable: true,
     enabled: hasCatalogQuery && subView === 'overview' });
-  const fullArtistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'artists' });
-  const fullAlbumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 20, enabled: hasCatalogQuery && subView === 'albums' });
+  const fullArtistResults = useCatalogPage('artists', { query: catalogQuery, language: songSubCategory, limit: 20, recoverable: true, enabled: hasCatalogQuery && subView === 'artists' });
+  const fullAlbumResults = useCatalogPage('albums', { query: catalogQuery, language: songSubCategory, limit: 20, recoverable: true, enabled: hasCatalogQuery && subView === 'albums' });
 
   useEffect(() => {
     const generation = searchGenerationRef.current + 1;
@@ -289,6 +310,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     loadMoreControllerRef.current?.abort();
     loadMoreControllerRef.current = null;
     setLoadingMore(false);
+    setSongSourceWarnings([]);
     if (!isAuthenticated) {
       setStatus('unauthorized');
       setSongs([]);
@@ -328,6 +350,8 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     if (cached) {
       setSongs(cached.songs);
       setHasMore(cached.hasMore);
+      setNextOffset(cached.nextOffset ?? PAGE_SIZE);
+      setSongSourceWarnings(cached.sourceWarnings || []);
       setStatus('ready');
       setIsFiltering(false);
       return undefined;
@@ -368,12 +392,15 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
         const data = await res.json();
         if (generation !== searchGenerationRef.current) return;
         const batch = (data?.data?.songs || []).map(hydratePlayableSong).filter(Boolean);
-        const hasMoreBatch = batch.length === PAGE_SIZE;
+        const hasMoreBatch = data?.data?.hasMore ?? batch.length === PAGE_SIZE;
+        const sourceWarnings = data?.data?.sourceWarnings || [];
 
-        searchCacheRef.current.set(cacheKey, { songs: batch, hasMore: hasMoreBatch });
+        searchCacheRef.current.set(cacheKey, { songs: batch, hasMore: hasMoreBatch, sourceWarnings, nextOffset: data?.data?.nextOffset ?? PAGE_SIZE });
 
         setSongs(batch);
+        setSongSourceWarnings(sourceWarnings);
         setHasMore(hasMoreBatch);
+        setNextOffset(data?.data?.nextOffset ?? PAGE_SIZE);
         setStatus('ready');
         setIsFiltering(false);
       } catch (error) {
@@ -435,7 +462,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     setLoadingMore(true);
     try {
       const languageParam = songSubCategory === 'all' ? '' : `&language=${encodeURIComponent(songSubCategory)}`;
-      const res = await authenticatedFetch(`${getSearchApiBase()}/api/songs/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&offset=${songs.length}${languageParam}`, {
+      const res = await authenticatedFetch(`${getSearchApiBase()}/api/songs/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&offset=${nextOffset}${languageParam}`, {
         credentials: 'include',
         signal: controller.signal,
       });
@@ -450,10 +477,12 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
       setSongs((prev) => {
         const next = [...prev, ...batch];
         const cacheKey = searchPageKey(q, songSubCategory);
-        searchCacheRef.current.set(cacheKey, { songs: next, hasMore: batch.length === PAGE_SIZE });
+        searchCacheRef.current.set(cacheKey, { songs: next, hasMore: data?.data?.hasMore ?? batch.length === PAGE_SIZE, sourceWarnings: data?.data?.sourceWarnings || [], nextOffset: data?.data?.nextOffset ?? nextOffset + PAGE_SIZE });
         return next;
       });
-      setHasMore(batch.length === PAGE_SIZE);
+      setHasMore(data?.data?.hasMore ?? batch.length === PAGE_SIZE);
+      setNextOffset(data?.data?.nextOffset ?? nextOffset + PAGE_SIZE);
+      setSongSourceWarnings(data?.data?.sourceWarnings || []);
     } catch (error) {
       if (error?.name !== 'AbortError' && generation === searchGenerationRef.current) {
         showToast(t("加载更多失败，请稍后重试"));
@@ -553,6 +582,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
 
   const toggleBulkSong = (song, event) => {
     event?.stopPropagation();
+    if (!canReferenceAccountSong(song)) return;
     setSelectedSongIds((current) => {
       const result = toggleSearchBulkSelection(current, song.id);
       if (result.limitReached) showToast(t("一次最多选择 {p0} 首歌曲", { p0: (MAX_SEARCH_BULK_SELECTION) }));
@@ -571,6 +601,10 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
     openAddToPlaylist(selectedSongs);
     closeBulkSelection();
   };
+
+  const sourceWarning = youtubeSearchWarning(subView === 'artists' ? fullArtistResults.sourceWarnings
+    : subView === 'albums' ? fullAlbumResults.sourceWarnings
+      : [...songSourceWarnings, ...(artistResults.sourceWarnings || []), ...(albumResults.sourceWarnings || [])]);
 
   return (
     <div className="app-page search-page">
@@ -623,24 +657,16 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
             disabled={!draftQuery.trim()}>{t('搜索')}</button>
         </form>
 
-        {status === 'error' && (
-          <div className="theme-empty mx-auto max-w-2xl rounded-2xl p-6 text-center text-sm">{t("搜索失败，请稍后重试。")}</div>
-        )}
+        {sourceWarning && <p role="status" className="mx-auto mb-6 max-w-2xl text-center text-sm text-[var(--muted)]">{t(sourceWarning)}</p>}
 
-        {status === 'loading' && (
-          <div className="w-full flex flex-col gap-1.5 animate-pulse" aria-label={t("正在加载搜索结果")}>
-            {[1, 2, 3, 4, 5].map((idx) => (
-              <div key={idx} className="track-row flex items-center gap-4 rounded-xl p-2 sm:px-3 bg-[var(--surface)]/60">
-                <div className="h-14 w-14 rounded-lg bg-[var(--line)]/50 shrink-0" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="h-4 w-3/5 rounded bg-[var(--line)]/60" />
-                  <div className="h-3 w-2/5 rounded bg-[var(--line)]/40" />
-                </div>
-                <div className="flex items-center gap-2 pr-1">
-                  <div className="h-8 w-8 rounded-full bg-[var(--line)]/30" />
-                </div>
-              </div>
-            ))}
+        {status === 'error' && (
+          <div role="alert" className="app-inline-notice mb-5 text-sm">
+            <span>{t("搜索失败，请稍后重试。")}</span>
+            <button type="button" className="app-section-link" onClick={() => {
+              searchCacheRef.current.delete(searchPageKey(query.trim(), songSubCategory));
+              invalidateCatalogSearch(query.trim(), songSubCategory);
+              setRefreshVersion(value => value + 1);
+            }}>{t('重试')}</button>
           </div>
         )}
 
@@ -660,18 +686,13 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {recentEntities.map((item) => (
                     <RecentSearchCard
-                      key={item.type === 'song' ? `song-${item.id}` : `artist-${item.name}`}
+                      key={item.type === 'song' ? `song-${item.id}` : `artist-${artistIdentity(item)}`}
                       item={item}
                       onPlaySong={(s) => {
                         playSong(s, [s]);
                         showToast(t("已开始播放 {p0}", { p0: (s.title) }));
                       }}
-                      onOpenArtist={(a) => {
-                        useUIStore.getState().openArtistDrawer({
-                          name: a.name,
-                          coverUrl: a.coverUrl,
-                        });
-                      }}
+                      onOpenArtist={handleOpenArtist}
                       onRemove={handleRemoveRecentEntity}
                     />
                   ))}
@@ -688,13 +709,13 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
           </div>
         )}
 
-        {subView === 'overview' && status === 'ready' && songs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status !== 'loading' && albumResults.status !== 'loading' && songSubCategory === 'all' && (
+        {subView === 'overview' && status === 'ready' && songs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status === 'ready' && albumResults.status === 'ready' && !artistResults.requestError && !albumResults.requestError && songSubCategory === 'all' && (
           <div className="theme-empty mx-auto max-w-2xl rounded-2xl p-8 text-center text-sm">{t("没有找到与“")}{query.trim()}{t("”匹配的内容。")}</div>
         )}
 
-        {status === 'ready' && (subView !== 'overview' || songs.length > 0 || matchedArtists.length > 0 || albumResults.items.length > 0 || songSubCategory !== 'all') && (
+        {['ready', 'loading', 'error'].includes(status) && (status !== 'ready' || subView !== 'overview' || songs.length > 0 || matchedArtists.length > 0 || albumResults.items.length > 0 || songSubCategory !== 'all' || artistResults.status !== 'ready' || albumResults.status !== 'ready' || artistResults.requestError || albumResults.requestError) && (
           <div className="w-full">
-            {subView === 'overview' && filteredSongs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && (
+            {subView === 'overview' && status === 'ready' && filteredSongs.length === 0 && matchedArtists.length === 0 && albumResults.items.length === 0 && artistResults.status === 'ready' && albumResults.status === 'ready' && !artistResults.requestError && !albumResults.requestError && (
               <div className="theme-empty mx-auto my-6 rounded-2xl p-8 text-center text-sm">
                 <p className="mb-3 text-[var(--muted)]">{t("当前筛选下没有与“")}{query.trim()}{t("”匹配的内容。")}</p>
                 {songSubCategory !== 'all' && (
@@ -710,7 +731,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
             {/* 概览模式 (Search Overview) */}
             <div hidden={subView !== 'overview'} style={subView === 'overview' ? undefined : { display: 'none' }}>
                 {/* 歌手 */}
-                {matchedArtists.length > 0 && (
+                {(matchedArtists.length > 0 || artistResults.status !== 'ready' || artistResults.requestError) && (
                   <div className="mb-8">
                     <div className="mb-3 px-1 flex items-center justify-between">
                       <SectionHeading title={t("歌手")} onViewAll={hasPreviewOverflow({
@@ -718,16 +739,17 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                         totalCount: artistResults.total ?? matchedArtists.length, hasMore: artistResults.hasMore,
                       }) ? () => navigateResults('artists') : null} />
                     </div>
+                    <CatalogReadState resource={artistResults} type="artists" overview>
                     <ArtistPreviewRow artists={matchedArtists.slice(0, 6)} onVisibleCountChange={setArtistVisibleCount}
                       onOpen={(artist) => {
-                        recordRecentEntity({ type: 'artist', name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
-                        useUIStore.getState().openArtistDrawer({ name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
+                        handleOpenArtist(artist);
                       }} />
+                    </CatalogReadState>
                   </div>
                 )}
 
                 {/* 3. 单曲紧凑预览 (Songs Preview) */}
-                {songs.length > 0 && (
+                {(songs.length > 0 || status === 'loading') && (
                   <div className="mb-8">
                     <div className="mb-3.5 flex items-center justify-between px-1">
                       <SectionHeading title={t("单曲")} onViewAll={hasPreviewOverflow({
@@ -745,7 +767,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                         <Play size={12} fill="currentColor" />{t("播放全部")}</button>
                     </div>
 
-                    <SongColumnShelf key={`${query}:${songSubCategory}`} label={t("单曲")}
+                    {status === 'loading' ? <CatalogSkeleton type="songs" /> : <SongColumnShelf key={`${query}:${songSubCategory}`} label={t("单曲")}
                       onOverflowChange={setSongScrollOverflow}>
                       {filteredSongs.slice(0, 20).map((song, idx) => {
                         const liked = likedIds.has(String(song.id));
@@ -788,35 +810,25 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                             onInsertNext={insertNextWithFeedback}
                             onToggleMenu={(songId) => setOpenMenuSongId((prev) => (prev === songId ? null : songId))}
                             onCloseMenu={() => setOpenMenuSongId(null)}
-                            onFilterArtist={(artist) => {
-                              const artistSongs = songs.filter(s => (s.artist || '').toLowerCase() === (artist || '').toLowerCase());
-                              recordRecentEntity({
-                                type: 'artist',
-                                name: artist,
-                                coverUrl: song.cover_url,
-                              });
-                              useUIStore.getState().openArtistDrawer({
-                                name: artist,
-                                songs: artistSongs.length > 0 ? artistSongs : [song],
-                                coverUrl: song.cover_url,
-                              });
-                            }}
+                            onFilterArtist={(name) => handleOpenArtist(artistFromSong(song, name))}
                           />
                         );
                       })}
-                    </SongColumnShelf>
+                    </SongColumnShelf>}
                   </div>
                 )}
 
-                {albumResults.items.length > 0 && (
+                {(albumResults.items.length > 0 || albumResults.status !== 'ready' || albumResults.requestError) && (
                   <div className="mb-8">
                     <div className="mb-3 px-1"><SectionHeading title={t("专辑")} onViewAll={hasPreviewOverflow({
                       renderedCount: Math.min(albumResults.items.length, 10), visibleCount: albumVisibleCount,
                       totalCount: albumResults.total ?? albumResults.items.length, hasMore: albumResults.hasMore,
                     }) ? () => navigateResults('albums') : null} /></div>
+                    <CatalogReadState resource={albumResults} type="albums" overview>
                     <AlbumPreviewGrid albums={albumResults.items.slice(0, 10)}
                       onVisibleCountChange={setAlbumVisibleCount}
                       onOpen={(album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }))} />
+                    </CatalogReadState>
                   </div>
                 )}
             </div>
@@ -870,7 +882,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                           <button
                             type="button"
                             onClick={() => setIsBulkSelecting(true)}
-                            disabled={filteredSongs.length === 0}
+                            disabled={!filteredSongs.some(canReferenceAccountSong)}
                             className="search-action-btn"
                             title={t("选择多首歌曲加入歌单")}
                           >
@@ -882,6 +894,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                 </div>
 
                 {/* 单曲全量列表 */}
+                {status === 'loading' && <CatalogSkeleton type="songs" overview={false} trackGridClassName="full-song-grid" />}
                 <div className={`full-song-grid transition-opacity duration-200 ${isFiltering ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                   {filteredSongs.map((song, idx) => {
                     const liked = likedIds.has(String(song.id));
@@ -924,19 +937,7 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                         onInsertNext={insertNextWithFeedback}
                         onToggleMenu={(songId) => setOpenMenuSongId((prev) => (prev === songId ? null : songId))}
                         onCloseMenu={() => setOpenMenuSongId(null)}
-                        onFilterArtist={(artist) => {
-                          const artistSongs = songs.filter(s => (s.artist || '').toLowerCase() === (artist || '').toLowerCase());
-                          recordRecentEntity({
-                            type: 'artist',
-                            name: artist,
-                            coverUrl: song.cover_url,
-                          });
-                          useUIStore.getState().openArtistDrawer({
-                            name: artist,
-                            songs: artistSongs.length > 0 ? artistSongs : [song],
-                            coverUrl: song.cover_url,
-                          });
-                        }}
+                        onFilterArtist={(name) => handleOpenArtist(artistFromSong(song, name))}
                       />
                     );
                   })}
@@ -961,19 +962,22 @@ export default function SearchView({ route, onBack, songsMap, cache }) {
                 <h2 className="text-2xl sm:text-3xl font-bold mb-7">{subView === 'artists' ? t("歌手") : t("专辑")}</h2>
                 {subView === 'artists' ? (
                   <>
+                    <CatalogReadState resource={fullArtistResults} type="artists" emptyLabel={t('暂无歌手')}>
                     <div className="artist-full-grid">
-                      {fullArtistResults.items.map((artist) => <ArtistCard key={artist.name} artist={artist} onOpen={() => {
-                        recordRecentEntity({ type: 'artist', name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
-                        useUIStore.getState().openArtistDrawer({ name: artist.name, coverUrl: artist.photoUrl || artist.coverUrl });
+                      {fullArtistResults.items.map((artist) => <ArtistCard key={artist.id || artist.name} artist={artist} onOpen={() => {
+                        handleOpenArtist(artist);
                       }} />)}
                     </div>
-                    {fullArtistResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullArtistResults.loadMore} disabled={fullArtistResults.loadingMore}>{fullArtistResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
+                    </CatalogReadState>
+                    {fullArtistResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullArtistResults.loadMore} disabled={fullArtistResults.loadingMore || fullArtistResults.refreshing}>{fullArtistResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
                   </>
                 ) : (
                   <>
+                    <CatalogReadState resource={fullAlbumResults} type="albums" emptyLabel={t('暂无专辑')}>
                     <AlbumPreviewGrid albums={fullAlbumResults.items} maxRows={Infinity}
                       onOpen={(album) => syncBrowserHistory(formatPath({ type: 'album', id: album.id }))} />
-                    {fullAlbumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullAlbumResults.loadMore} disabled={fullAlbumResults.loadingMore}>{fullAlbumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
+                    </CatalogReadState>
+                    {fullAlbumResults.hasMore && <button type="button" className="secondary-button mt-6 px-4 py-2" onClick={fullAlbumResults.loadMore} disabled={fullAlbumResults.loadingMore || fullAlbumResults.refreshing}>{fullAlbumResults.loadingMore ? t("加载中…") : t("加载更多")}</button>}
                   </>
                 )}
               </div>

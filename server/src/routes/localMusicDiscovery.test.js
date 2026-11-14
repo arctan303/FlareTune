@@ -53,12 +53,10 @@ test('empty new catalog returns stable discovery shapes', async () => {
   assert.deepEqual((await random.json()).data, { songs: [] });
   assert.deepEqual((await (await call(db, '/api/songs/resolve', { method: 'POST', body: { song_ids: ['absent'] } })).json()).data,
     { songs: [], missing_ids: ['absent'] });
-  assert.deepEqual((await (await call(db, '/api/songs/roam', { method: 'POST', body: { seenSongIds: [] } })).json()).data,
-    { songs: [], language: 'all', limit: 10, totalPlayable: 0, seenPlayable: 0, remainingPlayable: 0, exhausted: true });
   assert.equal((await (await call(db, '/api/songs/spotlight-artist')).json()).data, null);
 });
 
-test('random, resolve and roam return only playable baseline song fields', async () => {
+test('random and resolve return only playable baseline song fields', async () => {
   const db = createDb();
   seed(db);
   const random = (await (await call(db, '/api/songs/random?limit=4&exclude=track-a')).json()).data.songs;
@@ -73,25 +71,11 @@ test('random, resolve and roam return only playable baseline song fields', async
   assert.deepEqual(resolved.missing_ids, ['track-no-audio', 'absent']);
   assert.deepEqual(Object.keys(resolved.songs[0]).sort(),
     ['id', 'title', 'artist', 'album', 'duration', 'audio_url', 'cover_url', 'language'].sort());
-  const roam = (await (await call(db, '/api/songs/roam', {
-    method: 'POST', body: { seenSongIds: ['track-a', 'track-no-audio'], limit: 1, language: 'en' },
-  })).json()).data;
-  assert.equal(roam.songs.length, 1);
-  assert.ok(['track-c', 'track-unknown'].includes(roam.songs[0].id));
-  assert.deepEqual({ totalPlayable: roam.totalPlayable, seenPlayable: roam.seenPlayable,
-    remainingPlayable: roam.remainingPlayable, exhausted: roam.exhausted },
-  { totalPlayable: 3, seenPlayable: 1, remainingPlayable: 1, exhausted: false });
 });
 
-test('roam exhaustion and spotlight exclusion/fallback use only playable songs', async () => {
+test('spotlight exclusion/fallback uses only playable songs', async () => {
   const db = createDb();
   seed(db);
-  const roam = (await (await call(db, '/api/songs/roam', {
-    method: 'POST', body: { seenSongIds: ['track-a', 'track-c'], limit: 5, language: 'en' },
-  })).json()).data;
-  assert.deepEqual(roam.songs.map((song) => song.id), ['track-unknown']);
-  assert.equal(roam.exhausted, true);
-  assert.equal(roam.remainingPlayable, 0);
   const featured = (await (await call(db, '/api/songs/spotlight-artist')).json()).data;
   assert.equal(featured.artist, 'Artist One');
   assert.deepEqual(featured.songs.map((song) => song.id), ['track-a', 'track-b']);
@@ -118,8 +102,8 @@ test('discovery route requires account and rejects invalid input before data rea
   assert.equal((await call(db, '/api/songs/resolve', {
     method: 'POST', body: { song_ids: ['track-a'], padding: 'x'.repeat(65 * 1024) },
   })).status, 400);
-  assert.equal((await call(db, '/api/songs/roam', { method: 'POST', body: { seenSongIds: 'track-a' } })).status, 400);
-  assert.equal((await call(db, '/api/songs/roam', { method: 'POST', body: { seenSongIds: [], language: 'unknown' } })).status, 400);
+  assert.equal(await call(db, '/api/songs/roam', { method: 'POST', body: { seenSongIds: [] } }), null,
+    'roam is dispatched only through the plugin router');
   assert.equal((await call(db, '/api/songs/spotlight-artist?exclude=%00')).status, 400);
   assert.equal(await call(db, '/api/songs/random', { method: 'POST', body: {} }), null);
   assert.equal(await call(db, '/api/songs/search'), null);

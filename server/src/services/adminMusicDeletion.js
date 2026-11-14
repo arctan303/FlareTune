@@ -18,6 +18,7 @@ import {
 } from './adminMusicMedia.js';
 import { buildLyricArtifactMarker, createLyricArtifactStore } from './lyricArtifactStore.js';
 import { invalidateLyricsResolutionCache } from './lyricResolution.js';
+import { externalMusicSchemaReady } from './externalMusicReferences.js';
 
 function validateIds(rawIds) {
     if (!Array.isArray(rawIds) || rawIds.length < 1 || rawIds.length > MAX_BATCH_SONGS) {
@@ -387,17 +388,52 @@ export async function handleDelete(request, db, env, headers) {
                     SELECT 1 FROM Member_Playlists WHERE id = ? AND revision = ?
                 )`).bind(playlist.id, playlist.id, playlist.revision));
             const affectedIds = impact.affectedPlaylists.map((playlist) => playlist.id);
+            let reorderStatements;
+            if (affectedIds.length && await externalMusicSchemaReady(db)) {
+                // Read one stable mixed ordering before the guarded batch. Any
+                // concurrent playlist mutation advances the revision and aborts
+                // the batch above; both source tables receive this same rank
+                // snapshot rather than recomputing after the first UPDATE.
+                const deleting = new Set(foundIds);
+                const positions = [];
+                for (let offset = 0; offset < affectedIds.length; offset += 90) {
+                    const chunk = affectedIds.slice(offset, offset + 90);
+                    const result = await db.prepare(`SELECT playlist_id, song_id, source
+                        FROM Member_All_Playlist_Songs WHERE playlist_id IN (${placeholders(chunk.length)})
+                        ORDER BY playlist_id, sort_order, song_id`).bind(...chunk).all();
+                    const orderByPlaylist = new Map();
+                    for (const row of result.results || []) {
+                        if (row.source === 'local' && deleting.has(row.song_id)) continue;
+                        const order = orderByPlaylist.get(row.playlist_id) || 0;
+                        positions.push([row.playlist_id, row.song_id, row.source, order]);
+                        orderByPlaylist.set(row.playlist_id, order + 1);
+                    }
+                }
+                const serialized = JSON.stringify(positions);
+                reorderStatements = [['Member_Playlist_Songs', 'local'], ['Member_External_Playlist_Songs', 'youtube']]
+                    .map(([table, source]) => db.prepare(`WITH ranked AS MATERIALIZED (
+                        SELECT json_extract(value, '$[0]') AS playlist_id, json_extract(value, '$[1]') AS song_id,
+                            json_extract(value, '$[3]') AS next_order FROM json_each(?)
+                        WHERE json_extract(value, '$[2]') = ?
+                    ) UPDATE ${table} SET sort_order = (
+                        SELECT next_order FROM ranked WHERE ranked.playlist_id = ${table}.playlist_id
+                            AND ranked.song_id = ${table}.song_id
+                    ) WHERE EXISTS (SELECT 1 FROM ranked WHERE ranked.playlist_id = ${table}.playlist_id
+                        AND ranked.song_id = ${table}.song_id)`).bind(serialized, source));
+            } else {
+                reorderStatements = affectedIds.map((id) => db.prepare(`WITH ranked AS MATERIALIZED (
+                    SELECT song_id, ROW_NUMBER() OVER (ORDER BY sort_order, song_id) - 1 AS next_order
+                    FROM Member_Playlist_Songs WHERE playlist_id = ?
+                ) UPDATE Member_Playlist_Songs SET sort_order = (
+                    SELECT next_order FROM ranked WHERE ranked.song_id = Member_Playlist_Songs.song_id
+                ) WHERE playlist_id = ?`).bind(id, id));
+            }
             await db.batch([
                 ...guards,
                 ...playlistGuards,
                 db.prepare(`DELETE FROM Lyric_Translations WHERE song_id IN (${marker})`).bind(...foundIds),
                 db.prepare(`DELETE FROM Songs WHERE id IN (${marker})`).bind(...foundIds),
-                ...affectedIds.map((id) => db.prepare(`WITH ranked AS MATERIALIZED (
-                    SELECT song_id, ROW_NUMBER() OVER (ORDER BY sort_order, song_id) - 1 AS next_order
-                    FROM Member_Playlist_Songs WHERE playlist_id = ?
-                ) UPDATE Member_Playlist_Songs SET sort_order = (
-                    SELECT next_order FROM ranked WHERE ranked.song_id = Member_Playlist_Songs.song_id
-                ) WHERE playlist_id = ?`).bind(id, id)),
+                ...reorderStatements,
                 ...(affectedIds.length ? [db.prepare(`UPDATE Member_Playlists
                     SET revision = revision + 1, updated_at = ? WHERE id IN (${placeholders(affectedIds.length)})`)
                     .bind(Date.now(), ...affectedIds)] : []),

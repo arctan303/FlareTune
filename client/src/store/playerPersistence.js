@@ -1,5 +1,4 @@
 import { createJSONStorage } from 'zustand/middleware';
-import { shallow } from 'zustand/vanilla/shallow';
 
 const samePersistedState = (previous, next) => {
   if (!previous || previous.version !== next.version) return false;
@@ -8,17 +7,13 @@ const samePersistedState = (previous, next) => {
   if (!previousState || !nextState) return previousState === nextState;
   const keys = Object.keys(nextState);
   return keys.length === Object.keys(previousState).length
-    && keys.every((key) => Object.hasOwn(previousState, key) && (
-      key === 'randomRoam'
-        ? shallow(previousState[key], nextState[key])
-        : Object.is(previousState[key], nextState[key])
-    ));
+    && keys.every((key) => Object.hasOwn(previousState, key) && Object.is(previousState[key], nextState[key]));
 };
 
 /**
  * Deduplicate the partialized player snapshot before JSON serialization.
- * Queue/song updates use immutable replacements; randomRoam is shallowly
- * compared because partialize creates a copy to strip autoplay authorization.
+ * Queue/song and preference updates use immutable replacements. Continuation
+ * authorization belongs to a runtime registration and is never persisted.
  * The supplied string storage still owns write throttling and removal.
  */
 export function createPlayerPersistenceStorage(getStorage) {

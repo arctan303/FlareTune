@@ -4,6 +4,8 @@
 
 These guides are for users and instance administrators. The root [README](../README.en.md) introduces the project.
 
+The current stable release is **1.2.1**; 1.3.0 is being prepared. See [deployment and updates](deployment.en.md#system-updates-in-administration) for initial channel setup, routine confirmation and recovery boundaries. Older sites without the update API first need a compatible transition deployment; never overwrite their databases with a new installation. [Plugin sources and deployment](plugin-deployment.en.md) covers plugin selection and builds separately.
+
 Start with the [live demo](https://flaretune.arcinks.com): listen, try playlists and explore full settings without signing in. Then follow the [deployment guide](deployment.en.md) to create your private library. [Demo details](demo.en.md) explain browser data, fixed assistant replies and music licenses.
 
 | Guide | Contents |
@@ -11,7 +13,8 @@ Start with the [live demo](https://flaretune.arcinks.com): listen, try playlists
 | [Demo and experience boundaries](demo.en.md) | Public music, local data, full settings and fixed assistant replies |
 | [Using FlareTune](using-flaretune.en.md) | Search, playback, personal playlists, assistant, and settings |
 | [Google sign-in](google-login.en.md) | Configuration, account linking and sign-in without the local password |
-| [Deployment and setup](deployment.en.md) | Installation, secret verification, and database upgrades |
+| [Deployment and setup](deployment.en.md) | Installation, secrets, system updates, database upgrades and recovery |
+| [Plugin sources and deployment](plugin-deployment.en.md) | Permissions, catalogs, pinned packages, build channels, host upgrades and recovery |
 | [Third-party clients](subsonic.en.md) | Subsonic opt-in, connection, and supported features |
 | [Administration](administration.en.md) | Admin entry points, database upgrades, and data protection |
 | [Local ingest device](../tooling/ingest-agent/README.en.md) | Node.js setup, selecting songs across devices, language mapping, and troubleshooting |

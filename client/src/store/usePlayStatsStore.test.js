@@ -801,3 +801,117 @@ test('usePlayStatsStore: preserves language without retired visibility metadata 
   assert.equal(state.songMetaMap['legacy-song']?.language, 'ja');
   assert.equal(state.topSongs[0]?.language, 'ja');
 });
+
+
+test('YouTube qualified plays enter account statistics with source metadata while invalid source ids are rejected', () => {
+  resetStats({ownerSubject:'account-a',identityReady:true});
+  const store=usePlayStatsStore.getState();
+  const song={id:'yt:QBtVFL0Qefs',source:'youtube',sourceId:'QBtVFL0Qefs',title:'YT song',artist:'A',
+    audio_url:'/media/youtube/audio/QBtVFL0Qefs',cover_url:'/media/youtube/image?url=x',
+    artists:[{id:'yt:artist:UCtest',name:'A'}],albumId:'yt:album:MPREb_test'};
+  store.recordQualifiedPlay(song);
+  store.recordQualifiedPlay({id:'opaque-id',source:'youtube'});
+  const state=usePlayStatsStore.getState();
+  assert.equal(state.pendingQueue.length,1);
+  assert.equal(state.pendingQueue[0].song_id,song.id);
+  assert.deepEqual(Object.keys(state.pendingQueue[0]).sort(),['event_id','played_at','song_id']);
+  assert.equal(state.totalPlays,1);
+  assert.equal(state.topSongs[0].source,'youtube');
+  assert.equal(state.topSongs[0].sourceId,'QBtVFL0Qefs');
+  assert.deepEqual(state.topSongs[0].artists,song.artists);
+  assert.equal(state.topSongs[0].albumId,song.albumId);
+  assert.equal(state.topSongs[0].audio_url,song.audio_url);
+  assert.equal([...memoryStore.keys()].filter(key=>key.startsWith('music-play-stats-pending-v1:')).length,1);
+  store.recordQualifiedPlay('local-song');
+  assert.equal(usePlayStatsStore.getState().pendingQueue.length,2);
+  resetSyncBackoff();
+});
+
+
+test('partial playback acknowledgements retire local events once and retry the same pending YouTube id later', async () => {
+  resetStats({ownerSubject:'account-a',identityReady:true});
+  const store=usePlayStatsStore.getState(), beforeFetch=globalThis.fetch;
+  store.recordQualifiedPlay({id:'yt:QBtVFL0Qefs',source:'youtube',title:'YT'});
+  store.recordQualifiedPlay('local-song');
+  const [ytEvent,localEvent]=usePlayStatsStore.getState().pendingQueue;
+  const sent=[];let acceptYouTube=false;
+  globalThis.fetch=async (_url,init)=>{
+    const {events}=JSON.parse(init.body);sent.push(events);
+    assert.ok(events.every(event=>Object.keys(event).sort().join(',')==='event_id,played_at,song_id'));
+    return Response.json({ok:true,data:{recorded:events.length,acceptedEventIds:events
+      .filter(event=>acceptYouTube||event.song_id==='local-song').map(event=>event.event_id)}});
+  };
+  try {
+    const partial=await store.flushQueue({force:true});
+    assert.equal(partial.ok,false);assert.equal(partial.partial,true);assert.equal(partial.reason,'unconfirmed-events');
+    assert.equal(partial.submitted,1);assert.equal(partial.remaining,1);assert.ok(partial.retryAfterMs>0);
+    assert.deepEqual(usePlayStatsStore.getState().pendingQueue,[ytEvent]);
+    assert.equal([...memoryStore.values()].includes(JSON.stringify(localEvent)),false);
+    assert.equal(sent.length,1,'the same partial batch is not retried inside one flush');
+    const cooling=await store.flushQueue();assert.equal(cooling.reason,'cooling-down');assert.equal(sent.length,1);
+    acceptYouTube=true;
+    const complete=await store.flushQueue({force:true});
+    assert.equal(complete.ok,true);assert.equal(complete.submitted,1);
+    assert.deepEqual(sent[1],[ytEvent]);assert.deepEqual(usePlayStatsStore.getState().pendingQueue,[]);
+    assert.equal(usePlayStatsStore.getState().getPlayCount(ytEvent.song_id),1);
+    assert.equal(usePlayStatsStore.getState().getPlayCount(localEvent.song_id),1);
+  } finally {globalThis.fetch=beforeFetch;resetSyncBackoff();}
+});
+
+test('unconfirmed YouTube batches do not starve later local events or create an immediate retry loop', async () => {
+  const now=Date.now();
+  const ytEvents=Array.from({length:25},(_,index)=>({event_id:`yt_event_${index}`,song_id:`yt:aaaaaaaaa${String(index).padStart(2,'0')}`,played_at:now+index}));
+  const local={event_id:'local_event_after_25',song_id:'local-later',played_at:now+30};
+  resetStats({ownerSubject:'account-a',identityReady:true,pendingQueue:[...ytEvents,local]});
+  const beforeFetch=globalThis.fetch,requests=[];
+  globalThis.fetch=async (_url,init)=>{
+    const {events}=JSON.parse(init.body);requests.push(events);
+    return Response.json({ok:true,data:{acceptedEventIds:events.filter(event=>event.song_id===local.song_id).map(event=>event.event_id)}});
+  };
+  try {
+    const result=await usePlayStatsStore.getState().flushQueue({force:true});
+    assert.deepEqual(requests.map(events=>events.length),[25,1]);
+    assert.equal(result.submitted,1);assert.equal(result.remaining,25);
+    assert.deepEqual(usePlayStatsStore.getState().pendingQueue,ytEvents);
+  } finally {globalThis.fetch=beforeFetch;resetSyncBackoff();}
+});
+
+test('partial A acknowledgements cannot clear B or unsubmitted event ids after an account switch', async () => {
+  resetStats({ownerSubject:'account-a',identityReady:true});
+  const store=usePlayStatsStore.getState(),beforeFetch=globalThis.fetch;
+  store.recordQualifiedPlay({id:'yt:QBtVFL0Qefs',source:'youtube',title:'A YT'});
+  store.recordQualifiedPlay('local-a');
+  const [ytA,localA]=usePlayStatsStore.getState().pendingQueue;
+  let release;
+  globalThis.fetch=async ()=>new Promise(resolve=>{release=ids=>resolve(Response.json({ok:true,data:{acceptedEventIds:ids}}));});
+  try {
+    const flushing=store.flushQueue({force:true});
+    store.setSubject('account-b');store.recordQualifiedPlay({id:'yt:QBtVFL0Qefs',source:'youtube',title:'B YT'});
+    const bEvent=usePlayStatsStore.getState().pendingQueue[0];
+    release([localA.event_id,bEvent.event_id,'not_submitted']);
+    const result=await flushing;assert.equal(result.reason,'identity-changed');assert.equal(result.submitted,1);
+    assert.deepEqual(usePlayStatsStore.getState().pendingQueue,[bEvent]);
+    assert.equal(usePlayStatsStore.getState().topSongs[0].title,'B YT');
+    store.setSubject('account-a');
+    assert.deepEqual(usePlayStatsStore.getState().pendingQueue,[ytA]);
+  } finally {globalThis.fetch=beforeFetch;resetSyncBackoff();}
+});
+
+test('remote account statistics preserve YouTube metadata for common listening previews and replay', async () => {
+  resetStats({ownerSubject:'account-a',identityReady:true});
+  const beforeFetch=globalThis.fetch;
+  const song={id:'yt:QBtVFL0Qefs',source:'youtube',sourceId:'QBtVFL0Qefs',title:'YT song',artist:'A',
+    audio_url:'/media/youtube/audio/QBtVFL0Qefs',cover_url:'/media/youtube/image?url=x',
+    artists:[{id:'yt:artist:UCtest',name:'A'}],albumId:'yt:album:MPREb_test',play_count:4,last_played_at:Date.now()};
+  globalThis.fetch=async ()=>Response.json({ok:true,data:{songs:[song],playCounts:{[song.id]:4},totalPlays:4,totalUniqueSongs:1}});
+  try {
+    assert.equal((await usePlayStatsStore.getState().refreshRemoteStats()).ok,true);
+    const state=usePlayStatsStore.getState();
+    for(const saved of [state.topSongs[0],state.listeningPreview[0]]) {
+      assert.equal(saved.source,'youtube');assert.equal(saved.sourceId,song.sourceId);
+      assert.equal(saved.audio_url,song.audio_url);assert.equal(saved.cover_url,song.cover_url);
+      assert.deepEqual(saved.artists,song.artists);assert.equal(saved.albumId,song.albumId);
+    }
+    assert.equal(state.getPlayCount(song.id),4);
+  } finally {globalThis.fetch=beforeFetch;resetSyncBackoff();}
+});

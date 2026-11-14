@@ -1,9 +1,56 @@
 import generated from './en.auto.js';
 import database from './database.js';
+import plugins from './plugins.js';
+import youtube from './youtube.js';
+import pluginDelivery from './pluginDelivery.js';
+import uiRepairs from './uiRepairs.js';
+import pluginCatalog from './pluginCatalog.js';
+import pluginOverview from './pluginOverview.js';
+import systemUpdate from './systemUpdate.js';
+import speakerOutput from './speakerOutput.js';
 
 // Chinese source copy is the stable key until every screen has migrated.
-// Keep the English wording here so contributors can review one language in one file.
+// Feature catalogs share the same Chinese source keys and translation rules.
 export default Object.freeze({
+  ...systemUpdate,
+  ...pluginCatalog,
+  ...pluginOverview,
+  ...plugins,
+  ...youtube,
+  ...pluginDelivery,
+  ...uiRepairs,
+  "插件": "Plugins",
+  "我的插件": "My plugins",
+  "返回插件列表": "Back to plugins",
+  "小米音箱": "Xiaomi speakers",
+  "小米音箱插件尚未安装，请联系管理员。": "The Xiaomi speaker plugin is not installed. Contact your administrator.",
+  "插件已卸载，音箱输出已关闭。": "The plugin was uninstalled. Speaker output is now off.",
+  "连接本人的小米账号，将网页播放器输出到小爱音箱。": "Connect your own Xiaomi account to play the web player's audio on Xiao AI speakers.",
+  "概览": "Overview",
+  "账号连接": "Account connection",
+  "音箱设备": "Speaker devices",
+  "播放输出": "Playback output",
+  "请先在账号连接中连接本人的小米账号。": "Connect your own Xiaomi account in Account connection first.",
+  "在播放器更多菜单中打开“音箱输出”，选择音箱后启用。": "Open Speaker output in the player's More menu, choose a speaker, then enable it.",
+  "插件列表加载失败，请重试。": "Could not load plugins. Please try again.",
+  "插件状态已变化，请刷新后重试。": "The plugin state has changed. Refresh and try again.",
+  "插件安装状态未保存，请重试。": "The plugin installation state could not be saved. Please try again.",
+  "卸载插件": "Uninstall plugin",
+  "安装插件": "Install plugin",
+  "卸载作用于整个站点，保留各用户的小米账号绑定。现有媒体链接将失效；音箱已缓冲的音频可能继续播放。": "Uninstalling affects the entire site and retains users' Xiaomi account connections. Existing media links will become invalid; audio already buffered on a speaker may continue playing.",
+  "安装作用于整个站点。每位用户需要连接本人的小米账号，授权不会在用户之间共享。": "Installation applies to the entire site. Each user connects their own Xiaomi account; authorization is never shared between users.",
+  "仅管理员可管理站点插件。": "Only administrators can manage site plugins.",
+  "演示模式无法安装或管理插件。": "Plugins cannot be installed or managed in Demo mode.",
+  "当前版本未注册此插件。": "This plugin is not registered in the current version.",
+  "已安装": "Installed",
+  "未安装": "Not installed",
+  "插件默认不安装；安装与卸载作用于整个站点。账号授权属于本人，不共享凭据。": "Plugins are not installed by default. Installation and removal apply to the entire site. Account authorization belongs to each user; credentials are never shared.",
+  "管理站点安装": "Manage site installation",
+  "查看插件": "View plugin",
+  "暂无可用插件。": "No plugins are available.",
+  "站点尚未安装可用插件，请联系管理员。": "No plugins are installed on this site. Contact your administrator.",
+  "插件内容加载失败，请重试。": "Could not load this plugin. Please try again.",
+  ...speakerOutput,
   "上游暂时限制了请求，请稍后重试。": "The lyric service is temporarily limiting requests. Try again later.",
   "本次检索已达到请求上限，请减少来源后重试。": "This search reached its request limit. Select fewer sources and try again.",
   "{seconds} 秒后可重试": "Retry in {seconds}s",
@@ -884,4 +931,10 @@ export default Object.freeze({
   "至少提供 name 或 description。": "Provide at least a name or description.",
   "收藏歌单不可改名。": "The Favorites playlist cannot be renamed.",
   "每个歌单最多保存 500 首歌曲。": "Each playlist can contain up to 500 songs.",
+  "歌词来源顺序": "Lyric source order",
+  "上移“{name}”": "Move “{name}” up",
+  "下移“{name}”": "Move “{name}” down",
+  "正在加载…": "Loading…",
+  "歌词请求暂时无法完成，请重试。": "The lyric request could not be completed. Please try again.",
+  "歌词翻译请求失败，请重试。": "The lyric translation request failed. Please try again."
 });

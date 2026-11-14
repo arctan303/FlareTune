@@ -12,7 +12,8 @@ import { localPersonalPlaylistsTool } from '../../server/src/tools/localPersonal
 import { localListeningStatsTool } from '../../server/src/tools/localListeningStats.js';
 import { musicQueryTool } from '../../server/src/tools/musicQuery.js';
 import { playerSeekTool } from '../../server/src/tools/playerSeek.js';
-import { roamControlTool } from '../../server/src/tools/roamControl.js';
+import { createRoamControlTool } from '../../server/src/tools/roamControl.js';
+import { roamFixture } from '../../server/src/plugins/roam/test-support.js';
 import { playerQueueTool } from '../../server/src/tools/playerQueue.js';
 import { musicControlTool } from '../../server/src/tools/musicControl.js';
 import { songDetailsTool } from '../../server/src/tools/songDetails.js';
@@ -37,8 +38,12 @@ function fixture() {
     return { sqlite, db };
 }
 
-test('actual tool summaries localize after live events and old history in all five languages', async () => {
+test('actual tool summaries localize after live events and old history in all five languages', async testContext => {
     const { sqlite, db } = fixture();
+    const roam = await roamFixture(testContext);
+    await roam.install();
+    const roamControlTool = createRoamControlTool({ registry: roam.registry });
+    const roamContext = { env: roam.env, session: roam.signed.session };
     try {
         const context = { db, accountId: 'account' };
         const results = await Promise.all([
@@ -52,8 +57,8 @@ test('actual tool summaries localize after live events and old history in all fi
                 playbackState: { isPlaying: false, isBuffering: true, progress: 50, duration: 200 } }),
             playerSeekTool.execute({ position: 30 }),
             playerSeekTool.execute({ mode: 'percent', position: 50 }),
-            roamControlTool.execute({ action: 'enable', language: 'zh' }),
-            roamControlTool.execute({ action: 'disable' }),
+            roamControlTool.execute({ action: 'enable', language: 'zh' }, roamContext),
+            roamControlTool.execute({ action: 'disable' }, roamContext),
             playerQueueTool.execute({ action: 'append', song_ids: ['song'] }, context),
             playerQueueTool.execute({ action: 'insert_next', song_ids: ['song'] }, context),
             playerQueueTool.execute({ action: 'replace', song_ids: ['song'] }, context),

@@ -1,3 +1,4 @@
+import { isYouTubeEntity } from '../utils/musicSource.js';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createResilientStorage } from '../utils/browserStorage.js';
@@ -45,6 +46,11 @@ export const usePlayHistoryStore = create(
           cover_url: song.cover_url || '',
           language: song.language || null,
           playedAt: Date.now(),
+          ...(isYouTubeEntity(song) ? {
+            source: 'youtube', sourceId: song.sourceId || song.source_id || songId.slice(3),
+            artists: (song.artists || []).map(artist => ({ id: artist.id, name: artist.name })),
+            albumId: song.albumId,
+          } : {}),
         };
 
         set((state) => {

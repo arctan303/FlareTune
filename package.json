@@ -1,10 +1,15 @@
 {
   "name": "flaretune",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "A self-hosted personal audio streaming application for Cloudflare Workers.",
   "private": true,
   "type": "module",
   "scripts": {
+    "pretest": "node tooling/plugins/seed.mjs hydrate && node tooling/build/system-update-runtime.mjs generate",
+    "prebuild": "node tooling/plugins/seed.mjs hydrate && node tooling/build/system-update-runtime.mjs generate",
+    "predemo:build": "node tooling/plugins/seed.mjs hydrate",
+    "predev:worker": "node tooling/plugins/seed.mjs hydrate",
+    "predev": "node tooling/plugins/seed.mjs hydrate",
     "dev": "vite --config client/vite.config.js",
     "dev:cloud": "node tooling/dev/start-cloud-client.mjs",
     "dev:worker": "wrangler dev --config server/wrangler.local.toml --port 8789 --ip 127.0.0.1 --persist-to worker/.wrangler/state",
@@ -14,16 +19,33 @@
     "ingest:pack": "node tooling/ingest-agent/package.mjs",
     "ingest:verify-package": "node tooling/ingest-agent/smoke-package.mjs",
     "ingest:agent": "node --experimental-sqlite tooling/ingest-agent/cli.mjs start",
-    "build": "vite build --config client/vite.config.js && node tooling/verify/verify-worker-assets.mjs",
+    "plugins:lock": "node tooling/plugins/verify.mjs --update",
+    "updates:runtime": "node tooling/build/system-update-runtime.mjs generate",
+    "updates:build": "node tooling/updates/bootstrap.mjs run",
+    "plugins:verify": "node tooling/plugins/verify.mjs",
+    "plugins:prepare": "node tooling/plugins/delivery.mjs prepare",
+    "plugins:prepare-current": "node tooling/plugins/delivery.mjs prepare-current",
+    "plugins:prepare-host-upgrade": "node tooling/plugins/delivery.mjs prepare-host-upgrade",
+    "plugins:seed": "node tooling/plugins/seed.mjs bootstrap",
+    "plugins:hydrate": "node tooling/plugins/seed.mjs hydrate",
+    "plugins:ci-build": "node tooling/plugins/ci-channel.mjs build",
+    "plugins:ci-deploy": "node tooling/plugins/ci-channel.mjs deploy",
+    "plugins:check-plan": "node tooling/plugins/delivery.mjs check-plan",
+    "plugins:report": "node tooling/plugins/delivery.mjs report",
+    "plugins:deploy": "node tooling/plugins/delivery-deploy.mjs",
+    "build": "npm run plugins:verify && vite build --config client/vite.config.js && node tooling/verify/verify-worker-assets.mjs",
     "demo:media": "node tooling/demo/prepare-media.mjs",
     "demo:dev": "vite --config demo/vite.config.js",
-    "demo:build": "node tooling/demo/verify-media.mjs && vite build --config demo/vite.config.js",
+    "demo:build": "npm run plugins:verify && node tooling/demo/verify-media.mjs && vite build --config demo/vite.config.js",
     "demo:deploy": "npm run demo:build && wrangler deploy --config demo/wrangler.toml",
     "test": "node tooling/verify/run-source-tests.mjs",
     "preview": "npm run preview:worker",
     "preview:worker": "npm run build && node tooling/dev/preview-worker.mjs",
     "verify:worker": "npm run build && wrangler deploy --config wrangler.toml --dry-run",
     "deploy": "wrangler deploy --config wrangler.toml",
+    "predeploy": "node tooling/plugins/assert-release-source.mjs",
+    "predeploy:worker": "node tooling/plugins/assert-release-source.mjs",
+    "predemo:deploy": "node tooling/plugins/assert-release-source.mjs",
     "deploy:worker": "wrangler deploy --config wrangler.toml",
     "deploy:dev:ci": "node tooling/deploy/dev-ci.mjs",
     "verify:dist-css": "node tooling/verify/verify-dist-css.mjs",
@@ -45,7 +67,7 @@
         "description": "FlareTune stores audio, artwork, and generated lyric artifacts in this private R2 bucket."
       },
       "SETUP_SECRET": {
-        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI keys, the optional Google Client Secret, and opt-in Subsonic password copies. Rotating it requires re-entering AI/Google secrets and re-enabling Subsonic; it cannot reset an administrator."
+        "description": "Generate a high-entropy secret. It claims a new instance and encrypts saved AI keys, the optional Google Client Secret, opt-in Subsonic password copies and optional Xiaomi authorization. Rotating it requires re-entering AI/Google secrets, reconnecting Xiaomi and re-enabling Subsonic; it cannot reset an administrator."
       }
     }
   },
@@ -68,12 +90,15 @@
   "devDependencies": {
     "@babel/parser": "^8.0.6",
     "@babel/traverse": "^8.0.6",
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.4.19",
     "esbuild": "^0.28.1",
     "postcss": "^8.5.30",
+    "quickjs-emscripten-core": "0.32.0",
     "tailwindcss": "^3.4.3",
     "vite": "^8.1.4",
-    "wrangler": "^4.151.0"
+    "wrangler": "^4.151.0",
+    "youtubei.js": "18.3.0"
   }
 }

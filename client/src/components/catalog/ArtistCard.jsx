@@ -1,3 +1,4 @@
+import { isYouTubeEntity } from '../../utils/musicSource.js';
 import { t } from '../../i18n/index.js';
 import React from 'react';
 import { User } from 'lucide-react';
@@ -39,7 +40,7 @@ export default function ArtistCard({ artist, onOpen }) {
           {artist.name}
         </span>
         <span className="mt-0.5 text-[12px] text-[var(--muted)] truncate">
-          {subtitle}
+          {subtitle}{isYouTubeEntity(artist) ? ' · YouTube Music' : ''}
         </span>
       </div>
     </button>

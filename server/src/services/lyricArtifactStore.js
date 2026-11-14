@@ -1,5 +1,5 @@
 import { LYRIC_DOCUMENT_LIMITS, createLyricDocument, isSingableLineText } from '../utils/lyricDocument.js';
-import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId } from '../../../shared/lyricSources.js';
+import { LEGACY_LYRIC_SOURCES, isCustomLyricSourceId, isValidLyricTranslationTarget } from '../../../shared/lyricSources.js';
 import { isValidSongLanguage } from '../utils/songLanguage.js';
 import { mediaObjectKey, mediaPrefix } from './adminMusicMedia.js';
 import { createRequestSingleFlight } from '../utils/sharedRequestTask.js';
@@ -18,14 +18,16 @@ const READY_FIELDS = Object.freeze([
   'textHash',
   'provenance',
   'updatedAt',
+  'translationDecision',
 ]);
 const NOT_FOUND_FIELDS = Object.freeze(['schemaVersion', 'songId', 'status', 'updatedAt']);
 const RESET_MARKER_FIELDS = Object.freeze(['schemaVersion', 'songId', 'status', 'updatedAt']);
 const DELETING_MARKER_FIELDS = Object.freeze(['schemaVersion', 'songId', 'status', 'operationId', 'updatedAt']);
 const ORIGINAL_FIELDS = Object.freeze(['source', 'format', 'syncMode', 'lines']);
-const TRANSLATION_FIELDS = Object.freeze(['source', 'originalTextHash', 'lines', 'updatedAt', 'language']);
+const TRANSLATION_FIELDS = Object.freeze(['source', 'originalTextHash', 'lines', 'updatedAt', 'language', 'kind']);
 const AI_COMPLETION_FIELDS = Object.freeze(['status', 'errorCode', 'candidateIndices', 'reviewAccountId', 'processingKey', 'updatedAt']);
 const PROVENANCE_FIELDS = Object.freeze([
+  'managedBy', 'evaluation', 'originalSource', 'quality', 'assessmentKey',
   'providerLyricId',
   'matchedTitle',
   'matchedArtist',
@@ -216,7 +218,8 @@ function normalizeTranslation(value, original, textHash) {
   if (value === null) return null;
   assertExactFields(value, TRANSLATION_FIELDS,
     ['source', 'originalTextHash', 'lines', 'updatedAt'], 'translation');
-  if (!isCustomLyricSourceId(value.source) && !['ai', 'manual', ...Object.keys(LEGACY_LYRIC_SOURCES)].includes(value.source)) {
+  if (!isCustomLyricSourceId(value.source) && !['ai', 'manual', 'youtube', ...Object.keys(LEGACY_LYRIC_SOURCES)].includes(value.source)
+    && !/^plugin:[a-z][a-z0-9-]{0,79}$/u.test(value.source || '')) {
     validationError('invalid translation.source');
   }
   const originalTextHash = normalizeHash(value.originalTextHash, 'translation.originalTextHash');
@@ -233,16 +236,18 @@ function normalizeTranslation(value, original, textHash) {
     return line;
   });
   if (!lines.some((line) => line.trim())) validationError('translation.lines must contain translated text');
-  if (value.language !== undefined && (!isValidSongLanguage(value.language)
+  if (value.language !== undefined && ((!isValidSongLanguage(value.language) && !['zh-CN', 'zh-TW', 'zh-Hant'].includes(value.language))
     || ['instrumental', 'other'].includes(value.language))) {
     validationError('translation.language must be a supported spoken language');
   }
+  if (value.kind !== undefined && !['machine', 'ai', 'manual', 'provider', 'unknown'].includes(value.kind)) validationError('invalid translation.kind');
   return {
     source: value.source,
     originalTextHash,
     lines,
     updatedAt: normalizeIsoTimestamp(value.updatedAt, 'translation.updatedAt'),
     ...(value.language ? { language: value.language } : {}),
+    ...(value.kind ? { kind: value.kind } : {}),
   };
 }
 
@@ -265,7 +270,8 @@ function normalizeAiCompletion(value, lineCount) {
   const hasProcessingKey = Object.prototype.hasOwnProperty.call(value, 'processingKey');
   if (value.status === 'completed') {
     if (hasProcessingKey && (typeof value.processingKey !== 'string'
-      || !/^[a-z]{2,5}(?:(?:\|[01]){4}|(?:\|[01]){6})$/u.test(value.processingKey))) {
+      || !/^[A-Za-z-]{2,10}(?:(?:\|[01]){4}|(?:\|[01]){6})$/u.test(value.processingKey)
+      || !isValidLyricTranslationTarget(value.processingKey.split('|')[0]))) {
       validationError('completed aiCompletion has an invalid processingKey');
     }
   } else if (hasProcessingKey) validationError('processingKey requires completed aiCompletion');
@@ -293,6 +299,20 @@ function normalizeAiCompletion(value, lineCount) {
 function normalizeProvenance(value) {
   assertExactFields(value, PROVENANCE_FIELDS, [], 'provenance');
   const normalized = {};
+  if (value.managedBy !== undefined) {
+    if (!/^[a-z][a-z0-9-]{0,79}$/u.test(value.managedBy)) validationError('invalid provenance.managedBy');
+    normalized.managedBy = value.managedBy;
+  }
+  if (value.evaluation !== undefined) {
+    if (!['manual', 'assessed', 'unassessed'].includes(value.evaluation)) validationError('invalid provenance.evaluation');
+    normalized.evaluation = value.evaluation;
+  }
+  if (value.originalSource !== undefined) normalized.originalSource = normalizePublicMetadataText(value.originalSource, 255, 'provenance.originalSource');
+  if (value.quality !== undefined) {
+    if (!['good', 'weak'].includes(value.quality)) validationError('invalid provenance.quality');
+    normalized.quality = value.quality;
+  }
+  if (value.assessmentKey !== undefined) normalized.assessmentKey = normalizeHash(value.assessmentKey, 'provenance.assessmentKey');
   if (Object.prototype.hasOwnProperty.call(value, 'providerLyricId')) {
     if (typeof value.providerLyricId !== 'string' || !PROVIDER_ID_PATTERN.test(value.providerLyricId)) {
       validationError('provenance.providerLyricId must be a safe public provider id');
@@ -318,7 +338,7 @@ function normalizeProvenance(value) {
 }
 
 function normalizeReadyArtifact(value, expectedSongId) {
-  assertExactFields(value, READY_FIELDS, READY_FIELDS, 'lyric artifact');
+  assertExactFields(value, READY_FIELDS, READY_FIELDS.filter(field => field !== 'translationDecision'), 'lyric artifact');
   const songId = normalizeLyricArtifactSongId(value.songId);
   if (expectedSongId !== undefined && songId !== expectedSongId) {
     validationError('lyric artifact songId does not match its object key');
@@ -343,7 +363,25 @@ function normalizeReadyArtifact(value, expectedSongId) {
     textHash,
     provenance: normalizeProvenance(value.provenance),
     updatedAt: normalizeIsoTimestamp(value.updatedAt, 'updatedAt'),
+    ...(value.translationDecision !== undefined ? { translationDecision: normalizeTranslationDecision(value.translationDecision) } : {}),
   };
+}
+
+function normalizeTranslationDecision(value) {
+  const fields = ['status', 'textHash', 'targetLanguage', 'policyVersion', 'songLanguage', 'sourceLanguage', 'basis'];
+  assertExactFields(value, [...fields, 'hasForeignPassages'], fields, 'translationDecision');
+  const spokenLanguage = language => language === null || isValidSongLanguage(language) && !['other', 'instrumental'].includes(language);
+  if (!['not_needed', 'needed', 'translated'].includes(value.status)
+    || !isValidLyricTranslationTarget(value.targetLanguage)
+    || !Number.isSafeInteger(value.policyVersion) || value.policyVersion < 1
+    || !spokenLanguage(value.songLanguage) || !spokenLanguage(value.sourceLanguage)
+    || !['tag', 'ai', 'rules'].includes(value.basis)
+    || value.basis !== 'rules' && value.sourceLanguage === null
+    || value.hasForeignPassages !== undefined && typeof value.hasForeignPassages !== 'boolean'
+    || value.status === 'not_needed' && value.hasForeignPassages === true) {
+    validationError('invalid translationDecision');
+  }
+  return { ...value, textHash: normalizeHash(value.textHash, 'translationDecision.textHash') };
 }
 
 function normalizeNotFoundArtifact(value, expectedSongId) {

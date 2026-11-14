@@ -1,6 +1,7 @@
-import { querySongs } from '../tools/searchSongs.js';
+import { querySongPage } from '../tools/searchSongs.js';
 import { buildSongLanguageFilter } from '../utils/songLanguage.js';
 import { runtimeSongColumns } from '../utils/songProjection.js';
+import { accountMembershipTable, readAccountPlaylistSongs } from '../services/accountMusicReadModel.js';
 
 const SONG_COLUMNS = runtimeSongColumns('s');
 const FAVORITE_ALIAS = 'favorite';
@@ -55,19 +56,16 @@ async function favoriteRow(db, accountId) {
 }
 
 async function personalSongs(db, accountId, playlistId) {
-  return rows(await db.prepare(`SELECT ${SONG_COLUMNS} FROM Member_Playlist_Songs ps
-    JOIN Member_Playlists p ON p.id = ps.playlist_id
-    JOIN Songs s ON s.id = ps.song_id
-    WHERE p.id = ? AND p.account_id = ?
-    ORDER BY ps.sort_order ASC, s.id ASC`).bind(playlistId, accountId).all());
+  return readAccountPlaylistSongs(db, accountId, playlistId);
 }
 
 async function readInit(db, accountId, headers, options) {
+  const membership = await accountMembershipTable(db);
   const favorite = await favoriteRow(db, accountId);
   const favoriteSongs = favorite ? await personalSongs(db, accountId, favorite.id) : [];
   const personal = rows(await db.prepare(`SELECT p.id, p.name, p.description, p.kind, p.created_at,
       ${options.schemaVersion === 1
-        ? '(SELECT COUNT(*) FROM Member_Playlist_Songs ps WHERE ps.playlist_id = p.id)'
+        ? `(SELECT COUNT(*) FROM ${membership} ps WHERE ps.playlist_id = p.id)`
         : 'p.cached_song_count'} AS songCount
     FROM Member_Playlists p WHERE p.account_id = ? AND p.kind = 'regular'
     ORDER BY p.created_at ASC, p.id ASC`).bind(accountId).all());
@@ -124,8 +122,12 @@ async function searchSongs(db, url, headers) {
     return invalid('Invalid search parameters', headers);
   }
   if (!buildSongLanguageFilter(language)) return invalid('invalid_language', headers);
-  const songs = query ? await querySongs(db, query, limit, offset, { language: language || null }) : [];
-  return success({ songs, query }, headers);
+  const page = query ? await querySongPage(db, query, limit, offset, { language: language || null })
+    : { songs: [], hasMore: false };
+  const capped = page.hasMore && offset + limit > 2000;
+  const hasMore = page.hasMore && !capped;
+  return success({ songs: page.songs, query, limit, offset, hasMore,
+    nextOffset: hasMore ? offset + limit : null, capped }, headers);
 }
 
 async function readSongCollection(db, url, headers) {

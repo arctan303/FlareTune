@@ -3,11 +3,14 @@ import test from 'node:test';
 import { fixture } from './test-support.js';
 import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
+import { pluginRegistry } from '../plugins/registry.js';
 
 const payload = async response => (await response.json())['subsonic-response'];
 const config = (f, overrides = {}) => f.sqlite.prepare(`INSERT OR REPLACE INTO instance_settings
   (key,value_json,revision,updated_at,updated_by) VALUES ('lyrics.ai',?,1,1,'test')`)
-  .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, completionEnabled: false, ...overrides }));
+  .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', completionEnabled: false, ...overrides }));
+const installWorkbench = f => pluginRegistry.setInstalled(f.env, f.signed.session, 'lyrics-workbench',
+  { installed: true, revision: 0 });
 async function saved(f, id, text = 'Hello', lines) {
   const song = f.sqlite.prepare('SELECT * FROM Songs WHERE id=?').get(id);
   const { artifact } = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc',
@@ -31,7 +34,7 @@ function sourceStub(t, song, onFetch) {
 }
 
 test('first authenticated third-party lyric read fetches and saves once without web playback; stream stays independent', async t => {
-  const f = await fixture(); t.after(f.close); await f.enable(); config(f);
+  const f = await fixture(); t.after(f.close); await f.enable(); await installWorkbench(f); config(f);
   f.sqlite.exec("UPDATE Songs SET title='First third-party play',language='en' WHERE id='s1'");
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
   const calls = sourceStub(t, song); const tasks = [];
@@ -49,6 +52,16 @@ test('first authenticated third-party lyric read fetches and saves once without 
   assert.equal((await payload(await f.rest('getLyrics', { id: 's1' }))).lyrics.value, 'Hello\nSing together');
   const web = await (await f.api('lyrics?songId=s1')).json();
   assert.equal(web.data.lines[0].text, 'Hello'); assert.equal(calls.length, prior);
+});
+
+test('without a source plugin a lyric miss stays empty without implicit host provider requests', async t => {
+  const f = await fixture(); t.after(f.close); await f.enable(); config(f);
+  const provider = t.mock.method(globalThis, 'fetch', async () => { throw new Error('No source plugin installed'); });
+  const result = await payload(await f.rest('getLyricsBySongId', { id: 's1' }));
+  assert.equal(result.status, 'ok');
+  assert.deepEqual(result.lyricsList.structuredLyrics, []);
+  assert.equal(provider.mock.calls.length, 0);
+  assert.equal(f.objects.has('media/lyrics/s1.json'), false);
 });
 
 test('legacy optional parameters, id fallback and normalized emitted artists resolve saved lyrics', async t => {
@@ -79,7 +92,7 @@ test('legacy duplicate names prefer an existing asset and do not fetch ambiguous
 });
 
 test('an unambiguous legacy name request also performs first-time source retrieval', async t => {
-  const f = await fixture(); t.after(f.close); await f.enable(); config(f);
+  const f = await fixture(); t.after(f.close); await f.enable(); await installWorkbench(f); config(f);
   f.sqlite.exec("UPDATE Songs SET title='Unique legacy first play',language='en' WHERE id='s1'");
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
   const calls = sourceStub(t, song);
@@ -100,18 +113,22 @@ test('instrumental and unauthorized requests do not read assets, fetch providers
   assert.equal(f.mediaReads(), before); assert.equal(provider.mock.calls.length, 0);
 });
 
-test('temporary provider failures return a retryable protocol failure and never save a no-lyrics marker', async t => {
-  const f = await fixture(); t.after(f.close); await f.enable(); config(f);
+test('temporary provider failures return a retryable error without leaking details or saving a miss marker', async t => {
+  const f = await fixture(); t.after(f.close); await f.enable(); await installWorkbench(f); config(f);
   f.sqlite.exec("UPDATE Songs SET title='Temporary provider failure',language='en' WHERE id='s1'");
-  t.mock.method(globalThis, 'fetch', async () => new Response('', { status: 503 }));
+  const provider = t.mock.method(globalThis, 'fetch', async () => new Response('private-upstream-failure', { status: 503 }));
   const response = await f.rest('getLyricsBySongId', { id: 's1' });
   assert.equal(response.status, 503);
-  assert.deepEqual((await payload(response)).error, { code: 0, message: 'Lyric source temporarily unavailable' });
+  const result = await payload(response);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 0);
+  assert.doesNotMatch(JSON.stringify(result), /private-upstream-failure|lrclib|media\/lyrics|503/u);
+  assert.ok(provider.mock.calls.length > 0);
   assert.equal(f.objects.has('media/lyrics/s1.json'), false);
 });
 
 test('confirmed empty providers return empty lyrics and persist a short-lived miss', async t => {
-  const f = await fixture(); t.after(f.close); await f.enable(); config(f);
+  const f = await fixture(); t.after(f.close); await f.enable(); await installWorkbench(f); config(f);
   f.sqlite.exec("UPDATE Songs SET title='Confirmed lyric miss',language='en' WHERE id='s1'");
   let calls = 0;
   t.mock.method(globalThis, 'fetch', async input => {
@@ -122,34 +139,50 @@ test('confirmed empty providers return empty lyrics and persist a short-lived mi
     return url.pathname.endsWith('/get') ? new Response('', { status: 404 }) : Response.json([]);
   });
   assert.deepEqual((await payload(await f.rest('getLyricsBySongId', { id: 's1' }))).lyricsList.structuredLyrics, []);
+  assert.ok(calls > 0, 'the installed workbench must consult its configured sources');
+  assert.ok(f.objects.has('media/lyrics/s1.json'), 'a confirmed miss must save its short-lived not_found marker');
   assert.equal(JSON.parse(new TextDecoder().decode(f.objects.get('media/lyrics/s1.json').bytes)).status, 'not_found');
   const before = calls;
   await f.rest('getLyricsBySongId', { id: 's1' }); assert.equal(calls, before);
 });
 
 test('deleting a song during source retrieval cannot recreate its lyric asset', async t => {
-  const f = await fixture(); t.after(f.close); await f.enable(); config(f);
+  const f = await fixture(); t.after(f.close); await f.enable(); await installWorkbench(f); config(f);
   f.sqlite.exec("UPDATE Songs SET title='Deleted during lyric fetch',language='en' WHERE id='s1'");
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
   sourceStub(t, song, url => { if (url.hostname === 'lrclib.net') f.sqlite.exec("DELETE FROM Songs WHERE id='s1'"); });
   const result = await payload(await f.rest('getLyricsBySongId', { id: 's1' }));
-  assert.equal(result.error.code, 70); assert.equal(f.objects.has('media/lyrics/s1.json'), false);
+  assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS count FROM Songs WHERE id='s1'").get().count, 0);
+  assert.equal(f.objects.has('media/lyrics/s1.json'), false, 'a completed fetch must not recreate assets after song deletion');
+  assert.equal(result.error?.code, 70, 'a song deleted during retrieval must remain not found');
 });
 
-test('unreadable stored lyrics return protocol failure instead of empty lyrics or exposed storage details', async t => {
+test('unreadable stored lyrics return a retryable error without exposing details or replacing the stored file', async t => {
   const f = await fixture(); t.after(f.close); await f.enable(); config(f);
-  f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode('{broken-json'), type: 'application/json' });
+  const broken = { bytes: new TextEncoder().encode('{broken-json'), type: 'application/json' };
+  f.objects.set('media/lyrics/s1.json', broken);
+  const provider = t.mock.method(globalThis, 'fetch', async () => { throw new Error('No source plugin installed'); });
   const response = await f.rest('getLyricsBySongId', { id: 's1' });
   assert.equal(response.status, 503);
-  assert.deepEqual((await payload(response)).error, { code: 0, message: 'Lyric storage temporarily unavailable' });
+  const result = await payload(response);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 0);
+  assert.doesNotMatch(JSON.stringify(result), /broken-json|media\/lyrics|storage/u);
+  assert.strictEqual(f.objects.get('media/lyrics/s1.json'), broken);
+  assert.equal(provider.mock.calls.length, 0);
 });
 
-test('member third-party playback follows both web automatic-AI switches and completes through waitUntil', async t => {
+test('member third-party playback follows the single AI switch and ignores the retired manual mode', async t => {
   for (const [completionEnabled, automaticCompletionEnabled] of [[false, true], [true, false], [true, true]]) {
     const f = await fixture();
     try {
       const member = await f.signIn('member'); await f.enable(member);
+      for (const id of ['lyrics-workbench', 'ai-gateway']) await pluginRegistry.setInstalled(f.env, f.signed.session, id,
+        { installed: true, revision: 0 });
       config(f, { completionEnabled, automaticCompletionEnabled });
+      const initialized = await f.api('admin/plugins/lyrics-workbench/model/initialize', 'POST', { expectedRevision: 0 }, f.signed,
+        { 'X-FlareTune-Plugin-Build': pluginRegistry.getBuildDigest('lyrics-workbench') });
+      assert.equal(initialized.status, 200, await initialized.clone().text());
       f.sqlite.exec("UPDATE Songs SET language='en' WHERE id='s1'");
       await saved(f, 's1'); f.env.DEEPSEEK_API_KEY = 'test-only-key';
       const tasks = []; let aiCalls = 0;
@@ -157,7 +190,7 @@ test('member third-party playback follows both web automatic-AI switches and com
         assert.ok(new URL(input).hostname.includes('deepseek'));
         aiCalls += 1;
         return Response.json({ choices: [{ message: { content: JSON.stringify({
-          songLanguage: 'en', discardLineIndices: [], translations: [{ unitId: 0, text: '你好' }],
+          translations: [{ unitId: 0, text: '你好' }],
         }) } }] });
       });
       const options = { username: 'member', executionContext: { waitUntil: task => tasks.push(task) } };
@@ -165,7 +198,7 @@ test('member third-party playback follows both web automatic-AI switches and com
       assert.equal(result.status, 'ok');
       await Promise.all(tasks);
       const read = JSON.parse(new TextDecoder().decode(f.objects.get('media/lyrics/s1.json').bytes));
-      if (completionEnabled && automaticCompletionEnabled) {
+      if (completionEnabled) {
         assert.ok(tasks.length > 0); assert.equal(aiCalls, 1, JSON.stringify(read.aiCompletion)); assert.equal(read.translation?.lines[0], '你好');
         const refresh = await payload(await f.rest('getLyricsBySongId', { id: 's1', enhanced: true }, options));
         assert.equal(refresh.lyricsList.structuredLyrics[1].line[0].value, '你好');

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fixture } from './localAssistant.fixture.js';
+import { assistantBuildHeaders } from '../plugins/assistant/test-support.js';
 import { createAssistantCheckpoint } from '../services/assistantCheckpoint.js';
 import { chatAI } from '../services/ai.js';
 import { handleLocalAssistantRoute } from './localAssistant.js';
@@ -295,11 +296,14 @@ test('stop during an asynchronous tool read prevents the later memory DELETE tra
     const entered = new Promise(resolve => { reached = resolve; });
     let reads = 0;
     db.prepare = sql => { const statement = originalPrepare(sql);
-      if (sql.includes('SELECT enabled FROM assistant_memory_settings')) {
-        const originalFirst = statement.first.bind(statement);
-        statement.first = async () => { if (++reads === 2) { reached(); await pause; } return originalFirst(); };
-      }
+      statement.sql = sql;
       return statement;
+    };
+    const originalBatch = db.batch.bind(db);
+    db.batch = async statements => {
+      if (statements.some(statement => statement.sql?.includes('SELECT enabled FROM assistant_memory_settings'))
+        && ++reads === 2) { reached(); await pause; }
+      return originalBatch(statements);
     };
     const response = await route('/api/ai/chat', 'POST', body(), 'account-A', {
       chat: async () => ({ type: 'function_calls', functionCalls: [{ id: 'delete-paused', name: 'remember_user', args: { action: 'delete', id: record.memory.id } }] }),
@@ -318,7 +322,7 @@ test('a request already aborted during preparation never starts a model or tool 
   try {
     const controller = new AbortController();
     const request = new Request('https://flare.test/api/ai/chat', { method: 'POST', signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()) });
+      headers: { 'Content-Type': 'application/json', ...assistantBuildHeaders() }, body: JSON.stringify(body()) });
     controller.abort();
     let modelCalls = 0;
     const response = await handleLocalAssistantRoute(request, new URL(request.url), db, {}, session('account-A'),
@@ -328,7 +332,7 @@ test('a request already aborted during preparation never starts a model or tool 
     assert.equal(modelCalls, 0);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM Member_Playlists WHERE name='不能创建'").get().count, 0);
     assert.equal((await thread(async (...args) => {
-      const req = new Request('https://flare.test/api/ai/thread');
+      const req = new Request('https://flare.test/api/ai/thread', { headers: assistantBuildHeaders() });
       return handleLocalAssistantRoute(req, new URL(req.url), db, {}, session('account-A'), {});
     })).messages.at(-1).errorCode, 'request_cancelled');
   } finally { sqlite.close(); }

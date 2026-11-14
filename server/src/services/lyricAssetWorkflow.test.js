@@ -105,9 +105,10 @@ test('foreign lyrics without provider translation remain idle until explicitly r
   assert.equal(resolveLyricTranslationState(result.artifact, makeSong()), 'missing');
 });
 
-test('actual Chinese content wins over an incorrect foreign database language', async () => {
+test('Han-only lyrics need confirmed Chinese metadata before skipping translation', async () => {
   const original = { lines: [{ time: 1, text: '我们一起唱歌' }] };
-  assert.equal(shouldAiCompleteLyrics(original, makeSong({ language: 'en' })), false);
+  assert.equal(shouldAiCompleteLyrics(original, makeSong({ language: 'en' }), { targetLanguage: 'zh' }), true);
+  assert.equal(shouldAiCompleteLyrics(original, makeSong({ language: 'zh' }), { targetLanguage: 'zh' }), false);
   const result = await buildReadyLyricArtifact(
     makeSong({ language: 'en' }),
     makeLyricDocument({
@@ -116,7 +117,78 @@ test('actual Chinese content wins over an incorrect foreign database language', 
     }),
   );
   assert.equal(result.artifact.aiCompletion, null);
-  assert.equal(resolveLyricTranslationState(result.artifact, makeSong({ language: 'en' })), 'unavailable');
+  assert.equal(resolveLyricTranslationState(result.artifact, makeSong({ language: 'en' })), 'missing');
+  assert.equal(resolveLyricTranslationState(result.artifact, makeSong({ language: 'zh' })), 'unavailable');
+});
+
+test('Chinese verses ignore Latin text confined to a leading extended title and artist heading', () => {
+  const song = makeSong({ title: '晨间来信', artist: '林中客', language: 'zh' });
+  const original = { source: 'kugou', format: 'krc', syncMode: 'word', lines: [
+    { time: 1.1, endTime: 2.5, text: '晨间来信 (Morning Echo) - 林中客',
+      words: [{ text: '晨间来信 (Morning Echo) - 林中客', startTime: 1.1, endTime: 2.5 }] },
+    { time: 2.5, text: '林中客' },
+    { time: 6.1, endTime: 9.1, text: '沿途晨光写成温柔来信',
+      words: [{ text: '沿途晨光写成温柔来信', startTime: 6.1, endTime: 9.1 }] },
+    { time: 12.2, endTime: 15.2, text: '愿清风把思念送到远方',
+      words: [{ text: '愿清风把思念送到远方', startTime: 12.2, endTime: 15.2 }] },
+  ] };
+  const artifact = makeReadyArtifact({ original, aiCompletion: {
+    status: 'failed', errorCode: 'completion_failed', updatedAt: '2026-09-10T00:00:00.000Z',
+  } });
+  const before = structuredClone(artifact);
+  assert.equal(shouldAiCompleteLyrics(original, song, { targetLanguage: 'zh' }), false);
+  assert.equal(resolveLyricTranslationState(artifact, song, Date.now(), 'zh'), 'unavailable');
+  const projected = projectLyricArtifact(artifact, { song, targetLanguage: 'zh' });
+  assert.equal(projected.translationState, 'unavailable');
+  assert.equal(projected.translationAvailable, false);
+  assert.deepEqual(projected.lines, original.lines);
+  assert.deepEqual(artifact, before);
+});
+
+test('a Chinese catalog tag settles the whole song despite minority foreign inserts or later repeated headings', () => {
+  const song = makeSong({ title: '晨间来信', artist: '林中客', language: 'zh' });
+  const header = { time: 1, text: '晨间来信 (Morning Echo) - 林中客' };
+  const body = { time: 6, text: '沿途晨光写成温柔来信' };
+  for (const original of [
+    { lines: [header, { time: 4, text: 'We are singing together' }, body] },
+    { lines: [header, ...Array.from({ length: 7 }, (_, index) => ({ time: index + 3, text: body.text })),
+      { time: 12, text: header.text }] },
+    { lines: [body, { time: 31, text: header.text }] },
+  ]) {
+    assert.equal(shouldAiCompleteLyrics(original, song, { targetLanguage: 'zh' }), false);
+  }
+});
+
+test('leading metadata filtering does not invent Chinese identity or hide a valid stored translation', () => {
+  const chineseSong = makeSong({ title: '晨间来信', artist: '林中客', language: 'zh' });
+  const original = { source: 'manual', format: 'lrc', syncMode: 'line', lines: [
+    { time: 1, text: '晨间来信 (Morning Echo) - 林中客' },
+    { time: 6, text: '沿途晨光写成温柔来信' },
+  ] };
+  for (const language of [undefined, null, '', 'unknown', 'en']) {
+    assert.equal(shouldAiCompleteLyrics(original, { ...chineseSong, language }, { targetLanguage: 'zh' }), true);
+  }
+  assert.equal(shouldAiCompleteLyrics(original, chineseSong, { targetLanguage: 'en' }), true);
+  const artifact = makeReadyArtifact({ original, translation: {
+    source: 'manual', language: 'en', originalTextHash: 'a'.repeat(64),
+    lines: ['', 'The morning light becomes a gentle letter'], updatedAt: '2026-09-10T00:00:00.000Z',
+  } });
+  const before = structuredClone(artifact);
+  const projected = projectLyricArtifact(artifact, { song: chineseSong, targetLanguage: 'en' });
+  assert.equal(projected.translationState, 'ready');
+  assert.equal(projected.translationAvailable, true);
+  assert.deepEqual(projected.lines.map(line => line.tlyric || ''), artifact.translation.lines);
+  assert.deepEqual(artifact, before);
+  const sameTargetArtifact = makeReadyArtifact({ original, translation: {
+    source: 'manual', language: 'zh', originalTextHash: 'a'.repeat(64),
+    lines: ['', '沿途的晨光化为温柔书信'], updatedAt: '2026-09-10T00:00:00.000Z',
+  } });
+  const sameTargetBefore = structuredClone(sameTargetArtifact);
+  const sameTargetProjection = projectLyricArtifact(sameTargetArtifact, { song: chineseSong, targetLanguage: 'zh' });
+  assert.equal(sameTargetProjection.translationAvailable, false);
+  assert.equal(sameTargetProjection.translation, null);
+  assert.ok(sameTargetProjection.lines.every(line => !Object.hasOwn(line, 'tlyric')));
+  assert.deepEqual(sameTargetArtifact, sameTargetBefore);
 });
 
 test('cold miss loser re-reads a different winner and does not claim AI work', async () => {
@@ -321,14 +393,57 @@ test('a changed instance target language does not present the previous AI transl
   assert.equal(english.translationAvailable, false);
 });
 
+test('a legacy whole-copy translation is hidden without changing the saved asset', () => {
+  const artifact = makeReadyArtifact({
+    original: { source: 'manual', format: 'lrc', syncMode: 'line', lines: [
+      { time: 1, text: 'Hello world' },
+      { time: 2, text: 'Ｓｉｎｇ with me' },
+      { time: 3, text: '♪' },
+    ] },
+    translation: { source: 'manual', language: 'en', originalTextHash: 'a'.repeat(64),
+      lines: [' hello   WORLD ', 'sing with me', ''], updatedAt: '2026-09-10T00:00:00.000Z' },
+  });
+  const before = structuredClone(artifact);
+  for (const targetLanguage of [null, 'en']) {
+    const projected = projectLyricArtifact(artifact, { song: makeSong(), targetLanguage });
+    assert.deepEqual(projected.lines.map((line) => line.text), ['Hello world', 'Ｓｉｎｇ with me', '♪']);
+    assert.ok(projected.lines.every((line) => !Object.hasOwn(line, 'tlyric')));
+    assert.equal(projected.tlyric, '');
+    assert.equal(projected.translation, null);
+    assert.equal(projected.translationAvailable, false);
+    assert.equal(projected.translationState, targetLanguage === 'en' ? 'unavailable' : 'missing');
+  }
+  assert.deepEqual(artifact, before);
+});
+
+test('a genuine translation keeps shared names or repeated lines and preserves alignment', () => {
+  const artifact = makeReadyArtifact({
+    original: { source: 'manual', format: 'lrc', syncMode: 'line', lines: [
+      { time: 1, text: 'Maria' },
+      { time: 2, text: 'Come sing with me' },
+    ] },
+    translation: { source: 'manual', language: 'zh', originalTextHash: 'a'.repeat(64),
+      lines: ['Maria', '和我一起歌唱'], updatedAt: '2026-09-10T00:00:00.000Z' },
+  });
+  const before = structuredClone(artifact);
+  const projected = projectLyricArtifact(artifact, { song: makeSong(), targetLanguage: 'zh' });
+  assert.equal(projected.translationAvailable, true);
+  assert.equal(projected.translationState, 'ready');
+  assert.deepEqual(projected.lines.map((line) => line.tlyric), [undefined, '和我一起歌唱']);
+  assert.deepEqual(projected.translation.lines, ['', '和我一起歌唱']);
+  assert.deepEqual(artifact, before);
+});
+
 test('song-language write failure stays retryable even when the new translation is available', () => {
   const artifact = makeReadyArtifact({
+    original: { source: 'manual', format: 'lrc', syncMode: 'line',
+      lines: [{ time: 1, text: 'こんにちは' }] },
     translation: { source: 'ai', originalTextHash: 'a'.repeat(64), lines: ['Hello'],
       language: 'en', updatedAt: '2026-09-10T00:00:00.000Z' },
     aiCompletion: { status: 'failed', errorCode: 'language_update_failed',
       updatedAt: '2026-09-10T00:00:00.000Z' },
   });
-  const projected = projectLyricArtifact(artifact, { song: makeSong({ language: 'en' }), targetLanguage: 'en' });
+  const projected = projectLyricArtifact(artifact, { song: makeSong({ language: 'other' }), targetLanguage: 'en' });
   assert.equal(projected.lines[0].tlyric, 'Hello');
   assert.equal(projected.translationState, 'failed');
 });
@@ -338,12 +453,12 @@ test('building an asset never starts AI completion', async () => {
   assert.equal(result.artifact.aiCompletion, null);
 });
 
-test('translation state is derived from lyric content before song metadata', async () => {
+test('translation state trusts a known dominant catalog language and does not relabel from scripts', async () => {
   const foreign = await buildReadyLyricArtifact(
     makeSong({ language: 'zh' }),
     makeLyricDocument(),
   );
-  assert.equal(resolveLyricTranslationState(foreign.artifact, makeSong({ language: 'zh' })), 'missing');
+  assert.equal(resolveLyricTranslationState(foreign.artifact, makeSong({ language: 'zh' })), 'unavailable');
 
   const chinese = await buildReadyLyricArtifact(
     makeSong({ language: 'en' }),
@@ -352,7 +467,10 @@ test('translation state is derived from lyric content before song metadata', asy
       lines: [{ time: 1, endTime: 2, text: '我们一起唱歌' }],
     }),
   );
-  assert.equal(resolveLyricTranslationState(chinese.artifact, makeSong({ language: 'en' })), 'unavailable');
+  assert.equal(resolveLyricTranslationState(chinese.artifact, makeSong({ language: 'en' })), 'missing');
+  assert.equal(resolveLyricTranslationState(chinese.artifact, makeSong({ language: 'zh' })), 'unavailable');
+  assert.equal(shouldAiCompleteLyrics(foreign.artifact.original,
+    makeSong({ language: 'en' }), { targetLanguage: 'en' }), false);
 });
 
 test('public translation state honors pending freshness and old-translation fallback', () => {

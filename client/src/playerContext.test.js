@@ -122,3 +122,12 @@ test('metadata repair ignores invalid language and songs absent from the latest 
         { id: 'removed', audio_url: '/removed.mp3', language: 'en' },
     ]), latestContext);
 });
+
+
+test('canonical player context retains YouTube source and browse references for saved account songs', () => {
+  const song=toCanonicalSong({id:'yt:QBtVFL0Qefs',source:'youtube',audio_url:'/media/youtube/audio/QBtVFL0Qefs',
+    artists:[{id:'yt:artist:UCtest',name:'A'}],albumId:'yt:album:MPREb_a',language:null});
+  assert.equal(song.source,'youtube');assert.equal(song.sourceId,'QBtVFL0Qefs');
+  assert.equal(song.artists[0].id,'yt:artist:UCtest');assert.equal(song.albumId,'yt:album:MPREb_a');
+  assert.equal(song.language,null);
+});

@@ -53,3 +53,12 @@ test('member and admin roles get distinct management access', () => {
   assert.equal(request('/api/instance/upgrade', 'POST', 'maintenance', admin).allowed, true);
   assert.equal(request('/api/instance/upgrade', 'POST', 'recovery_required').allowed, false);
 });
+
+test('plugin administration requires a normal admin while installed-plugin discovery allows normal members', () => {
+  for (const [path, method] of [['/api/admin/plugins', 'GET'], ['/api/admin/plugins/xiaomi-speaker', 'PUT']]) {
+    assert.equal(request(path, method, 'ready', admin).allowed, true);
+    for (const session of [undefined, limited, member]) assert.equal(request(path, method, 'ready', session).allowed, false);
+  }
+  for (const session of [admin, member]) assert.equal(request('/api/account/plugins', 'GET', 'ready', session).allowed, true);
+  for (const session of [undefined, limited]) assert.equal(request('/api/account/plugins', 'GET', 'ready', session).allowed, false);
+});

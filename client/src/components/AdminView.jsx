@@ -8,25 +8,25 @@ import { getAdminMigrationStatus, runAdminMigration } from '../instance/api.js';
 import { validLocalPassword } from '../instance/state.js';
 import AdminCatalogSection from './AdminCatalogSection.jsx';
 import PageBackButton from './PageBackButton.jsx';
-import AiProfilesPanel from './AiProfilesPanel.jsx';
-import LyricSourcesSettings from './LyricSourcesSettings.jsx';
 import Section from './SettingsSection.jsx';
 import SettingsEditDialog from './SettingsEditDialog.jsx';
 import SettingsSkeleton from './SettingsSkeleton.jsx';
 import { SettingsActions, SettingsButton, SettingsToggle } from './SettingsControls.jsx';
 import DatabaseMigrationStatus from './DatabaseMigrationStatus.jsx';
+import SystemUpdatePanel from './SystemUpdatePanel.jsx';
 import AccountRow from './AdminAccountRow.jsx';
 import { Field, inputClass, buttonClass } from './AdminSettingsFields.jsx';
 import IngestDevicesPanel from './IngestDevicesPanel.jsx';
 import { GoogleAdminSettings } from './GoogleLogin.jsx';
+import LyricsSourceOrderSettings from './LyricsSourceOrderSettings.jsx';
 import { ALL_LANGUAGES, getLanguageLabel } from '../constants/language.js';
 import {
   adminErrorMessage, createManagedAccount, getAdminOverview, parseExactHttpsOrigins,
-  putAdminSetting, putAssistant,
+  putAdminSetting,
 } from '../instance/adminApi.js';
 
 const tabs = [
-  ['general', '常规'], ['access', '访问'], ['assistant', 'AI 与助手'], ['catalog', '曲库'],
+  ['general', '常规'], ['access', '访问'], ['catalog', '曲库'],
   ['accounts', '账号'], ['system', '系统'],
 ];
 export default function AdminView({ onBack, embeddedTab, onTabChange }) {
@@ -35,27 +35,17 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
   const [tab, setTab] = React.useState(embeddedTab || 'general');
   const [overview, setOverview] = React.useState(null);
   const [draft, setDraft] = React.useState({});
-  const [assistantDraft, setAssistantDraft] = React.useState(null);
   const [status, setStatus] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState('');
   const [isCreatingAccount, setIsCreatingAccount] = React.useState(false);
-  const [assistantEditorOpen, setAssistantEditorOpen] = React.useState(false);
-  const [assistantTab, setAssistantTab] = React.useState('basic');
-  const [lyricAiEditorOpen, setLyricAiEditorOpen] = React.useState(false);
   const [nameEditorOpen, setNameEditorOpen] = React.useState(false);
   const [originsEditorOpen, setOriginsEditorOpen] = React.useState(false);
   const editorState = React.useRef({});
-  editorState.current = { assistantEditorOpen, lyricAiEditorOpen, nameEditorOpen, originsEditorOpen };
+  editorState.current = { nameEditorOpen, originsEditorOpen };
   const refreshRequest = React.useRef(0);
   const settingRevision = React.useRef({});
-  const closeLyricAiEditor = () => {
-    setDraft((current) => ({ ...current, 'lyrics.ai': overview.settings['lyrics.ai'].value }));
-    setMessage('');
-    setLyricAiEditorOpen(false);
-  };
-
   // Sync internal tab if controlled by embeddedTab prop
   React.useEffect(() => {
     if (embeddedTab && embeddedTab !== tab) {
@@ -77,12 +67,10 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
       if (request !== refreshRequest.current) return;
       setOverview(next);
       setDraft(current => Object.fromEntries(Object.entries(next.settings).map(([key, item]) => {
-        const editing = key === 'lyrics.ai' ? editorState.current.lyricAiEditorOpen
-          : key === 'instance.name' ? editorState.current.nameEditorOpen
+        const editing = key === 'instance.name' ? editorState.current.nameEditorOpen
             : key === 'cors.allowed_origins' && editorState.current.originsEditorOpen;
         return [key, editing ? current[key] : key === 'cors.allowed_origins' ? item.value.join('\n') : item.value];
       })));
-      if (!editorState.current.assistantEditorOpen) setAssistantDraft(next.assistant);
       setStatus(nextStatus);
     } catch (error) { if (request === refreshRequest.current) setMessage(adminErrorMessage(error)); }
     finally { if (request === refreshRequest.current) setLoading(false); }
@@ -124,49 +112,9 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
       setLoading(false);
       setOverview((current) => ({ ...current, settings: { ...current.settings, [key]: result } }));
       setMessage(t("设置已成功保存。"));
-      if (key === 'lyrics.ai') setLyricAiEditorOpen(false);
       if (key === 'instance.name') setNameEditorOpen(false);
       if (key === 'cors.allowed_origins') setOriginsEditorOpen(false);
     } catch (error) { setMessage(error instanceof Error && !('status' in error) ? error.message : adminErrorMessage(error)); }
-    finally { setBusy(false); }
-  }
-
-  const setLyricAiField = (key, value) => setDraft((current) => ({
-    ...current,
-    'lyrics.ai': { ...current['lyrics.ai'], [key]: value },
-  }));
-
-  const setLyricTargetLanguage = (targetLanguage) => {
-    const legacy = overview.settings['lyrics.ai'];
-    const clearLegacyChineseRules = legacy.revision === 0 && targetLanguage !== 'zh'
-      && draft['lyrics.ai']?.styleRules === legacy.value.styleRules;
-    setDraft((current) => ({ ...current, 'lyrics.ai': {
-      ...current['lyrics.ai'], targetLanguage,
-      ...(clearLegacyChineseRules ? { styleRules: '' } : {}),
-    } }));
-    if (clearLegacyChineseRules && legacy.value.styleRules) {
-      setMessage(t("已移除旧配置中的中文翻译准则；可按新目标语言重新填写。"));
-    }
-  };
-
-  async function saveAssistant(event) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage('');
-    try {
-      const { revision, ...patch } = assistantDraft;
-      const result = await putAssistant({
-        ...patch,
-        welcome_message: patch.welcome_message || '你好，我是小A。想听什么？',
-        temperature: Number(patch.temperature),
-      }, revision, csrfToken);
-      refreshRequest.current += 1;
-      setLoading(false);
-      setAssistantDraft(result);
-      setOverview((current) => ({ ...current, assistant: result }));
-      setMessage(t("助手配置已成功保存。"));
-      setAssistantEditorOpen(false);
-    } catch (error) { setMessage(adminErrorMessage(error)); }
     finally { setBusy(false); }
   }
 
@@ -328,376 +276,6 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
             </div>
           )}
 
-          {/* AI 与助手 */}
-          {tab === 'assistant' && (
-            <div className="space-y-6">
-              {/* 区块 1：AI 接入底座与供应商 */}
-              <AiProfilesPanel csrfToken={csrfToken} />
-
-              {/* 区块 2：音乐助手设定 */}
-              <Section
-                title={t("助手资料")}
-                action={
-                  <SettingsButton
-                    type="button"
-                    onClick={() => {
-                      setMessage('');
-                      setAssistantDraft({ ...overview.assistant });
-                      setAssistantTab('basic');
-                      setAssistantEditorOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1.5"
-                  >
-                    <Bot size={13} className="shrink-0" />
-                    <span>{t("编辑助手资料")}</span>
-                  </SettingsButton>
-                }
-              >
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="flex items-start gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center font-bold text-sm shrink-0 border border-[var(--accent)]/20">
-                        {overview.assistant?.avatar_icon || 'AI'}
-                      </div>
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <strong className="text-sm font-bold text-[var(--ink)]">{overview.assistant?.name || t("小A")}</strong>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-[var(--surface)] border border-[var(--line)] text-[var(--muted)]">
-                            T={Number(overview.assistant?.temperature ?? 0.7).toFixed(1)}
-                          </span>
-                        </div>
-                        <p className="line-clamp-2 max-w-xl text-xs text-[var(--muted)] leading-relaxed">{t(overview.assistant?.description || '暂无描述')}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-3">
-                    <SettingsToggle
-                      label={t('允许助手图片输入')}
-                      disabled={busy}
-                      checked={overview.settings['assistant.images_enabled']?.value === true}
-                      onChange={event => void saveSetting(event, 'assistant.images_enabled', event.target.checked)}
-                    />
-                  </div>
-                </div>
-              </Section>
-
-              {/* 助手资料编辑弹窗 */}
-              {assistantEditorOpen && (
-                <SettingsEditDialog
-                  title={t("编辑助手资料")}
-                  message={message}
-                  busy={busy}
-                  onClose={() => {
-                    setAssistantDraft({ ...overview.assistant });
-                    setAssistantEditorOpen(false);
-                  }}
-                  size="large"
-                >
-                  <form onSubmit={saveAssistant} className="space-y-5">
-                    {/* 弹窗顶部 Tab 导航 */}
-                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[var(--surface)] border border-[var(--line)] w-fit">
-                      <button
-                        type="button"
-                        onClick={() => setAssistantTab('basic')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                          assistantTab === 'basic'
-                            ? 'bg-[var(--surface-raised)] text-[var(--ink)] shadow-2xs border border-[var(--line)]'
-                            : 'text-[var(--muted)] hover:text-[var(--ink)]'
-                        }`}
-                      >
-                        {t("常规")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAssistantTab('persona')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                          assistantTab === 'persona'
-                            ? 'bg-[var(--surface-raised)] text-[var(--ink)] shadow-2xs border border-[var(--line)]'
-                            : 'text-[var(--muted)] hover:text-[var(--ink)]'
-                        }`}
-                      >
-                        {t("人设")}
-                      </button>
-                    </div>
-
-                    {/* Tab 1: 常规设定 */}
-                    {assistantTab === 'basic' && (
-                      <div className="space-y-4 animate-[fade-in_0.15s_ease-out]">
-                        <div className="grid gap-3.5 sm:grid-cols-2">
-                          <Field label={t("助手名称")}>
-                            <SettingsInput
-                              className={inputClass}
-                              maxLength={80}
-                              required
-                              value={assistantDraft?.name || ''}
-                              onChange={(event) => setAssistantDraft((current) => ({ ...current, name: event.target.value }))}
-                            />
-                          </Field>
-                          <Field label={t("图标标识")}>
-                            <SettingsInput
-                              className={inputClass}
-                              maxLength={80}
-                              required
-                              value={assistantDraft?.avatar_icon || ''}
-                              onChange={(event) => setAssistantDraft((current) => ({ ...current, avatar_icon: event.target.value }))}
-                            />
-                          </Field>
-                        </div>
-                        <Field label={t("欢迎语")}>
-                          <SettingsTextarea
-                            className={`${inputClass} min-h-20`}
-                            maxLength={1000}
-                            required
-                            value={assistantDraft?.welcome_message || ''}
-                            onChange={(event) => setAssistantDraft((current) => ({ ...current, welcome_message: event.target.value }))}
-                          />
-                        </Field>
-                        <Field label={t("描述")}>
-                          <SettingsTextarea
-                            className={`${inputClass} min-h-20`}
-                            maxLength={500}
-                            required
-                            value={assistantDraft?.description || ''}
-                            onChange={(event) => setAssistantDraft((current) => ({ ...current, description: event.target.value }))}
-                          />
-                        </Field>
-                        <div className="p-3.5 rounded-xl bg-[var(--surface)] border border-[var(--line)]">
-                          <Field label={t("温度（0～2）")} hint={t("越低越严谨，越高越有创造力。")}>
-                            <div className="flex items-center gap-3 mt-1.5">
-                              <SettingsInput
-                                className="flex-1 accent-[var(--accent)] cursor-pointer"
-                                type="range"
-                                min="0"
-                                max="2"
-                                step="0.1"
-                                required
-                                value={assistantDraft?.temperature ?? 0.7}
-                                onChange={(event) => setAssistantDraft((current) => ({ ...current, temperature: event.target.value }))}
-                              />
-                              <span className="font-mono text-xs w-9 text-right font-bold text-[var(--accent)]">
-                                {Number(assistantDraft?.temperature ?? 0.7).toFixed(1)}
-                              </span>
-                            </div>
-                          </Field>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tab 2: 人设与系统准则 */}
-                    {assistantTab === 'persona' && (
-                      <div className="space-y-4 animate-[fade-in_0.15s_ease-out]">
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-[var(--ink)]">{t("人设")}</span>
-                            <SettingsWriteButton
-                              type="button"
-                              className="text-xs text-[var(--accent)] hover:underline inline-flex items-center gap-1 cursor-pointer"
-                              onClick={() => setAssistantDraft((current) => ({
-                                ...current,
-                                persona: overview.defaults?.assistant?.persona || current.persona,
-                              }))}
-                            >
-                              <RotateCcw size={11} />
-                              <span>{t("重置为系统默认")}{t("人设")}</span>
-                            </SettingsWriteButton>
-                          </div>
-                          <SettingsTextarea
-                            className={`${inputClass} min-h-36 font-mono text-xs`}
-                            maxLength={12000}
-                            required
-                            value={assistantDraft?.persona || ''}
-                            onChange={(event) => setAssistantDraft((current) => ({ ...current, persona: event.target.value }))}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-[var(--ink)]">{t("系统准则")}</span>
-                            <SettingsWriteButton
-                              type="button"
-                              className="text-xs text-[var(--accent)] hover:underline inline-flex items-center gap-1 cursor-pointer"
-                              onClick={() => setAssistantDraft((current) => ({
-                                ...current,
-                                system_rules: overview.defaults?.assistant?.system_rules || current.system_rules,
-                              }))}
-                            >
-                              <RotateCcw size={11} />
-                              <span>{t("重置为系统默认")}{t("系统准则")}</span>
-                            </SettingsWriteButton>
-                          </div>
-                          <SettingsTextarea
-                            className={`${inputClass} min-h-44 font-mono text-xs`}
-                            maxLength={24000}
-                            required
-                            value={assistantDraft?.system_rules || ''}
-                            onChange={(event) => setAssistantDraft((current) => ({ ...current, system_rules: event.target.value }))}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <SettingsActions className="pt-3 border-t border-[var(--line)]">
-                      <SettingsButton closeDialog variant="quiet" disabled={busy}>{t("取消")}</SettingsButton>
-                      <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? "正在保存…" : "保存助手配置")}</SettingsButton>
-                    </SettingsActions>
-                  </form>
-                </SettingsEditDialog>
-              )}
-
-              {/* 区块 3：歌词智能与数据源 */}
-              <Section
-                title={t("歌词 AI")}
-                action={
-                  <SettingsButton
-                    type="button"
-                    onClick={() => {
-                      setMessage('');
-                      settingRevision.current['lyrics.ai'] = overview.settings['lyrics.ai'].revision;
-                      setLyricAiEditorOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1.5"
-                  >
-                    <Languages size={13} className="shrink-0" />
-                    <span>{t("编辑歌词 AI")}</span>
-                  </SettingsButton>
-                }
-              >
-                <div className="space-y-3 text-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[var(--muted)]">{t("目标译文：")}</span>
-                      <strong className="font-semibold text-[var(--ink)]">{getLanguageLabel(draft['lyrics.ai']?.targetLanguage)}</strong>
-                    </div>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium ${
-                      draft['lyrics.ai']?.completionEnabled
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-[var(--line)] text-[var(--muted)]'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${draft['lyrics.ai']?.completionEnabled ? 'bg-emerald-500' : 'bg-[var(--muted)]'}`} />
-                      {draft['lyrics.ai']?.completionEnabled ? t("歌词 AI 已开启") : t("歌词 AI 已关闭")}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {[
-                      draft['lyrics.ai']?.completionEnabled && (draft['lyrics.ai']?.automaticCompletionEnabled ? t("自动补全已开启") : t("仅手动补全")),
-                      draft['lyrics.ai']?.cleanDirtyLyrics && t("清理脏歌词"),
-                      draft['lyrics.ai']?.translateLyrics && t("翻译"),
-                      draft['lyrics.ai']?.detectLanguage && t("识别歌曲语言"),
-                    ].filter(Boolean).map((value) => (
-                      <span key={value} className="px-2 py-0.5 rounded-md bg-[var(--surface)] border border-[var(--line)] text-[11px] text-[var(--muted)]">
-                        {t(value)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </Section>
-
-              {/* 歌词 AI 编辑弹窗 */}
-              {lyricAiEditorOpen && (
-                <SettingsEditDialog title={t("编辑歌词 AI")} message={message} busy={busy} onClose={closeLyricAiEditor} size="large">
-                  <form onSubmit={(event) => void saveSetting(event, 'lyrics.ai')} className="space-y-5">
-                    {/* 顶部全局参数行 */}
-                    <div className="grid gap-4 sm:grid-cols-2 p-3.5 rounded-xl bg-[var(--surface)] border border-[var(--line)]">
-                      <Field label={t("目标译文语言")} hint={t("实例内所有用户共用一份译文；修改后旧译文不会自动变成新语言。")}>
-                        <SelectControl
-                          aria-label={t("目标译文语言")}
-                          className={inputClass}
-                          value={draft['lyrics.ai']?.targetLanguage || 'zh'}
-                          onChange={(event) => setLyricTargetLanguage(event.target.value)}
-                        >
-                          {ALL_LANGUAGES.filter(({ code }) => !['instrumental', 'other'].includes(code)).map(({ code, label }) => (
-                            <option key={code} value={code}>{t(label)}</option>
-                          ))}
-                        </SelectControl>
-                      </Field>
-                      <Field label={t("温度（0～2）")} hint={t("越低越严谨，越高越有创造力。")}>
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <SettingsInput
-                            className="flex-1 accent-[var(--accent)] cursor-pointer"
-                            type="range"
-                            min="0"
-                            max="2"
-                            step="0.1"
-                            value={draft['lyrics.ai']?.temperature ?? 0.2}
-                            onChange={(event) => setLyricAiField('temperature', Number(event.target.value))}
-                          />
-                          <span className="font-mono text-xs w-9 text-right font-bold text-[var(--accent)]">
-                            {Number(draft['lyrics.ai']?.temperature ?? 0.2).toFixed(1)}
-                          </span>
-                        </div>
-                      </Field>
-                    </div>
-
-                    {/* 下部左右平衡双栏 */}
-                    <div className="grid gap-5 lg:grid-cols-2 items-start">
-                      {/* 左栏：处理功能 */}
-                      <fieldset className="min-w-0 space-y-2.5">
-                        <legend className="text-xs font-semibold text-[var(--ink)] mb-2">{t("处理功能")}</legend>
-                        <div className="space-y-2">
-                          {[
-                            ['completionEnabled', t("启用歌词 AI 补全（关闭后工作台入口隐藏）")],
-                            ['automaticCompletionEnabled', t("播放时自动补全缺少目标语言译文的歌词")],
-                            ['cleanDirtyLyrics', t("清理非演唱歌词整行")],
-                            ['translateLyrics', t("生成目标语言译文")],
-                            ['detectLanguage', t("识别并更新歌曲语言")],
-                            ['referenceExistingTranslation', t("将同语言旧译文作为翻译参考")],
-                          ].map(([key, label]) => (
-                            <div key={key} className="p-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] transition-colors">
-                              <SettingsToggle
-                                label={label}
-                                checked={Boolean(draft['lyrics.ai']?.[key])}
-                                disabled={busy}
-                                onChange={(event) => setLyricAiField(key, event.target.checked)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </fieldset>
-
-                      {/* 右栏：歌词准则 */}
-                      <div className="min-w-0 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label htmlFor="lyrics-ai-style-rules" className="block text-xs font-semibold text-[var(--ink)]">
-                            {t("歌词处理准则")}
-                          </label>
-                          <SettingsWriteButton
-                            type="button"
-                            className="text-xs font-medium text-[var(--accent)] hover:underline inline-flex items-center gap-1 cursor-pointer"
-                            onClick={() => setLyricAiField('styleRules', overview.defaults?.lyrics?.styleRules || '')}
-                          >
-                            <RotateCcw size={11} />
-                            <span>{t("重置为系统默认准则")}</span>
-                          </SettingsWriteButton>
-                        </div>
-                        <SettingsTextarea
-                          id="lyrics-ai-style-rules"
-                          className={`${inputClass} min-h-72 resize-y font-mono text-xs`}
-                          maxLength={8000}
-                          value={draft['lyrics.ai']?.styleRules || ''}
-                          onChange={(event) => setLyricAiField('styleRules', event.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <SettingsActions className="border-t border-[var(--line)] pt-4">
-                      <SettingsButton closeDialog variant="quiet" disabled={busy}>{t("取消")}</SettingsButton>
-                      <SettingsButton type="submit" variant="primary" disabled={busy}>{t(busy ? "正在保存…" : "保存歌词 AI 设置")}</SettingsButton>
-                    </SettingsActions>
-                  </form>
-                </SettingsEditDialog>
-              )}
-
-              {/* 歌词源 */}
-              <LyricSourcesSettings
-                setting={overview.settings['lyrics.sources']}
-                csrfToken={csrfToken}
-                onSaved={result => setOverview(current => ({ ...current, settings: { ...current.settings, 'lyrics.sources': result } }))}
-              />
-            </div>
-          )}
-
           {/* 曲库 */}
           {tab === 'catalog' && <AdminCatalogSection />}
 
@@ -724,42 +302,21 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                   >
                     <RefreshCw size={13} className={loading ? 'animate-spin text-[var(--accent)]' : ''} />
                   </button>
-                  {!isCreatingAccount && (
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingAccount(true)}
-                      className="primary-button inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer shadow-xs"
-                    >
-                      <UserPlus size={14} />
-                      <span>{t("创建新账号")}</span>
-                    </button>
-                  )}
+                  <SettingsButton
+                    type="button"
+                    variant="primary"
+                    onClick={() => { setMessage(''); setIsCreatingAccount(true); }}
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    <UserPlus size={14} />
+                    <span>{t("创建新账号")}</span>
+                  </SettingsButton>
                 </div>
               </div>
 
-              {/* 创建账号卡片（默认收起，点击创建新账号时展开） */}
+              {/* 创建账号弹窗 */}
               {isCreatingAccount && (
-                <div className="rounded-2xl border border-[var(--accent)]/40 bg-[var(--surface-raised)] p-5 space-y-4 shadow-sm animate-[fade-in_0.2s_ease-out]">
-                  <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center shrink-0">
-                        <UserPlus size={15} />
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-bold text-[var(--ink)]">{t("创建新成员账号")}</h3>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingAccount(false)}
-                      className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--ink)] hover:bg-current/5 transition-colors cursor-pointer"
-                      title={t("关闭创建卡片")}
-                      aria-label={t("关闭创建卡片")}
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-
+                <SettingsEditDialog title={t("创建新成员账号")} message={message} busy={busy} onClose={() => setIsCreatingAccount(false)}>
                   <form onSubmit={createAccount} className="grid gap-3.5 sm:grid-cols-2">
                     <Field label={t("用户名")}>
                       <SettingsInput className={inputClass} name="username" pattern={'[a-z0-9_.\\-]{3,64}'} minLength={3} maxLength={64} autoComplete="off" required placeholder={t("如 alex_turner")} />
@@ -776,16 +333,12 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                     <Field label={t("一次性临时密码")}>
                       <SettingsInput className={inputClass} type="password" name="temporaryPassword" autoComplete="new-password" minLength={8} maxLength={1024} required placeholder={t("初始临时密码（至少 8 位）")} />
                     </Field>
-                    <div className="sm:col-span-2 flex justify-end items-center gap-2.5 pt-3 border-t border-[var(--line)]">
-                      <button
-                        type="button"
-                        onClick={() => setIsCreatingAccount(false)}
-                        className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
-                      >{t("取消")}</button>
+                    <SettingsActions className="sm:col-span-2 pt-3 border-t border-[var(--line)]">
+                      <SettingsButton closeDialog variant="quiet" disabled={busy}>{t("取消")}</SettingsButton>
                       <SettingsWriteButton className={buttonClass} type="submit" disabled={busy}>{t("确认创建账号")}</SettingsWriteButton>
-                    </div>
+                    </SettingsActions>
                   </form>
-                </div>
+                </SettingsEditDialog>
               )}
 
               {/* 现有账号列表 */}
@@ -877,6 +430,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                 {setting('cors.allowed_origins', t("精确 HTTPS Origin（每行一个）"), t("例如 https://music.example.com；不接受通配符、路径或末尾斜杠。"), true)}
               </SettingsEditDialog>}
 
+              <LyricsSourceOrderSettings key={`lyrics-${authSession.user.accountId}`} session={authSession} />
               <GoogleAdminSettings key={authSession.user.accountId} session={authSession} />
               <IngestDevicesPanel />
               <Section title={t("运行概况")}>
@@ -897,6 +451,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                 </dl>
                 <DatabaseMigrationStatus status={status} busy={busy} onUpgrade={() => void upgradeDatabase()} />
               </Section>
+              <SystemUpdatePanel session={authSession} />
             </div>
           )}
         </>

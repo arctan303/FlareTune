@@ -7,6 +7,7 @@ const readClassicBackground = () => readFileSync(new URL('./MobileClassicBackgro
 const readClassicPanes = () => readFileSync(new URL('./MobileClassicPanes.jsx', import.meta.url), 'utf8');
 const readClassicCss = () => readFileSync(new URL('./classic-player.css', import.meta.url), 'utf8');
 const readMobileCss = () => readFileSync(new URL('./classic-mobile.css', import.meta.url), 'utf8');
+const readDesktopCss = () => readFileSync(new URL('./classic-desktop.css', import.meta.url), 'utf8');
 const readDesktopLayout = () => readFileSync(new URL('./ClassicDesktopLayout.jsx', import.meta.url), 'utf8');
 const readMobileLayout = () => readFileSync(new URL('./ClassicMobileLayout.jsx', import.meta.url), 'utf8');
 const readSharedMobileLayout = () => readFileSync(new URL('./MobilePlayerLayout.jsx', import.meta.url), 'utf8');
@@ -91,13 +92,12 @@ test('classic player mounts one layout for each viewport while sharing state and
     assert.doesNotMatch(player, /const currentLyric =|const primaryLine =|`cover\/\$\{currentSong\.id\}\.jpg`/);
 });
 
-test('classic player passes lyric sync and intro data through to both complete and preview panes', () => {
+test('classic player passes lyric sync data through to both complete and preview panes', () => {
     const player = readClassicPlayer();
     const panes = readClassicPanes();
     assert.match(player, /lyricSyncMode: state\.lyricSyncMode/);
-    assert.match(player, /lyricIntro: state\.lyricIntro/);
-    assert.match(player, /const lyricsScrollerProps = \{[\s\S]*?lyricSyncMode,[\s\S]*?lyricIntro,/);
-    assert.match(player, /const songPaneProps = \{[\s\S]*?lyricIntro,[\s\S]*?lyricSyncMode,/);
+    assert.match(player, /const lyricsScrollerProps = \{[\s\S]*?lyricSyncMode,/);
+    assert.match(player, /const songPaneProps = \{[\s\S]*?lyricSyncMode,/);
     assert.match(readMobileLayout(), /<MobileSongPane[\s\S]*?\{\.\.\.songPaneProps\}/);
     assert.match(readDesktopLayout(), /<MobileSongPane[\s\S]*?\{\.\.\.songPaneProps\}/);
     assert.match(panes, /<SyncedLyricText[\s\S]*?line=\{displayLine\}[\s\S]*?visible=\{surfaceVisible\}[\s\S]*?syncMode=\{lyricSyncMode\}/);
@@ -122,14 +122,13 @@ test('mobile song pane has one keyboard activation owner and timing spans do not
     assert.doesNotMatch(panes, /paper-mobile-lyric-preview[^>]*onKeyDown/);
 });
 
-test('mobile preview leaves translation static and intro does not offset canonical rows', () => {
+test('mobile preview leaves translation static and preserves canonical rows', () => {
     const panes = readClassicPanes();
-    assert.match(panes, /lyricPresentation\.kind === 'intro' && index === 0/);
-    assert.match(panes, /const displayLine = isIntroRow \? lyricPresentation\.line : lyric/);
-    assert.match(panes, /const translation = !isIntroRow && translationEnabled/);
+    assert.match(panes, /const displayLine = lyric/);
+    assert.match(panes, /const translation = translationEnabled/);
     assert.match(panes, /paper-mobile-lyric-preview__translation truncate">\{translation\}/);
     assert.match(panes, /!displayLine\.text\.includes\('\\n'\)[\s\S]*?\? displayLine\.text/);
-    assert.doesNotMatch(panes, /unshift|splice|\[lyricIntro,\s*\.\.\./);
+    assert.doesNotMatch(panes, /lyricIntro|isIntroRow|unshift|splice/);
 });
 
 test('mobile lyric pane keeps its slide-in and slide-out animations', () => {
@@ -146,23 +145,33 @@ test('mobile lyric pane keeps its slide-in and slide-out animations', () => {
   assert.doesNotMatch(readFileSync(new URL("./classic-mobile.css", import.meta.url), 'utf8'), /prefers-reduced-motion/);
 });
 
-test('MobileClassicPlayer routes missing translation clicks through the member completion action', () => {
+test('MobileClassicPlayer routes translation through the declared source capability and unified action', () => {
     const src = readClassicPlayer();
     assert.match(src, /requestLyricsTranslationCompletion/);
     assert.match(src, /authenticated: Boolean\(state\.authSession\?\.authenticated\)/);
     assert.match(src, /translationState: state\.translationState/);
-    assert.match(src, /canTranslate: translationState !== 'unavailable'/);
+    assert.match(src, /canTranslate: translationSupported/);
+    assert.match(src, /translationSupported: state\.translationSupported/);
+    assert.doesNotMatch(src, /lyricsAiAvailable|canManageLyrics|usePluginAvailable/);
     assert.match(src, /translationState,[\s\S]*toggleTranslation: handleTranslationAction/);
     assert.match(src, /role="status" aria-live="polite" aria-atomic="true"/);
     assert.match(src, /translationState === 'failed'[\s\S]*歌词翻译补全失败，可以点击重试/);
-    assert.match(src, /if \(translationPending\) return;/);
-    assert.match(src, /if \(translationReady\) \{[\s\S]*toggleTranslation\(\)/);
+    assert.match(src, /if \(!translationSupported\) return;/);
+    assert.match(src, /if \(translationReady \|\| translationState === 'pending'\) \{[\s\S]*toggleTranslation\(\)/);
     assert.match(src, /setTranslationEnabled\(true\)/);
+});
+
+test('desktop classic toolbar keeps the shared 14px translation icon while other tools stay 20px', () => {
+    const css = readDesktopCss();
+    // A CSS width/height overrides lucide's size attributes, so the shared
+    // 20px tool rule must not reach the translation action's icon.
+    assert.match(css, /\.classic-player__stage \.classic-lyrics__tool:not\(\.lyrics-translation-action\) > svg \{\s*width: 20px;\s*height: 20px;/);
+    assert.doesNotMatch(css, /\.classic-lyrics__tool > svg/);
 });
 
 test('classic translation pending animation stays on the outer ring and failed state is visible', () => {
     const css = readClassicCss();
-    assert.match(css, /lyrics-translation-action\[data-translation-state='pending'\]::after[\s\S]*animation: lyrics-translation-breathe/);
-    assert.doesNotMatch(css, /lyrics-translation-action\[data-translation-state='pending'\]\s*\{[^}]*animation:/);
+    assert.match(css, /lyrics-translation-action\[data-translation-state='pending'\]\[aria-busy='true'\]::after[\s\S]*animation: lyrics-translation-breathe/);
+    assert.doesNotMatch(css, /lyrics-translation-action\[data-translation-state='pending'\](?:\[aria-busy='true'\])?\s*\{[^}]*animation:/);
     assert.match(css, /lyrics-translation-action\[data-translation-state='failed'\]::before[\s\S]*content: '!'/);
 });

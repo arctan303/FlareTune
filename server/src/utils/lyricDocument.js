@@ -1,5 +1,5 @@
 import { isNonLyricText } from './lyricsParsing.js';
-import { LEGACY_LYRIC_SOURCES, isLyricSourceId } from '../../../shared/lyricSources.js';
+import { LEGACY_LYRIC_SOURCES, isLyricSourceId, isValidLyricTranslationTarget } from '../../../shared/lyricSources.js';
 
 const DOCUMENT_VERSION = 2;
 const MAX_LINES = 2_000;
@@ -255,7 +255,10 @@ export function createLyricDocument({
   lrc = '',
   providerMeta,
 } = {}) {
-  if (!isLyricSourceId(source) && source !== 'manual' && !Object.hasOwn(LEGACY_LYRIC_SOURCES, source)) throw new TypeError('invalid lyric source');
+  // Native YouTube lyrics are a stored source, not a configurable scraper.
+  if (!isLyricSourceId(source) && !['manual', 'youtube'].includes(source)
+    && !/^plugin:[a-z][a-z0-9-]{0,79}$/u.test(source || '')
+    && !Object.hasOwn(LEGACY_LYRIC_SOURCES, source)) throw new TypeError('invalid lyric source');
   if (!['krc', 'lyricsfile', 'lrc', 'plain'].includes(format)) throw new TypeError('invalid lyric format');
   if (!Array.isArray(lines)) throw new TypeError('lyrics lines must be an array');
   if (lines.length > MAX_LINES) throw new RangeError('lyrics exceed safe line count');
@@ -286,7 +289,8 @@ export function createLyricDocument({
   };
   if (providerMeta && typeof providerMeta === 'object') {
     const safeMeta = {};
-    if (typeof providerMeta.translationLanguage === 'string' && /^[a-z]{2,3}$/u.test(providerMeta.translationLanguage)) {
+    if (isValidLyricTranslationTarget(providerMeta.translationLanguage)
+      || ['zh-CN', 'zh-TW'].includes(providerMeta.translationLanguage)) {
       safeMeta.translationLanguage = providerMeta.translationLanguage;
     }
     if (providerMeta.providerLyricId !== undefined) {

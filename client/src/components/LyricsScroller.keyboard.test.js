@@ -5,7 +5,7 @@ import { hookComponent, nodes } from '../test/lyricCandidateHarness.js';
 import * as navigation from './lyricKeyboardNavigation.js';
 import * as classicMotion from './classicLyricMotion.js';
 
-function createHarness(extraProps = {}) {
+function createHarness(extraProps = {}, speakerOutput = { enabled: false, speakerVolume: 0.5, setSpeakerVolume() {} }) {
   const focusEvents = [];
   const locks = [];
   const timers = new Map();
@@ -15,10 +15,20 @@ function createHarness(extraProps = {}) {
   const buttonElement = {};
   const volumeRegion = { contains: (target) => target === sliderElement || target === buttonElement };
   const audio = { currentTime: 0 };
+  let restoreVolume = speakerOutput.enabled ? speakerOutput.speakerVolume : extraProps.volume ?? 0.8;
   const harness = hookComponent({ file: fileURLToPath(new URL('./LyricsScroller.jsx', import.meta.url)),
     modules: {
       '../i18n/index.js': { t: (text) => text },
-      'lucide-react': { VolumeX: 'icon', Volume2: 'icon', Loader2: 'icon' },
+      '../hooks/usePlaybackVolume.js': { usePlaybackVolume: (local) => {
+        const value = speakerOutput.enabled ? speakerOutput.speakerVolume : local.volume;
+        if (value > 0) restoreVolume = value;
+        const write = (next) => {
+          if (speakerOutput.enabled) speakerOutput.setSpeakerVolume(next);
+          else { local.setVolume(next); if (local.audioRef?.current) local.audioRef.current.volume = next; }
+        };
+        return { volume: value, setVolume: write, toggleMute: () => write(value > 0 ? 0 : restoreVolume) };
+      } },
+      'lucide-react': { VolumeX: 'icon', Volume2: 'icon', Loader2: 'icon', Languages: 'icon' },
       './lyrics/InterludeHost': 'interlude-host',
       './lyrics/SyncedLyricText': 'synced-text',
       './lyrics/lyricSurfacePresentation.js': { useLyricSurfacePresentation: ({ lyrics, currentLyricIndex }) => ({
@@ -165,4 +175,26 @@ test('lyric volume drag retains pointer capture and each release route resumes d
   assert.equal(subject.locks.at(-1), false, 'an invisible lyric surface cannot hold player controls open');
   subject.harness.unmount();
   assert.equal(subject.timers.size, 0);
+});
+
+test('lyric speaker volume panel keeps one target slider; slider, mute and wheel cannot alter local audio', () => {
+  const remote = [], local = [];
+  const output = { enabled: true, speakerVolume: 0.6, setSpeakerVolume: (value) => { output.speakerVolume = value; remote.push(value); } };
+  const subject = createHarness({ volume: 0.2, setVolume: (value) => { subject.props.volume = value; local.push(value); } }, output);
+  subject.audio.volume = 0.2; subject.audio.muted = true;
+  let view = subject.render();
+  let sliders = nodes(view.volume).filter((node) => node.props.type === 'range');
+  assert.deepEqual(sliders.map((slider) => slider.props['aria-label']), ['音量']);
+  sliders[0].props.onChange({ target: { value: '0.7' } });
+  assert.deepEqual(remote, [0.7]);
+  assert.equal(subject.audio.volume, 0.2);
+  view = subject.render();
+  view.volumeButton.props.onClick({ stopPropagation() {} });
+  assert.deepEqual(remote, [0.7, 0]);
+  assert.equal(subject.audio.volume, 0.2);
+  view = subject.render(); view.volume.props.onWheel({ deltaY: -1, stopPropagation() {} });
+  assert.equal(remote.at(-1), 0.05);
+  assert.deepEqual(local, []);
+  assert.equal(subject.audio.muted, true);
+  subject.harness.unmount();
 });

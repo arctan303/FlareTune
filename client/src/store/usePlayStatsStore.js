@@ -1,3 +1,4 @@
+import { canReferenceAccountSong, songSourceMetadata } from '../utils/musicSource.js';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createResilientStorage } from '../utils/browserStorage.js';
@@ -58,6 +59,7 @@ function validPendingEvent(event) {
     && /^[A-Za-z0-9_-]+$/.test(event.event_id)
     && typeof event.song_id === 'string'
     && event.song_id.length > 0
+    && canReferenceAccountSong(event.song_id)
     && event.song_id.length <= 256
     && Number.isSafeInteger(playedAt)
     && playedAt > 0;
@@ -131,6 +133,7 @@ function cleanSongMeta(songId, song, playedAt = Date.now()) {
     duration: Number(song?.duration) || 0,
     last_played_at: Number(song?.last_played_at) || playedAt,
     language: song?.language || null,
+    ...songSourceMetadata({ ...song, id: songId }),
   };
 }
 
@@ -461,7 +464,7 @@ export const usePlayStatsStore = create(
           cleanId = String(songOrId || '').trim();
           meta = songMeta;
         }
-        if (!cleanId) return;
+        if (!canReferenceAccountSong(cleanId) || (meta && !canReferenceAccountSong({ ...meta, id: cleanId }))) return;
 
         const state = get();
         if (!state.identityReady || !state.ownerSubject) return;
@@ -531,6 +534,8 @@ export const usePlayStatsStore = create(
 
           const syncSubject = initial.ownerSubject;
           let submitted = 0;
+          let unconfirmed = 0;
+          const attemptedIds = new Set();
           set({ isSyncing: true });
 
           try {
@@ -541,19 +546,19 @@ export const usePlayStatsStore = create(
                 return { ok: false, submitted, remaining: current.pendingQueue.length, reason: 'identity-changed' };
               }
 
-              const snapshot = current.pendingQueue.slice(0, MAX_SYNC_BATCH_SIZE);
+              const snapshot = current.pendingQueue.filter(event => !attemptedIds.has(event.event_id)).slice(0, MAX_SYNC_BATCH_SIZE);
               if (snapshot.length === 0) break;
+              for (const event of snapshot) attemptedIds.add(event.event_id);
               const response = await submitAccountPlayStats(snapshot, {
                 keepalive,
                 expectedSubject: syncSubject,
               });
-              const acceptedIds = new Set(Array.isArray(response?.acceptedEventIds) ? response.acceptedEventIds : []);
-              if (!snapshot.every((event) => acceptedIds.has(event.event_id))) {
-                throw new Error('播放统计服务未确认完整事件批次。');
-              }
-
+              const acknowledgedIds = new Set(Array.isArray(response?.acceptedEventIds) ? response.acceptedEventIds : []);
+              // An acknowledgement can retire only ids actually sent by this owner.
+              const acceptedIds = new Set(snapshot.filter(event => acknowledgedIds.has(event.event_id)).map(event => event.event_id));
+              unconfirmed += snapshot.length - acceptedIds.size;
               removePendingEvents(syncSubject, acceptedIds);
-              acknowledgedUploadEpoch += 1;
+              if (acceptedIds.size) acknowledgedUploadEpoch += 1;
 
               set((state) => {
                 const legacyPendingBySubject = { ...state.pendingBySubject };
@@ -570,12 +575,26 @@ export const usePlayStatsStore = create(
                 return {
                   pendingQueue: state.pendingQueue.filter((event) => !acceptedIds.has(event.event_id)),
                   ...(!state.legacyMigrationComplete ? { pendingBySubject: legacyPendingBySubject } : {}),
-                  lastSyncedAt: Date.now(),
+                  lastSyncedAt: acceptedIds.size ? Date.now() : state.lastSyncedAt,
                 };
               });
-              submitted += snapshot.length;
+              submitted += acceptedIds.size;
               if (keepalive) break;
             } while (get().pendingQueue.length > 0);
+
+            if (!get().identityReady || get().ownerSubject !== syncSubject) {
+              return { ok: false, submitted, remaining: get().pendingQueue.length, reason: 'identity-changed' };
+            }
+            if (unconfirmed > 0) {
+              // Expected partial acknowledgements must neither drop pending YT
+              // plays nor immediately resend the same unconfirmed batch forever.
+              consecutiveFailures += 1;
+              const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (consecutiveFailures - 1), MAX_BACKOFF_MS);
+              nextAllowedSyncTime = Date.now() + delay;
+              nextRetryTime = nextAllowedSyncTime;
+              return { ok: false, partial: submitted > 0, submitted, remaining: get().pendingQueue.length,
+                reason: 'unconfirmed-events', retryAfterMs: delay };
+            }
 
             // 成功提交：重置失败计数与退避时间
             consecutiveFailures = 0;

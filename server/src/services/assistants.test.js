@@ -63,10 +63,13 @@ test('bootstrap exposure excludes private prompt and model fields', async () => 
   });
 });
 
-test('missing or incomplete local assistant configuration fails closed', async () => {
+test('missing assistant persona fails closed; retired model fields do not block consumer-owned configuration', async () => {
   await assert.rejects(() => readMusicAssistantConfig(db(null)), /assistant_configuration_unavailable/);
   await assert.rejects(() => readMusicAssistantConfig(db({ ...row, system_rules: '' })), /assistant_configuration_unavailable/);
-  await assert.rejects(() => readMusicAssistantConfig(db({ ...row, provider: 'bogus' })), /assistant_configuration_unavailable/);
-  await assert.rejects(() => readMusicAssistantConfig(db({ ...row, model: '' })), /assistant_configuration_unavailable/);
   await assert.rejects(() => readMusicAssistantConfig(db({ ...row, temperature: 3 })), /assistant_configuration_unavailable/);
+  for (const legacy of [{ provider: 'bogus' }, { model: '' }]) {
+    const current = await readMusicAssistantConfig(db({ ...row, ...legacy }));
+    assert.equal(current.persona, row.persona);
+    assert.equal(current.systemRules, row.system_rules);
+  }
 });

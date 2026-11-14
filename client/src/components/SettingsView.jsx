@@ -31,6 +31,7 @@ import { SettingsActions, SettingsButton } from './SettingsControls.jsx';
 import SettingsSkeleton from './SettingsSkeleton.jsx';
 
 const AdminView = React.lazy(() => import('./AdminView.jsx'));
+const PluginSettingsView = React.lazy(() => import('./PluginSettingsView.jsx'));
 
 /**
  * 播放器形态微缩沙盘模型
@@ -112,13 +113,13 @@ function PlayerModeMockup({ mode, coverUrl }) {
   );
 }
 
-export default function SettingsView({ section, themePreference = 'system', selectTheme }) {
+export default function SettingsView({ route, section, themePreference = 'system', selectTheme }) {
   const playerMode = useUIStore((state) => state.playerMode);
   const setPlayerMode = useUIStore((state) => state.setPlayerMode);
   const authSession = useUIStore((state) => state.authSession);
 
   const isAdmin = authSession?.authenticated && authSession?.user?.role === 'admin';
-  const validSections = ['personal', 'appearance', 'admin-assistant', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
+  const validSections = ['personal', 'appearance', 'plugins', 'admin-plugins', 'admin-catalog', 'admin-add-song', 'admin-accounts', 'admin-system'];
   const requestedSection = section || 'appearance';
   const activeSection = validSections.includes(requestedSection)
     && (isAdmin || !requestedSection.startsWith('admin'))
@@ -126,9 +127,10 @@ export default function SettingsView({ section, themePreference = 'system', sele
     : 'appearance';
 
   useEffect(() => {
-    const path = formatPath({ type: 'page', page: 'settings', section: activeSection });
+    const path = formatPath({ ...route, type: 'page', page: 'settings', section: activeSection,
+      ...(activeSection !== requestedSection ? { pluginId: undefined, pluginSection: undefined } : {}) });
     if (window.location.pathname !== path) syncBrowserHistory(path, { replace: true });
-  }, [activeSection]);
+  }, [activeSection, requestedSection, route?.pluginId, route?.pluginSection]);
 
   // 壁纸 Store 状态
   const enabled = useWallpaperStore((s) => s.enabled);
@@ -247,14 +249,16 @@ export default function SettingsView({ section, themePreference = 'system', sele
     showToast(result?.ok ? '已清除本地壁纸' : '清除失败，请重试');
   };
 
+  const cleanSliderLabel = (text) => text.replace(/\s*\([^)]+\)$/u, '');
+
   return (
     <div className="app-page settings-page pb-28">
       <div className="settings-main-pane mx-auto w-full max-w-4xl">
-          {/* 分支 1：外观与样式 */}
+          {/* 分支 1：外观与播放 */}
           {activeSection === 'appearance' && (
             <div className="space-y-6 sm:space-y-7 animate-[fade-in_0.2s_ease-out]">
               <header className="border-b border-[var(--line)] pb-4">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)]">{t("外观与样式")}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)]">{t("外观与播放")}</h1>
               </header>
 
               {/* 模块 1：外观与色彩模式 */}
@@ -265,10 +269,10 @@ export default function SettingsView({ section, themePreference = 'system', sele
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl" role="group" aria-label={t("外观模式")}>
                   {[
-                    { id: 'system', label: t("跟随系统"), detail: t("随设备自动切换"), icon: Monitor },
+                    { id: 'system', label: t("跟随系统"), icon: Monitor },
                     { id: 'light', label: t("浅色模式"), icon: Sun },
                     { id: 'dark', label: t("深色模式"), icon: Moon },
-                  ].map(({ id, label, detail, icon: Icon }) => (
+                  ].map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
                       type="button"
@@ -280,7 +284,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span className="w-7 h-7 rounded-lg bg-[color-mix(in_srgb,var(--accent)_12%,var(--surface))] text-[var(--accent)] flex items-center justify-center shrink-0"><Icon size={15} strokeWidth={2} /></span>
-                        <span className="min-w-0"><strong className="block text-xs font-semibold">{t(label)}</strong>{detail && <span className="block text-[10px] opacity-70">{t(detail)}</span>}</span>
+                        <span className="min-w-0"><strong className="block text-xs font-semibold">{t(label)}</strong></span>
                       </div>
                       {themePreference === id && <Check size={15} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />}
                     </button>
@@ -362,9 +366,6 @@ export default function SettingsView({ section, themePreference = 'system', sele
                 {enabled && imageStatus === 'loading' && (
                   <p role="status" className="text-xs text-[var(--muted)]">{t("正在加载背景图片…")}</p>
                 )}
-                {enabled && imageStatus === 'ready' && (
-                  <p role="status" className="text-xs text-[var(--muted)]">{t("背景已应用")}</p>
-                )}
                 {enabled && imageStatus === 'error' && (
                   <div role="alert" className="flex items-center gap-3 text-xs text-red-600 dark:text-red-400">
                     <span>{t("背景图片加载失败，请检查图片地址或选择其他图片。")}</span>
@@ -376,7 +377,6 @@ export default function SettingsView({ section, themePreference = 'system', sele
                 {wallpaperEditorOpen && (
                   <SettingsEditDialog title={t("配置壁纸")} busy={isProcessingFile}
                     onClose={() => { setCustomInput(customUrl || ''); setWallpaperEditorOpen(false); }}>
-                  <p className="mb-4 text-xs text-[var(--muted)]">{t("更改会立即生效。")}</p>
                   <div className="space-y-4">
                     {/* 来源切换 Tabs */}
                     <div className="flex items-center gap-1 p-0.5 rounded-xl bg-current/5 border border-[var(--line)] max-w-xs">
@@ -561,7 +561,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 模糊度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-blur">{t("背景模糊度 (Blur)")}</label>
+                            <label htmlFor="wallpaper-blur">{cleanSliderLabel(t("背景模糊度 (Blur)"))}</label>
                             <span className="font-mono text-[var(--ink)]">{blur}px</span>
                           </div>
                           <input
@@ -579,7 +579,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 遮罩强度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-overlay">{t("背景遮罩强度 (Overlay)")}</label>
+                            <label htmlFor="wallpaper-overlay">{cleanSliderLabel(t("背景遮罩强度 (Overlay)"))}</label>
                             <span className="font-mono text-[var(--ink)]">{opacity}%</span>
                           </div>
                           <input
@@ -597,7 +597,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 亮度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-brightness">{t("背景亮度 (Brightness)")}</label>
+                            <label htmlFor="wallpaper-brightness">{cleanSliderLabel(t("背景亮度 (Brightness)"))}</label>
                             <span className="font-mono text-[var(--ink)]">{brightness}%</span>
                           </div>
                           <input
@@ -615,7 +615,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 卡片毛玻璃模糊 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-card-blur">{t("卡片毛玻璃 (Card Blur)")}</label>
+                            <label htmlFor="wallpaper-card-blur">{cleanSliderLabel(t("卡片毛玻璃 (Card Blur)"))}</label>
                             <span className="font-mono text-[var(--ink)]">{cardBlur}px</span>
                           </div>
                           <input
@@ -633,7 +633,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 卡片通透度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-card-opacity">{t("卡片通透度 (Opacity)")}</label>
+                            <label htmlFor="wallpaper-card-opacity">{cleanSliderLabel(t("卡片通透度 (Opacity)"))}</label>
                             <span className="font-mono text-[var(--ink)]">{cardOpacity}%</span>
                           </div>
                           <input
@@ -651,7 +651,7 @@ export default function SettingsView({ section, themePreference = 'system', sele
                         {/* 卡片饱和度 */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] text-[var(--muted)]">
-                            <label htmlFor="wallpaper-card-saturate">{t("卡片饱和度 (Saturate)")}</label>
+                            <label htmlFor="wallpaper-card-saturate">{cleanSliderLabel(t("卡片饱和度 (Saturate)"))}</label>
                             <span className="font-mono text-[var(--ink)]">{cardSaturate}%</span>
                           </div>
                           <input
@@ -679,13 +679,19 @@ export default function SettingsView({ section, themePreference = 'system', sele
 
           {activeSection === 'personal' && <AccountSettings />}
 
+          {['plugins', 'admin-plugins'].includes(activeSection) && (
+            <React.Suspense fallback={<SettingsSkeleton cards={2} rows={2} />}>
+              <PluginSettingsView route={{ ...route, section: activeSection }} session={authSession} />
+            </React.Suspense>
+          )}
+
           {/* 分支 3：系统管理各个子页面 */}
 
-          {activeSection.startsWith('admin-') && activeSection !== 'admin-add-song' && isAdmin && (
+          {activeSection.startsWith('admin-') && !['admin-add-song', 'admin-plugins'].includes(activeSection) && isAdmin && (
             <div className="space-y-6 sm:space-y-7 animate-[fade-in_0.2s_ease-out]">
               <header className="border-b border-[var(--line)] pb-4">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)]">
-                  {{ 'admin-assistant': t("AI 与助手"), 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("实例设置") }[activeSection] || t("站点管理")}
+                  {{ 'admin-catalog': t("曲库管理"), 'admin-accounts': t("账号管理"), 'admin-system': t("实例设置") }[activeSection] || t("站点管理")}
                 </h1>
               </header>
               <React.Suspense fallback={<SettingsSkeleton cards={3} rows={2} label="正在打开站点管理…" />}>
