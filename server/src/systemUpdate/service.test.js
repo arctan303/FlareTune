@@ -20,6 +20,28 @@ const receipt = () => ({ schemaVersion: 1, accountId: 'e'.repeat(32), workerName
 const nextVersion = '33333333-3333-4333-8333-333333333333';
 const request = (token = secret) => new Request('https://instance.example/api/system-update/plan', { headers: { Authorization: `Bearer ${token}` } });
 
+test('business maintenance begins before promotion and spans unknown cutover or rollback until confirmed', async t => {
+  const f = fixture(t);
+  const cases = [
+    ['queued', null, false], ['building', receipt(), false],
+    ['activation_pending', { ...receipt(), uploadStarted: true }, false],
+    ['uploaded', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion }, false],
+    ['deploying', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion }, true],
+    ['activation_pending', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion }, true],
+    ['rolling_back', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion }, true],
+    ['rolled_back', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion }, false],
+    ['migrating', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion, migrationStarted: true }, true],
+    ['activation_pending', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion, migrationStarted: true, migrationCompleted: true }, true],
+    ['deployed', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion, migrationStarted: true, migrationCompleted: true }, false],
+    ['failed', { ...receipt(), uploadStarted: true, nextVersionId: nextVersion }, false],
+  ];
+  for (const [status, saved, expected] of cases) {
+    f.sqlite.prepare(`INSERT INTO instance_settings VALUES(?,?,1,1,'test') ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json`)
+      .run(SYSTEM_UPDATE_KEY, JSON.stringify({ schemaVersion: 1, job: { status, receipt: saved } }));
+    assert.equal(await systemUpdateMaintenance(f.env), expected, `${status} ${JSON.stringify(saved)}`);
+  }
+});
+
 function fixture(t, { fetchImpl, discover, plugins = [], migrate, state, supplemental } = {}) {
   const sqlite = new DatabaseSync(':memory:'); t.after(() => sqlite.close());
   sqlite.exec(`CREATE TABLE instance_settings(key TEXT PRIMARY KEY,value_json TEXT,revision INTEGER NOT NULL,updated_at INTEGER,updated_by TEXT);

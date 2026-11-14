@@ -370,6 +370,10 @@ export async function systemUpdateMaintenance(env) {
     const row = await env.DB.prepare('SELECT value_json FROM instance_settings WHERE key=?').bind(SYSTEM_UPDATE_KEY).first();
     if (!row) return false;
     const job = JSON.parse(row.value_json)?.job;
-    return Boolean(job?.receipt?.migrationStarted && job.status !== 'deployed');
+    // Close on the old version before promotion. Unknown cutover results and
+    // rollback stay closed until the durable task confirms a safe endpoint.
+    return Boolean(job && (job.status === 'deploying' || job.status === 'rolling_back'
+      || (job.status === 'activation_pending' && job.receipt?.nextVersionId)
+      || (job.receipt?.migrationStarted && job.status !== 'deployed')));
   } catch (error) { return !/no such table:\s*instance_settings\b/i.test(error?.message || ''); }
 }
