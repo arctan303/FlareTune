@@ -3,7 +3,7 @@
   "hostApiVersion": 5,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "6ab5a4249e13097dc1d1e95ff07741c0a900333db4c9e3fa9602115bdb1ae34e"
+    "sourceDigest": "ca87d6d500b63268c2cf1fe02d02fb6f8565656a904a7b4959ccf1e90f581c44"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "63f33344ad6ff9ceb7ab35368fa6fb980ea3b3ec8f846061022c8be759e6d056",
+      "sourceDigest": "40eb997687f919c191489a5ae18e033b61151e29274203ff444c38c893b903ad",
       "sources": [
         {
           "path": "client/index.html",
@@ -57,7 +57,7 @@
         },
         {
           "path": "client/public/robots.txt",
-          "sha256": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+          "sha256": "8f6654ec047fb2100ab3503adac05a8aae71c3700b2ad17064497d7cbc5f2fc8"
         },
         {
           "path": "client/src/accountPlaylistOrdering.js",
@@ -3876,7 +3876,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "1fd8bc638861e7fdd5c3d3fd4034590d8cd4f017af01935d0074cf80802cf38e",
+      "sourceDigest": "259c69676967ebee0910eb8eb430937efdc0ed5bca50e6da6260fe242e778fd7",
       "sources": [
         {
           "path": "client/index.html",
@@ -3920,7 +3920,7 @@
         },
         {
           "path": "client/public/robots.txt",
-          "sha256": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+          "sha256": "8f6654ec047fb2100ab3503adac05a8aae71c3700b2ad17064497d7cbc5f2fc8"
         },
         {
           "path": "client/src/accountPlaylistOrdering.js",
@@ -8011,7 +8011,7 @@
       "apiVersion": 1,
       "source": "artifact:official:8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f",
       "manifestDigest": "6b8d6e7de7d4f99889266d52c0239ab4ed0376e4305dc1ba20390e17bb62f23d",
-      "sourceDigest": "c36bf287f4395d3e48a5898e8df768b0d70098f4a923018f8fb8efd9b9702cbc",
+      "sourceDigest": "57ab96a4c97a7fc55eb2ee4dbdff9cb6cce2918988e273d64e5da250f907a09e",
       "sources": [
         {
           "path": "client/index.html",
@@ -8055,7 +8055,7 @@
         },
         {
           "path": "client/public/robots.txt",
-          "sha256": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+          "sha256": "8f6654ec047fb2100ab3503adac05a8aae71c3700b2ad17064497d7cbc5f2fc8"
         },
         {
           "path": "client/src/accountPlaylistOrdering.js",
@@ -11998,7 +11998,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "52b95c479bb20d38672a0a86afb245fcc87c1c135a7d4a09c5f91cc353fd0fba",
+      "sourceDigest": "a0ec4572176205cf3e02a200fef3faa265b212463dc2f7802bb8ea5633e5912d",
       "sources": [
         {
           "path": "client/index.html",
@@ -12042,7 +12042,7 @@
         },
         {
           "path": "client/public/robots.txt",
-          "sha256": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+          "sha256": "8f6654ec047fb2100ab3503adac05a8aae71c3700b2ad17064497d7cbc5f2fc8"
         },
         {
           "path": "client/src/accountPlaylistOrdering.js",
@@ -15809,7 +15809,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "7db8e30b58e245f1554a1ee3a04a4345183283796a9ddd248c1fcc476f3367bf",
+      "sourceDigest": "0a7e7f85a595594cf65f8b21947a6848b8748c02e4f0754036be8f1e5fe5d3e9",
       "sources": [
         {
           "path": "client/index.html",
@@ -15853,7 +15853,7 @@
         },
         {
           "path": "client/public/robots.txt",
-          "sha256": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+          "sha256": "8f6654ec047fb2100ab3503adac05a8aae71c3700b2ad17064497d7cbc5f2fc8"
         },
         {
           "path": "client/src/accountPlaylistOrdering.js",
@@ -19628,7 +19628,7 @@
       "apiVersion": 1,
       "source": "artifact:official:441a41ff8539e44077d280bf25441f261829df5acea28e901f9eb3bfc415ffe6",
       "manifestDigest": "524ddb4b18133d342c164f073c36130ed6a1c92441557ab54eed1e426c9bc302",
-      "sourceDigest": "ff1a8f4356625c8b66b6eae7d9345be7195bc7d1b4c08fc280b63b27c6820298",
+      "sourceDigest": "e485173bc4183bc0530204fb531543891f241a447f61219e5ed56ec8356bd8a8",
       "sources": [
         {
           "path": "client/index.html",
@@ -19672,7 +19672,7 @@
         },
         {
           "path": "client/public/robots.txt",
-          "sha256": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+          "sha256": "8f6654ec047fb2100ab3503adac05a8aae71c3700b2ad17064497d7cbc5f2fc8"
         },
         {
           "path": "client/src/accountPlaylistOrdering.js",
