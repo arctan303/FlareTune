@@ -11,7 +11,7 @@ const hook = 'https://api.cloudflare.com/client/v4/workers/builds/deploy_hooks/s
 const old = { version: '1.2.1', sourceDigest: 'a'.repeat(64), hostApiVersion: 5, plugins: [] };
 const target = () => ({ schemaVersion: 1, id: `1.3.0:${'b'.repeat(40)}`, version: '1.3.0', commit: 'b'.repeat(40),
   host: { version: '1.3.0', sourceDigest: 'c'.repeat(64) }, hostApiVersion: 5, minVersion: '1.2.1', notes: { zh: '更新', en: 'Update' },
-  source: { url: `https://codeload.github.com/arctan303/FlareTune/tar.gz/${'b'.repeat(40)}`, sha256: 'd'.repeat(64) },
+  source: { url: 'https://github.com/arctan303/FlareTune/releases/download/1.3.0/flaretune-source.tar.gz', sha256: 'd'.repeat(64) },
   migration: { compatible: true }, channel: 'stable' });
 const receipt = () => ({ schemaVersion: 1, accountId: 'e'.repeat(32), workerName: 'synthetic-worker', targetTag: 'f'.repeat(32),
   previous: { id: '11111111-1111-4111-8111-111111111111', strategy: 'percentage',
@@ -190,13 +190,15 @@ test('only a trusted candidate can update the same version with a different dige
   const value = target(); const f = fixture(t, { discover: async () => value }); f.setRuntime({ ...old, version: value.version });
   await f.configured(); let v = await f.update.check(f.env, f.owner, { revision: (await f.view()).revision });
   await assert.rejects(f.update.start(f.env, f.owner, { revision: v.revision, releaseId: v.latest.id }), { code: 'SYSTEM_UPDATE_ALREADY_CURRENT' });
-  value.channel = 'candidate'; f.env.FLARETUNE_UPDATE_CANDIDATE_JSON = JSON.stringify(value);
+  value.channel = 'candidate'; value.source.url = `https://codeload.github.com/arctan303/FlareTune/tar.gz/${value.commit}`;
+  f.env.FLARETUNE_UPDATE_CANDIDATE_JSON = JSON.stringify(value);
   v = await f.update.check(f.env, f.owner, { revision: v.revision });
   assert.equal((await f.update.start(f.env, f.owner, { revision: v.revision, releaseId: v.latest.id })).job.target.channel, 'candidate');
 });
 
 test('removing the instance-only candidate after checking revokes its start authorization', async t => {
-  const value = { ...target(), channel: 'candidate' }, f = fixture(t, { discover: async () => value });
+  const value = { ...target(), channel: 'candidate', source: { ...target().source,
+    url: `https://codeload.github.com/arctan303/FlareTune/tar.gz/${'b'.repeat(40)}` } }, f = fixture(t, { discover: async () => value });
   f.env.FLARETUNE_UPDATE_CANDIDATE_JSON = JSON.stringify(value); await f.configured();
   const v = await f.update.check(f.env, f.owner, { revision: (await f.view()).revision });
   delete f.env.FLARETUNE_UPDATE_CANDIDATE_JSON;
@@ -376,10 +378,13 @@ test('official release discovery rejects arbitrary source, prereleases and missi
   assert.throws(() => validateRelease({ ...target(), source: { url: 'https://evil.example/archive', sha256: 'a'.repeat(64) } }), { code: 'SYSTEM_UPDATE_RELEASE_INVALID' });
   const wanted = 'https://github.com/arctan303/FlareTune/releases/download/1.3.0/flaretune-update.json';
   const calls = []; const value = await discoverRelease({}, { fetchImpl: async url => { calls.push(url); return Response.json(calls.length === 1
-    ? { tag_name: '1.3.0', draft: false, prerelease: false, assets: [{ name: 'flaretune-update.json', browser_download_url: wanted }] } : target()); } });
+    ? { tag_name: '1.3.0', draft: false, prerelease: false, assets: [{ name: 'flaretune-update.json', browser_download_url: wanted },
+      { name: 'flaretune-source.tar.gz', browser_download_url: target().source.url }] } : target()); } });
   assert.equal(value.version, '1.3.0'); assert.equal(calls[1], wanted);
   await assert.rejects(discoverRelease({}, { fetchImpl: async () => Response.json({ tag_name: '1.3.0', draft: false, prerelease: true, assets: [] }) }), { code: 'SYSTEM_UPDATE_RELEASE_INVALID' });
   await assert.rejects(discoverRelease({}, { fetchImpl: async () => Response.json({ tag_name: '1.3.0', draft: false, prerelease: false, assets: [] }) }), { code: 'SYSTEM_UPDATE_RELEASE_UNAVAILABLE' });
+  await assert.rejects(discoverRelease({}, { fetchImpl: async () => Response.json({ tag_name: '1.3.0', draft: false, prerelease: false,
+    assets: [{ name: 'flaretune-update.json', browser_download_url: wanted }] }) }), { code: 'SYSTEM_UPDATE_RELEASE_UNAVAILABLE' });
   await assert.rejects(discoverRelease({ FLARETUNE_UPDATE_CANDIDATE_JSON: JSON.stringify({ ...target(), channel: 'stable' }) }), { code: 'SYSTEM_UPDATE_CANDIDATE_INVALID' });
   await assert.rejects(discoverRelease({}, { fetchImpl: async () => new Response('x'.repeat(65537)) }), { code: 'SYSTEM_UPDATE_RELEASE_INVALID' });
 });

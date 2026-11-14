@@ -31,7 +31,7 @@ const template = { compatibility_date: '2026-09-23', assets: { binding: 'ASSETS'
 export async function makePlan() {
   const target = { schemaVersion: 1, id: `1.3.0:${'e'.repeat(40)}`, version: '1.3.0', commit: 'e'.repeat(40),
     host: { version: '1.3.0', sourceDigest: 'f'.repeat(64) }, hostApiVersion: 5, minVersion: '1.3.0', notes: { zh: '更新', en: 'Update' },
-    source: { url: `https://codeload.github.com/arctan303/FlareTune/tar.gz/${'e'.repeat(40)}`, sha256: '1'.repeat(64) },
+    source: { url: 'https://github.com/arctan303/FlareTune/releases/download/1.3.0/flaretune-source.tar.gz', sha256: '1'.repeat(64) },
     migration: { compatible: true }, channel: 'stable' };
   const plan = { schemaVersion: 1, taskId: TASK, status: 'queued', from: { host: { version: '1.3.0', sourceDigest: '2'.repeat(64) }, hostApiVersion: 5 },
     target, plugins: [], receipt: null, revision: 1 };

@@ -3,6 +3,7 @@ import { gunzipSync } from 'node:zlib';
 import { mkdir, writeFile, readdir, realpath } from 'node:fs/promises';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { readBoundedResponse } from '../plugins/assemble.mjs';
+import { validateRelease } from '../../server/src/systemUpdate/releases.js';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 export const SOURCE_LIMITS = Object.freeze({ compressed: 64 * 1024 * 1024, expanded: 256 * 1024 * 1024,
@@ -89,12 +90,32 @@ export function inspectSourceArchive(compressed, commit, limits = SOURCE_LIMITS)
 }
 
 export async function downloadSource(target, { fetchImpl = fetch, limits = SOURCE_LIMITS } = {}) {
-  const expected = `https://codeload.github.com/arctan303/FlareTune/tar.gz/${target.commit}`;
-  if (!/^[a-f0-9]{40}$/.test(target.commit || '') || target.source?.url !== expected
-    || !/^[a-f0-9]{64}$/.test(target.source?.sha256 || '')) fail('SYSTEM_UPDATE_SOURCE_INVALID');
-  const response = await fetchImpl(expected, { redirect: 'error', credentials: 'omit', signal: AbortSignal.timeout(60000), headers: { Accept: 'application/gzip' } });
+  let release;
+  try { release = validateRelease(target, { channel: target?.channel }); }
+  catch { fail('SYSTEM_UPDATE_SOURCE_INVALID'); }
+  const signal = AbortSignal.timeout(60000), stable = release.channel === 'stable';
+  let url = release.source.url, response;
+  for (let redirects = 0; ; redirects++) {
+    try { response = await fetchImpl(url, { redirect: stable ? 'manual' : 'error', credentials: 'omit', signal,
+      headers: { Accept: 'application/gzip' } }); }
+    catch { fail('SYSTEM_UPDATE_SOURCE_DOWNLOAD_FAILED'); }
+    if (response.redirected) { await response.body?.cancel().catch(() => {}); fail('SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID'); }
+    if (![301, 302, 303, 307, 308].includes(response.status)) break;
+    await response.body?.cancel().catch(() => {});
+    if (!stable || redirects >= 3) fail('SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID');
+    const location = response.headers.get('Location');
+    if (!location || /[\s\\\u0000-\u001f\u007f]/.test(location)) fail('SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID');
+    let next;
+    try { next = new URL(location, url); } catch { fail('SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID'); }
+    // The initial GitHub release asset URL is fixed by validateRelease. Follow
+    // only its known public release-asset CDN, never arbitrary redirects or a
+    // githubusercontent.com wildcard. Signed CDN query strings are not logged.
+    if (next.protocol !== 'https:' || next.hostname !== 'release-assets.githubusercontent.com' || next.port
+      || next.username || next.password || next.hash) fail('SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID');
+    url = next.href;
+  }
   const bytes = await readBoundedResponse(response, limits.compressed, 'SYSTEM_UPDATE_SOURCE_DOWNLOAD_FAILED');
-  if (createHash('sha256').update(bytes).digest('hex') !== target.source.sha256) fail('SYSTEM_UPDATE_SOURCE_DIGEST_MISMATCH');
+  if (createHash('sha256').update(bytes).digest('hex') !== release.source.sha256) fail('SYSTEM_UPDATE_SOURCE_DIGEST_MISMATCH');
   return bytes;
 }
 

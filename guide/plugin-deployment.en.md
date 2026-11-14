@@ -10,6 +10,8 @@ This guide covers plugin catalogs, a dedicated build channel, activation, host u
 
 Routine application releases use Instance settings → System update; see [system-update setup](deployment.en.md#system-updates-in-administration). System updates preserve the site's exact plugin combination. Sources and deployment continues to manage plugin installation, updates and removal; credentials and tasks from the two channels are not interchangeable. The host-upgrade protocol below remains a maintainer integration for controlled builds and transition deployments, not daily manual steps for system updates.
 
+Stable system updates use `flaretune-update.json` and the fixed `flaretune-source.tar.gz` source asset from the same official Release, with strict SHA and host-digest checks. These assets are separate from immutable plugin packages. GitHub's automatic Source code archives are not substitutes, and a failed check never permits recalculating the SHA to proceed. Initial bootstrap code must support this asset contract; routine releases require no repository syncing.
+
 Open the **Plugins** group in the settings sidebar:
 
 - **Plugin list:** view installed plugins and open their settings. Administrators can also discover, install, update and uninstall plugins.

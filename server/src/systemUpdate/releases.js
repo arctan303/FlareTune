@@ -2,6 +2,10 @@ import { compareVersions, digest, fail, keys, plain, validVersion } from './comm
 
 export const OFFICIAL_REPOSITORY = 'arctan303/FlareTune';
 export const RELEASE_MANIFEST_NAME = 'flaretune-update.json';
+export const SOURCE_ARCHIVE_NAME = 'flaretune-source.tar.gz';
+export const releaseSourceUrl = (version, commit, channel) => channel === 'stable'
+  ? `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/${version}/${SOURCE_ARCHIVE_NAME}`
+  : `https://codeload.github.com/${OFFICIAL_REPOSITORY}/tar.gz/${commit}`;
 const fields = ['schemaVersion', 'id', 'version', 'commit', 'host', 'hostApiVersion', 'minVersion', 'notes', 'source', 'migration', 'channel'];
 export function validateRelease(value, { channel = 'stable' } = {}) {
   if (!keys(value, fields) || value.schemaVersion !== 1 || !validVersion(value.version)
@@ -11,7 +15,7 @@ export function validateRelease(value, { channel = 'stable' } = {}) {
     || !validVersion(value.minVersion) || compareVersions(value.minVersion, value.version) > 0
     || !keys(value.notes, ['zh', 'en']) || !['zh', 'en'].every(key => typeof value.notes[key] === 'string' && value.notes[key].length <= 16000)
     || !keys(value.source, ['url', 'sha256']) || !digest(value.source.sha256)
-    || value.source.url !== `https://codeload.github.com/${OFFICIAL_REPOSITORY}/tar.gz/${value.commit}`
+    || value.source.url !== releaseSourceUrl(value.version, value.commit, channel)
     || !keys(value.migration, ['compatible']) || value.migration.compatible !== true
     || value.channel !== channel || !['stable', 'candidate'].includes(channel)) fail('SYSTEM_UPDATE_RELEASE_INVALID', 502);
   return structuredClone(value);
@@ -44,7 +48,9 @@ export async function discoverRelease(env, { fetchImpl = fetch } = {}) {
   if (!plain(release) || release.draft !== false || release.prerelease !== false || !validVersion(release.tag_name)
     || !Array.isArray(release.assets)) fail('SYSTEM_UPDATE_RELEASE_INVALID', 502);
   const wanted = `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/${release.tag_name}/${RELEASE_MANIFEST_NAME}`;
-  if (release.assets.filter(asset => asset?.name === RELEASE_MANIFEST_NAME && asset.browser_download_url === wanted).length !== 1) {
+  const archive = releaseSourceUrl(release.tag_name, '', 'stable');
+  if (release.assets.filter(asset => asset?.name === RELEASE_MANIFEST_NAME && asset.browser_download_url === wanted).length !== 1
+    || release.assets.filter(asset => asset?.name === SOURCE_ARCHIVE_NAME && asset.browser_download_url === archive).length !== 1) {
     fail('SYSTEM_UPDATE_RELEASE_UNAVAILABLE', 502);
   }
   let manifest;

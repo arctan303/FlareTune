@@ -143,26 +143,35 @@ jobs:
       - name: Prepare immutable system update manifest
         env:
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           if node -e 'const [a,b]=require("./package.json").version.split(".").map(Number); process.exit(a>1 || (a===1 && b>=3) ? 0 : 1)'; then
-            node tooling/release/update-manifest.mjs --commit "$RELEASE_COMMIT" --output "$RUNNER_TEMP/flaretune-update.json"
+            if gh release view "$RELEASE_TAG" --json tagName >"$RUNNER_TEMP/update-release-exists.json" 2>/dev/null; then
+              gh release download "$RELEASE_TAG" --pattern flaretune-update.json --pattern flaretune-source.tar.gz --dir "$RUNNER_TEMP"
+              node tooling/release/update-manifest.mjs --commit "$RELEASE_COMMIT" --verify-existing "$RUNNER_TEMP"
+            else
+              node tooling/release/update-manifest.mjs --commit "$RELEASE_COMMIT" --output "$RUNNER_TEMP/flaretune-update.json" --archive-output "$RUNNER_TEMP/flaretune-source.tar.gz"
+            fi
           fi
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
         run: |
           if gh release view "$RELEASE_TAG" --json tagName,isDraft,isPrerelease >"$RUNNER_TEMP/existing-release.json" 2>/dev/null; then
             node --input-type=module -e 'import {readFileSync} from "node:fs"; const r=JSON.parse(readFileSync(process.argv[1],"utf8")); if(r.tagName!==process.env.RELEASE_TAG||r.isDraft||r.isPrerelease) throw new Error("Existing release is not the expected stable release");' "$RUNNER_TEMP/existing-release.json"
             if [ -f "$RUNNER_TEMP/flaretune-update.json" ]; then
-              mkdir -p "$RUNNER_TEMP/existing-update-manifest"
-              gh release download "$RELEASE_TAG" --pattern flaretune-update.json --dir "$RUNNER_TEMP/existing-update-manifest"
-              cmp "$RUNNER_TEMP/flaretune-update.json" "$RUNNER_TEMP/existing-update-manifest/flaretune-update.json"
+              mkdir -p "$RUNNER_TEMP/existing-update-assets"
+              gh release download "$RELEASE_TAG" --pattern flaretune-update.json --pattern flaretune-source.tar.gz --dir "$RUNNER_TEMP/existing-update-assets"
+              node tooling/release/update-manifest.mjs --commit "$RELEASE_COMMIT" --verify-existing "$RUNNER_TEMP/existing-update-assets"
             fi
             echo "Release already exists; preserving its contents."
           else
             update_assets=()
-            if [ -f "$RUNNER_TEMP/flaretune-update.json" ]; then update_assets+=("$RUNNER_TEMP/flaretune-update.json"); fi
+            if [ -f "$RUNNER_TEMP/flaretune-update.json" ]; then update_assets+=("$RUNNER_TEMP/flaretune-update.json" "$RUNNER_TEMP/flaretune-source.tar.gz"); fi
             gh release create "$RELEASE_TAG" "${update_assets[@]}" --verify-tag --title "FlareTune $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
           fi

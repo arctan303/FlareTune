@@ -147,7 +147,9 @@ type SystemRelease = {
 };
 ```
 
-稳定来源固定为官方 `arctan303/FlareTune` 的最新正式、非预发布Release及其中唯一的 `flaretune-update.json`；版本为三段数字且须更高。清单ID为`version:commit`，源码URL固定到同仓库完整提交，下载后校验SHA256及宿主摘要。受信服务器端 `FLARETUNE_UPDATE_CANDIDATE_JSON` 可提供明确标识的candidate；构建端通道须匹配，允许同版本不同摘要。客户端不能切换到任意来源或把候选当作正式发布。
+稳定来源固定为官方 `arctan303/FlareTune` 的最新正式、非预发布Release，要求其中各有唯一的 `flaretune-update.json` 与 `flaretune-source.tar.gz` 资产；版本为三段数字且须更高。清单ID为`version:commit`，stable的`source.url`只能是同仓库同版本的 `https://github.com/arctan303/FlareTune/releases/download/{version}/flaretune-source.tar.gz`。下载后严格校验清单SHA256、完整提交及宿主摘要；GitHub自动Source code ZIP/TAR不是该固定资产的替代品，校验失败即停止，不重算或改写SHA放行。首次引导代码须支持此稳定资产合同，不要求部署者日常同步每版仓库。
+
+受信服务器端 `FLARETUNE_UPDATE_CANDIDATE_JSON` 可提供明确标识的candidate，其`source.url`临时固定为 `https://codeload.github.com/arctan303/FlareTune/tar.gz/{commit}`，同样校验SHA和宿主；构建端通道须匹配，允许同版本不同摘要。该候选归档不替代稳定Release的两项资产，客户端不能切换到任意来源或把候选当作正式发布。
 
 任务状态为 `queued/building/uploaded/deploying/migrating/deployed/activation_pending/rolling_back/rolled_back/failed`。它们是实际阶段而非百分比；触发响应丢失可进入activation_pending，不能推断构建未启动或原代码仍服务。重试保留taskId、planDigest、目标及持久receipt；确认前不能以另一版本覆盖未知任务。receipt记录实际Worker/原流量/新版本/绑定摘要及迁移边界，不含秘密。代码恢复不会回退D1、配置或媒体；migrationStarted后拒绝恢复旧代码。
 

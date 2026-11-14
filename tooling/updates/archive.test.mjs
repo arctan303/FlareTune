@@ -8,6 +8,12 @@ import { resolve } from 'node:path';
 import { inspectSourceArchive, extractSourceArchive, downloadSource, SOURCE_LIMITS } from './archive.mjs';
 
 const COMMIT = 'a'.repeat(40), PREFIX = `FlareTune-${COMMIT}/`;
+function releaseTarget(bytes, channel = 'candidate') {
+  return { schemaVersion: 1, id: `1.3.0:${COMMIT}`, version: '1.3.0', commit: COMMIT, host: { version: '1.3.0', sourceDigest: 'b'.repeat(64) },
+    hostApiVersion: 5, minVersion: '1.3.0', notes: { zh: '更新', en: 'Update' }, migration: { compatible: true }, channel,
+    source: { url: channel === 'stable' ? 'https://github.com/arctan303/FlareTune/releases/download/1.3.0/flaretune-source.tar.gz'
+      : `https://codeload.github.com/arctan303/FlareTune/tar.gz/${COMMIT}`, sha256: createHash('sha256').update(bytes).digest('hex') } };
+}
 function tar(entries) {
   const blocks = [];
   for (const entry of entries) {
@@ -64,8 +70,7 @@ test('checksum corruption, compressed bombs, excessive entries and file-parent c
   assert.throws(() => inspectSourceArchive(base([{ path: `${PREFIX}a`, data: 'long' }]), COMMIT, { ...SOURCE_LIMITS, file: 1 }), { code: 'SYSTEM_UPDATE_ARCHIVE_TOO_LARGE_OR_INVALID' });
 });
 test('source download uses only the approved complete commit URL and enforces byte hash', async () => {
-  const bytes = base([]), target = { commit: COMMIT, source: { url: `https://codeload.github.com/arctan303/FlareTune/tar.gz/${COMMIT}`,
-    sha256: createHash('sha256').update(bytes).digest('hex') } };
+  const bytes = base([]), target = releaseTarget(bytes);
   let calls = 0;
   const fetchImpl = async (url, init) => { calls++; assert.equal(url, target.source.url); assert.equal(init.redirect, 'error');
     assert.equal(init.headers.Authorization, undefined); return new Response(bytes); };
@@ -73,4 +78,43 @@ test('source download uses only the approved complete commit URL and enforces by
   await assert.rejects(downloadSource({ ...target, source: { ...target.source, url: target.source.url.replace(COMMIT, 'main') } }, { fetchImpl }), { code: 'SYSTEM_UPDATE_SOURCE_INVALID' });
   assert.equal(calls, 1);
   await assert.rejects(downloadSource({ ...target, source: { ...target.source, sha256: 'b'.repeat(64) } }, { fetchImpl }), { code: 'SYSTEM_UPDATE_SOURCE_DIGEST_MISMATCH' });
+});
+test('stable source uses the exact published asset and follows only the official release CDN without credentials', async () => {
+  const bytes = base([]), target = releaseTarget(bytes, 'stable'), calls = [];
+  const cdn = 'https://release-assets.githubusercontent.com/github-production-release-asset/123/source?sp=r&sig=synthetic-public-fixture';
+  const result = await downloadSource(target, { fetchImpl: async (url, options) => {
+    calls.push(url); assert.equal(options.redirect, 'manual'); assert.equal(options.credentials, 'omit');
+    assert.deepEqual(options.headers, { Accept: 'application/gzip' });
+    return url === target.source.url ? new Response(null, { status: 302, headers: { Location: cdn } }) : new Response(bytes);
+  } });
+  assert.deepEqual(result, bytes); assert.deepEqual(calls, [target.source.url, cdn]);
+  await assert.rejects(downloadSource({ ...target, source: { ...target.source, url: target.source.url.replace('/1.3.0/', '/latest/') } }), { code: 'SYSTEM_UPDATE_SOURCE_INVALID' });
+  await assert.rejects(downloadSource({ ...target, channel: 'candidate' }), { code: 'SYSTEM_UPDATE_SOURCE_INVALID' });
+});
+test('stable source rejects nonofficial redirects, credentials, unsafe protocols and redirect loops', async () => {
+  const target = releaseTarget(base([]), 'stable');
+  for (const location of ['https://attacker.example.net/source', 'https://release-assets.githubusercontent.com.attacker.example.net/source',
+    'https://objects.githubusercontent.com/source', 'https://user:secret@release-assets.githubusercontent.com/source',
+    'http://release-assets.githubusercontent.com/source', 'https://release-assets.githubusercontent.com:8443/source',
+    'https://release-assets.githubusercontent.com/source#fragment', 'https://release-assets.githubusercontent.com\\@attacker.example.net/source']) {
+    let calls = 0;
+    await assert.rejects(downloadSource(target, { fetchImpl: async () => { calls++; return new Response(null, { status: 302, headers: { Location: location } }); } }),
+      { code: 'SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID' });
+    assert.equal(calls, 1);
+  }
+  let calls = 0;
+  await assert.rejects(downloadSource(target, { fetchImpl: async () => { calls++;
+    return new Response(null, { status: 302, headers: { Location: 'https://release-assets.githubusercontent.com/loop' } });
+  } }), { code: 'SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID' });
+  assert.equal(calls, 4);
+});
+test('candidate redirects stay forbidden and stable final bytes still require the published hash and size bound', async () => {
+  const bytes = base([]), candidate = releaseTarget(bytes), stable = releaseTarget(bytes, 'stable');
+  await assert.rejects(downloadSource(candidate, { fetchImpl: async (_url, options) => {
+    assert.equal(options.redirect, 'error'); return new Response(null, { status: 302, headers: { Location: 'https://release-assets.githubusercontent.com/source' } });
+  } }), { code: 'SYSTEM_UPDATE_SOURCE_REDIRECT_INVALID' });
+  await assert.rejects(downloadSource(stable, { fetchImpl: async url => url === stable.source.url
+    ? new Response(null, { status: 302, headers: { Location: 'https://release-assets.githubusercontent.com/source' } })
+    : new Response(Buffer.from('changed bytes')) }), { code: 'SYSTEM_UPDATE_SOURCE_DIGEST_MISMATCH' });
+  await assert.rejects(downloadSource(stable, { limits: { ...SOURCE_LIMITS, compressed: 4 }, fetchImpl: async () => new Response(bytes) }));
 });
