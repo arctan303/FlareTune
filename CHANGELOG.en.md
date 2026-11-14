@@ -2,9 +2,9 @@
 
 [简体中文](CHANGELOG.md)
 
-## 1.3.0 — 2026-11-11
+## 1.3.0 — 2026-11-14
 
-**Preparation draft; not formally released.** This milestone prepares plugins and system updates in administration. Final candidate, transition-deployment and release acceptance remain pending. This changelog does not change the stable release or live demo.
+This release adds independent plugins and system updates in administration. Plugin installation and host upgrades are confirmed separately, preserving this site's resources, configuration and data.
 
 ### Plugins and build delivery
 
@@ -33,8 +33,9 @@
 ### Fixes, installation and scope
 
 - Reduce duplicate administration headings and explanation with shared tips and Cancel/Save actions. Fix unlocalized immersive-player lyric status, translation-icon sizing and related silent-exit state.
-- Prepare host and ingest-tool version 1.3.0. Initialize new instances with empty D1 and private R2, then configure required build channels and account/AI connections. Stock 1.2.1 lacks the system-update entry and first needs a compatible transition deployment preserving its resources and data, followed by an update in administration. Direct or lossless upgrades from every old version are not guaranteed. Exact combination inheritance and controlled failure recovery remain available for existing plugin-capable hosts.
-- The official main catalog has not yet been updated to this candidate. Final release seed and locks determine package versions and hashes. No formal tag, Release or npm stable package has been created.
+- Fix repeated reads and slow loading of existing lyrics by reusing ready results and reducing repeated identity and static-metadata queries, while retaining renewed checks after account, installation or configuration changes.
+- Align the host and ingest tool to version 1.3.0. Initialize new instances with empty D1 and private R2, then configure required build channels and account/AI connections. Stock 1.2.1 lacks the system-update entry and first needs a compatible transition deployment preserving its resources and data, followed by an update in administration. Direct or lossless upgrades from every old version are not guaranteed. Exact combination inheritance and controlled failure recovery remain available for existing plugin-capable hosts.
+- The official distribution includes AI Gateway 0.2.1, Assistant 0.2.0, Lyrics Workbench 1.0.2, Roam 0.1.1, Xiaomi Speaker 1.1.1 and YouTube Music 0.2.5, with sources and SHA256 fixed by the release seed and locks. Distribution does not automatically install plugins; host upgrades preserve the site's actual combination.
 - The new ordered lyric source chain, unified asynchronous translation, YT metadata language/region and native-translation target settings belong to a later version. Device, real-iOS, mainland-network and long-term authorization support remains bounded by the relevant guides and actual evidence.
 
 ## 1.2.1 — 2026-10-17

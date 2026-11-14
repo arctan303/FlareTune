@@ -8,7 +8,7 @@ FlareTune 把网页播放器、账号与曲库服务放在 Cloudflare Workers，
 
 **[打开在线 Demo](https://flaretune.arcinks.com)** · [部署自己的曲库](#部署自己的曲库) · [使用指南](guide/using-flaretune.md) · [更新日志](CHANGELOG.md)
 
-> **版本与升级提示**：当前正式稳定版为 **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**；**1.3.0仍在准备，尚未正式发布**。1.3.0增加后台系统更新：一次配置构建仓库与通道，日常在后台检查并确认升级。旧版缺少该入口时，须先保留原资源和数据部署兼容的过渡版本；这不等于任意旧版都能直接或无损升级。首次设置、维护窗口与恢复边界见[部署与更新指南](guide/deployment.md#后台系统更新)，插件安装另见[插件来源与部署](guide/plugin-deployment.md)。
+> **版本与升级提示**：**[1.3.0](https://github.com/arctan303/FlareTune/releases/tag/1.3.0)** 增加后台系统更新：一次配置构建仓库与通道，日常在后台检查并确认升级。旧版缺少该入口时，须先保留原资源和数据部署兼容的过渡版本；这不等于任意旧版都能直接或无损升级。首次设置、维护窗口与恢复边界见[部署与更新指南](guide/deployment.md#后台系统更新)，插件安装另见[插件来源与部署](guide/plugin-deployment.md)。
 
 ## 先听一会儿
 

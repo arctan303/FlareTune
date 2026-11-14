@@ -8,7 +8,7 @@ FlareTune runs its web player, accounts and library service on Cloudflare Worker
 
 **[Try the live demo](https://flaretune.arcinks.com)** · [Deploy your library](#deploy-your-library) · [User guide](guide/using-flaretune.en.md) · [Changelog](CHANGELOG.en.md)
 
-> **Release and upgrade notice:** the current stable release is **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**. **1.3.0 is being prepared and is not formally released.** It adds system updates in administration: configure a build repository and channel once, then check and confirm updates in the app. Older versions without this entry first need a compatible transition deployment preserving their resources and data. This does not establish direct or lossless upgrades from every old version. See [deployment and updates](guide/deployment.en.md#system-updates-in-administration) for setup, maintenance and recovery; [plugin deployment](guide/plugin-deployment.en.md) covers plugin installation separately.
+> **Release and upgrade notice:** **[1.3.0](https://github.com/arctan303/FlareTune/releases/tag/1.3.0)** adds system updates in administration: configure a build repository and channel once, then check and confirm updates in the app. Older versions without this entry first need a compatible transition deployment preserving their resources and data. This does not establish direct or lossless upgrades from every old version. See [deployment and updates](guide/deployment.en.md#system-updates-in-administration) for setup, maintenance and recovery; [plugin deployment](guide/plugin-deployment.en.md) covers plugin installation separately.
 
 ## Try it with music
 

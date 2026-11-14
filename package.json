@@ -90,12 +90,15 @@
   "devDependencies": {
     "@babel/parser": "^8.0.6",
     "@babel/traverse": "^8.0.6",
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.4.19",
     "esbuild": "^0.28.1",
     "postcss": "^8.5.30",
+    "quickjs-emscripten-core": "0.32.0",
     "tailwindcss": "^3.4.3",
     "vite": "^8.1.4",
-    "wrangler": "^4.151.0"
+    "wrangler": "^4.151.0",
+    "youtubei.js": "18.3.0"
   }
 }
