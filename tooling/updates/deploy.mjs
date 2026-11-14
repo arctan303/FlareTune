@@ -147,38 +147,80 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
   const expected = { taskId: plan.taskId, planDigest: plan.planDigest };
   let receipt = plan.receipt, promotionAttempted = false, migratingAttempted = false;
   const refresh = async () => { plan = await currentUpdatePlan(connection, expected, options); receipt = plan.receipt; return plan; };
-  const report = async (status, updatedReceipt) => {
-    await reportUpdate(connection, expected, status, { ...options, ...(updatedReceipt ? { receipt: updatedReceipt } : {}) });
+  const report = async (status, updatedReceipt, diagnostic) => {
+    await reportUpdate(connection, expected, status, { ...options, ...(updatedReceipt ? { receipt: updatedReceipt } : {}),
+      ...(diagnostic ? { error: diagnostic } : {}) });
     await refresh();
     if (plan.status !== status) fail('SYSTEM_UPDATE_REPORT_UNCONFIRMED');
   };
-  const reportOnRuntime = async (status, versions) => {
+  const onRuntime = async (versions, action) => {
     // A 100% deployment may still reach an old edge runtime during propagation.
     // Only that precise confirmed rejection is retried; never retry an unknown
     // write, a changed installation, or a different provider deployment.
     const budget = Math.max(0, Math.min(60000, Number.isFinite(runtimeWaitMs) ? runtimeWaitMs : 60000));
     const deadline = runtimeNowImpl() + budget, attempts = Math.ceil(budget / 2000) + 1;
-    let firstMismatch;
-    for (let attempt = 0; ; attempt++) {
-      if (firstMismatch && runtimeNowImpl() >= deadline) throw firstMismatch;
-      lease.check(); await lease.renew(); lease.check();
-      await refresh();
-      if (!sameVersions((await currentWorkerDeployment(target, options)).versions, versions)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+    const controller = new AbortController();
+    const unknown = () => Object.assign(new Error('SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED'), { code: 'SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED' });
+    const remaining = () => deadline - runtimeNowImpl();
+    const check = () => {
       lease.check();
+      if (controller.signal.aborted || remaining() <= 0) { controller.abort(); throw unknown(); }
+    };
+    const bounded = async run => {
+      check();
+      let timer;
       try {
-        await report(status);
-        lease.check();
-        if (!sameVersions((await currentWorkerDeployment(target, options)).versions, versions)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
-        return;
+        const result = await Promise.race([Promise.resolve().then(() => { check(); return run(); }),
+          new Promise((_accept, reject) => { timer = setTimeout(() => { controller.abort(); reject(unknown()); }, Math.ceil(remaining())); })]);
+        check(); return result;
+      } catch (error) {
+        // A received rejection is known not to have committed. A timeout, an
+        // over-budget read, or a lost response is unknown, never rollback proof.
+        if (runtimeMismatch(error) && !controller.signal.aborted) throw error;
+        if (controller.signal.aborted || remaining() <= 0) throw unknown();
+        throw error;
+      } finally { clearTimeout(timer); }
+    };
+    const phaseOptions = { fetchImpl: (input, init = {}) => {
+      check();
+      return fetchImpl(input, { ...init, signal: AbortSignal.any([controller.signal,
+        AbortSignal.timeout(Math.max(1, Math.ceil(remaining()))), ...(init.signal ? [init.signal] : [])]) });
+    } };
+    const phaseRefresh = () => bounded(async () => {
+      plan = await currentUpdatePlan(connection, expected, phaseOptions); receipt = plan.receipt; return plan;
+    });
+    const guard = async () => {
+      const current = await bounded(() => currentWorkerDeployment(target, phaseOptions));
+      if (!sameVersions(current.versions, versions)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+    };
+    let firstMismatch;
+    try {
+      for (let attempt = 0; ; attempt++) {
+        if (firstMismatch && remaining() <= 0) throw firstMismatch;
+        // renew has its own transport closure, so bound the await as well.
+        // If it outlives this phase no subsequent phase mutation is started.
+        await bounded(() => lease.renew());
+        await phaseRefresh(); await guard(); check();
+        try {
+          const result = await bounded(() => action(phaseOptions));
+          await phaseRefresh(); await guard(); check();
+          return result;
+        } catch (error) {
+          if (!runtimeMismatch(error)) throw error;
+          firstMismatch ||= error;
+          if (remaining() <= 0 || attempt + 1 >= attempts) throw firstMismatch;
+          // Only sleeping after a confirmed rejected write can exhaust the
+          // budget with that same confirmed cause. In-flight awaits cannot.
+          try { await bounded(() => sleepImpl(Math.min(2000, remaining()))); }
+          catch (waitError) { if (waitError.code === 'SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED') throw firstMismatch; throw waitError; }
+        }
       }
-      catch (error) {
-        if (!runtimeMismatch(error)) throw error;
-        firstMismatch ||= error;
-        const remaining = deadline - runtimeNowImpl();
-        if (remaining <= 0 || attempt + 1 >= attempts) throw firstMismatch;
-        await sleepImpl(Math.min(2000, remaining));
-      }
-    }
+    } finally { controller.abort(); }
+  };
+  const reportOnRuntime = async (status, versions, diagnostic) => {
+    await onRuntime(versions, phaseOptions => reportUpdate(connection, expected, status,
+      { ...phaseOptions, ...(diagnostic ? { error: diagnostic } : {}) }));
+    if (plan.status !== status) fail('SYSTEM_UPDATE_REPORT_UNCONFIRMED');
   };
   try {
     if (plan.status === 'deployed') {
@@ -258,9 +300,7 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     }
     if (!receipt.migrationStarted) fail('SYSTEM_UPDATE_MIGRATION_UNCONFIRMED');
     for (let attempt = 0; !receipt.migrationCompleted && attempt < migrationAttempts; attempt++) {
-      await lease.renew();
-      await migrateUpdate(connection, plan, options);
-      await refresh();
+      await onRuntime(next, phaseOptions => migrateUpdate(connection, plan, phaseOptions));
       if (!receipt.migrationCompleted && attempt + 1 < migrationAttempts) await sleepImpl(2000);
     }
     if (!receipt.migrationCompleted) fail('SYSTEM_UPDATE_MIGRATION_UNCONFIRMED');
@@ -275,7 +315,7 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
       if (!sameVersions(current.versions, [{ version_id: receipt.nextVersionId, percentage: 100 }])) fail('SYSTEM_UPDATE_TARGET_CHANGED');
       // A durable completed task can recover a lost acknowledgement, but it
       // cannot turn an exhausted actual-runtime rejection into readiness.
-      if (runtimeMismatch(error)) throw error;
+      if (runtimeMismatch(error) || error.code === 'SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED') throw error;
       return { taskId: expected.taskId, status: 'deployed', versionId: receipt.nextVersionId };
     }
     if (latest && receipt?.nextVersionId && !receipt.migrationStarted && migratingAttempted && error.confirmedRejected) {
@@ -290,7 +330,8 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
   }
   async function rollback(cause) {
     if (receipt.migrationStarted) fail('SYSTEM_UPDATE_ROLLBACK_UNSAFE');
-    if (plan.status !== 'rolling_back') await report('rolling_back');
+    const diagnostic = [cause?.remoteCode, cause?.code, plan.error].find(code => typeof code === 'string' && /^SYSTEM_UPDATE_[A-Z_]{1,70}$/.test(code));
+    if (plan.status !== 'rolling_back') await report('rolling_back', undefined, diagnostic);
     await lease.renew();
     const current = await currentWorkerDeployment(target, options), next = [{ version_id: receipt.nextVersionId, percentage: 100 }];
     if (!sameVersions(current.versions, receipt.previous.versions)) {
@@ -298,8 +339,7 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
       await changedDeployment(target, receipt.previous.versions, plan.taskId, options);
       if (!sameVersions((await currentWorkerDeployment(target, options)).versions, receipt.previous.versions)) fail('SYSTEM_UPDATE_ROLLBACK_UNCONFIRMED');
     }
-    await reportOnRuntime('rolled_back', receipt.previous.versions);
-    const diagnostic = [cause?.remoteCode, cause?.code, plan.error].find(code => typeof code === 'string' && /^SYSTEM_UPDATE_[A-Z_]{1,70}$/.test(code));
+    await reportOnRuntime('rolled_back', receipt.previous.versions, diagnostic);
     return { taskId: plan.taskId, status: 'rolled_back', ...(diagnostic ? { error: diagnostic } : {}) };
   }
 }

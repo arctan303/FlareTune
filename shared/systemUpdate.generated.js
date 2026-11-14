@@ -3,6 +3,6 @@ import { deliveryPluginManifests, compiledPluginSources } from './plugins/delive
 const plugins = Object.freeze(deliveryPluginManifests.map(manifest => Object.freeze({ id: manifest.id, version: manifest.version, manifest, source: compiledPluginSources[manifest.id] })));
 export const systemUpdateRuntime = Object.freeze({ ...{
   "version": "1.3.0",
-  "sourceDigest": "c22aec58d51c3d6e173601b8ac391aa00234d2f88e23bae9e7f905a9d2faa336",
+  "sourceDigest": "6ab5a4249e13097dc1d1e95ff07741c0a900333db4c9e3fa9602115bdb1ae34e",
   "hostApiVersion": 5
 }, plugins });

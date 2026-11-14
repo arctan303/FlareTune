@@ -1,1 +1,1 @@
-export * from "../../../.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/useManagedLyricsAsset.js";
+export * from "../../../.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/useManagedLyricsAsset.js";

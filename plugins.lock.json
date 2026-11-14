@@ -3,7 +3,7 @@
   "hostApiVersion": 5,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "c22aec58d51c3d6e173601b8ac391aa00234d2f88e23bae9e7f905a9d2faa336"
+    "sourceDigest": "6ab5a4249e13097dc1d1e95ff07741c0a900333db4c9e3fa9602115bdb1ae34e"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "0e7562cad5be108d8184db30c7ea3c80d860af829ec1224de3217ee6deb054fa",
+      "sourceDigest": "63f33344ad6ff9ceb7ab35368fa6fb980ea3b3ec8f846061022c8be759e6d056",
       "sources": [
         {
           "path": "client/index.html",
@@ -1225,7 +1225,7 @@
         },
         {
           "path": "client/src/plugins/delivery.generated.js",
-          "sha256": "2c670b944d471d507289a41de9960167eaf61c2524829ea83240eb21dee6a0d1"
+          "sha256": "ed9370fbc833752572a3bf81a220d69f37d487497f7dbd36b1e171f8d50267ae"
         },
         {
           "path": "client/src/plugins/host.js",
@@ -2129,7 +2129,7 @@
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
-          "sha256": "d7b22fc0f8ad80a7a38699cd963758250941440f2e29df956c0ddd436c86c167"
+          "sha256": "fe88ddd61ba9abea750a90fcdd79142719c5311ea43aaab767c58a3d19bc8a32"
         },
         {
           "path": "server/src/plugins/delivery.js",
@@ -3225,111 +3225,111 @@
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourceQuickTest.jsx",
-          "sha256": "c356c66b5fdd246fa798afdcd14fde20cf07585394d01cb0b37508a666584e13"
+          "sha256": "7ff233cd62b6539c918a35a5d0d019a55df66024e84dd153a39e33ae91247d1a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourcesSettings.jsx",
-          "sha256": "e769ede054676bfcac1dc87e70f0747093cb7a76ac9557a75cd96aafb0820b56"
+          "sha256": "bf6f5770c6c2a81826d519e75545c65cdb9a589339f40a6d76ddde9c48b5e4f1"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsCandidatePanel.jsx",
-          "sha256": "86f84cb167eba925e2464349a1b32e31bfe10c1557a9c4a203e7a7c27c268746"
+          "sha256": "29866931e4acda5d12f9f81ffbbc956142318602fe07116a7befe47e96d47983"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsPluginPage.jsx",
-          "sha256": "be654f292bc5fff16f6b258e71a20d69385bf866917afc4924400f32453abd80"
+          "sha256": "4d51d516a57ffecb6bb96a2a9817e759b42f118144c0b6e07861366eb5e2cb82"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsSettings.jsx",
-          "sha256": "d6609c950a1f7b373c9dc11b4afa12229245999540893aec358398a2adb13fd5"
+          "sha256": "ad9efd2a2445b808c70c31a5e5e3ed1d49b6a80e376fe095af1306b645e24483"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/api.js",
-          "sha256": "8a2da0c774ee025109a0a10207b0cf680ed42e73ec52da0c93f9fc7387d0dca9"
+          "sha256": "e7c5a6422c905def285eea759365bafdff6dd133cc4e89b58c7138036014ab88"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/candidates.js",
-          "sha256": "c46133e24f9caddbbcae99dfdf47d8bbd5f407d3bb399cce250ffe7f27baba9a"
+          "sha256": "7ffdc9b8b7278268d9c9377bd41c1f24e5aeddc4c0f15950cb3539d72371574b"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/editor.js",
-          "sha256": "2cc56069c33cb6092b35ff9e7420e4430f7ec5854d38c867810b2a9e20a35058"
+          "sha256": "a8e5d9b660425a4011970613de143a4ccf53df763cf40389bf76e262de17315d"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/previewScroll.js",
-          "sha256": "35369ca9b4ed947fa163451f6187c78d88a069266e88b67e83c1dddfd40d0311"
+          "sha256": "75cddc07e93478e6233c1cad90a3982d9bdcae864ba23e65164bb862b56858c9"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/runtime.js",
-          "sha256": "f3a319c1303ea2ac4b59e8b4d6e80594de9927f05ae1d7a6a1013af705dc3d10"
+          "sha256": "eb69f5130b4c02a4fe0e1e1239fc1956ed031aadaae6782c7cc329e07347589a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/timelineShift.js",
-          "sha256": "a0e13ef6be4f38dcf809396703ba69720c1b9070621bad38c6fadb1bb1760164"
+          "sha256": "afbe4cd464580b8d28560f42a1c31c32cb7bad9391e4ccbf7a07b1660e847148"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useHostPlayer.js",
-          "sha256": "bd7ebc14724e6537ffa44a283334c0f61f2227e05f3c00623a29972b074a6722"
+          "sha256": "3d904ce3692f60dc832795fe147ad19f4fd3357bd789559a5a434bf99bc69191"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useManagedLyricsAsset.js",
-          "sha256": "fcfd596a753dcb483ee506a2fb7efa6056febf2682b9f033daa956d093083827"
+          "sha256": "21c0d737768f65b3c0279d0411e7dac07ed9e8ee3eb7135a941dcd2d9a3b8e06"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/workspace.css",
-          "sha256": "39ca7be2ab1bce1434681969a30c4730e8c9097f345e9b3109a0419821c53fc2"
+          "sha256": "a12f9943b0dd015b8694a76fe225d39cc9b0c6a7754483159416b0a866a92f56"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/aiAccess.js",
-          "sha256": "d085ad1a76d382441ec84d10cab76e36fdc7b9f310cf242fe3b27e3c935fe6f1"
+          "sha256": "ffc6b2ac4113d2022a76198afb5eefeed9790cd4d364341b6e469a30e378e419"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/config.js",
-          "sha256": "2feb2ec1f20e3fe822fa73fdf26a2935629ae9f757d927bb7f2c4f6fe3866f48"
+          "sha256": "55d66530a58ee317ca4b35c026e769dd63335ba7d570115f3e38db83eb57e3f0"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/defaultPrompts.js",
-          "sha256": "67a73a629fd5b1f4367fe1c646e2613d884d508329f2452b2ea1245e98d7b65a"
+          "sha256": "d524e0bf7b2d9ad4b5e47a6081554b15e69a893fbf859a0fbfa9f8d29d6ec7b8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftAi.js",
-          "sha256": "5d7eaea15445360164d8793ba9908ee3dd5f65bce693e37cbf5404d17dc3120d"
+          "sha256": "10794884fcf0720b20b99fd7a5490084486140d79de07ef7fba23607f2f543bf"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftReceipt.js",
-          "sha256": "2fa81af806706ed7a8f01ec808f5428fea4a222728d3dec708c99fbc762ab9af"
+          "sha256": "93fb436f30df6d6107f792f3ffb97bc4154b90aee6ba1d5bc68f34d1f8fcf8fc"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/handler.js",
-          "sha256": "10bef81ca1da2cbe7087c821918e90424ecf1c8dc65b07a124d5bec970778af5"
+          "sha256": "6a0256f9849fd244c52f65a1fd20f110e0e4b1c2939f7f82a69e87133f688329"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/invocationBudget.js",
-          "sha256": "8b7821ae7032aacce56973fafd4e0c25ce67c961e0f28ada60cc4e886ad82508"
+          "sha256": "9431c537c25e9bdd30f3a4379b2fb494bab3ded75c1c23f1874718c7df5b1136"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/policy.js",
-          "sha256": "b167f9f970e1572a765caa108016019435db1b74ba25538cde19ceb6e006fb06"
+          "sha256": "de504198c88defab379ff29da0242f358850198c524ee7e21aa568f237d0d174"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/sourceTest.js",
-          "sha256": "992d802814541152d7408f1b9299c216ad2dde60f314071808cb78e6e36788a1"
+          "sha256": "6ed764aed43d3c7859a9b00df5484b13c645a0301099251b7c1d2207e9ae5c26"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translation.js",
-          "sha256": "4493ea85970edb3ff773fd020524402d10c1215d113ec1d73fb6e546a0981465"
+          "sha256": "9d353b659a1709809944d979fc1ddcafcc2a12c04450420354c4551e94c344f8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translationFormat.js",
-          "sha256": "118a4ad694a6a21d7157f9f2ee1fe79875c8c7c0835cc284942c9856f5a513b0"
+          "sha256": "0f5c5dc86211f77b2f5a187068a272bc5ca8a7a9bcf54dc727ce6164a08adfbe"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/usage.js",
-          "sha256": "a680455bc19f9df2e9943479fedf141a28e8e1dc6f6868845b0ac4a6678dd7d4"
+          "sha256": "0597a6ae028ccdcdccc14a38a7baf816ae16c686b3a7aa1883d0ae37d61d6b41"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/workspace.js",
-          "sha256": "cee0bf897bc8da5a20cf5b0caafaa449a7fe2cc417c2def96a0b4987411868cd"
+          "sha256": "d6da6847797c0d5c88ed35c0a3dacecf0d00fa8e719c07f9879d9b29133227db"
         },
         {
           "path": "shared/plugins/.bridges/roam/client/RoamOverview.jsx",
@@ -3709,7 +3709,7 @@
         },
         {
           "path": "shared/plugins/delivery.generated.js",
-          "sha256": "1549785056ed62bbafeacfbbcc4f8e50772fde9ae65a44f719a8ef23d815ddc0"
+          "sha256": "dc22523a2c6a5cc5bd95f813d50e004ed454c16049ab91013d88b83b983616d7"
         },
         {
           "path": "shared/plugins/delivery.js",
@@ -3773,7 +3773,7 @@
         },
         {
           "path": "tooling/plugins/delivery-source.generated.json",
-          "sha256": "f14f50d1936126a96e714e2d01393401788bc4549202d586a48bc2e86374e52c"
+          "sha256": "e848f67908036a103c5173bc87c4e46c346e3d2b12a9259e518c8246ad625cd0"
         },
         {
           "path": "tooling/plugins/delivery.mjs",
@@ -3821,7 +3821,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "7035b2ad39346159289caecbf96991c239fe11e91d932ddb20ef896e2a9c28cf"
+          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -3876,7 +3876,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "bb6797f9a345c45a8954e01a677bf37a67597994147b7d7dd73283e5bf2b2b29",
+      "sourceDigest": "1fd8bc638861e7fdd5c3d3fd4034590d8cd4f017af01935d0074cf80802cf38e",
       "sources": [
         {
           "path": "client/index.html",
@@ -5088,7 +5088,7 @@
         },
         {
           "path": "client/src/plugins/delivery.generated.js",
-          "sha256": "2c670b944d471d507289a41de9960167eaf61c2524829ea83240eb21dee6a0d1"
+          "sha256": "ed9370fbc833752572a3bf81a220d69f37d487497f7dbd36b1e171f8d50267ae"
         },
         {
           "path": "client/src/plugins/host.js",
@@ -5992,7 +5992,7 @@
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
-          "sha256": "d7b22fc0f8ad80a7a38699cd963758250941440f2e29df956c0ddd436c86c167"
+          "sha256": "fe88ddd61ba9abea750a90fcdd79142719c5311ea43aaab767c58a3d19bc8a32"
         },
         {
           "path": "server/src/plugins/delivery.js",
@@ -7088,111 +7088,111 @@
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourceQuickTest.jsx",
-          "sha256": "c356c66b5fdd246fa798afdcd14fde20cf07585394d01cb0b37508a666584e13"
+          "sha256": "7ff233cd62b6539c918a35a5d0d019a55df66024e84dd153a39e33ae91247d1a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourcesSettings.jsx",
-          "sha256": "e769ede054676bfcac1dc87e70f0747093cb7a76ac9557a75cd96aafb0820b56"
+          "sha256": "bf6f5770c6c2a81826d519e75545c65cdb9a589339f40a6d76ddde9c48b5e4f1"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsCandidatePanel.jsx",
-          "sha256": "86f84cb167eba925e2464349a1b32e31bfe10c1557a9c4a203e7a7c27c268746"
+          "sha256": "29866931e4acda5d12f9f81ffbbc956142318602fe07116a7befe47e96d47983"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsPluginPage.jsx",
-          "sha256": "be654f292bc5fff16f6b258e71a20d69385bf866917afc4924400f32453abd80"
+          "sha256": "4d51d516a57ffecb6bb96a2a9817e759b42f118144c0b6e07861366eb5e2cb82"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsSettings.jsx",
-          "sha256": "d6609c950a1f7b373c9dc11b4afa12229245999540893aec358398a2adb13fd5"
+          "sha256": "ad9efd2a2445b808c70c31a5e5e3ed1d49b6a80e376fe095af1306b645e24483"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/api.js",
-          "sha256": "8a2da0c774ee025109a0a10207b0cf680ed42e73ec52da0c93f9fc7387d0dca9"
+          "sha256": "e7c5a6422c905def285eea759365bafdff6dd133cc4e89b58c7138036014ab88"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/candidates.js",
-          "sha256": "c46133e24f9caddbbcae99dfdf47d8bbd5f407d3bb399cce250ffe7f27baba9a"
+          "sha256": "7ffdc9b8b7278268d9c9377bd41c1f24e5aeddc4c0f15950cb3539d72371574b"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/editor.js",
-          "sha256": "2cc56069c33cb6092b35ff9e7420e4430f7ec5854d38c867810b2a9e20a35058"
+          "sha256": "a8e5d9b660425a4011970613de143a4ccf53df763cf40389bf76e262de17315d"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/previewScroll.js",
-          "sha256": "35369ca9b4ed947fa163451f6187c78d88a069266e88b67e83c1dddfd40d0311"
+          "sha256": "75cddc07e93478e6233c1cad90a3982d9bdcae864ba23e65164bb862b56858c9"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/runtime.js",
-          "sha256": "f3a319c1303ea2ac4b59e8b4d6e80594de9927f05ae1d7a6a1013af705dc3d10"
+          "sha256": "eb69f5130b4c02a4fe0e1e1239fc1956ed031aadaae6782c7cc329e07347589a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/timelineShift.js",
-          "sha256": "a0e13ef6be4f38dcf809396703ba69720c1b9070621bad38c6fadb1bb1760164"
+          "sha256": "afbe4cd464580b8d28560f42a1c31c32cb7bad9391e4ccbf7a07b1660e847148"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useHostPlayer.js",
-          "sha256": "bd7ebc14724e6537ffa44a283334c0f61f2227e05f3c00623a29972b074a6722"
+          "sha256": "3d904ce3692f60dc832795fe147ad19f4fd3357bd789559a5a434bf99bc69191"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useManagedLyricsAsset.js",
-          "sha256": "fcfd596a753dcb483ee506a2fb7efa6056febf2682b9f033daa956d093083827"
+          "sha256": "21c0d737768f65b3c0279d0411e7dac07ed9e8ee3eb7135a941dcd2d9a3b8e06"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/workspace.css",
-          "sha256": "39ca7be2ab1bce1434681969a30c4730e8c9097f345e9b3109a0419821c53fc2"
+          "sha256": "a12f9943b0dd015b8694a76fe225d39cc9b0c6a7754483159416b0a866a92f56"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/aiAccess.js",
-          "sha256": "d085ad1a76d382441ec84d10cab76e36fdc7b9f310cf242fe3b27e3c935fe6f1"
+          "sha256": "ffc6b2ac4113d2022a76198afb5eefeed9790cd4d364341b6e469a30e378e419"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/config.js",
-          "sha256": "2feb2ec1f20e3fe822fa73fdf26a2935629ae9f757d927bb7f2c4f6fe3866f48"
+          "sha256": "55d66530a58ee317ca4b35c026e769dd63335ba7d570115f3e38db83eb57e3f0"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/defaultPrompts.js",
-          "sha256": "67a73a629fd5b1f4367fe1c646e2613d884d508329f2452b2ea1245e98d7b65a"
+          "sha256": "d524e0bf7b2d9ad4b5e47a6081554b15e69a893fbf859a0fbfa9f8d29d6ec7b8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftAi.js",
-          "sha256": "5d7eaea15445360164d8793ba9908ee3dd5f65bce693e37cbf5404d17dc3120d"
+          "sha256": "10794884fcf0720b20b99fd7a5490084486140d79de07ef7fba23607f2f543bf"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftReceipt.js",
-          "sha256": "2fa81af806706ed7a8f01ec808f5428fea4a222728d3dec708c99fbc762ab9af"
+          "sha256": "93fb436f30df6d6107f792f3ffb97bc4154b90aee6ba1d5bc68f34d1f8fcf8fc"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/handler.js",
-          "sha256": "10bef81ca1da2cbe7087c821918e90424ecf1c8dc65b07a124d5bec970778af5"
+          "sha256": "6a0256f9849fd244c52f65a1fd20f110e0e4b1c2939f7f82a69e87133f688329"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/invocationBudget.js",
-          "sha256": "8b7821ae7032aacce56973fafd4e0c25ce67c961e0f28ada60cc4e886ad82508"
+          "sha256": "9431c537c25e9bdd30f3a4379b2fb494bab3ded75c1c23f1874718c7df5b1136"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/policy.js",
-          "sha256": "b167f9f970e1572a765caa108016019435db1b74ba25538cde19ceb6e006fb06"
+          "sha256": "de504198c88defab379ff29da0242f358850198c524ee7e21aa568f237d0d174"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/sourceTest.js",
-          "sha256": "992d802814541152d7408f1b9299c216ad2dde60f314071808cb78e6e36788a1"
+          "sha256": "6ed764aed43d3c7859a9b00df5484b13c645a0301099251b7c1d2207e9ae5c26"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translation.js",
-          "sha256": "4493ea85970edb3ff773fd020524402d10c1215d113ec1d73fb6e546a0981465"
+          "sha256": "9d353b659a1709809944d979fc1ddcafcc2a12c04450420354c4551e94c344f8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translationFormat.js",
-          "sha256": "118a4ad694a6a21d7157f9f2ee1fe79875c8c7c0835cc284942c9856f5a513b0"
+          "sha256": "0f5c5dc86211f77b2f5a187068a272bc5ca8a7a9bcf54dc727ce6164a08adfbe"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/usage.js",
-          "sha256": "a680455bc19f9df2e9943479fedf141a28e8e1dc6f6868845b0ac4a6678dd7d4"
+          "sha256": "0597a6ae028ccdcdccc14a38a7baf816ae16c686b3a7aa1883d0ae37d61d6b41"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/workspace.js",
-          "sha256": "cee0bf897bc8da5a20cf5b0caafaa449a7fe2cc417c2def96a0b4987411868cd"
+          "sha256": "d6da6847797c0d5c88ed35c0a3dacecf0d00fa8e719c07f9879d9b29133227db"
         },
         {
           "path": "shared/plugins/.bridges/roam/client/RoamOverview.jsx",
@@ -7844,7 +7844,7 @@
         },
         {
           "path": "shared/plugins/delivery.generated.js",
-          "sha256": "1549785056ed62bbafeacfbbcc4f8e50772fde9ae65a44f719a8ef23d815ddc0"
+          "sha256": "dc22523a2c6a5cc5bd95f813d50e004ed454c16049ab91013d88b83b983616d7"
         },
         {
           "path": "shared/plugins/delivery.js",
@@ -7908,7 +7908,7 @@
         },
         {
           "path": "tooling/plugins/delivery-source.generated.json",
-          "sha256": "f14f50d1936126a96e714e2d01393401788bc4549202d586a48bc2e86374e52c"
+          "sha256": "e848f67908036a103c5173bc87c4e46c346e3d2b12a9259e518c8246ad625cd0"
         },
         {
           "path": "tooling/plugins/delivery.mjs",
@@ -7956,7 +7956,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "7035b2ad39346159289caecbf96991c239fe11e91d932ddb20ef896e2a9c28cf"
+          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -8006,12 +8006,12 @@
     },
     {
       "id": "lyrics-workbench",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "hostApiVersion": 5,
       "apiVersion": 1,
-      "source": "artifact:official:01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d",
-      "manifestDigest": "c09b2c33fdff8f2ce9c7fc69216bdae6955a6312b555a81681b98db4cde2ad62",
-      "sourceDigest": "9d5dead981c15fd64e0fcaba223ad2b52e56091c8eb6e4f0e80649db3a423c2f",
+      "source": "artifact:official:8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f",
+      "manifestDigest": "6b8d6e7de7d4f99889266d52c0239ab4ed0376e4305dc1ba20390e17bb62f23d",
+      "sourceDigest": "c36bf287f4395d3e48a5898e8df768b0d70098f4a923018f8fb8efd9b9702cbc",
       "sources": [
         {
           "path": "client/index.html",
@@ -9223,7 +9223,7 @@
         },
         {
           "path": "client/src/plugins/delivery.generated.js",
-          "sha256": "2c670b944d471d507289a41de9960167eaf61c2524829ea83240eb21dee6a0d1"
+          "sha256": "ed9370fbc833752572a3bf81a220d69f37d487497f7dbd36b1e171f8d50267ae"
         },
         {
           "path": "client/src/plugins/host.js",
@@ -10127,7 +10127,7 @@
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
-          "sha256": "d7b22fc0f8ad80a7a38699cd963758250941440f2e29df956c0ddd436c86c167"
+          "sha256": "fe88ddd61ba9abea750a90fcdd79142719c5311ea43aaab767c58a3d19bc8a32"
         },
         {
           "path": "server/src/plugins/delivery.js",
@@ -11223,111 +11223,111 @@
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourceQuickTest.jsx",
-          "sha256": "c356c66b5fdd246fa798afdcd14fde20cf07585394d01cb0b37508a666584e13"
+          "sha256": "7ff233cd62b6539c918a35a5d0d019a55df66024e84dd153a39e33ae91247d1a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourcesSettings.jsx",
-          "sha256": "e769ede054676bfcac1dc87e70f0747093cb7a76ac9557a75cd96aafb0820b56"
+          "sha256": "bf6f5770c6c2a81826d519e75545c65cdb9a589339f40a6d76ddde9c48b5e4f1"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsCandidatePanel.jsx",
-          "sha256": "86f84cb167eba925e2464349a1b32e31bfe10c1557a9c4a203e7a7c27c268746"
+          "sha256": "29866931e4acda5d12f9f81ffbbc956142318602fe07116a7befe47e96d47983"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsPluginPage.jsx",
-          "sha256": "be654f292bc5fff16f6b258e71a20d69385bf866917afc4924400f32453abd80"
+          "sha256": "4d51d516a57ffecb6bb96a2a9817e759b42f118144c0b6e07861366eb5e2cb82"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsSettings.jsx",
-          "sha256": "d6609c950a1f7b373c9dc11b4afa12229245999540893aec358398a2adb13fd5"
+          "sha256": "ad9efd2a2445b808c70c31a5e5e3ed1d49b6a80e376fe095af1306b645e24483"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/api.js",
-          "sha256": "8a2da0c774ee025109a0a10207b0cf680ed42e73ec52da0c93f9fc7387d0dca9"
+          "sha256": "e7c5a6422c905def285eea759365bafdff6dd133cc4e89b58c7138036014ab88"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/candidates.js",
-          "sha256": "c46133e24f9caddbbcae99dfdf47d8bbd5f407d3bb399cce250ffe7f27baba9a"
+          "sha256": "7ffdc9b8b7278268d9c9377bd41c1f24e5aeddc4c0f15950cb3539d72371574b"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/editor.js",
-          "sha256": "2cc56069c33cb6092b35ff9e7420e4430f7ec5854d38c867810b2a9e20a35058"
+          "sha256": "a8e5d9b660425a4011970613de143a4ccf53df763cf40389bf76e262de17315d"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/previewScroll.js",
-          "sha256": "35369ca9b4ed947fa163451f6187c78d88a069266e88b67e83c1dddfd40d0311"
+          "sha256": "75cddc07e93478e6233c1cad90a3982d9bdcae864ba23e65164bb862b56858c9"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/runtime.js",
-          "sha256": "f3a319c1303ea2ac4b59e8b4d6e80594de9927f05ae1d7a6a1013af705dc3d10"
+          "sha256": "eb69f5130b4c02a4fe0e1e1239fc1956ed031aadaae6782c7cc329e07347589a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/timelineShift.js",
-          "sha256": "a0e13ef6be4f38dcf809396703ba69720c1b9070621bad38c6fadb1bb1760164"
+          "sha256": "afbe4cd464580b8d28560f42a1c31c32cb7bad9391e4ccbf7a07b1660e847148"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useHostPlayer.js",
-          "sha256": "bd7ebc14724e6537ffa44a283334c0f61f2227e05f3c00623a29972b074a6722"
+          "sha256": "3d904ce3692f60dc832795fe147ad19f4fd3357bd789559a5a434bf99bc69191"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useManagedLyricsAsset.js",
-          "sha256": "fcfd596a753dcb483ee506a2fb7efa6056febf2682b9f033daa956d093083827"
+          "sha256": "21c0d737768f65b3c0279d0411e7dac07ed9e8ee3eb7135a941dcd2d9a3b8e06"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/workspace.css",
-          "sha256": "39ca7be2ab1bce1434681969a30c4730e8c9097f345e9b3109a0419821c53fc2"
+          "sha256": "a12f9943b0dd015b8694a76fe225d39cc9b0c6a7754483159416b0a866a92f56"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/aiAccess.js",
-          "sha256": "d085ad1a76d382441ec84d10cab76e36fdc7b9f310cf242fe3b27e3c935fe6f1"
+          "sha256": "ffc6b2ac4113d2022a76198afb5eefeed9790cd4d364341b6e469a30e378e419"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/config.js",
-          "sha256": "2feb2ec1f20e3fe822fa73fdf26a2935629ae9f757d927bb7f2c4f6fe3866f48"
+          "sha256": "55d66530a58ee317ca4b35c026e769dd63335ba7d570115f3e38db83eb57e3f0"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/defaultPrompts.js",
-          "sha256": "67a73a629fd5b1f4367fe1c646e2613d884d508329f2452b2ea1245e98d7b65a"
+          "sha256": "d524e0bf7b2d9ad4b5e47a6081554b15e69a893fbf859a0fbfa9f8d29d6ec7b8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftAi.js",
-          "sha256": "5d7eaea15445360164d8793ba9908ee3dd5f65bce693e37cbf5404d17dc3120d"
+          "sha256": "10794884fcf0720b20b99fd7a5490084486140d79de07ef7fba23607f2f543bf"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftReceipt.js",
-          "sha256": "2fa81af806706ed7a8f01ec808f5428fea4a222728d3dec708c99fbc762ab9af"
+          "sha256": "93fb436f30df6d6107f792f3ffb97bc4154b90aee6ba1d5bc68f34d1f8fcf8fc"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/handler.js",
-          "sha256": "10bef81ca1da2cbe7087c821918e90424ecf1c8dc65b07a124d5bec970778af5"
+          "sha256": "6a0256f9849fd244c52f65a1fd20f110e0e4b1c2939f7f82a69e87133f688329"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/invocationBudget.js",
-          "sha256": "8b7821ae7032aacce56973fafd4e0c25ce67c961e0f28ada60cc4e886ad82508"
+          "sha256": "9431c537c25e9bdd30f3a4379b2fb494bab3ded75c1c23f1874718c7df5b1136"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/policy.js",
-          "sha256": "b167f9f970e1572a765caa108016019435db1b74ba25538cde19ceb6e006fb06"
+          "sha256": "de504198c88defab379ff29da0242f358850198c524ee7e21aa568f237d0d174"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/sourceTest.js",
-          "sha256": "992d802814541152d7408f1b9299c216ad2dde60f314071808cb78e6e36788a1"
+          "sha256": "6ed764aed43d3c7859a9b00df5484b13c645a0301099251b7c1d2207e9ae5c26"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translation.js",
-          "sha256": "4493ea85970edb3ff773fd020524402d10c1215d113ec1d73fb6e546a0981465"
+          "sha256": "9d353b659a1709809944d979fc1ddcafcc2a12c04450420354c4551e94c344f8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translationFormat.js",
-          "sha256": "118a4ad694a6a21d7157f9f2ee1fe79875c8c7c0835cc284942c9856f5a513b0"
+          "sha256": "0f5c5dc86211f77b2f5a187068a272bc5ca8a7a9bcf54dc727ce6164a08adfbe"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/usage.js",
-          "sha256": "a680455bc19f9df2e9943479fedf141a28e8e1dc6f6868845b0ac4a6678dd7d4"
+          "sha256": "0597a6ae028ccdcdccc14a38a7baf816ae16c686b3a7aa1883d0ae37d61d6b41"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/workspace.js",
-          "sha256": "cee0bf897bc8da5a20cf5b0caafaa449a7fe2cc417c2def96a0b4987411868cd"
+          "sha256": "d6da6847797c0d5c88ed35c0a3dacecf0d00fa8e719c07f9879d9b29133227db"
         },
         {
           "path": "shared/plugins/.bridges/roam/client/RoamOverview.jsx",
@@ -11514,311 +11514,311 @@
           "sha256": "e91725e426a0a6b9e4cab26483b796fc71ab4f2eed71ef024b6f274941fd5618"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/LyricSourceQuickTest.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/LyricSourceQuickTest.js",
           "sha256": "6f5c6dcf98046db8afd1f026dae998011af812f86ce95ee3bf1b96073c8a5920"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/LyricSourcesSettings.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/LyricSourcesSettings.js",
           "sha256": "4443532c36f88a087e7f8bc9d7d7b443681a18459680c014b8bce3540ba83166"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/LyricsCandidatePanel.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/LyricsCandidatePanel.js",
           "sha256": "d8fcce3e2e21fa3f9e2b628b746397cf1b68466295052cba512bd2fc19674c05"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/LyricsPluginPage.css",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/LyricsPluginPage.css",
           "sha256": "532805a383361eb9e9c1020dd43811e56bb6a4c7765a19a16b70e160651f3e34"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/LyricsPluginPage.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/LyricsPluginPage.js",
           "sha256": "7809f126638f872c59e0013cade0cca8d769425222baea7394b16f0d126ba353"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/LyricsSettings.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/LyricsSettings.js",
           "sha256": "075cfb370720eb19de9dc7e0deb50a43857b5e19a47491f3b22c19ff245d3352"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-5PVOAEPO.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-5PVOAEPO.js",
           "sha256": "630e6b2f071ea5379822c54ba20c7109e17c3b2f08bf8352ab8a4b2252b5acf5"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-BGM7KWQ4.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-BGM7KWQ4.js",
           "sha256": "02f4530f7f5e25dd0a0a2f658d7dd9c1ce65b225389de2d3c55502ee02b6c252"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-DUJGIQTH.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-DUJGIQTH.js",
           "sha256": "e58359dd867c7c69de6fa52937657b1a2102ad81f747904bc55e51db9de163d8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-F3XD7VQE.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-F3XD7VQE.js",
           "sha256": "935a3c0c3ee538d467dd5ec9bf03039dbd28fb722045343dbb79205badf788de"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-FX4Z7OGS.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-FX4Z7OGS.js",
           "sha256": "1c467913141f997771821615a13bf823575326a192d581e64372abef84391f5a"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-G4QKUXGP.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-G4QKUXGP.js",
           "sha256": "0546a62f656763ba34dcbab09eb3d087a8be1f385adcab72786cae190fa081f9"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-KC7ORBFJ.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-KC7ORBFJ.js",
           "sha256": "128f1bf83ab6a17a4bd83b0abecb0c2f762fa905cc229aebe3cb3494faa97886"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-S2CE6ZF5.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-S2CE6ZF5.js",
           "sha256": "f148b313b85b3070400e9813f92baac9464408130979f3b3d47addc545030c04"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-T2TAW5YV.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-T2TAW5YV.js",
           "sha256": "12144d9e6fee6e898cef2a91c6f309ad69a7a866aeea65e3f71cc3104a5d2143"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-TOHVM4P3.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-TOHVM4P3.js",
           "sha256": "9513d150f23a127681666e856fe3db0f548c92b8b5721f26559423bb72d763e8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-UIVKBCL4.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-UIVKBCL4.js",
           "sha256": "bb7632183a06db189ab9e48d4f58e44f7777db743dadff71daafbff58f7e5efe"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-WIYTX2IX.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-WIYTX2IX.js",
           "sha256": "dd079d329e3324c7a1aef54308739ca204e652a3bdc0157393e2da9edc77b9a8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-WRRCUMNF.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-WRRCUMNF.js",
           "sha256": "1503a774c23767cbfc8a8ef98a21ed0d95aab42e52885e44d3b381666ad9b896"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-YOKGOT6I.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-YOKGOT6I.js",
           "sha256": "36569d9c5829b7907d7f4565cb42dfbd2e0fb707399d0123d0673febaba94214"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/_chunks/chunk-ZIF5FLBR.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/_chunks/chunk-ZIF5FLBR.js",
           "sha256": "30a3356f8dc86876d232077fbbf7dfcca7e356e5f9a15e7d2cbcaf13c2d7bddd"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/api.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/api.js",
           "sha256": "6b6fdbbfedc1e2c0bdc14038c1a91f92c210b1eb7afcd8738dfc6939f1f62979"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/candidates.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/candidates.js",
           "sha256": "6c88ccaec863cfd120eb5c2d12a270aaf2ee064487bd2799444f7e8f0cb43465"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/editor.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/editor.js",
           "sha256": "207f9a4b797bbf71515003dacad3ed631d4a2a8cf761a7668b8524cd76d746f4"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/index.css",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/index.css",
           "sha256": "532805a383361eb9e9c1020dd43811e56bb6a4c7765a19a16b70e160651f3e34"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/index.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/index.js",
           "sha256": "19e79064127f74c6139d3b14276d70553115cba38592012b664f86d2b5ee7919"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/modelError.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/modelError.js",
           "sha256": "2ed00f147d9241ff7eaf3ce4e29dac7b0c574ca6b279069c2e66e68f680672db"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/previewScroll.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/previewScroll.js",
           "sha256": "fc27ee8d5ef11eee03ac4bd98c7bed425c34515a5c2f63c9c706f6c948ff5205"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/runtime.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/runtime.js",
           "sha256": "834974ce031ed4aa6825d28fcc729e72b9df72ac333c87dd92d9a9ee9bf59f0e"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/timelineShift.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/timelineShift.js",
           "sha256": "66bc9a61ac3f9fadd380b56960721eca103c0e08eaf46b005fd5cb2087601982"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/useHostPlayer.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/useHostPlayer.js",
           "sha256": "e65da0f77b53aa0f2cde433281f63ad8189a06f867659a5d90455fea33784255"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/useManagedLyricsAsset.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/useManagedLyricsAsset.js",
           "sha256": "29915f32cc232f5862896302f0ba5e8da53142c422475e1335eec6ad62e5b78f"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/client/workspace.css",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/client/workspace.css",
           "sha256": "a067716a56694e42e129b5335cca0d8013a980136a9d3503a64ca37fd0b0b72e"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-2SEM64ST.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-2SEM64ST.js",
           "sha256": "1285a03e52190fec566fa33dd53bfcfd47172c4fcda5730392682482ca3e8cc8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-4UHGCX5U.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-4UHGCX5U.js",
           "sha256": "ffcf4e883c089fb5bb83c53fc23acc25c74fb62b458b4a6a7448138cbecc3599"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-57NRFADG.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-57NRFADG.js",
           "sha256": "e0a44c10f4aa4d699e1b445855a6c0d4d49aafc25a22682e91bcf4b48b0cdbc8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-5PH6ONRJ.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-5PH6ONRJ.js",
           "sha256": "6ddb89a0b6c280b4ef7414c1b9d930dca6ddd1a0efc422cacfdc8707e130d7f1"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-73LZ3UPK.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-73LZ3UPK.js",
           "sha256": "75915895a9e976e927fee76316301bcdabc600927b1f4f79425c57a5086b1c4a"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-7JVDV6J6.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-7JVDV6J6.js",
           "sha256": "286eb26aff004f96772dadcdbe19573a41494f4f00ca8472cfceef3e15d8927e"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-ALP7JI4T.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-ALP7JI4T.js",
           "sha256": "78d3f5c107239ecbe2bd41072be5aa143a883d7a49ceb6972f5c9bdcd07c296e"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-FQE3WPRE.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-AZ5AM4SA.js",
+          "sha256": "01855a32a751c102501ad5d700e0979d0655f3e2ecfe8893608e24ff87b693ba"
+        },
+        {
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-BWDXO3YB.js",
+          "sha256": "e6eeb4a112baad35947137363f46b53f07cee33fbb4f73decbda87fbe15cefa5"
+        },
+        {
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-FQE3WPRE.js",
           "sha256": "7abe02c9d232a5b3b3e00da6f667ba5f64397241a21b0da5c00303cc4786c341"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-GVRHHKA7.js",
-          "sha256": "0bee18540faaf2a3711abee91b908bf3536e0a1dc0eb125a36d832a7ccf2845e"
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-GTRRB6ZH.js",
+          "sha256": "c293fa4b709e2eace26733d2ab49e3601203dd3f3d19303c61225d6fe657a56b"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-KCRIQWBT.js",
-          "sha256": "20b066f4e1ade36d010e4e8c96fcffc4f5ac888ac14bbcf3a39f094b9be9cb5e"
-        },
-        {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-KINBAUQF.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-KINBAUQF.js",
           "sha256": "1bf3a40300b191c4861b98303ad4c5b35aa93b97be352a678a925488f762cd40"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-KXMIDTKC.js",
-          "sha256": "ed33d0bef459d33e73747f6b7c327d50f5b457de47c73bf22cc2ab52dadf63da"
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-KQPM5S3R.js",
+          "sha256": "f763f3be40839f810cdc84c93aac99f58c99e5281a5e32a40f5b641f33b82b08"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-LLMPLJ32.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-LLMPLJ32.js",
           "sha256": "0a0cf70ebd7d8095b2cbacc5bfc3986af1cd2b39e647f2cda797bab6c8514e97"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-MIDZ32WP.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-MIDZ32WP.js",
           "sha256": "50926eaf95e25babaebeb7acee6e69f0e76e9e3e292f1c4be255c1fbf9e4f7af"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-MR52TQWS.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-MR52TQWS.js",
           "sha256": "7c39e66a4f2548eaa77dcb70def5748e9634552c3dd4cd4619862682804e56b7"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-O36D2EOU.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-O36D2EOU.js",
           "sha256": "7f451c66e66bd38c82a143be40999dfc77148d0f04d1336f6756c159c4b0159f"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-OFHU5KF3.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-OFHU5KF3.js",
           "sha256": "128f1bf83ab6a17a4bd83b0abecb0c2f762fa905cc229aebe3cb3494faa97886"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-PYJHG4VH.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-PYJHG4VH.js",
           "sha256": "0948c04575daffa4cccedd1a5b29a6e8ee352b89c7d0ebdd4c076063b2dc7cec"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-SNRSUFI4.js",
-          "sha256": "2b50c9829d4bf6b6948ae001700de52c2f38e7e214b4ce9592705ad039f5c162"
-        },
-        {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-WZUVA2PO.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-WZUVA2PO.js",
           "sha256": "e98f4972d2a6773af56ca6549ecaddb1bf763a94f3aecb6873519435f62b5e7b"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/_chunks/chunk-YDGVWUQ3.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/_chunks/chunk-YDGVWUQ3.js",
           "sha256": "a4669067c3c92ff0a7e8bc8ba5ede3cd5e1ea4f7e09fd4288dd0b74901a9eccd"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/aiAccess.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/aiAccess.js",
           "sha256": "8a20ef9c0bfdce42570687fb9ef499dee557d513ecb81a4a7d67ecef1d6f4d10"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/config.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/config.js",
           "sha256": "ba03927f3a06d49006b3858494e9dce8af6f5ec811679b6a9e49cbbfd8995ea8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/defaultPrompts.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/defaultPrompts.js",
           "sha256": "044e0c46747a810f103833931016f113e11703bc82bc266df159156778e20772"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/draftAi.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/draftAi.js",
           "sha256": "f3ec57e77df49fcbe95203098b9079db508f5daa137ce2c5551e0c83c86a4443"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/draftReceipt.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/draftReceipt.js",
           "sha256": "1a0a83e5124ab0349ba141cd83304aabfced5a9a0e9dcb2ab22fe57d33211293"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/handler.js",
-          "sha256": "9a814a029d4a87a50bce3bf807d3eea3f8e1470599d866a6dc65678777cf8d99"
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/handler.js",
+          "sha256": "8c1f55675c146ddc4418f91e61c8cc4c7327dbe800fa53965517d0a1f5588da3"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/index.js",
-          "sha256": "f408430475903a82f50616cfa646f25f502fe6abaa06a9201ee420838a0ffd91"
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/index.js",
+          "sha256": "8e00f00b5d29f7ab551648633524d65fffd690d204484b38adccd52f8d81dbe7"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/invocationBudget.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/invocationBudget.js",
           "sha256": "d22e1ff6008ef6b28b933c6e48481a8d1d8794b9761955543a7ec55fdb29a4b9"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/languageAssessment.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/languageAssessment.js",
           "sha256": "91ff3fa8506556407090c7ee678a12066c4815b1cec55717f69e75dfa8c5d324"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/modelRoutes.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/modelRoutes.js",
           "sha256": "c8fa8232b58fc9614d1f693cc02e245f2dab7e2fec832366fd610708240c0adf"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/policy.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/policy.js",
           "sha256": "4ab8241cfc6f5a9f86a73037fb9a3dd17efbf7de9cac10d0dd65926352a5028e"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/settings.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/settings.js",
           "sha256": "17b03dfe6c8365ad5a3eb15ba22f0466e243cc180d0f167bb36480117171e977"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/source.js",
-          "sha256": "c010ba17cf0d36f4c40924fda9ea42cd57659c4ee98e0165a6645884ddf9abd1"
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/source.js",
+          "sha256": "b78753c0d01bba9d2081abc1e3ce6772b73baeda1546ebf9daf50079b5f5e286"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/sourceCore.js",
-          "sha256": "414b6b326cdb3bd74a4a439a84b2481ad622ccafbe9fab28459261f74f9b9314"
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/sourceCore.js",
+          "sha256": "b0c2bd21058beb36b8d0f6c622189de8b2bda5e5a17f41f44d9c4e0277232780"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/sourceTest.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/sourceTest.js",
           "sha256": "dc28a38f9180afe358ce278980e2ac6ddf3836ac196b1757cccb0725d3a3df69"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/translation.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/translation.js",
           "sha256": "f8cf66ed847bf29356e1fe2a1961932476ad43d78dc4f414e9e7d1bd0dc3dbc8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/translationFormat.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/translationFormat.js",
           "sha256": "817f13ae6e77a2d098acdc93968cbb148336801fc74cacb11b3f3b9aa3a2b3cc"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/usage.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/usage.js",
           "sha256": "c6934c70c58944593af0c91ced56afc4107a2b6e6ecd010aaa9cd9e0f5b8889a"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/server/workspace.js",
-          "sha256": "b37f8d7ffa5c4efaf6234b5a6b79fc76fbfa1fec956b079bc2f2981124091c13"
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/server/workspace.js",
+          "sha256": "ab9c30f4cfb7fd81d60c2e3c71e3193a641e1f73ff18ad5483887ce0f9c324ca"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/shared/NOTICE.json",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/shared/NOTICE.json",
           "sha256": "ec02c892c5ac87ac694c24ace9f3d498628b71107de97937510d2d53007771a8"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/shared/_chunks/chunk-PQP5KPKK.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/shared/_chunks/chunk-PQP5KPKK.js",
           "sha256": "128f1bf83ab6a17a4bd83b0abecb0c2f762fa905cc229aebe3cb3494faa97886"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/shared/messages.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/shared/messages.js",
           "sha256": "3821bb2bf0dde749b371b7f45291517f5f5044909a013cb50d1ef12cf3f69553"
         },
         {
-          "path": "shared/plugins/.delivery/lyrics-workbench/01844ac65bb716558feb4846dde608e0ba2800e273ebc8833a1481d3f17f713d/shared/translation-languages.js",
+          "path": "shared/plugins/.delivery/lyrics-workbench/8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f/shared/translation-languages.js",
           "sha256": "26506b3419a38cca5b78273fcdd487e91e5df5b7a921ae6c29afd3a203c42a99"
         },
         {
@@ -11831,7 +11831,7 @@
         },
         {
           "path": "shared/plugins/delivery.generated.js",
-          "sha256": "1549785056ed62bbafeacfbbcc4f8e50772fde9ae65a44f719a8ef23d815ddc0"
+          "sha256": "dc22523a2c6a5cc5bd95f813d50e004ed454c16049ab91013d88b83b983616d7"
         },
         {
           "path": "shared/plugins/delivery.js",
@@ -11895,7 +11895,7 @@
         },
         {
           "path": "tooling/plugins/delivery-source.generated.json",
-          "sha256": "f14f50d1936126a96e714e2d01393401788bc4549202d586a48bc2e86374e52c"
+          "sha256": "e848f67908036a103c5173bc87c4e46c346e3d2b12a9259e518c8246ad625cd0"
         },
         {
           "path": "tooling/plugins/delivery.mjs",
@@ -11943,7 +11943,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "7035b2ad39346159289caecbf96991c239fe11e91d932ddb20ef896e2a9c28cf"
+          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -11998,7 +11998,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "689a55a47665f9dde106ebeb897155fbb78adcca441c89905ee9c5e10724fd88",
+      "sourceDigest": "52b95c479bb20d38672a0a86afb245fcc87c1c135a7d4a09c5f91cc353fd0fba",
       "sources": [
         {
           "path": "client/index.html",
@@ -13210,7 +13210,7 @@
         },
         {
           "path": "client/src/plugins/delivery.generated.js",
-          "sha256": "2c670b944d471d507289a41de9960167eaf61c2524829ea83240eb21dee6a0d1"
+          "sha256": "ed9370fbc833752572a3bf81a220d69f37d487497f7dbd36b1e171f8d50267ae"
         },
         {
           "path": "client/src/plugins/host.js",
@@ -14114,7 +14114,7 @@
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
-          "sha256": "d7b22fc0f8ad80a7a38699cd963758250941440f2e29df956c0ddd436c86c167"
+          "sha256": "fe88ddd61ba9abea750a90fcdd79142719c5311ea43aaab767c58a3d19bc8a32"
         },
         {
           "path": "server/src/plugins/delivery.js",
@@ -15210,111 +15210,111 @@
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourceQuickTest.jsx",
-          "sha256": "c356c66b5fdd246fa798afdcd14fde20cf07585394d01cb0b37508a666584e13"
+          "sha256": "7ff233cd62b6539c918a35a5d0d019a55df66024e84dd153a39e33ae91247d1a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourcesSettings.jsx",
-          "sha256": "e769ede054676bfcac1dc87e70f0747093cb7a76ac9557a75cd96aafb0820b56"
+          "sha256": "bf6f5770c6c2a81826d519e75545c65cdb9a589339f40a6d76ddde9c48b5e4f1"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsCandidatePanel.jsx",
-          "sha256": "86f84cb167eba925e2464349a1b32e31bfe10c1557a9c4a203e7a7c27c268746"
+          "sha256": "29866931e4acda5d12f9f81ffbbc956142318602fe07116a7befe47e96d47983"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsPluginPage.jsx",
-          "sha256": "be654f292bc5fff16f6b258e71a20d69385bf866917afc4924400f32453abd80"
+          "sha256": "4d51d516a57ffecb6bb96a2a9817e759b42f118144c0b6e07861366eb5e2cb82"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsSettings.jsx",
-          "sha256": "d6609c950a1f7b373c9dc11b4afa12229245999540893aec358398a2adb13fd5"
+          "sha256": "ad9efd2a2445b808c70c31a5e5e3ed1d49b6a80e376fe095af1306b645e24483"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/api.js",
-          "sha256": "8a2da0c774ee025109a0a10207b0cf680ed42e73ec52da0c93f9fc7387d0dca9"
+          "sha256": "e7c5a6422c905def285eea759365bafdff6dd133cc4e89b58c7138036014ab88"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/candidates.js",
-          "sha256": "c46133e24f9caddbbcae99dfdf47d8bbd5f407d3bb399cce250ffe7f27baba9a"
+          "sha256": "7ffdc9b8b7278268d9c9377bd41c1f24e5aeddc4c0f15950cb3539d72371574b"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/editor.js",
-          "sha256": "2cc56069c33cb6092b35ff9e7420e4430f7ec5854d38c867810b2a9e20a35058"
+          "sha256": "a8e5d9b660425a4011970613de143a4ccf53df763cf40389bf76e262de17315d"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/previewScroll.js",
-          "sha256": "35369ca9b4ed947fa163451f6187c78d88a069266e88b67e83c1dddfd40d0311"
+          "sha256": "75cddc07e93478e6233c1cad90a3982d9bdcae864ba23e65164bb862b56858c9"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/runtime.js",
-          "sha256": "f3a319c1303ea2ac4b59e8b4d6e80594de9927f05ae1d7a6a1013af705dc3d10"
+          "sha256": "eb69f5130b4c02a4fe0e1e1239fc1956ed031aadaae6782c7cc329e07347589a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/timelineShift.js",
-          "sha256": "a0e13ef6be4f38dcf809396703ba69720c1b9070621bad38c6fadb1bb1760164"
+          "sha256": "afbe4cd464580b8d28560f42a1c31c32cb7bad9391e4ccbf7a07b1660e847148"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useHostPlayer.js",
-          "sha256": "bd7ebc14724e6537ffa44a283334c0f61f2227e05f3c00623a29972b074a6722"
+          "sha256": "3d904ce3692f60dc832795fe147ad19f4fd3357bd789559a5a434bf99bc69191"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useManagedLyricsAsset.js",
-          "sha256": "fcfd596a753dcb483ee506a2fb7efa6056febf2682b9f033daa956d093083827"
+          "sha256": "21c0d737768f65b3c0279d0411e7dac07ed9e8ee3eb7135a941dcd2d9a3b8e06"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/workspace.css",
-          "sha256": "39ca7be2ab1bce1434681969a30c4730e8c9097f345e9b3109a0419821c53fc2"
+          "sha256": "a12f9943b0dd015b8694a76fe225d39cc9b0c6a7754483159416b0a866a92f56"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/aiAccess.js",
-          "sha256": "d085ad1a76d382441ec84d10cab76e36fdc7b9f310cf242fe3b27e3c935fe6f1"
+          "sha256": "ffc6b2ac4113d2022a76198afb5eefeed9790cd4d364341b6e469a30e378e419"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/config.js",
-          "sha256": "2feb2ec1f20e3fe822fa73fdf26a2935629ae9f757d927bb7f2c4f6fe3866f48"
+          "sha256": "55d66530a58ee317ca4b35c026e769dd63335ba7d570115f3e38db83eb57e3f0"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/defaultPrompts.js",
-          "sha256": "67a73a629fd5b1f4367fe1c646e2613d884d508329f2452b2ea1245e98d7b65a"
+          "sha256": "d524e0bf7b2d9ad4b5e47a6081554b15e69a893fbf859a0fbfa9f8d29d6ec7b8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftAi.js",
-          "sha256": "5d7eaea15445360164d8793ba9908ee3dd5f65bce693e37cbf5404d17dc3120d"
+          "sha256": "10794884fcf0720b20b99fd7a5490084486140d79de07ef7fba23607f2f543bf"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftReceipt.js",
-          "sha256": "2fa81af806706ed7a8f01ec808f5428fea4a222728d3dec708c99fbc762ab9af"
+          "sha256": "93fb436f30df6d6107f792f3ffb97bc4154b90aee6ba1d5bc68f34d1f8fcf8fc"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/handler.js",
-          "sha256": "10bef81ca1da2cbe7087c821918e90424ecf1c8dc65b07a124d5bec970778af5"
+          "sha256": "6a0256f9849fd244c52f65a1fd20f110e0e4b1c2939f7f82a69e87133f688329"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/invocationBudget.js",
-          "sha256": "8b7821ae7032aacce56973fafd4e0c25ce67c961e0f28ada60cc4e886ad82508"
+          "sha256": "9431c537c25e9bdd30f3a4379b2fb494bab3ded75c1c23f1874718c7df5b1136"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/policy.js",
-          "sha256": "b167f9f970e1572a765caa108016019435db1b74ba25538cde19ceb6e006fb06"
+          "sha256": "de504198c88defab379ff29da0242f358850198c524ee7e21aa568f237d0d174"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/sourceTest.js",
-          "sha256": "992d802814541152d7408f1b9299c216ad2dde60f314071808cb78e6e36788a1"
+          "sha256": "6ed764aed43d3c7859a9b00df5484b13c645a0301099251b7c1d2207e9ae5c26"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translation.js",
-          "sha256": "4493ea85970edb3ff773fd020524402d10c1215d113ec1d73fb6e546a0981465"
+          "sha256": "9d353b659a1709809944d979fc1ddcafcc2a12c04450420354c4551e94c344f8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translationFormat.js",
-          "sha256": "118a4ad694a6a21d7157f9f2ee1fe79875c8c7c0835cc284942c9856f5a513b0"
+          "sha256": "0f5c5dc86211f77b2f5a187068a272bc5ca8a7a9bcf54dc727ce6164a08adfbe"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/usage.js",
-          "sha256": "a680455bc19f9df2e9943479fedf141a28e8e1dc6f6868845b0ac4a6678dd7d4"
+          "sha256": "0597a6ae028ccdcdccc14a38a7baf816ae16c686b3a7aa1883d0ae37d61d6b41"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/workspace.js",
-          "sha256": "cee0bf897bc8da5a20cf5b0caafaa449a7fe2cc417c2def96a0b4987411868cd"
+          "sha256": "d6da6847797c0d5c88ed35c0a3dacecf0d00fa8e719c07f9879d9b29133227db"
         },
         {
           "path": "shared/plugins/.bridges/roam/client/RoamOverview.jsx",
@@ -15642,7 +15642,7 @@
         },
         {
           "path": "shared/plugins/delivery.generated.js",
-          "sha256": "1549785056ed62bbafeacfbbcc4f8e50772fde9ae65a44f719a8ef23d815ddc0"
+          "sha256": "dc22523a2c6a5cc5bd95f813d50e004ed454c16049ab91013d88b83b983616d7"
         },
         {
           "path": "shared/plugins/delivery.js",
@@ -15706,7 +15706,7 @@
         },
         {
           "path": "tooling/plugins/delivery-source.generated.json",
-          "sha256": "f14f50d1936126a96e714e2d01393401788bc4549202d586a48bc2e86374e52c"
+          "sha256": "e848f67908036a103c5173bc87c4e46c346e3d2b12a9259e518c8246ad625cd0"
         },
         {
           "path": "tooling/plugins/delivery.mjs",
@@ -15754,7 +15754,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "7035b2ad39346159289caecbf96991c239fe11e91d932ddb20ef896e2a9c28cf"
+          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -15809,7 +15809,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "301763210d572f0d8f863060fa7a49da40476c12f1d572e8d78dd5f596bedb36",
+      "sourceDigest": "7db8e30b58e245f1554a1ee3a04a4345183283796a9ddd248c1fcc476f3367bf",
       "sources": [
         {
           "path": "client/index.html",
@@ -17021,7 +17021,7 @@
         },
         {
           "path": "client/src/plugins/delivery.generated.js",
-          "sha256": "2c670b944d471d507289a41de9960167eaf61c2524829ea83240eb21dee6a0d1"
+          "sha256": "ed9370fbc833752572a3bf81a220d69f37d487497f7dbd36b1e171f8d50267ae"
         },
         {
           "path": "client/src/plugins/host.js",
@@ -17925,7 +17925,7 @@
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
-          "sha256": "d7b22fc0f8ad80a7a38699cd963758250941440f2e29df956c0ddd436c86c167"
+          "sha256": "fe88ddd61ba9abea750a90fcdd79142719c5311ea43aaab767c58a3d19bc8a32"
         },
         {
           "path": "server/src/plugins/delivery.js",
@@ -19021,111 +19021,111 @@
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourceQuickTest.jsx",
-          "sha256": "c356c66b5fdd246fa798afdcd14fde20cf07585394d01cb0b37508a666584e13"
+          "sha256": "7ff233cd62b6539c918a35a5d0d019a55df66024e84dd153a39e33ae91247d1a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourcesSettings.jsx",
-          "sha256": "e769ede054676bfcac1dc87e70f0747093cb7a76ac9557a75cd96aafb0820b56"
+          "sha256": "bf6f5770c6c2a81826d519e75545c65cdb9a589339f40a6d76ddde9c48b5e4f1"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsCandidatePanel.jsx",
-          "sha256": "86f84cb167eba925e2464349a1b32e31bfe10c1557a9c4a203e7a7c27c268746"
+          "sha256": "29866931e4acda5d12f9f81ffbbc956142318602fe07116a7befe47e96d47983"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsPluginPage.jsx",
-          "sha256": "be654f292bc5fff16f6b258e71a20d69385bf866917afc4924400f32453abd80"
+          "sha256": "4d51d516a57ffecb6bb96a2a9817e759b42f118144c0b6e07861366eb5e2cb82"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsSettings.jsx",
-          "sha256": "d6609c950a1f7b373c9dc11b4afa12229245999540893aec358398a2adb13fd5"
+          "sha256": "ad9efd2a2445b808c70c31a5e5e3ed1d49b6a80e376fe095af1306b645e24483"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/api.js",
-          "sha256": "8a2da0c774ee025109a0a10207b0cf680ed42e73ec52da0c93f9fc7387d0dca9"
+          "sha256": "e7c5a6422c905def285eea759365bafdff6dd133cc4e89b58c7138036014ab88"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/candidates.js",
-          "sha256": "c46133e24f9caddbbcae99dfdf47d8bbd5f407d3bb399cce250ffe7f27baba9a"
+          "sha256": "7ffdc9b8b7278268d9c9377bd41c1f24e5aeddc4c0f15950cb3539d72371574b"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/editor.js",
-          "sha256": "2cc56069c33cb6092b35ff9e7420e4430f7ec5854d38c867810b2a9e20a35058"
+          "sha256": "a8e5d9b660425a4011970613de143a4ccf53df763cf40389bf76e262de17315d"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/previewScroll.js",
-          "sha256": "35369ca9b4ed947fa163451f6187c78d88a069266e88b67e83c1dddfd40d0311"
+          "sha256": "75cddc07e93478e6233c1cad90a3982d9bdcae864ba23e65164bb862b56858c9"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/runtime.js",
-          "sha256": "f3a319c1303ea2ac4b59e8b4d6e80594de9927f05ae1d7a6a1013af705dc3d10"
+          "sha256": "eb69f5130b4c02a4fe0e1e1239fc1956ed031aadaae6782c7cc329e07347589a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/timelineShift.js",
-          "sha256": "a0e13ef6be4f38dcf809396703ba69720c1b9070621bad38c6fadb1bb1760164"
+          "sha256": "afbe4cd464580b8d28560f42a1c31c32cb7bad9391e4ccbf7a07b1660e847148"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useHostPlayer.js",
-          "sha256": "bd7ebc14724e6537ffa44a283334c0f61f2227e05f3c00623a29972b074a6722"
+          "sha256": "3d904ce3692f60dc832795fe147ad19f4fd3357bd789559a5a434bf99bc69191"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useManagedLyricsAsset.js",
-          "sha256": "fcfd596a753dcb483ee506a2fb7efa6056febf2682b9f033daa956d093083827"
+          "sha256": "21c0d737768f65b3c0279d0411e7dac07ed9e8ee3eb7135a941dcd2d9a3b8e06"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/workspace.css",
-          "sha256": "39ca7be2ab1bce1434681969a30c4730e8c9097f345e9b3109a0419821c53fc2"
+          "sha256": "a12f9943b0dd015b8694a76fe225d39cc9b0c6a7754483159416b0a866a92f56"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/aiAccess.js",
-          "sha256": "d085ad1a76d382441ec84d10cab76e36fdc7b9f310cf242fe3b27e3c935fe6f1"
+          "sha256": "ffc6b2ac4113d2022a76198afb5eefeed9790cd4d364341b6e469a30e378e419"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/config.js",
-          "sha256": "2feb2ec1f20e3fe822fa73fdf26a2935629ae9f757d927bb7f2c4f6fe3866f48"
+          "sha256": "55d66530a58ee317ca4b35c026e769dd63335ba7d570115f3e38db83eb57e3f0"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/defaultPrompts.js",
-          "sha256": "67a73a629fd5b1f4367fe1c646e2613d884d508329f2452b2ea1245e98d7b65a"
+          "sha256": "d524e0bf7b2d9ad4b5e47a6081554b15e69a893fbf859a0fbfa9f8d29d6ec7b8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftAi.js",
-          "sha256": "5d7eaea15445360164d8793ba9908ee3dd5f65bce693e37cbf5404d17dc3120d"
+          "sha256": "10794884fcf0720b20b99fd7a5490084486140d79de07ef7fba23607f2f543bf"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftReceipt.js",
-          "sha256": "2fa81af806706ed7a8f01ec808f5428fea4a222728d3dec708c99fbc762ab9af"
+          "sha256": "93fb436f30df6d6107f792f3ffb97bc4154b90aee6ba1d5bc68f34d1f8fcf8fc"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/handler.js",
-          "sha256": "10bef81ca1da2cbe7087c821918e90424ecf1c8dc65b07a124d5bec970778af5"
+          "sha256": "6a0256f9849fd244c52f65a1fd20f110e0e4b1c2939f7f82a69e87133f688329"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/invocationBudget.js",
-          "sha256": "8b7821ae7032aacce56973fafd4e0c25ce67c961e0f28ada60cc4e886ad82508"
+          "sha256": "9431c537c25e9bdd30f3a4379b2fb494bab3ded75c1c23f1874718c7df5b1136"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/policy.js",
-          "sha256": "b167f9f970e1572a765caa108016019435db1b74ba25538cde19ceb6e006fb06"
+          "sha256": "de504198c88defab379ff29da0242f358850198c524ee7e21aa568f237d0d174"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/sourceTest.js",
-          "sha256": "992d802814541152d7408f1b9299c216ad2dde60f314071808cb78e6e36788a1"
+          "sha256": "6ed764aed43d3c7859a9b00df5484b13c645a0301099251b7c1d2207e9ae5c26"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translation.js",
-          "sha256": "4493ea85970edb3ff773fd020524402d10c1215d113ec1d73fb6e546a0981465"
+          "sha256": "9d353b659a1709809944d979fc1ddcafcc2a12c04450420354c4551e94c344f8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translationFormat.js",
-          "sha256": "118a4ad694a6a21d7157f9f2ee1fe79875c8c7c0835cc284942c9856f5a513b0"
+          "sha256": "0f5c5dc86211f77b2f5a187068a272bc5ca8a7a9bcf54dc727ce6164a08adfbe"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/usage.js",
-          "sha256": "a680455bc19f9df2e9943479fedf141a28e8e1dc6f6868845b0ac4a6678dd7d4"
+          "sha256": "0597a6ae028ccdcdccc14a38a7baf816ae16c686b3a7aa1883d0ae37d61d6b41"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/workspace.js",
-          "sha256": "cee0bf897bc8da5a20cf5b0caafaa449a7fe2cc417c2def96a0b4987411868cd"
+          "sha256": "d6da6847797c0d5c88ed35c0a3dacecf0d00fa8e719c07f9879d9b29133227db"
         },
         {
           "path": "shared/plugins/.bridges/roam/client/RoamOverview.jsx",
@@ -19461,7 +19461,7 @@
         },
         {
           "path": "shared/plugins/delivery.generated.js",
-          "sha256": "1549785056ed62bbafeacfbbcc4f8e50772fde9ae65a44f719a8ef23d815ddc0"
+          "sha256": "dc22523a2c6a5cc5bd95f813d50e004ed454c16049ab91013d88b83b983616d7"
         },
         {
           "path": "shared/plugins/delivery.js",
@@ -19525,7 +19525,7 @@
         },
         {
           "path": "tooling/plugins/delivery-source.generated.json",
-          "sha256": "f14f50d1936126a96e714e2d01393401788bc4549202d586a48bc2e86374e52c"
+          "sha256": "e848f67908036a103c5173bc87c4e46c346e3d2b12a9259e518c8246ad625cd0"
         },
         {
           "path": "tooling/plugins/delivery.mjs",
@@ -19573,7 +19573,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "7035b2ad39346159289caecbf96991c239fe11e91d932ddb20ef896e2a9c28cf"
+          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -19628,7 +19628,7 @@
       "apiVersion": 1,
       "source": "artifact:official:441a41ff8539e44077d280bf25441f261829df5acea28e901f9eb3bfc415ffe6",
       "manifestDigest": "524ddb4b18133d342c164f073c36130ed6a1c92441557ab54eed1e426c9bc302",
-      "sourceDigest": "3c5fea839ff61a6561f43ac6a4ed90c0f64a7e72b49de8fda829834a3c7eec55",
+      "sourceDigest": "ff1a8f4356625c8b66b6eae7d9345be7195bc7d1b4c08fc280b63b27c6820298",
       "sources": [
         {
           "path": "client/index.html",
@@ -20840,7 +20840,7 @@
         },
         {
           "path": "client/src/plugins/delivery.generated.js",
-          "sha256": "2c670b944d471d507289a41de9960167eaf61c2524829ea83240eb21dee6a0d1"
+          "sha256": "ed9370fbc833752572a3bf81a220d69f37d487497f7dbd36b1e171f8d50267ae"
         },
         {
           "path": "client/src/plugins/host.js",
@@ -21744,7 +21744,7 @@
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
-          "sha256": "d7b22fc0f8ad80a7a38699cd963758250941440f2e29df956c0ddd436c86c167"
+          "sha256": "fe88ddd61ba9abea750a90fcdd79142719c5311ea43aaab767c58a3d19bc8a32"
         },
         {
           "path": "server/src/plugins/delivery.js",
@@ -22840,111 +22840,111 @@
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourceQuickTest.jsx",
-          "sha256": "c356c66b5fdd246fa798afdcd14fde20cf07585394d01cb0b37508a666584e13"
+          "sha256": "7ff233cd62b6539c918a35a5d0d019a55df66024e84dd153a39e33ae91247d1a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricSourcesSettings.jsx",
-          "sha256": "e769ede054676bfcac1dc87e70f0747093cb7a76ac9557a75cd96aafb0820b56"
+          "sha256": "bf6f5770c6c2a81826d519e75545c65cdb9a589339f40a6d76ddde9c48b5e4f1"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsCandidatePanel.jsx",
-          "sha256": "86f84cb167eba925e2464349a1b32e31bfe10c1557a9c4a203e7a7c27c268746"
+          "sha256": "29866931e4acda5d12f9f81ffbbc956142318602fe07116a7befe47e96d47983"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsPluginPage.jsx",
-          "sha256": "be654f292bc5fff16f6b258e71a20d69385bf866917afc4924400f32453abd80"
+          "sha256": "4d51d516a57ffecb6bb96a2a9817e759b42f118144c0b6e07861366eb5e2cb82"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/LyricsSettings.jsx",
-          "sha256": "d6609c950a1f7b373c9dc11b4afa12229245999540893aec358398a2adb13fd5"
+          "sha256": "ad9efd2a2445b808c70c31a5e5e3ed1d49b6a80e376fe095af1306b645e24483"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/api.js",
-          "sha256": "8a2da0c774ee025109a0a10207b0cf680ed42e73ec52da0c93f9fc7387d0dca9"
+          "sha256": "e7c5a6422c905def285eea759365bafdff6dd133cc4e89b58c7138036014ab88"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/candidates.js",
-          "sha256": "c46133e24f9caddbbcae99dfdf47d8bbd5f407d3bb399cce250ffe7f27baba9a"
+          "sha256": "7ffdc9b8b7278268d9c9377bd41c1f24e5aeddc4c0f15950cb3539d72371574b"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/editor.js",
-          "sha256": "2cc56069c33cb6092b35ff9e7420e4430f7ec5854d38c867810b2a9e20a35058"
+          "sha256": "a8e5d9b660425a4011970613de143a4ccf53df763cf40389bf76e262de17315d"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/previewScroll.js",
-          "sha256": "35369ca9b4ed947fa163451f6187c78d88a069266e88b67e83c1dddfd40d0311"
+          "sha256": "75cddc07e93478e6233c1cad90a3982d9bdcae864ba23e65164bb862b56858c9"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/runtime.js",
-          "sha256": "f3a319c1303ea2ac4b59e8b4d6e80594de9927f05ae1d7a6a1013af705dc3d10"
+          "sha256": "eb69f5130b4c02a4fe0e1e1239fc1956ed031aadaae6782c7cc329e07347589a"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/timelineShift.js",
-          "sha256": "a0e13ef6be4f38dcf809396703ba69720c1b9070621bad38c6fadb1bb1760164"
+          "sha256": "afbe4cd464580b8d28560f42a1c31c32cb7bad9391e4ccbf7a07b1660e847148"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useHostPlayer.js",
-          "sha256": "bd7ebc14724e6537ffa44a283334c0f61f2227e05f3c00623a29972b074a6722"
+          "sha256": "3d904ce3692f60dc832795fe147ad19f4fd3357bd789559a5a434bf99bc69191"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/useManagedLyricsAsset.js",
-          "sha256": "fcfd596a753dcb483ee506a2fb7efa6056febf2682b9f033daa956d093083827"
+          "sha256": "21c0d737768f65b3c0279d0411e7dac07ed9e8ee3eb7135a941dcd2d9a3b8e06"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/client/workspace.css",
-          "sha256": "39ca7be2ab1bce1434681969a30c4730e8c9097f345e9b3109a0419821c53fc2"
+          "sha256": "a12f9943b0dd015b8694a76fe225d39cc9b0c6a7754483159416b0a866a92f56"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/aiAccess.js",
-          "sha256": "d085ad1a76d382441ec84d10cab76e36fdc7b9f310cf242fe3b27e3c935fe6f1"
+          "sha256": "ffc6b2ac4113d2022a76198afb5eefeed9790cd4d364341b6e469a30e378e419"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/config.js",
-          "sha256": "2feb2ec1f20e3fe822fa73fdf26a2935629ae9f757d927bb7f2c4f6fe3866f48"
+          "sha256": "55d66530a58ee317ca4b35c026e769dd63335ba7d570115f3e38db83eb57e3f0"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/defaultPrompts.js",
-          "sha256": "67a73a629fd5b1f4367fe1c646e2613d884d508329f2452b2ea1245e98d7b65a"
+          "sha256": "d524e0bf7b2d9ad4b5e47a6081554b15e69a893fbf859a0fbfa9f8d29d6ec7b8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftAi.js",
-          "sha256": "5d7eaea15445360164d8793ba9908ee3dd5f65bce693e37cbf5404d17dc3120d"
+          "sha256": "10794884fcf0720b20b99fd7a5490084486140d79de07ef7fba23607f2f543bf"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/draftReceipt.js",
-          "sha256": "2fa81af806706ed7a8f01ec808f5428fea4a222728d3dec708c99fbc762ab9af"
+          "sha256": "93fb436f30df6d6107f792f3ffb97bc4154b90aee6ba1d5bc68f34d1f8fcf8fc"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/handler.js",
-          "sha256": "10bef81ca1da2cbe7087c821918e90424ecf1c8dc65b07a124d5bec970778af5"
+          "sha256": "6a0256f9849fd244c52f65a1fd20f110e0e4b1c2939f7f82a69e87133f688329"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/invocationBudget.js",
-          "sha256": "8b7821ae7032aacce56973fafd4e0c25ce67c961e0f28ada60cc4e886ad82508"
+          "sha256": "9431c537c25e9bdd30f3a4379b2fb494bab3ded75c1c23f1874718c7df5b1136"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/policy.js",
-          "sha256": "b167f9f970e1572a765caa108016019435db1b74ba25538cde19ceb6e006fb06"
+          "sha256": "de504198c88defab379ff29da0242f358850198c524ee7e21aa568f237d0d174"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/sourceTest.js",
-          "sha256": "992d802814541152d7408f1b9299c216ad2dde60f314071808cb78e6e36788a1"
+          "sha256": "6ed764aed43d3c7859a9b00df5484b13c645a0301099251b7c1d2207e9ae5c26"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translation.js",
-          "sha256": "4493ea85970edb3ff773fd020524402d10c1215d113ec1d73fb6e546a0981465"
+          "sha256": "9d353b659a1709809944d979fc1ddcafcc2a12c04450420354c4551e94c344f8"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/translationFormat.js",
-          "sha256": "118a4ad694a6a21d7157f9f2ee1fe79875c8c7c0835cc284942c9856f5a513b0"
+          "sha256": "0f5c5dc86211f77b2f5a187068a272bc5ca8a7a9bcf54dc727ce6164a08adfbe"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/usage.js",
-          "sha256": "a680455bc19f9df2e9943479fedf141a28e8e1dc6f6868845b0ac4a6678dd7d4"
+          "sha256": "0597a6ae028ccdcdccc14a38a7baf816ae16c686b3a7aa1883d0ae37d61d6b41"
         },
         {
           "path": "shared/plugins/.bridges/lyrics-workbench/server/workspace.js",
-          "sha256": "cee0bf897bc8da5a20cf5b0caafaa449a7fe2cc417c2def96a0b4987411868cd"
+          "sha256": "d6da6847797c0d5c88ed35c0a3dacecf0d00fa8e719c07f9879d9b29133227db"
         },
         {
           "path": "shared/plugins/.bridges/roam/client/RoamOverview.jsx",
@@ -23388,7 +23388,7 @@
         },
         {
           "path": "shared/plugins/delivery.generated.js",
-          "sha256": "1549785056ed62bbafeacfbbcc4f8e50772fde9ae65a44f719a8ef23d815ddc0"
+          "sha256": "dc22523a2c6a5cc5bd95f813d50e004ed454c16049ab91013d88b83b983616d7"
         },
         {
           "path": "shared/plugins/delivery.js",
@@ -23452,7 +23452,7 @@
         },
         {
           "path": "tooling/plugins/delivery-source.generated.json",
-          "sha256": "f14f50d1936126a96e714e2d01393401788bc4549202d586a48bc2e86374e52c"
+          "sha256": "e848f67908036a103c5173bc87c4e46c346e3d2b12a9259e518c8246ad625cd0"
         },
         {
           "path": "tooling/plugins/delivery.mjs",
@@ -23500,7 +23500,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "7035b2ad39346159289caecbf96991c239fe11e91d932ddb20ef896e2a9c28cf"
+          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
         },
         {
           "path": "tooling/updates/process.mjs",

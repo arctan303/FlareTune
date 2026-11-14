@@ -58,7 +58,10 @@ export async function fixture(t, options = {}) {
       }
       if (body.runnerId !== state.plan.execution?.runnerId) return response({ error: 'SYSTEM_UPDATE_RUNNER_CHANGED' }, 409);
       if (url.endsWith('/migration')) {
-        state.migrations++; if (options.migrationUnknown) throw Error('synthetic lost migration response');
+        state.migrations++;
+        const rejected = await options.onMigrationAttempt?.(body, state);
+        if (rejected) return rejected;
+        if (options.migrationUnknown) throw Error('synthetic lost migration response');
         state.plan.receipt.migrationCompleted = true;
         return response({ taskId: TASK, ...(options.migrationDto || { status: 'current' }), migrationCompleted: true });
       }
@@ -67,7 +70,7 @@ export async function fixture(t, options = {}) {
       if (rejected) return rejected;
       if (body.status === 'migrating' && options.rejectMigration) return response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409);
       if (body.receipt) state.plan.receipt = structuredClone(body.receipt);
-      state.plan.status = body.status; state.plan.revision++;
+      state.plan.status = body.status; state.plan.error = body.error || null; state.plan.revision++;
       if (body.status === 'migrating') state.plan.receipt.migrationStarted = true;
       await options.onReport?.(body.status, state);
       if (body.status === 'migrating' && options.loseMigratingReport) throw Error('synthetic lost response after durable write');
@@ -257,6 +260,55 @@ test('an already completed receipt cannot hide an exhausted runtime mismatch as 
   assert.equal(f.state.elapsed, 60000); assert.equal(f.state.plan.status, 'deployed');
   assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 1);
 });
+test('migration uses the same exact runtime mismatch retry gate and preserves the inactive version', async t => {
+  const f = await fixture(t, { onMigrationAttempt: async (_body, state) => state.migrations === 1
+    ? response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409) : undefined });
+  assert.equal((await f.run()).status, 'deployed');
+  assert.equal(f.state.migrations, 2); assert.deepEqual(f.state.sleeps, [2000]);
+  assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 1);
+});
+test('preflight network time exhausts the phase budget without issuing a second report or migration', async t => {
+  for (const phase of ['report', 'migration']) {
+    const f = await fixture(t, {
+      onReportAttempt: async body => phase === 'report' && body.status === 'migrating'
+        ? response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409) : undefined,
+      onMigrationAttempt: async () => response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409),
+    });
+    let elapsedDuringPreflight = false;
+    const fetchImpl = async (url, init) => {
+      const attempts = phase === 'report' ? f.state.reports.filter(row => row.status === 'migrating').length : f.state.migrations;
+      if (!elapsedDuringPreflight && attempts === 1 && url.endsWith('/plan')) {
+        elapsedDuringPreflight = true; f.state.elapsed += 60000;
+      }
+      return f.fetchImpl(url, init);
+    };
+    await assert.rejects(f.run({ fetchImpl }), error => error.code === 'SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED'
+      && error.confirmedRejected !== true);
+    assert.equal(elapsedDuringPreflight, true);
+    assert.equal(phase === 'report' ? f.state.reports.filter(row => row.status === 'migrating').length : f.state.migrations, 1);
+    assert.equal(f.state.promotions.length, 1); assert.equal(f.state.plan.status, 'activation_pending');
+    assert.equal(f.state.current.versions[0].version_id, NEXT);
+  }
+});
+test('a network timeout after a migration write is unknown and never resubmits that mutation or rolls code back', async t => {
+  const f = await fixture(t, { onMigrationAttempt: async (_body, state) => {
+    state.plan.receipt.migrationCompleted = true; state.elapsed += 60000;
+    return response({ taskId: TASK, status: 'completed', migrationCompleted: true });
+  } });
+  await assert.rejects(f.run(), error => error.code === 'SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED' && error.confirmedRejected !== true);
+  assert.equal(f.state.migrations, 1); assert.equal(f.state.plan.receipt.migrationStarted, true);
+  assert.equal(f.state.plan.receipt.migrationCompleted, true); assert.equal(f.state.plan.status, 'activation_pending');
+  assert.equal(f.state.promotions.length, 1);
+});
+test('phase bounded await stops on an unresponsive lease renewal without starting a report', async t => {
+  const f = await fixture(t), connection = updateConnection(environment); let renewals = 0;
+  f.state.plan.execution = { runnerId: connection.runnerId, leaseExpiresAt: Date.now() + 180000 };
+  await assert.rejects(f.run({ connection, runtimeWaitMs: 25, lease: { check() {}, renew: () => ++renewals > 2
+    ? new Promise(() => {}) : Promise.resolve() } }), error => error.code === 'SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED'
+      && error.confirmedRejected !== true);
+  assert.equal(f.state.reports.some(row => row.status === 'migrating'), false);
+  assert.equal(f.state.promotions.length, 1); assert.equal(f.state.plan.status, 'activation_pending');
+});
 test('a lost migrating acknowledgement never rolls code back over a possibly committed migration', async t => {
   const f = await fixture(t, { loseMigratingReport: true });
   await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_REQUEST_UNCONFIRMED' });
@@ -361,14 +413,15 @@ test('real completed and already-completed database migration DTOs let the updat
     await assert.rejects(migrateUpdate(connection, plan, { fetchImpl: async () => response({ ...completed, ...invalid }) }), { code: 'SYSTEM_UPDATE_RESPONSE_INVALID' });
   }
 });
-test('runner and real SQLite-backed service wait through runtime propagation before migration and deployed confirmation', async t => {
+async function sqliteRuntimeFixture(t, { reportSkew = {}, migrationSkew = 0, rejectMigrating = false, loseMigrationAck = false } = {}) {
   const f = await fixture(t), sqlite = new DatabaseSync(':memory:'); t.after(() => sqlite.close());
   sqlite.exec('CREATE TABLE instance_settings(key TEXT PRIMARY KEY,value_json TEXT,revision INTEGER NOT NULL,updated_at INTEGER,updated_by TEXT)');
   const db = { prepare(sql) { let values = []; return { bind(...args) { values = args; return this; },
     async first() { return sqlite.prepare(sql).get(...values) || null; }, async all() { return { results: sqlite.prepare(sql).all(...values) }; },
     async run() { return { meta: { changes: sqlite.prepare(sql).run(...values).changes } }; } }; } };
   let live = { ...f.state.plan.from.host, hostApiVersion: 5, plugins: [] }, ready = true, migrations = 0;
-  const runtimeAttempts = { migrating: 0, deployed: 0 };
+  const runtimeAttempts = { migrating: 0, deployed: 0, rolled_back: 0 };
+  let migrationRequests = 0, lostMigrationAck = false;
   const env = { DB: db, SETUP_SECRET: 'synthetic_setup_secret_only_for_sqlite_integration' };
   const update = createSystemUpdate({ runtime: () => live, requireAdminImpl: async () => {},
     state: async () => ({ state: ready ? 'ready' : 'maintenance' }), supplemental: async () => ({ supplementalPending: !ready }),
@@ -383,14 +436,23 @@ test('runner and real SQLite-backed service wait through runtime propagation bef
       if (url.endsWith('/report')) {
         const status = JSON.parse(init.body).status;
         if (Object.hasOwn(runtimeAttempts, status)) {
-          const oldEdge = ++runtimeAttempts[status] <= 2;
-          live = { ...(oldEdge ? f.state.plan.from.host : f.state.plan.target.host), hostApiVersion: 5, plugins: [] };
+          const wrongEdge = ++runtimeAttempts[status] <= (reportSkew[status] || 0) || status === 'migrating' && rejectMigrating;
+          const wanted = status === 'rolled_back' ? f.state.plan.from.host : f.state.plan.target.host;
+          const other = status === 'rolled_back' ? f.state.plan.target.host : f.state.plan.from.host;
+          live = { ...(wrongEdge ? other : wanted), hostApiVersion: 5, plugins: [] };
           assert.equal(await systemUpdateMaintenance(env), true);
         }
       }
+      if (url.endsWith('/migration')) {
+        live = { ...(++migrationRequests <= migrationSkew ? f.state.plan.from.host : f.state.plan.target.host), hostApiVersion: 5, plugins: [] };
+      }
       const request = new Request(url, init);
-      return handleSystemUpdatePipeline(request, new URL(url).pathname, env, { state: ready ? 'ready' : 'maintenance' },
+      const result = await handleSystemUpdatePipeline(request, new URL(url).pathname, env, { state: ready ? 'ready' : 'maintenance' },
         (value, status = 200) => response(value, status), { update });
+      if (url.endsWith('/migration') && result.ok && loseMigrationAck && !lostMigrationAck) {
+        lostMigrationAck = true; throw Error('synthetic migration response lost after durable completion');
+      }
+      return result;
     }
     const result = await f.fetchImpl(url, init);
     if (url.endsWith('/deployments') && init.method === 'POST') {
@@ -399,11 +461,37 @@ test('runner and real SQLite-backed service wait through runtime propagation bef
     }
     return result;
   };
-  assert.equal((await f.run({ fetchImpl })).status, 'deployed');
-  const final = await update.plan(env, new Request(`${environment.FLARETUNE_SYSTEM_UPDATE_SITE_URL}/api/system-update/plan`,
-    { headers: { Authorization: `Bearer ${environment.FLARETUNE_SYSTEM_UPDATE_BUILD_TOKEN}` } }));
+  return { f, env, runtimeAttempts, run: () => f.run({ fetchImpl,
+    environment: { ...environment, WORKERS_CI_BUILD_UUID: 'synthetic-sqlite-propagation-runner' } }),
+    read: () => update.plan(env, new Request(`${environment.FLARETUNE_SYSTEM_UPDATE_SITE_URL}/api/system-update/plan`,
+      { headers: { Authorization: `Bearer ${environment.FLARETUNE_SYSTEM_UPDATE_BUILD_TOKEN}` } })),
+    get migrations() { return migrations; }, get migrationRequests() { return migrationRequests; }, get ready() { return ready; } };
+}
+test('real SQLite service retries actual old-edge reports and the first actual migration mismatch then commits once', async t => {
+  const s = await sqliteRuntimeFixture(t, { reportSkew: { migrating: 2, deployed: 2 }, migrationSkew: 1 });
+  assert.equal((await s.run()).status, 'deployed');
+  const final = await s.read();
   assert.equal(final.status, 'deployed'); assert.equal(final.receipt.uploadStarted, true); assert.equal(final.receipt.migrationCompleted, true);
-  assert.equal(f.state.uploads, 1); assert.equal(migrations, 1); assert.equal(ready, true);
-  assert.deepEqual(runtimeAttempts, { migrating: 3, deployed: 3 });
-  assert.equal(f.state.elapsed, 8000); assert.equal(await systemUpdateMaintenance(env), false);
+  assert.equal(s.f.state.uploads, 1); assert.equal(s.migrations, 1); assert.equal(s.migrationRequests, 2); assert.equal(s.ready, true);
+  assert.deepEqual(s.runtimeAttempts, { migrating: 3, deployed: 3, rolled_back: 0 });
+  assert.equal(s.f.state.elapsed, 10000); assert.equal(await systemUpdateMaintenance(s.env), false);
+});
+test('real SQLite rollback retains the safe original cause in job.error and stays closed through old-edge propagation', async t => {
+  const s = await sqliteRuntimeFixture(t, { rejectMigrating: true, reportSkew: { rolled_back: 2 } });
+  const result = await s.run(), final = await s.read();
+  assert.equal(result.status, 'rolled_back'); assert.equal(result.error, 'SYSTEM_UPDATE_RUNTIME_MISMATCH');
+  assert.equal(final.status, 'rolled_back'); assert.equal(final.error, 'SYSTEM_UPDATE_RUNTIME_MISMATCH');
+  assert.equal(final.receipt.migrationStarted, false); assert.equal(s.migrations, 0);
+  assert.deepEqual(s.runtimeAttempts, { migrating: 30, deployed: 0, rolled_back: 3 });
+  assert.equal(s.f.state.elapsed, 64000); assert.equal(await systemUpdateMaintenance(s.env), false);
+});
+test('real SQLite migration with a lost completion acknowledgement stays pending and resumes without a second migration request', async t => {
+  const s = await sqliteRuntimeFixture(t, { loseMigrationAck: true });
+  await assert.rejects(s.run(), { code: 'SYSTEM_UPDATE_REQUEST_UNCONFIRMED' });
+  const pending = await s.read();
+  assert.equal(pending.status, 'activation_pending'); assert.equal(pending.receipt.migrationStarted, true);
+  assert.equal(pending.receipt.migrationCompleted, true); assert.equal(s.migrations, 1); assert.equal(s.migrationRequests, 1);
+  assert.equal(await systemUpdateMaintenance(s.env), true); assert.equal(s.f.state.promotions.length, 1);
+  assert.equal((await s.run()).status, 'deployed');
+  assert.equal(s.migrations, 1); assert.equal(s.migrationRequests, 1); assert.equal(s.f.state.uploads, 1);
 });
