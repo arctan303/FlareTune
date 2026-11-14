@@ -7,7 +7,7 @@ import { EventEmitter } from 'node:events';
 import { canonical, sha256 } from '../../server/src/systemUpdate/common.js';
 import { workerVersionBindingsDigest } from '../plugins/delivery-deploy.mjs';
 import { DatabaseSync } from 'node:sqlite';
-import { createSystemUpdate, SYSTEM_UPDATE_KEY } from '../../server/src/systemUpdate/service.js';
+import { createSystemUpdate, SYSTEM_UPDATE_KEY, systemUpdateMaintenance } from '../../server/src/systemUpdate/service.js';
 import { handleSystemUpdatePipeline } from '../../server/src/routes/systemUpdate.js';
 import { runKnownDatabaseUpgrade } from '../../server/src/instance/upgradeDatabase.js';
 import { runPlaylistCountMigration } from '../../server/src/instance/playlistCountMigration.js';
@@ -42,7 +42,8 @@ export async function makePlan() {
 }
 export async function fixture(t, options = {}) {
   const root = await mkdtemp(resolve(tmpdir(), 'flaretune-system-deploy-test-')); t.after(() => rm(root, { recursive: true, force: true }));
-  const state = { plan: await makePlan(), current: deployment(BEFORE, OLD), reports: [], uploads: 0, promotions: [], versions: new Map(), migrations: 0 };
+  const state = { plan: await makePlan(), current: deployment(BEFORE, OLD), reports: [], uploads: 0, promotions: [], versions: new Map(), migrations: 0,
+    elapsed: 0, sleeps: [] };
   state.versions.set(OLD, { id: OLD, resources: { bindings: bindings() } });
   const fetchImpl = async (url, init) => {
     if (url.startsWith(environment.FLARETUNE_SYSTEM_UPDATE_SITE_URL)) {
@@ -62,6 +63,8 @@ export async function fixture(t, options = {}) {
         return response({ taskId: TASK, ...(options.migrationDto || { status: 'current' }), migrationCompleted: true });
       }
       state.reports.push(body);
+      const rejected = await options.onReportAttempt?.(body, state);
+      if (rejected) return rejected;
       if (body.status === 'migrating' && options.rejectMigration) return response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409);
       if (body.receipt) state.plan.receipt = structuredClone(body.receipt);
       state.plan.status = body.status; state.plan.revision++;
@@ -95,7 +98,8 @@ export async function fixture(t, options = {}) {
     return NEXT;
   };
   const run = extra => deploySystemUpdate({ root, environment, fetchImpl, uploadImpl, readTemplateImpl: async () => template,
-    sleepImpl: async () => {}, leaseOptions: { initialWaitMs: 0 }, ...extra });
+    sleepImpl: async delay => { state.elapsed += delay; state.sleeps.push(delay); }, runtimeNowImpl: () => state.elapsed,
+    leaseOptions: { initialWaitMs: 0 }, ...extra });
   return { root, state, run, fetchImpl };
 }
 test('an unconfirmed upload process stop preserves its configuration and the original lease-loss error', async t => {
@@ -168,6 +172,90 @@ test('a confirmed failure before migration can restore precisely the previous tr
   assert.equal((await f.run()).status, 'rolled_back'); assert.equal(f.state.promotions.length, 2);
   assert.deepEqual(f.state.current.versions, deployment(BEFORE, OLD).versions);
   assert.equal(f.state.plan.receipt.migrationStarted, false);
+});
+test('only confirmed runtime propagation mismatches retry and then finish the same inactive version', async t => {
+  const counts = {};
+  const f = await fixture(t, { onReportAttempt: async body => {
+    if (!['migrating', 'deployed'].includes(body.status)) return;
+    counts[body.status] = (counts[body.status] || 0) + 1;
+    if (counts[body.status] <= 2) return response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409);
+  } });
+  const result = await f.run();
+  assert.equal(result.status, 'deployed'); assert.deepEqual(counts, { migrating: 3, deployed: 3 });
+  assert.deepEqual(f.state.sleeps, [2000, 2000, 2000, 2000]); assert.equal(f.state.elapsed, 8000);
+  assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 1); assert.equal(f.state.migrations, 1);
+});
+test('a foreign deployment arriving during runtime propagation stops before another report or rollback', async t => {
+  const f = await fixture(t, { onReportAttempt: async body => body.status === 'migrating'
+    ? response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409) : undefined });
+  await assert.rejects(f.run({ sleepImpl: async delay => {
+    f.state.elapsed += delay; f.state.current = deployment(OTHER, OTHER);
+  } }), { code: 'SYSTEM_UPDATE_TARGET_CHANGED' });
+  assert.equal(f.state.elapsed, 2000);
+  assert.equal(f.state.reports.filter(row => row.status === 'migrating').length, 1);
+  assert.equal(f.state.promotions.length, 1); assert.equal(f.state.current.id, OTHER);
+  assert.equal(f.state.plan.receipt.migrationStarted, false); assert.equal(f.state.plan.status, 'activation_pending');
+});
+test('permanent runtime mismatch exhausts exactly 60 seconds, restores the original split and waits for old runtime propagation', async t => {
+  let rolledBackAttempts = 0;
+  const f = await fixture(t, { rejectMigration: true, onReportAttempt: async (body, state) => {
+    if (body.status !== 'rolled_back') return;
+    assert.equal(state.plan.status, 'rolling_back'); assert.equal(state.plan.receipt.migrationStarted, false);
+    if (++rolledBackAttempts <= 2) return response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409);
+  } });
+  const previous = { id: BEFORE, strategy: 'percentage', versions: [{ version_id: OLD, percentage: 70 }, { version_id: OTHER, percentage: 30 }] };
+  f.state.current = structuredClone(previous);
+  f.state.versions.set(OTHER, { id: OTHER, resources: { bindings: bindings() } });
+  const result = await f.run({ runtimeWaitMs: 90000 }); // The public option cannot widen the 60 second ceiling.
+  assert.equal(result.status, 'rolled_back'); assert.equal(result.error, 'SYSTEM_UPDATE_RUNTIME_MISMATCH');
+  assert.equal(f.state.elapsed, 64000); assert.equal(f.state.sleeps.length, 32);
+  assert.ok(f.state.sleeps.every(delay => delay === 2000));
+  assert.equal(f.state.reports.filter(row => row.status === 'migrating').length, 30);
+  assert.equal(rolledBackAttempts, 3); assert.equal(f.state.promotions.length, 2);
+  assert.deepEqual(f.state.promotions[1].versions, previous.versions); assert.deepEqual(f.state.current.versions, previous.versions);
+  assert.equal(f.state.plan.receipt.migrationStarted, false); assert.equal(f.state.migrations, 0);
+});
+test('runtime waiting stops at the injected short budget and cannot spin forever if the test clock stalls', async t => {
+  const short = await fixture(t, { rejectMigration: true });
+  assert.equal((await short.run({ runtimeWaitMs: 3500 })).status, 'rolled_back');
+  assert.deepEqual(short.state.sleeps, [2000, 1500]); assert.equal(short.state.elapsed, 3500);
+  const stalled = await fixture(t, { rejectMigration: true });
+  assert.equal((await stalled.run({ runtimeWaitMs: 4000, runtimeNowImpl: () => 0 })).status, 'rolled_back');
+  assert.equal(stalled.state.reports.filter(row => row.status === 'migrating').length, 3);
+});
+test('permissions, plugin changes, malformed errors and unknown transport are not runtime propagation retries', async t => {
+  for (const failure of [
+    () => response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 403),
+    () => response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 503),
+    () => response({ error: 'SYSTEM_UPDATE_PLUGINS_CHANGED' }, 409),
+    () => response({ error: 'untrusted private body' }, 409),
+    () => { throw Error('synthetic unknown transport'); },
+  ]) {
+    const f = await fixture(t, { onReportAttempt: async body => body.status === 'migrating' ? failure() : undefined });
+    const outcome = await f.run().then(value => value, error => error);
+    assert.equal(f.state.reports.filter(row => row.status === 'migrating').length, 1);
+    assert.deepEqual(f.state.sleeps, []);
+    assert.equal(JSON.stringify(outcome).includes('untrusted private body'), false);
+    assert.equal(JSON.stringify(outcome).includes('synthetic unknown transport'), false);
+  }
+});
+test('a permanent deployed-runtime mismatch after migration remains activation pending without code rollback', async t => {
+  const f = await fixture(t, { onReportAttempt: async body => body.status === 'deployed'
+    ? response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409) : undefined });
+  await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_REQUEST_REJECTED', remoteCode: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' });
+  assert.equal(f.state.elapsed, 60000); assert.equal(f.state.plan.receipt.migrationStarted, true);
+  assert.equal(f.state.plan.receipt.migrationCompleted, true); assert.equal(f.state.plan.status, 'activation_pending');
+  assert.equal(f.state.promotions.length, 1); assert.equal(f.state.current.versions[0].version_id, NEXT);
+});
+test('an already completed receipt cannot hide an exhausted runtime mismatch as a successful acknowledgement recovery', async t => {
+  let reject = false;
+  const f = await fixture(t, { onReportAttempt: async body => reject && body.status === 'deployed'
+    ? response({ error: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' }, 409) : undefined });
+  assert.equal((await f.run()).status, 'deployed'); reject = true;
+  f.state.plan.execution.leaseExpiresAt = Date.now() - 1;
+  await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_REQUEST_REJECTED', remoteCode: 'SYSTEM_UPDATE_RUNTIME_MISMATCH' });
+  assert.equal(f.state.elapsed, 60000); assert.equal(f.state.plan.status, 'deployed');
+  assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 1);
 });
 test('a lost migrating acknowledgement never rolls code back over a possibly committed migration', async t => {
   const f = await fixture(t, { loseMigratingReport: true });
@@ -273,13 +361,14 @@ test('real completed and already-completed database migration DTOs let the updat
     await assert.rejects(migrateUpdate(connection, plan, { fetchImpl: async () => response({ ...completed, ...invalid }) }), { code: 'SYSTEM_UPDATE_RESPONSE_INVALID' });
   }
 });
-test('runner and real SQLite-backed service complete the durable claim, upload, migration and activation protocol together', async t => {
+test('runner and real SQLite-backed service wait through runtime propagation before migration and deployed confirmation', async t => {
   const f = await fixture(t), sqlite = new DatabaseSync(':memory:'); t.after(() => sqlite.close());
   sqlite.exec('CREATE TABLE instance_settings(key TEXT PRIMARY KEY,value_json TEXT,revision INTEGER NOT NULL,updated_at INTEGER,updated_by TEXT)');
   const db = { prepare(sql) { let values = []; return { bind(...args) { values = args; return this; },
     async first() { return sqlite.prepare(sql).get(...values) || null; }, async all() { return { results: sqlite.prepare(sql).all(...values) }; },
     async run() { return { meta: { changes: sqlite.prepare(sql).run(...values).changes } }; } }; } };
   let live = { ...f.state.plan.from.host, hostApiVersion: 5, plugins: [] }, ready = true, migrations = 0;
+  const runtimeAttempts = { migrating: 0, deployed: 0 };
   const env = { DB: db, SETUP_SECRET: 'synthetic_setup_secret_only_for_sqlite_integration' };
   const update = createSystemUpdate({ runtime: () => live, requireAdminImpl: async () => {},
     state: async () => ({ state: ready ? 'ready' : 'maintenance' }), supplemental: async () => ({ supplementalPending: !ready }),
@@ -291,6 +380,14 @@ test('runner and real SQLite-backed service complete the durable claim, upload, 
   sqlite.prepare('UPDATE instance_settings SET value_json=? WHERE key=?').run(JSON.stringify(saved), SYSTEM_UPDATE_KEY);
   const fetchImpl = async (url, init) => {
     if (url.startsWith(environment.FLARETUNE_SYSTEM_UPDATE_SITE_URL)) {
+      if (url.endsWith('/report')) {
+        const status = JSON.parse(init.body).status;
+        if (Object.hasOwn(runtimeAttempts, status)) {
+          const oldEdge = ++runtimeAttempts[status] <= 2;
+          live = { ...(oldEdge ? f.state.plan.from.host : f.state.plan.target.host), hostApiVersion: 5, plugins: [] };
+          assert.equal(await systemUpdateMaintenance(env), true);
+        }
+      }
       const request = new Request(url, init);
       return handleSystemUpdatePipeline(request, new URL(url).pathname, env, { state: ready ? 'ready' : 'maintenance' },
         (value, status = 200) => response(value, status), { update });
@@ -307,4 +404,6 @@ test('runner and real SQLite-backed service complete the durable claim, upload, 
     { headers: { Authorization: `Bearer ${environment.FLARETUNE_SYSTEM_UPDATE_BUILD_TOKEN}` } }));
   assert.equal(final.status, 'deployed'); assert.equal(final.receipt.uploadStarted, true); assert.equal(final.receipt.migrationCompleted, true);
   assert.equal(f.state.uploads, 1); assert.equal(migrations, 1); assert.equal(ready, true);
+  assert.deepEqual(runtimeAttempts, { migrating: 3, deployed: 3 });
+  assert.equal(f.state.elapsed, 8000); assert.equal(await systemUpdateMaintenance(env), false);
 });

@@ -12,6 +12,8 @@ const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-
 const sameVersions = (left, right) => JSON.stringify([...left].sort((a, b) => a.version_id.localeCompare(b.version_id)))
   === JSON.stringify([...right].sort((a, b) => a.version_id.localeCompare(b.version_id)));
 const pause = delay => new Promise(accept => setTimeout(accept, delay));
+const runtimeMismatch = error => error?.confirmedRejected === true && error.httpStatus === 409
+  && error.remoteCode === 'SYSTEM_UPDATE_RUNTIME_MISMATCH';
 
 export function updateTarget(environment = process.env) {
   const workerName = environment.FLARETUNE_SYSTEM_UPDATE_WORKER_NAME, accountId = environment.CLOUDFLARE_ACCOUNT_ID;
@@ -131,14 +133,15 @@ async function changedDeployment(target, versions, taskId, options) {
 // All recovery decisions use the site's durable receipt. Temporary CI files are
 // only build inputs; they are never the authority for a second promotion.
 export async function deploySystemUpdate({ root = rootDirectory, environment = process.env, fetchImpl = fetch,
-  readTemplateImpl = readTemplate, uploadImpl = uploadSystemVersion, sleepImpl = pause, migrationAttempts = 30, lease, connection: providedConnection, leaseOptions } = {}) {
+  readTemplateImpl = readTemplate, uploadImpl = uploadSystemVersion, sleepImpl = pause, migrationAttempts = 30,
+  runtimeWaitMs = 60000, runtimeNowImpl = () => performance.now(), lease, connection: providedConnection, leaseOptions } = {}) {
   const connection = providedConnection || updateConnection(environment), target = updateTarget(environment), options = { fetchImpl };
   let plan = await fetchUpdatePlan(connection, options);
   if (!plan) return { status: 'idle' };
   if (['failed', 'rolled_back'].includes(plan.status)) fail('SYSTEM_UPDATE_RETRY_REQUIRED');
   if (!lease) return withUpdateLease(connection, plan, owned => deploySystemUpdate({ root,
     environment: { ...environment, FLARETUNE_SYSTEM_UPDATE_RUNNER_ID: connection.runnerId }, fetchImpl, readTemplateImpl,
-    uploadImpl, sleepImpl, migrationAttempts, lease: owned, connection, leaseOptions }), { ...options, ...leaseOptions });
+    uploadImpl, sleepImpl, migrationAttempts, runtimeWaitMs, runtimeNowImpl, lease: owned, connection, leaseOptions }), { ...options, ...leaseOptions });
   lease.check();
   await verifyUpdateTarget(target, options);
   const expected = { taskId: plan.taskId, planDigest: plan.planDigest };
@@ -149,11 +152,40 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     await refresh();
     if (plan.status !== status) fail('SYSTEM_UPDATE_REPORT_UNCONFIRMED');
   };
+  const reportOnRuntime = async (status, versions) => {
+    // A 100% deployment may still reach an old edge runtime during propagation.
+    // Only that precise confirmed rejection is retried; never retry an unknown
+    // write, a changed installation, or a different provider deployment.
+    const budget = Math.max(0, Math.min(60000, Number.isFinite(runtimeWaitMs) ? runtimeWaitMs : 60000));
+    const deadline = runtimeNowImpl() + budget, attempts = Math.ceil(budget / 2000) + 1;
+    let firstMismatch;
+    for (let attempt = 0; ; attempt++) {
+      if (firstMismatch && runtimeNowImpl() >= deadline) throw firstMismatch;
+      lease.check(); await lease.renew(); lease.check();
+      await refresh();
+      if (!sameVersions((await currentWorkerDeployment(target, options)).versions, versions)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+      lease.check();
+      try {
+        await report(status);
+        lease.check();
+        if (!sameVersions((await currentWorkerDeployment(target, options)).versions, versions)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+        return;
+      }
+      catch (error) {
+        if (!runtimeMismatch(error)) throw error;
+        firstMismatch ||= error;
+        const remaining = deadline - runtimeNowImpl();
+        if (remaining <= 0 || attempt + 1 >= attempts) throw firstMismatch;
+        await sleepImpl(Math.min(2000, remaining));
+      }
+    }
+  };
   try {
     if (plan.status === 'deployed') {
       assertReceiptTarget(receipt, target);
       if (!sameVersions((await currentWorkerDeployment(target, options)).versions, [{ version_id: receipt.nextVersionId, percentage: 100 }])) fail('SYSTEM_UPDATE_TARGET_CHANGED');
-      await report('deployed'); return { taskId: plan.taskId, status: 'deployed', versionId: receipt.nextVersionId };
+      await reportOnRuntime('deployed', [{ version_id: receipt.nextVersionId, percentage: 100 }]);
+      return { taskId: plan.taskId, status: 'deployed', versionId: receipt.nextVersionId };
     }
     if (receipt) {
       assertReceiptTarget(receipt, target);
@@ -222,7 +254,7 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     await refresh();
     if (!receipt.migrationStarted || plan.status === 'activation_pending') {
       migratingAttempted = true;
-      await report('migrating');
+      await reportOnRuntime('migrating', next);
     }
     if (!receipt.migrationStarted) fail('SYSTEM_UPDATE_MIGRATION_UNCONFIRMED');
     for (let attempt = 0; !receipt.migrationCompleted && attempt < migrationAttempts; attempt++) {
@@ -233,7 +265,7 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     }
     if (!receipt.migrationCompleted) fail('SYSTEM_UPDATE_MIGRATION_UNCONFIRMED');
     if (!sameVersions((await currentWorkerDeployment(target, options)).versions, next)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
-    await report('deployed');
+    await reportOnRuntime('deployed', next);
     return { taskId: plan.taskId, status: 'deployed', versionId: receipt.nextVersionId };
   } catch (error) {
     let latest;
@@ -241,10 +273,13 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     if (latest?.status === 'deployed') {
       const current = await currentWorkerDeployment(target, options);
       if (!sameVersions(current.versions, [{ version_id: receipt.nextVersionId, percentage: 100 }])) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+      // A durable completed task can recover a lost acknowledgement, but it
+      // cannot turn an exhausted actual-runtime rejection into readiness.
+      if (runtimeMismatch(error)) throw error;
       return { taskId: expected.taskId, status: 'deployed', versionId: receipt.nextVersionId };
     }
     if (latest && receipt?.nextVersionId && !receipt.migrationStarted && migratingAttempted && error.confirmedRejected) {
-      try { return await rollback(); } catch { /* Never force restoration over an unknown or foreign deployment. */ }
+      try { return await rollback(error); } catch { /* Never force restoration over an unknown or foreign deployment. */ }
     }
     if (latest) {
       const status = promotionAttempted || migratingAttempted || receipt?.migrationStarted || receipt?.uploadStarted && !receipt?.nextVersionId
@@ -253,7 +288,7 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     }
     throw error;
   }
-  async function rollback() {
+  async function rollback(cause) {
     if (receipt.migrationStarted) fail('SYSTEM_UPDATE_ROLLBACK_UNSAFE');
     if (plan.status !== 'rolling_back') await report('rolling_back');
     await lease.renew();
@@ -263,7 +298,8 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
       await changedDeployment(target, receipt.previous.versions, plan.taskId, options);
       if (!sameVersions((await currentWorkerDeployment(target, options)).versions, receipt.previous.versions)) fail('SYSTEM_UPDATE_ROLLBACK_UNCONFIRMED');
     }
-    await report('rolled_back');
-    return { taskId: plan.taskId, status: 'rolled_back' };
+    await reportOnRuntime('rolled_back', receipt.previous.versions);
+    const diagnostic = [cause?.remoteCode, cause?.code, plan.error].find(code => typeof code === 'string' && /^SYSTEM_UPDATE_[A-Z_]{1,70}$/.test(code));
+    return { taskId: plan.taskId, status: 'rolled_back', ...(diagnostic ? { error: diagnostic } : {}) };
   }
 }
