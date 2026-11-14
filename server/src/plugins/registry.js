@@ -207,6 +207,11 @@ export function createPluginRegistry({ manifests = compiledPluginManifests, modu
     const coordinatorValue = JSON.stringify({ operationId });
     const statements = [env.DB.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
       SELECT ?,?,1,?,? WHERE ${sessionPredicate}
+        AND NOT EXISTS (SELECT 1 FROM instance_settings u WHERE u.key='system.update.v1'
+          AND json_extract(u.value_json,'$.job.status') IS NOT NULL
+          AND (json_extract(u.value_json,'$.job.status') NOT IN ('deployed','rolled_back','failed')
+            OR (json_extract(u.value_json,'$.job.receipt.migrationStarted')=1
+              AND json_extract(u.value_json,'$.job.status')<>'deployed')))
         AND COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?
         AND COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?
         AND COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?

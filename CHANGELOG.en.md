@@ -4,7 +4,7 @@
 
 ## 1.3.0 — 2026-11-11
 
-**Preparation draft; not formally released.** This plugin milestone starts with a new installation. Final candidate tests, package distribution and release acceptance remain pending. This changelog does not change the stable release or live demo.
+**Preparation draft; not formally released.** This milestone prepares plugins and system updates in administration. Final candidate, transition-deployment and release acceptance remain pending. This changelog does not change the stable release or live demo.
 
 ### Plugins and build delivery
 
@@ -15,6 +15,8 @@
 
 ### AI configuration and administration
 
+- Add Instance settings → System update. After configuring a bootstrap repository, fixed Worker Builds entry, Deploy Hook and restricted build credentials once, check official stable Releases, review notes and confirm updates in administration without repeatedly forking or manually syncing a repository. Initial cloud setup still belongs to the deployer; there is no automatic repository-creation wizard.
+- Freeze exact installed plugin versions, sources and installation epochs while preserving configuration and data. Show actual build, deployment and migration stages and resume the same task after refresh. Retry confirmed failures or keep verifying an unknown result with its target locked. The migration window pauses ordinary business and waits for recovery without asking for the setup secret; restoring code does not promise data rollback.
 - AI Gateway owns provider connections, keys, protocols and model discovery. Assistant and Lyrics Workbench each save their model, vision declaration, temperature and other generation options, sharing providers without sharing model choices. Revisions, provider snapshots and a neutral usage index coordinate saves; keys never return to the browser.
 - AI services, shared storage and image reads retain live account, installation, configuration and provider checks before and after operations. Model or connection changes do not silently reuse an invalid vision declaration. Provider deletion and consumer configuration saves validate one another.
 - Refresh plugin lists and overviews with consistent summaries, main actions, edit dialogs and bottom danger areas. Move optional explanation into contextual tips while retaining loading, errors, roles, confirmations and keyboard access.
@@ -30,7 +32,7 @@
 ### Fixes, installation and scope
 
 - Reduce duplicate administration headings and explanation with shared tips and Cancel/Save actions. Fix unlocalized immersive-player lyric status, translation-icon sizing and related silent-exit state.
-- Prepare host and ingest-tool version 1.3.0. Initialize a new instance with empty D1 and private R2, then configure the plugin build channel and required account/AI connections. This work provides no 1.2.1 upgrade path or lossless-upgrade guarantee. Exact combination inheritance and failure recovery remain available for existing plugin-capable hosts.
+- Prepare host and ingest-tool version 1.3.0. Initialize new instances with empty D1 and private R2, then configure required build channels and account/AI connections. Stock 1.2.1 lacks the system-update entry and first needs a compatible transition deployment preserving its resources and data, followed by an update in administration. Direct or lossless upgrades from every old version are not guaranteed. Exact combination inheritance and controlled failure recovery remain available for existing plugin-capable hosts.
 - The official main catalog has not yet been updated to this candidate. Final release seed and locks determine package versions and hashes. No formal tag, Release or npm stable package has been created.
 - The new ordered lyric source chain, unified asynchronous translation, YT metadata language/region and native-translation target settings belong to a later version. Device, real-iOS, mainland-network and long-term authorization support remains bounded by the relevant guides and actual evidence.
 

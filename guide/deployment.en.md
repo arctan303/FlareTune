@@ -35,9 +35,45 @@ The public template's root `wrangler.toml` declares the Worker, static assets, D
 
 ## Existing instances and upgrades
 
-In the runtime overview under Instance settings, administrators can view the base schema version and individual feature migrations, then start a compatible built-in upgrade when updates are pending. If the upgrade cannot finish in the current administrator request, or a known older version requires service to pause, the instance enters maintenance. The deployer then verifies `SETUP_SECRET` to continue in batches. Sign-in and existing administrator sessions cannot perform upgrades during maintenance. Unknown versions, inconsistent migration records, and damaged structures remain closed and require diagnosis outside the app using backups.
+Application releases use System update below. Base schema and individual feature migrations in the runtime overview maintain the current Worker database and are a separate operation. Only the older manual maintenance flow requires the deployer to verify `SETUP_SECRET` and continue in batches when an administrator request cannot finish or a known old version requires a pause. A system update's own maintenance window waits and verifies automatically without asking for the setup secret again. Unknown versions, inconsistent migration records and damaged structures remain closed and require diagnosis outside the app using backups.
 
 Do not overwrite an existing instance's database and media with the new-installation flow. Before upgrading, confirm the target Cloudflare account, Worker, D1, and R2, and retain a restorable D1 backup. If legacy shared playlists contain data, an ordinary administrator upgrade stops and requests a backup. After backing up, use the setup secret on the maintenance page to confirm a migration that may remove those legacy shared playlists. The setup secret cannot repair an unknown or damaged database.
+
+## System updates in administration
+
+The running version must already include the system-update protocol and trusted runtime metadata. Stock 1.2.1 has no such entry: deploy a transition version compatible with the actual old installation first, preserving its Worker, bindings, database, media and secrets. Then use administration to upgrade. A transition deployment differs from a new installation; one test site's migration does not establish preservation for every old site.
+
+### Configure the update channel once
+
+There is currently no in-app wizard that creates a repository or fills in Cloudflare credentials. Complete this initial setup in your own account, using a repository created during deployment or a one-time copy of trusted official bootstrap code. For routine updates, the bootstrap downloads a verified, pinned official commit without repeatedly forking or manually syncing the repository.
+
+1. Connect the bootstrap repository to the target Worker's [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) and pin one branch (`main` by default). **Leave Build command empty and set Deploy command to `npm run updates:build`.** This command already downloads, builds, uploads, verifies, promotes and reports the update. Do not append the default `wrangler deploy` or run another direct deployment path. Retain the lockfile and dependency installation step; disable deployment from unauthorized branches.
+2. Create a [Deploy Hook](https://developers.cloudflare.com/workers/ci-cd/builds/deploy-hooks/) for the same branch. Under Instance settings → System update → Configure update channel, save that URL, generate a build token and copy it into the Builds secrets. The app displays only whether credentials are configured; blank edit fields retain saved values. Saving the channel does not start an update.
+3. Configure the following build environment and verify the account, Worker name and actual Worker metadata `tag`. Limit the Cloudflare deployment credential to the target account's required Workers deployment and binding-resource permissions; do not use a global API Key. Verify that the custom runner can read `CLOUDFLARE_API_TOKEN`: selecting a platform deployment token alone does not prove that it is available as an environment variable.
+
+| Build variable | Value and purpose |
+| --- | --- |
+| `FLARETUNE_SYSTEM_UPDATE_SITE_URL` | This site's public HTTPS origin, without a path or query |
+| `FLARETUNE_SYSTEM_UPDATE_BUILD_TOKEN` | The same token saved in administration; 32–256 letters, digits, `_` or `-`; store as a secret |
+| `FLARETUNE_SYSTEM_UPDATE_WORKER_NAME` | The real application Worker, not another test or controller Worker |
+| `FLARETUNE_SYSTEM_UPDATE_WORKER_TAG` | The actual Worker's 32-character hexadecimal metadata `tag`, not a version ID |
+| `CLOUDFLARE_ACCOUNT_ID` | Target Cloudflare account ID |
+| `CLOUDFLARE_API_TOKEN` | Restricted Cloudflare deployment credential readable by the runner; store as a secret, distinct from the site's build token |
+| `FLARETUNE_SYSTEM_UPDATE_BUILD_BRANCH` | Pinned bootstrap branch, default `main`; must match Builds and the Hook |
+| `FLARETUNE_SYSTEM_UPDATE_CHANNEL` | Optional, default `stable`; use matching `candidate` only with an explicitly trusted server candidate |
+
+Builds supplies `WORKERS_CI=1` and `WORKERS_CI_BRANCH` for execution checks; do not fabricate them. Platform Worker-name/tag constraints must also match the application. Ordinary deployments use the default stable channel without a candidate override. The build token only authorizes a frozen task's plan, lease, reports and compatible built-in migrations, not administrator sign-in, arbitrary SQL or private configuration reads. Saved channel credentials are encrypted using `SETUP_SECRET`; plan to reconfigure the channel when rotating it.
+
+### Check and apply releases
+
+1. As an administrator, open Instance settings → System update and choose Check for updates. This reads the official stable Release's `flaretune-update.json` without deploying. Stable updates require a formal, non-prerelease release with a valid manifest. A missing manifest or unavailable source is an error, not proof that the site is current.
+2. Review the current version, target version and notes, then choose Upgrade system → Confirm upgrade. A candidate supplied by trusted server configuration is labeled separately and is not a formal stable release. Resolve pending plugin changes, active builds, incompatibility or missing runtime metadata as indicated before checking again.
+3. The page shows actual build, deployment and migration stages. Refreshing or closing the page does not cancel the job; returning reads the same task. System updates freeze installed plugins' exact versions, sources, hashes and installation epochs while preserving configuration and data. They do not bundle plugin updates; confirm plugin additions, updates and removals separately in [Sources and deployment](plugin-deployment.en.md).
+4. During the migration maintenance window, music, media and ordinary business requests pause while the page keeps checking. Normal administrators can still open the system-update panel; an expired session can use local administrator sign-in from the waiting page. Members wait or sign out to switch accounts. Use Retry this update after a confirmed failure, or Continue verifying for an unconfirmed result or a task the backend has confirmed can resume after stalling. Both retain the same task and target; do not create another upgrade or assume the old code is still serving. Reload when complete. Missing credentials, changed target identity or bindings require correcting the cloud configuration first.
+
+Maintenance management requires the underlying database to pass ordinary authentication. Unknown structures or incomplete base migrations do not unlock sign-in: wait for the configured build to continue or contact the deployer. Recovery through the web page is not guaranteed for every partially migrated database.
+
+System updates run only the target's built-in compatible migrations; they do not authorize destructive legacy-data cleanup. Unknown promotion or database results remain frozen. Controlled code restoration is available only before database migration has started, and administration offers no arbitrary downgrade button. **Restoring code does not roll back database contents, plugin settings or media. Prepare backups and recovery before updating.**
 
 ## Backup and recovery
 

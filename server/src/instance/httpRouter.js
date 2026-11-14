@@ -26,6 +26,7 @@ import { handleUserImages } from '../routes/userImages.js';
 import { deliveryPluginModules } from '../plugins/delivery.generated.js';
 import { handlePluginApi } from '../routes/plugins.js';
 import { handlePluginDelivery, handlePluginBuild } from '../routes/pluginDelivery.js';
+import { handleSystemUpdate, handleSystemUpdatePipeline } from '../routes/systemUpdate.js';
 import { handleGoogleRequest } from '../auth/google.js';
 import { getOwnImageSlot, userImagesReady } from '../services/userImages.js';
 import { ownStatus as subsonicStatus, setEnabled as setSubsonicEnabled } from '../subsonic/credentials.js';
@@ -128,6 +129,9 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
       instance.state === 'recovery_required' ? 503 : 200);
   }
 
+  const systemPipeline = await handleSystemUpdatePipeline(request, path, env, instance, json);
+  if (systemPipeline) return systemPipeline;
+
   if (path.startsWith('/api/plugin-build/')) {
     if (instance.state !== 'ready') return json({ error: instance.state }, 503);
     return handlePluginBuild(request, path, env, json);
@@ -175,6 +179,8 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
   }
 
   try {
+    const systemUpdateResponse = await handleSystemUpdate(request, path, env, session, json);
+    if (systemUpdateResponse) return systemUpdateResponse;
     const deliveryResponse = await handlePluginDelivery(request, path, env, session, json);
     if (deliveryResponse) return deliveryResponse;
     const pluginResponse = await handlePluginApi(request, path, env, session, json, { executionContext: ctx });

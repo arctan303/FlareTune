@@ -1,4 +1,4 @@
-import { querySongs } from '../tools/searchSongs.js';
+import { querySongPage } from '../tools/searchSongs.js';
 import { buildSongLanguageFilter } from '../utils/songLanguage.js';
 import { runtimeSongColumns } from '../utils/songProjection.js';
 import { accountMembershipTable, readAccountPlaylistSongs } from '../services/accountMusicReadModel.js';
@@ -122,8 +122,12 @@ async function searchSongs(db, url, headers) {
     return invalid('Invalid search parameters', headers);
   }
   if (!buildSongLanguageFilter(language)) return invalid('invalid_language', headers);
-  const songs = query ? await querySongs(db, query, limit, offset, { language: language || null }) : [];
-  return success({ songs, query }, headers);
+  const page = query ? await querySongPage(db, query, limit, offset, { language: language || null })
+    : { songs: [], hasMore: false };
+  const capped = page.hasMore && offset + limit > 2000;
+  const hasMore = page.hasMore && !capped;
+  return success({ songs: page.songs, query, limit, offset, hasMore,
+    nextOffset: hasMore ? offset + limit : null, capped }, headers);
 }
 
 async function readSongCollection(db, url, headers) {

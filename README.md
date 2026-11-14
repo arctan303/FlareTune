@@ -8,7 +8,7 @@ FlareTune 把网页播放器、账号与曲库服务放在 Cloudflare Workers，
 
 **[打开在线 Demo](https://flaretune.arcinks.com)** · [部署自己的曲库](#部署自己的曲库) · [使用指南](guide/using-flaretune.md) · [更新日志](CHANGELOG.md)
 
-> **版本与升级提示**：当前正式稳定版为 **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**；**1.3.0插件阶段仍为本地候选，尚未发布**。旧数据和配置能否从实际1.2.1升级后完整保留，仍需专项验收，尚未证明一般部署者无损升级；维护者测试实例的手动装回例外不是所有人的升级方案。插件宿主版本、固定包、构建通道与恢复边界见[插件来源与部署](guide/plugin-deployment.md)（[English](guide/plugin-deployment.en.md)）。
+> **版本与升级提示**：当前正式稳定版为 **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**；**1.3.0仍在准备，尚未正式发布**。1.3.0增加后台系统更新：一次配置构建仓库与通道，日常在后台检查并确认升级。旧版缺少该入口时，须先保留原资源和数据部署兼容的过渡版本；这不等于任意旧版都能直接或无损升级。首次设置、维护窗口与恢复边界见[部署与更新指南](guide/deployment.md#后台系统更新)，插件安装另见[插件来源与部署](guide/plugin-deployment.md)。
 
 ## 先听一会儿
 
@@ -40,6 +40,8 @@ Demo 免登录，使用可公开再分发的音乐。播放、搜索、漫游、
 Cloudflare R2 Standard 每月提供 **10 GB-month 免费存储额度**，可以作为小型私人曲库的起点；Workers、D1 和存储操作也各有免费额度。能否保持零费用取决于账号总用量、请求量及可选服务，见[免费额度与费用](guide/deployment.md#免费额度与费用)。需要自行开通 Cloudflare/R2、完成初始化并导入有权使用的音频。
 
 公开模板提供部署入口，首次初始化在应用内完成，无需手工运行数据库迁移。完整步骤、手动部署、费用、备份和升级见[部署指南](guide/deployment.md)。全新 Cloudflare 账号的向导行为以平台实际提示为准。
+
+支持系统更新的实例可一次创建自己的引导仓库并绑定同一 Worker Builds。完成[更新通道设置](guide/deployment.md#首次配置更新通道)后，后续版本通过后台确认，无需每次复刻或手工同步仓库；首次云端通道仍需部署者配置。
 
 ## 文档与贡献
 

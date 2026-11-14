@@ -4,6 +4,7 @@
 import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
 import { imageUrl, userImagesReady } from '../services/userImages.js';
 import { hotpathSchemaReady } from '../instance/hotpathSchema.js';
+import { readAccountPlayWindow } from '../services/accountPlayWindow.js';
 import { ExternalMusicError, isExternalSongId, externalMusicSchemaReady, loadExternalSongs,
   prepareExternalSongs, externalSongDto } from '../services/externalMusicReferences.js';
 
@@ -310,9 +311,6 @@ const createPlaylist = async (db, accountId, input, now, deps = {}) => {
   const name = cleanName(input.name);
   const description = cleanDescription(input.description ?? '');
   const initialSongs = uniqueIds(input.songIds ?? []);
-  const prepared = await assertSongs(db, initialSongs, accountId, now, deps);
-  const external = await externalReady(db, deps);
-  await ensureFavorite(db, accountId, now);
   const idempotencyKey = typeof input.idempotencyKey === 'string' ? input.idempotencyKey : '';
   let id = `pl_${crypto.randomUUID()}`;
   if (idempotencyKey) {
@@ -322,6 +320,11 @@ const createPlaylist = async (db, accountId, input, now, deps = {}) => {
     const previous = await summary(db, accountId, id, deps);
     if (previous) return { outcome: 'noop', playlist: previous, shelf: await getShelf(db, accountId, now) };
   }
+  // A successful creation remains replayable if an initial song was removed or
+  // its external source disconnected after the first response was lost.
+  const prepared = await assertSongs(db, initialSongs, accountId, now, deps);
+  const external = await externalReady(db, deps);
+  await ensureFavorite(db, accountId, now);
   const insert = db.prepare(`INSERT INTO Member_Playlists
     (id, account_id, kind, name, description, revision, created_at, updated_at)
     SELECT ?, ?, 'regular', ?, ?, 0, ?, ? WHERE
@@ -704,9 +707,10 @@ const recordPlays = async (db, accountId, input, now, deps = {}) => {
   if (unresolved) fail('PLAY_EVENT_BUDGET_EXCEEDED', '近期播放事件过多，请稍后重试。', 429);
   return { recorded, acceptedEventIds: events.map((event) => event.eventId) };
 };
-const topPlays = async (db, accountId, input, summaryOnly = false, deps = {}) => {
+const topPlays = async (db, accountId, input, summaryOnly = false, deps = {}, window = null) => {
   const parsed = Number(input);
   const limit = Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : 20;
+  if (window) return readAccountPlayWindow(db, accountId, limit, summaryOnly, window, await externalReady(db, deps));
   if (await externalReady(db, deps)) {
     const local = `SELECT s.id,s.title,s.artist,s.album,s.duration,s.audio_url,s.cover_url,s.language,NULL AS metadata_json,p.play_count,p.last_played_at
       FROM Member_Song_Plays p JOIN Songs s ON s.id=p.song_id WHERE p.account_id=? ORDER BY p.play_count DESC,p.last_played_at DESC LIMIT ?`;
@@ -785,8 +789,15 @@ export async function handleLocalAccountMusicRoute(request, url, db, headers = {
       if (request.method === 'PUT') return success(await updateShelf(db, accountId, await bodyOf(request), now), 200, headers);
     }
     if (path === '/api/account/play-stats') {
-      if (request.method === 'GET') return success(await topPlays(db, accountId,
-        url.searchParams.get('limit') || 20, url.searchParams.get('view') === 'summary', deps), 200, headers);
+      if (request.method === 'GET') {
+        const days = url.searchParams.getAll('days');
+        if (days.length > 1 || (days.length === 1 && !/^(?:[1-9]|[12]\d|30)$/.test(days[0]))) {
+          fail('INVALID_QUERY', 'days 必须是 1–30 的整数且只能提供一次。');
+        }
+        const window = days.length ? { days: Number(days[0]), from: now - Number(days[0]) * 86_400_000, to: now } : null;
+        return success(await topPlays(db, accountId, url.searchParams.get('limit') || 20,
+          url.searchParams.get('view') === 'summary', deps, window), 200, headers);
+      }
       if (request.method === 'POST') return success(await recordPlays(db, accountId, await bodyOf(request), now, deps), 200, headers);
       return failure('METHOD_NOT_ALLOWED', 405, '不支持的请求方法。', headers);
     }

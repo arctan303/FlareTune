@@ -2,6 +2,7 @@ import { handleApi, json } from './instance/httpRouter.js';
 import { handleMediaRoute } from './routes/media.js';
 import { deliveryPluginModules } from './plugins/delivery.generated.js';
 import { deploymentGateAllows } from './deploymentGate.js';
+import { systemUpdateRequestGate } from './systemUpdate/gate.js';
 import { handleSubsonic } from './subsonic/router.js';
 // Cloudflare binding identity stays stable. Only the selected package supplies
 // executable source behavior; no actor/vendor implementation lives in the host.
@@ -22,6 +23,8 @@ export default {
       return new Response('Service unavailable', { status: 503, headers: { 'Cache-Control': 'no-store' } });
     }
     const path = new URL(request.url).pathname;
+    const updateGate = await systemUpdateRequestGate(request, path, env, ctx, { handleApiImpl: handleApi });
+    if (updateGate) return updateGate;
     if (path === '/speaker-media' || path.startsWith('/speaker-media/')) {
       const handle = deliveryPluginModules['xiaomi-speaker']?.handleOutputMedia;
       return handle ? handle(request, env, ctx) : new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });

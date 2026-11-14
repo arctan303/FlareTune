@@ -28,6 +28,7 @@ test('an expired setup proof can be reverified without losing the in-memory admi
         } },
       '../authNavigation.js': {}, '../utils/imageLoadRegistry.js': {},
       '../components/TuneWordmark.jsx': {}, '../components/GoogleLogin.jsx': {},
+      '../components/SystemUpdatePanel.jsx': 'system-update-panel',
       './theme.js': {}, '../i18n/index.js': { t: text => text }, './instance.css': {},
     },
     globals: { queueMicrotask: fn => fn() },

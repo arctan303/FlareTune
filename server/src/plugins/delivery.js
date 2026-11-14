@@ -70,6 +70,11 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       SELECT ?,?,1,?,? WHERE COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?
       ${registryRevision !== undefined ? 'AND COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?' : ''}
       ${session ? `AND ${sessionPredicate}` : ''}
+      AND NOT EXISTS (SELECT 1 FROM instance_settings u WHERE u.key='system.update.v1'
+        AND json_extract(u.value_json,'$.job.status') IS NOT NULL
+        AND (json_extract(u.value_json,'$.job.status') NOT IN ('deployed','rolled_back','failed')
+          OR (json_extract(u.value_json,'$.job.receipt.migrationStarted')=1
+            AND json_extract(u.value_json,'$.job.status')<>'deployed')))
       ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,revision=instance_settings.revision+1,
         updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
       .bind(PLUGIN_DELIVERY_KEY, serialized, now, session?.account.accountId || actor, PLUGIN_DELIVERY_KEY, record.revision,

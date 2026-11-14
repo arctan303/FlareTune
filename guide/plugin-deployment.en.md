@@ -8,6 +8,8 @@ This guide covers plugin catalogs, a dedicated build channel, activation, host u
 
 ## Management and permissions
 
+Routine application releases use Instance settings → System update; see [system-update setup](deployment.en.md#system-updates-in-administration). System updates preserve the site's exact plugin combination. Sources and deployment continues to manage plugin installation, updates and removal; credentials and tasks from the two channels are not interchangeable. The host-upgrade protocol below remains a maintainer integration for controlled builds and transition deployments, not daily manual steps for system updates.
+
 Open the **Plugins** group in the settings sidebar:
 
 - **Plugin list:** view installed plugins and open their settings. Administrators can also discover, install, update and uninstall plugins.
@@ -141,7 +143,7 @@ A host version/source mismatch stops an ordinary plugin task; installing a plugi
 
 ## Host upgrades and exact combination inheritance
 
-The running site must implement `/api/plugin-build/upgrade`. If it does not, use the controlled bridge described below; do not bypass the check. Host releases originate from trusted host source/builds, not arbitrary repository URLs entered in the web UI. Manual/Automatic controls plugin selection changes, not when a maintainer releases the host.
+This maintainer-controlled build protocol requires the running site to implement `/api/plugin-build/upgrade`. If it does not, use the controlled bridge described below; do not bypass the check. Routine system updates use a separate trusted official Release flow and accept no arbitrary repository URLs. This protocol originates from trusted maintainer source/builds. Manual/Automatic controls plugin selection changes, not system release upgrades.
 
 Using the same build token, `GET /api/plugin-build/upgrade` returns the serving `host`, exact running package IDs/versions/sources/hashes, and baseline fields including `revision`, `registryRevision` and `runningDigest`. It returns no site/personal settings or encrypted credentials. `POST /api/plugin-build/upgrade` accepts only the target `host` and expected `revision`, `registryRevision`, `fromHost`, `runningDigest`; take all expected values from the same GET, using its `host` as `fromHost`. It does not accept a package list. The site freezes its verified running combination rather than accepting a builder's seed or latest-catalog replacement.
 

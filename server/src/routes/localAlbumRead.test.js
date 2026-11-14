@@ -71,6 +71,29 @@ test('artist cards and paginated detail support exploration without song search 
   assert.equal((await call(db, '/api/artists/Absent')).response.status, 404);
 });
 
+test('artist cards retain real song-cover fallbacks with or without artist portraits', async (t) => {
+  const db = catalog();
+  t.after(() => db.sqlite.close());
+  db.sqlite.exec(`INSERT INTO Songs(id,title,artist,album,audio_url,cover_url,language) VALUES
+    ('cover-collab','Collaboration','Cover A / Cover B','Together','/media/collab','/media/collab-cover','en'),
+    ('cover-solo','Solo','Solo Cover','Alone','/media/solo','/media/solo-cover','en'),
+    ('cover-empty','No artwork','Cover Empty','Empty','/media/empty',NULL,'en'),
+    ('cover-ghost','Unplayable','Cover Empty','Empty',NULL,'/media/ignored-cover','en');
+    INSERT INTO Artist_Photos(artist_name,photo_url,created_at,updated_at)
+    VALUES ('Cover A','/media/portrait-a',1,1)`);
+
+  const result = await call(db, '/api/artists?q=Cover');
+  assert.equal(result.response.status, 200);
+  const artists = new Map(result.body.data.artists.map(artist => [artist.name, artist]));
+  assert.equal(artists.size, 4);
+  assert.equal(artists.get('Cover A').photoUrl, '/media/portrait-a');
+  assert.equal(artists.get('Cover A').coverUrl, '/media/collab-cover');
+  assert.equal(artists.get('Cover B').photoUrl, '');
+  assert.equal(artists.get('Cover B').coverUrl, '/media/collab-cover');
+  assert.equal(artists.get('Solo Cover').coverUrl, '/media/solo-cover');
+  assert.equal(artists.get('Cover Empty').coverUrl, '');
+});
+
 test('Unicode case variants find artist credits and album titles without SQLite ASCII-only folding', async () => {
   const db = catalog();
   db.sqlite.exec(`INSERT INTO Songs(id,title,artist,album,audio_url,language)

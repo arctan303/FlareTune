@@ -1,5 +1,5 @@
-import { UserImageError, getOwnImageSlot, uploadOwnImage, setOwnImageSlot, readOwnImage, readImageBody, cleanupOwnImages } from '../services/userImages.js';
-import { readBoundedJson } from '../instance/httpSecurity.js';
+import { UserImageError, getOwnImageSlot, uploadOwnImage, setOwnImageSlot, readOwnImage, readImageBody, deleteOwnImage } from '../services/userImages.js';
+import { readBoundedJson, RequestBodyError } from '../instance/httpSecurity.js';
 import * as assistantImages from '../services/assistantImages.js';
 import { createPluginContext } from '../plugins/context.js';
 import { pluginRegistry } from '../plugins/registry.js';
@@ -55,14 +55,11 @@ export async function handleUserImages(request, url, db, bucket, session, { env,
       return new Response(object.body, { headers: { ...headers, 'Content-Type': 'image/webp', 'Content-Disposition': 'inline' } });
     }
     if (image && request.method === 'DELETE') {
-      const row = await db.prepare('SELECT id FROM user_images WHERE id = ? AND account_id = ?').bind(image[1], owner).first();
-      if (!row) throw new UserImageError('image_not_found', 404);
-      if (await db.prepare('SELECT image_id FROM user_image_refs WHERE image_id = ?').bind(image[1]).first()) throw new UserImageError('image_in_use', 409);
-      await cleanupOwnImages(db, bucket, owner, { ids: [image[1]] });
-      return json({ ok: true });
+      return json(await deleteOwnImage(db, bucket, owner, image[1]));
     }
     return json({ error: 'not_found' }, 404);
   } catch (error) {
+    if (error instanceof RequestBodyError) return json({ error: 'invalid_input' }, 400);
     const known = error instanceof UserImageError || (typeof error?.code === 'string' && Number.isInteger(error?.status));
     return json({ error: known ? error.code : 'image_request_failed' }, known ? error.status : 503);
   }

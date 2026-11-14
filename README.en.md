@@ -8,7 +8,7 @@ FlareTune runs its web player, accounts and library service on Cloudflare Worker
 
 **[Try the live demo](https://flaretune.arcinks.com)** · [Deploy your library](#deploy-your-library) · [User guide](guide/using-flaretune.en.md) · [Changelog](CHANGELOG.en.md)
 
-> **Release and upgrade notice:** the current stable release is **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**. The **1.3.0 plugin milestone remains a local candidate and has not been released**. Preservation of existing data and settings still requires an actual 1.2.1-to-candidate upgrade test; lossless upgrades have not been established for general deployments. A maintainer-specific manual reinstall exception is not an upgrade procedure for everyone. See [Plugin sources and deployment](guide/plugin-deployment.en.md) ([简体中文](guide/plugin-deployment.md)) for host versions, pinned packages, build setup and recovery boundaries.
+> **Release and upgrade notice:** the current stable release is **[1.2.1](https://github.com/arctan303/FlareTune/releases/tag/1.2.1)**. **1.3.0 is being prepared and is not formally released.** It adds system updates in administration: configure a build repository and channel once, then check and confirm updates in the app. Older versions without this entry first need a compatible transition deployment preserving their resources and data. This does not establish direct or lossless upgrades from every old version. See [deployment and updates](guide/deployment.en.md#system-updates-in-administration) for setup, maintenance and recovery; [plugin deployment](guide/plugin-deployment.en.md) covers plugin installation separately.
 
 ## Try it with music
 
@@ -40,6 +40,8 @@ The core deployment needs no extra server. AI, Google sign-in and third-party ly
 Cloudflare R2 Standard includes **10 GB-month of free storage each month**, a starting point for a small private library. Workers, D1 and storage operations have separate allowances. Staying within free usage depends on total account usage, requests and optional services; see [allowances and costs](guide/deployment.en.md#free-allowances-and-costs). You need a Cloudflare account with R2 enabled, initial setup, and audio you have the right to use.
 
 Initial database setup runs inside the application; no manual migration command is needed for a new instance. See the [deployment guide](guide/deployment.en.md) for manual deployment, allowances, backups and upgrades. A new Cloudflare account follows the platform’s current onboarding prompts.
+
+An instance supporting system updates can use a bootstrap repository created once and connected to the same Worker Builds project. After [channel setup](guide/deployment.en.md#configure-the-update-channel-once), confirm later releases in administration without repeatedly forking or manually syncing a repository. The initial cloud channel still requires deployer configuration.
 
 ## Docs and contributions
 

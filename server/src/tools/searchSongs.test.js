@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 
-import { querySongs } from './searchSongs.js';
+import { querySongs, querySongPage } from './searchSongs.js';
 
 function createD1Adapter(sqlite) {
   return {
@@ -169,4 +169,23 @@ test('exhausted romanized pages retain the chosen candidate and partial direct h
     assert.deepEqual((await querySongs(db,'haiyorokonde',10)).map(r=>r.id),['both','broad','specific']);
     assert.deepEqual((await querySongs(db,'haiyorokonde',2,1)).map(r=>r.id),['broad','specific']);
   }finally{sqlite.close();}
+});
+
+test('look-ahead pagination preserves direct/romanized ordering and detects an exactly full final page', async () => {
+  const sqlite = new DatabaseSync(':memory:');
+  sqlite.exec(`CREATE TABLE Songs(id TEXT PRIMARY KEY,title TEXT,artist TEXT,album TEXT,duration INTEGER,audio_url TEXT,cover_url TEXT,language TEXT);
+    INSERT INTO Songs(id,title,artist,audio_url,language) VALUES
+    ('direct','haiyorokonde はいよろこんで',NULL,'/direct','ja'),
+    ('kana-a','はいよろこんで','A','/kana-a','ja'),
+    ('kana-b','ハイヨロコンデ','B','/kana-b','ja');`);
+  try {
+    const db = createD1Adapter(sqlite);
+    const first = await querySongPage(db, 'haiyorokonde', 2, 0, { language: 'ja' });
+    assert.deepEqual(first.songs.map(song => song.id), ['direct', 'kana-a']);
+    assert.equal(first.hasMore, true);
+    const final = await querySongPage(db, 'haiyorokonde', 2, 1, { language: 'ja' });
+    assert.deepEqual(final.songs.map(song => song.id), ['kana-a', 'kana-b']);
+    assert.equal(final.hasMore, false);
+    assert.deepEqual(await querySongPage(db, 'haiyorokonde', 2, 3), { songs: [], hasMore: false });
+  } finally { sqlite.close(); }
 });

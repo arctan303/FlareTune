@@ -1,3 +1,5 @@
+import { readBoundedJson } from '../instance/httpSecurity.js';
+
 export const MAX_BATCH_SONGS = 50;
 export const MAX_MEDIA_BYTES = 100 * 1024 * 1024;
 export const MAX_MEDIA_DELETE_PATHS = 100;
@@ -59,7 +61,7 @@ export const badRequest = (message, headers, details) => json({ code: 400, messa
 export async function readJsonObject(request, allowedFields, requiredFields, headers) {
     let body;
     try {
-        body = await request.json();
+        body = await readBoundedJson(request, 64 * 1024);
     } catch {
         return { response: badRequest('Invalid JSON body', headers) };
     }
