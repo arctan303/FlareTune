@@ -233,7 +233,10 @@ test('every browser consumer retains one invalid-JSON retry for a 144-line trans
 
 test('browser consumers reserve safe budget settlement across retry and waiting and recover on a fresh invocation', async t => {
   for (const kind of ['playback', 'manual', 'legacy', 'draft']) await t.test(kind, async t => {
-    const f = await app(t, 144, 'en'), entered = deferred(), released = deferred(); let first = true, upstream = 0;
+    // Playback has more headroom after request-read reuse. Keep each consumer
+    // under enough multi-batch pressure to exercise failure and fresh recovery.
+    const lineCount = kind === 'playback' ? 264 : 176;
+    const f = await app(t, lineCount, 'en'), entered = deferred(), released = deferred(); let first = true, upstream = 0;
     t.mock.timers.enable({ apis: ['setInterval'] });
     t.mock.method(globalThis, 'fetch', async (input, options) => {
       upstream++;
@@ -249,9 +252,9 @@ test('browser consumers reserve safe budget settlement across retry and waiting 
     assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
     t.diagnostic(`${kind} wait/retry safely settled: ${f.calls.length}/50 D1 bindings`);
     f.calls.length = 0; f.tasks.length = 0; const before = upstream;
-    const retry = await f.request(kind); assert.ok(retry.response.ok, JSON.stringify(retry.body)); assert.equal(upstream - before, 4);
+    const retry = await f.request(kind); assert.ok(retry.response.ok, JSON.stringify(retry.body)); assert.equal(upstream - before, Math.ceil(lineCount / 40));
     const lines = kind === 'draft' ? retry.body.data?.lines : f.read().translation?.lines;
-    assert.equal(lines?.length, 144); assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
+    assert.equal(lines?.length, lineCount); assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
   });
 });
 
