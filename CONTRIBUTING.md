@@ -15,6 +15,8 @@
 
 Node.js 工具的安装、首次配置和后台操作见[本地入库设备使用指南](tooling/ingest-agent/README.md)（Windows PowerShell 使用 `npm.cmd`）。参与代码开发可阅读[本地开发指南](guide/local-development.md)；验证新功能时建议先使用自己的隔离实例与少量可重建的样本。
 
+客户端接入与宿主后端开发请阅读[宿主 HTTP 接口文档](server/API.md)，其中包含完整系统接口、权限、参数、响应与错误处理。插件私有业务接口由各插件单独维护。
+
 ## 提交问题和修改
 
 反馈时请说明操作系统、Node.js 版本、浏览器、操作步骤、预期结果与实际结果。只提交复现所需的脱敏日志；不要公开账号密码、会话 Cookie、Cloudflare/R2 密钥、个人音乐文件或他人数据。

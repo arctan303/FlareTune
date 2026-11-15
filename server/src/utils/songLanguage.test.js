@@ -75,3 +75,19 @@ test('multi-language filter supports comma-separated list and arrays with expans
 
   assert.equal(buildSongLanguageFilter('zh,invalid_code'), null);
 });
+
+test('untagged language filter matches null or blank language without validating untagged as stored code', () => {
+  assert.equal(isValidSongLanguage('untagged'), false);
+  assert.deepEqual(buildSongLanguageFilter('untagged'), {
+    sql: "(s.language IS NULL OR TRIM(s.language) = '')",
+    bindings: [],
+  });
+  assert.deepEqual(buildSongLanguageFilter('zh,untagged', 'song.language'), {
+    sql: "((song.language IS NULL OR TRIM(song.language) = '') OR song.language = ?)",
+    bindings: ['zh'],
+  });
+  assert.deepEqual(buildSongLanguageFilter('untagged,zh,en'), {
+    sql: "((s.language IS NULL OR TRIM(s.language) = '') OR s.language IN (?, ?))",
+    bindings: ['zh', 'en'],
+  });
+});

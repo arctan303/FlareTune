@@ -230,7 +230,7 @@ test('candidate draft can receive AI changes and save once without an intermedia
   edited[0].endTime += 0.05;
   edited[0].words[0].startTime += 0.05;
   edited[0].words[0].endTime += 0.05;
-  const saved = await route(request(path('/document'), 'PUT', { etag: null, lines: edited }), { store });
+  const saved = await route(request(path('/document'), 'PUT', { etag: null, lines: edited, translationLanguage: 'zh' }), { store });
   assert.equal(saved.status, 200);
   assert.equal(store.calls.create, 1);
   assert.equal(store.current().original.lines[0].time, 1.0506);
@@ -408,7 +408,7 @@ test('timeline shift keeps an in-flight AI completion attached to unchanged lyri
 
 test('line editing keeps unchanged word timing, aligns translation, and rejects malformed words', async () => {
   const store = createMemoryLyricStore(makeReadyArtifact());
-  const good = await route(request(path('/document'), 'PUT', { etag: 'etag-1', lines: [
+  const good = await route(request(path('/document'), 'PUT', { etag: 'etag-1', translationLanguage: 'zh', lines: [
     { time: 1, endTime: 2, text: 'Hello', words: [{ text: 'Hello', startTime: 1, endTime: 2 }], tlyric: '你好' },
     { time: 3, text: 'New line', tlyric: '新的一行' },
   ] }), { store });
@@ -478,7 +478,7 @@ test('editor and timeline changes round-trip through validated R2 storage', asyn
   const key = 'media/lyrics/song-1.json';
   const bucket = createMemoryR2Bucket({ initialObjects: { [key]: makeReadyArtifact() } });
   const store = createLyricArtifactStore({ MEDIA_BUCKET: bucket });
-  const edited = await route(request(path('/document'), 'PUT', { etag: 'etag-0', lines: [
+  const edited = await route(request(path('/document'), 'PUT', { etag: 'etag-0', translationLanguage: 'zh', lines: [
     { time: 1, endTime: 2, text: 'Hello', words: [{ text: 'Hello', startTime: 1, endTime: 2 }], tlyric: '你好' },
   ] }), { store });
   assert.equal(edited.status, 200);
@@ -489,7 +489,9 @@ test('editor and timeline changes round-trip through validated R2 storage', asyn
   assert.equal(bucket.json(key).offsetMs, 0);
   const fetched = await route(request(path()), { session: member, store });
   assert.equal(fetched.status, 200);
-  assert.equal((await fetched.json()).data.lyrics.lines[0].tlyric, '你好');
+  assert.equal((await fetched.json()).data.lyrics.lines[0].tlyric, undefined,
+    'the default English target must not present the saved Chinese layer as English');
+  assert.equal(bucket.json(key).translation.language, 'zh');
 });
 
 test('editor preserves a canonical multiline original while rejecting multiline translation', async () => {

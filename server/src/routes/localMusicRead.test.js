@@ -108,6 +108,44 @@ test('song search, detail, language list and counts use baseline columns and pla
   assert.deepEqual((await language.json()).data.songs.map((song) => song.id), ['track-b']);
 });
 
+test('language counts and song collection support untagged songs opt-in with desc ordering', async () => {
+  const db = createDb();
+  seed(db);
+  const insert = db.sqlite.prepare('INSERT INTO Songs (id,title,artist,audio_url,language,created_at) VALUES (?,?,?,?,?,?)');
+  insert.run('untagged-null', 'Null Lang', 'Artist U', '/media/u1', null, 100);
+  insert.run('untagged-empty', 'Empty Lang', 'Artist U', '/media/u2', '', 200);
+  insert.run('untagged-space', 'Space Lang', 'Artist U', '/media/u3', '   ', 300);
+  insert.run('untagged-no-audio', 'No Audio', 'Artist U', ' ', null, 400);
+
+  const defaultCounts = await (await call(db, '/api/songs?counts=language')).json();
+  assert.deepEqual(defaultCounts.data, { en: 1, ja: 1 });
+
+  const withUntagged1 = await (await call(db, '/api/songs?counts=language&includeUntagged=1')).json();
+  assert.deepEqual(withUntagged1.data, { en: 1, ja: 1, untagged: 3 });
+
+  const withUntaggedTrue = await (await call(db, '/api/songs?counts=language&includeUntagged=true')).json();
+  assert.deepEqual(withUntaggedTrue.data, { en: 1, ja: 1, untagged: 3 });
+
+  const untaggedPage = await (await call(db, '/api/songs?language=untagged&page=1&limit=20&sort=desc')).json();
+  assert.equal(untaggedPage.code, 200);
+  assert.equal(untaggedPage.data.total, 3);
+  assert.deepEqual(
+    untaggedPage.data.songs.map((song) => song.id),
+    ['untagged-space', 'untagged-empty', 'untagged-null'],
+  );
+
+  const combinedSearch = await (await call(db, '/api/songs/search?q=Lang&language=untagged&limit=20')).json();
+  assert.deepEqual(
+    combinedSearch.data.songs.map((song) => song.id).sort(),
+    ['untagged-empty', 'untagged-null', 'untagged-space'],
+  );
+
+  const emptyUntaggedDb = createDb();
+  seed(emptyUntaggedDb);
+  const zeroUntagged = await (await call(emptyUntaggedDb, '/api/songs?counts=language&includeUntagged=1')).json();
+  assert.deepEqual(zeroUntagged.data, { en: 1, ja: 1 });
+});
+
 test('route rejects missing account and malformed IDs or query parameters without reading private data', async () => {
   const db = createDb();
   seed(db);
@@ -122,4 +160,44 @@ test('route rejects missing account and malformed IDs or query parameters withou
   assert.equal(await call(db, '/api/unknown'), null);
   assert.equal(await call(db, '/api/songs/random'), null);
   assert.equal(await call(db, '/api/init', 'owner-a', 'POST'), null);
+});
+
+test('search pagination distinguishes full final pages, further results and empty queries', async () => {
+  const db = createDb();
+  seed(db);
+  const insert = db.sqlite.prepare('INSERT INTO Songs (id,title,artist,audio_url,language) VALUES (?,?,?,?,?)');
+  for (let i = 0; i < 5; i++) insert.run(`paged-${i}`, `Paged ${i}`, 'Paged Artist', `/media/paged-${i}`, 'en');
+  const first = (await (await call(db, '/api/songs/search?q=Paged&limit=2')).json()).data;
+  assert.equal(first.songs.length, 2);
+  assert.deepEqual({ limit: first.limit, offset: first.offset, hasMore: first.hasMore,
+    nextOffset: first.nextOffset, capped: first.capped },
+  { limit: 2, offset: 0, hasMore: true, nextOffset: 2, capped: false });
+  const fullFinal = (await (await call(db, '/api/songs/search?q=Paged&limit=2&offset=3')).json()).data;
+  assert.equal(fullFinal.songs.length, 2);
+  assert.equal(fullFinal.hasMore, false);
+  assert.equal(fullFinal.nextOffset, null);
+  const partial = (await (await call(db, '/api/songs/search?q=Paged&limit=2&offset=4')).json()).data;
+  assert.equal(partial.songs.length, 1);
+  assert.equal(partial.hasMore, false);
+  const empty = (await (await call(db, '/api/songs/search?q=&limit=2')).json()).data;
+  assert.deepEqual(empty, { songs: [], query: '', limit: 2, offset: 0,
+    hasMore: false, nextOffset: null, capped: false });
+  assert.equal(first.query, 'Paged');
+  assert.equal(first.songs.some(song => fullFinal.songs.some(other => other.id === song.id)), false);
+});
+
+test('search probes beyond the maximum page size and exposes the offset cap without losing returned rows', async () => {
+  const db = createDb();
+  const insert = db.sqlite.prepare('INSERT INTO Songs (id,title,artist,audio_url,language) VALUES (?,?,?,?,?)');
+  for (let i = 0; i < 2051; i++) insert.run(`cap-${i}`, `Cap ${String(i).padStart(4, '0')}`, 'Artist', `/media/cap-${i}`, 'en');
+  const first = (await (await call(db, '/api/songs/search?q=Cap&limit=50')).json()).data;
+  assert.equal(first.songs.length, 50);
+  assert.equal(first.hasMore, true);
+  assert.equal(first.nextOffset, 50);
+  const last = (await (await call(db, '/api/songs/search?q=Cap&limit=50&offset=2000')).json()).data;
+  assert.equal(last.songs.length, 50);
+  assert.equal(last.hasMore, false);
+  assert.equal(last.nextOffset, null);
+  assert.equal(last.capped, true);
+  assert.equal(new Set([...first.songs, ...last.songs].map(song => song.id)).size, 100);
 });

@@ -191,7 +191,7 @@ test('all browser lyric AI consumers complete 144-line translation under the who
   });
 });
 
-test('mixed not-needed compact batches finish their extra completion ask before settlement', async t => {
+test('mixed compact batches preserve target-language rows without an extra paraphrase request', async t => {
   for (const kind of ['playback', 'manual', 'draft']) await t.test(kind, async t => {
     const f = await app(t, 32); let upstream = 0;
     const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
@@ -199,9 +199,12 @@ test('mixed not-needed compact batches finish their extra completion ask before 
       f.read().original.lines.map((line, index) => index < 20 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
     f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
     t.mock.method(globalThis, 'fetch', async (input, options) => reply(options, ++upstream === 1 ? 'not-needed' : 'normal'));
-    const result = await f.request(kind); assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 3);
+    const result = await f.request(kind); assert.ok(result.response.ok, JSON.stringify(result.body)); assert.equal(upstream, 2);
     const lines = kind === 'draft' ? result.body.data?.lines : f.read().translation?.lines;
-    assert.equal(lines?.length, 32); assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
+    assert.equal(lines?.length, 32);
+    assert.ok(lines.slice(0, 20).every(line => kind === 'draft' ? !line.tlyric : line === ''));
+    assert.ok(lines.slice(20).every(line => kind === 'draft' ? Boolean(line.tlyric) : Boolean(line)));
+    assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
   });
 });
 

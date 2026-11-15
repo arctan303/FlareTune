@@ -1,5 +1,5 @@
 import { isNonLyricText } from './lyricsParsing.js';
-import { LEGACY_LYRIC_SOURCES, isLyricSourceId } from '../../../shared/lyricSources.js';
+import { LEGACY_LYRIC_SOURCES, isLyricSourceId, isValidLyricTranslationTarget } from '../../../shared/lyricSources.js';
 
 const DOCUMENT_VERSION = 2;
 const MAX_LINES = 2_000;
@@ -289,7 +289,8 @@ export function createLyricDocument({
   };
   if (providerMeta && typeof providerMeta === 'object') {
     const safeMeta = {};
-    if (typeof providerMeta.translationLanguage === 'string' && /^[a-z]{2,3}$/u.test(providerMeta.translationLanguage)) {
+    if (isValidLyricTranslationTarget(providerMeta.translationLanguage)
+      || ['zh-CN', 'zh-TW'].includes(providerMeta.translationLanguage)) {
       safeMeta.translationLanguage = providerMeta.translationLanguage;
     }
     if (providerMeta.providerLyricId !== undefined) {

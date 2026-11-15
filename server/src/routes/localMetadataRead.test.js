@@ -8,6 +8,7 @@ import { createMemoryLyricStore, makeReadyArtifact } from '../test/lyricAssetFix
 import { createLyricsResultFromResponse } from '../../../client/src/hooks/useLyricsFetcher.js';
 import { handleLocalMetadataReadRoute } from './localMetadataRead.js';
 import { readPlaybackLyrics } from '../services/playbackLyrics.js';
+import { buildLyricNoTranslationDecision } from '../services/lyricTranslationPolicy.js';
 import { testLyricsAiDeps, testLyricsAiLease } from '../plugins/lyrics-workbench/test-support.js';
 
 class Statement {
@@ -143,7 +144,7 @@ test('manual lyric asset from the workbench reaches the player with its translat
   const ready = await buildReadyLyricArtifact({ id: 'song-1' }, {
     source: 'manual', format: 'lrc',
     lines: [{ time: 1, text: 'Hello', tlyric: '你好' }],
-  });
+  }, { targetLanguage: 'zh' });
   store.objects.set('media/lyrics/song-1.json', JSON.stringify(ready.artifact));
   const response = await call(db, '/api/lyrics?songId=song-1', { bucket: store.bucket });
   assert.equal(response.status, 200);
@@ -204,7 +205,7 @@ test('automatic lyric completion switch leaves manual AI available while total s
     db.sqlite.prepare(`INSERT INTO instance_settings
       (key, value_json, revision, updated_at, updated_by) VALUES (?, ?, 1, 1, 'test')`)
       .run('lyrics.ai', JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG,
-        completionEnabled, automaticCompletionEnabled: false }));
+        targetLanguage: 'zh', completionEnabled, automaticCompletionEnabled: false }));
     const store = createMemoryLyricStore(makeReadyArtifact());
     let starts = 0;
     const response = await call(db, '/api/lyrics?songId=song-1', { accountId: 'member', deps: {
@@ -359,27 +360,53 @@ test('target-language projection with AI disabled does not issue a destructive s
   assert.deepEqual(memory.current().translation, oldTranslation);
 });
 
-test('automatic AI records a no-translation result so later plays do not spend another request', async () => {
+test('automatic AI records a no-translation result for a virtual song so later plays do not spend another request', async () => {
   const db = baseline();
-  db.sqlite.exec("INSERT INTO Songs (id, title, artist, language) VALUES ('song-1', 'One', 'Artist', 'en')");
-  const store = createMemoryLyricStore(makeReadyArtifact());
+  configureLyricAi(db, { targetLanguage: 'en' });
+  const virtual = { id: 'yt:abcdefghijk', title: 'One', artist: 'Artist', language: 'other' };
+  const store = createMemoryLyricStore(makeReadyArtifact({ songId: virtual.id }));
   const tasks = [];
   let aiCalls = 0;
-  const deps = { store, ctx: { waitUntil: (task) => tasks.push(task) }, aiDeps: {
+  const deps = { store, resolveSong: async () => virtual, songStillExists: async () => true,
+    ctx: { waitUntil: (task) => tasks.push(task) }, aiDeps: {
     reserveDailyQuota: async () => true,
     getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test', systemPrompt: '' }),
     resolveAiFeature: async () => null,
-    askAI: async () => { aiCalls += 1; return { notNeeded: true }; },
+    askAI: async () => { aiCalls += 1; return { notNeeded: true, songLanguage: 'en' }; },
   } };
-  await call(db, '/api/lyrics?songId=song-1', { accountId: 'member', deps });
+  await call(db, '/api/lyrics?songId=' + virtual.id, { accountId: 'member', deps });
   await Promise.all(tasks);
-  assert.equal(store.current().aiCompletion.status, 'completed');
+  assert.equal(store.current().aiCompletion.status, 'completed', JSON.stringify(store.current().aiCompletion));
   const putCount = store.calls.put;
-  const again = await call(db, '/api/lyrics?songId=song-1', { accountId: 'member', deps });
+  const again = await call(db, '/api/lyrics?songId=' + virtual.id, { accountId: 'member', deps });
   assert.equal(again.status, 200);
   assert.equal((await again.json()).data.translationState, 'unavailable');
   assert.equal(aiCalls, 1);
   assert.equal(store.calls.put, putCount);
+});
+
+test('a saved no-op decision suppresses repeated GET generation even when model and automatic mode change', async () => {
+  const db = baseline();
+  configureLyricAi(db, { targetLanguage: 'zh' });
+  db.sqlite.exec("INSERT INTO Songs (id,title,artist,language) VALUES ('song-1','One','Artist','other')");
+  const artifact = makeReadyArtifact({ original: { source: 'manual', format: 'lrc', syncMode: 'line',
+    lines: [{ time: 1, text: '窗外的春风' }] } });
+  artifact.translationDecision = buildLyricNoTranslationDecision(artifact, { language: 'other' },
+    { targetLanguage: 'zh', sourceLanguage: 'zh', basis: 'ai' });
+  const store = createMemoryLyricStore(artifact);
+  let starts = 0;
+  for (const automatic of [true, false, true]) {
+    db.sqlite.exec(`UPDATE instance_settings SET value_json=json_set(value_json,'$.automaticCompletionEnabled',json('${automatic}'),'$.model','changed-model') WHERE key='lyrics.ai'`);
+    const response = await call(db, '/api/lyrics?songId=song-1', { accountId: 'member', deps: { store,
+      beginCompletion: async () => { starts++; throw new Error('No-op decisions must not start AI'); } } });
+    assert.equal(response.status, 200);
+    const data = (await response.json()).data;
+    assert.equal(data.translationSupported, false);
+    assert.equal(data.translationState, 'unavailable');
+    assert.equal(data.lines[0].text, '窗外的春风');
+  }
+  assert.equal(starts, 0);
+  assert.equal(store.calls.put, 0);
 });
 
 test('a changed lyric AI target or processing switch retries completed analysis, including legacy markers', async () => {

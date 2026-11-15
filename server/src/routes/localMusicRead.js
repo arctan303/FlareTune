@@ -1,4 +1,4 @@
-import { querySongs } from '../tools/searchSongs.js';
+import { querySongPage } from '../tools/searchSongs.js';
 import { buildSongLanguageFilter } from '../utils/songLanguage.js';
 import { runtimeSongColumns } from '../utils/songProjection.js';
 import { accountMembershipTable, readAccountPlaylistSongs } from '../services/accountMusicReadModel.js';
@@ -122,15 +122,34 @@ async function searchSongs(db, url, headers) {
     return invalid('Invalid search parameters', headers);
   }
   if (!buildSongLanguageFilter(language)) return invalid('invalid_language', headers);
-  const songs = query ? await querySongs(db, query, limit, offset, { language: language || null }) : [];
-  return success({ songs, query }, headers);
+  const page = query ? await querySongPage(db, query, limit, offset, { language: language || null })
+    : { songs: [], hasMore: false };
+  const capped = page.hasMore && offset + limit > 2000;
+  const hasMore = page.hasMore && !capped;
+  return success({ songs: page.songs, query, limit, offset, hasMore,
+    nextOffset: hasMore ? offset + limit : null, capped }, headers);
 }
 
 async function readSongCollection(db, url, headers) {
   if (url.searchParams.get('counts') === 'language') {
+    const includeUntaggedParam = (url.searchParams.get('includeUntagged') || '').trim().toLowerCase();
+    const includeUntagged = includeUntaggedParam === '1' || includeUntaggedParam === 'true';
     const counts = rows(await db.prepare(`SELECT language, COUNT(*) AS count FROM Songs
       WHERE audio_url IS NOT NULL AND TRIM(audio_url) <> '' GROUP BY language`).all());
-    return success(Object.fromEntries(counts.filter((row) => row.language).map((row) => [row.language, row.count])), headers);
+    const result = {};
+    let untaggedCount = 0;
+    for (const row of counts) {
+      const normalized = typeof row.language === 'string' ? row.language.trim() : '';
+      if (normalized) {
+        result[normalized] = (result[normalized] || 0) + row.count;
+      } else if (includeUntagged) {
+        untaggedCount += row.count;
+      }
+    }
+    if (includeUntagged && untaggedCount > 0) {
+      result.untagged = untaggedCount;
+    }
+    return success(result, headers);
   }
   const language = (url.searchParams.get('language') || '').trim();
   const filter = buildSongLanguageFilter(language);

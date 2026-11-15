@@ -18,6 +18,7 @@ const READY_FIELDS = Object.freeze([
   'textHash',
   'provenance',
   'updatedAt',
+  'translationDecision',
 ]);
 const NOT_FOUND_FIELDS = Object.freeze(['schemaVersion', 'songId', 'status', 'updatedAt']);
 const RESET_MARKER_FIELDS = Object.freeze(['schemaVersion', 'songId', 'status', 'updatedAt']);
@@ -337,7 +338,7 @@ function normalizeProvenance(value) {
 }
 
 function normalizeReadyArtifact(value, expectedSongId) {
-  assertExactFields(value, READY_FIELDS, READY_FIELDS, 'lyric artifact');
+  assertExactFields(value, READY_FIELDS, READY_FIELDS.filter(field => field !== 'translationDecision'), 'lyric artifact');
   const songId = normalizeLyricArtifactSongId(value.songId);
   if (expectedSongId !== undefined && songId !== expectedSongId) {
     validationError('lyric artifact songId does not match its object key');
@@ -362,7 +363,25 @@ function normalizeReadyArtifact(value, expectedSongId) {
     textHash,
     provenance: normalizeProvenance(value.provenance),
     updatedAt: normalizeIsoTimestamp(value.updatedAt, 'updatedAt'),
+    ...(value.translationDecision !== undefined ? { translationDecision: normalizeTranslationDecision(value.translationDecision) } : {}),
   };
+}
+
+function normalizeTranslationDecision(value) {
+  const fields = ['status', 'textHash', 'targetLanguage', 'policyVersion', 'songLanguage', 'sourceLanguage', 'basis'];
+  assertExactFields(value, [...fields, 'hasForeignPassages'], fields, 'translationDecision');
+  const spokenLanguage = language => language === null || isValidSongLanguage(language) && !['other', 'instrumental'].includes(language);
+  if (!['not_needed', 'translated'].includes(value.status)
+    || !isValidLyricTranslationTarget(value.targetLanguage)
+    || !Number.isSafeInteger(value.policyVersion) || value.policyVersion < 1
+    || !spokenLanguage(value.songLanguage) || !spokenLanguage(value.sourceLanguage)
+    || !['tag', 'ai', 'rules'].includes(value.basis)
+    || value.basis !== 'rules' && value.sourceLanguage === null
+    || value.hasForeignPassages !== undefined && typeof value.hasForeignPassages !== 'boolean'
+    || value.status === 'not_needed' && value.hasForeignPassages === true) {
+    validationError('invalid translationDecision');
+  }
+  return { ...value, textHash: normalizeHash(value.textHash, 'translationDecision.textHash') };
 }
 
 function normalizeNotFoundArtifact(value, expectedSongId) {

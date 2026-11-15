@@ -1,7 +1,7 @@
-import { lyricArtifactStoreForEnv, projectLyricArtifact, readOrCreateLyricArtifact, shouldAiCompleteLyrics } from './lyricAssetWorkflow.js';
+import { lyricArtifactStoreForEnv, projectLyricArtifact, readOrCreateLyricArtifact, shouldAiCompleteLyrics,
+  hasCurrentLyricNoTranslationDecision } from './lyricAssetWorkflow.js';
 import { beginLyricAssetAiCompletion, resolveLegacyLyricCleanup } from './lyricAssetTranslation.js';
 import { loadLyricAiConfig } from './lyricAiConfig.js';
-import { lyricAiProcessingKey } from '../utils/lyricAiConfig.js';
 import { createPluginServiceLease } from '../plugins/services.js';
 import { createSubsonicPluginServiceLease } from '../subsonic/pluginAuthority.js';
 import { guardStoreAuthority as guardLyricsStore, storeAuthorityGuard as lyricsStoreGuard } from './storeAuthority.js';
@@ -16,7 +16,7 @@ async function playbackLyricPreferences(db) {
   catch { throw new PlaybackLyricsError('Lyric preferences are unavailable'); }
   const language = value?.targetLanguage ?? 'zh';
   if (!isValidSongLanguage(language) || ['instrumental', 'other'].includes(language)) throw new PlaybackLyricsError('Lyric preferences are unavailable');
-  return { targetLanguage: language, processingKey: null, completionEnabled: false, automaticCompletionEnabled: false };
+  return { targetLanguage: language, completionEnabled: false, automaticCompletionEnabled: false };
 }
 
 export class PlaybackLyricsError extends Error {
@@ -103,13 +103,15 @@ export async function readPlaybackLyrics({ env, db, song, accountId, executionCo
     try { lyricConfig = await (deps.loadLyricAiConfig || loadLyricAiConfig)(aiLease.guardedDb(db)); }
     catch { aiLease = null; aiStore = null; }
   }
-  const { targetLanguage, processingKey, completionEnabled: configuredCompletion, automaticCompletionEnabled } = lyricConfig
-    ? { ...lyricConfig, processingKey: lyricAiProcessingKey(lyricConfig) } : await playbackLyricPreferences(db);
+  const { targetLanguage, completionEnabled: configuredCompletion, automaticCompletionEnabled } = lyricConfig
+    || await playbackLyricPreferences(db);
   let completionEnabled = configuredCompletion && Boolean(aiLease);
   // A target-language preference is a read projection, not permission to delete
   // a previously saved translation. Replacement happens only after completion.
   const projected = projectLyricArtifact(read.artifact, { song, targetLanguage });
+  const notNeeded = hasCurrentLyricNoTranslationDecision(read.artifact, song, { targetLanguage });
   const needsAutomaticAi = completionEnabled && automaticCompletionEnabled
+    && !notNeeded
     && shouldAiCompleteLyrics(read.artifact.original, song, { targetLanguage })
     && !projected.translationAvailable
     && (['created', 'updated'].includes(read.state)
@@ -117,8 +119,7 @@ export async function readPlaybackLyrics({ env, db, song, accountId, executionCo
         && (read.artifact.aiCompletion === null
           || read.artifact.aiCompletion?.status === 'failed'
             && read.artifact.aiCompletion.errorCode === 'request_budget_exhausted'
-          || read.artifact.aiCompletion?.status === 'completed'
-            && read.artifact.aiCompletion.processingKey !== processingKey)));
+          || read.artifact.aiCompletion?.status === 'completed')));
   if (needsAutomaticAi) {
     try {
       const started = await (deps.beginCompletion || beginLyricAssetAiCompletion)({
@@ -138,10 +139,11 @@ export async function readPlaybackLyrics({ env, db, song, accountId, executionCo
     }
   }
   const currentLyrics = projectLyricArtifact(read.artifact, { song, targetLanguage });
+  const currentNotNeeded = hasCurrentLyricNoTranslationDecision(read.artifact, song, { targetLanguage });
   const lyrics = !completionEnabled && !currentLyrics.translationAvailable
     ? { ...currentLyrics, translationState: 'unavailable', translationStartedAt: null }
     : currentLyrics;
   return { ...read, lyrics: { ...lyrics, targetLanguage,
-    translationSupported: Boolean(currentLyrics.translationAvailable || completionEnabled
+    translationSupported: Boolean(currentLyrics.translationAvailable || completionEnabled && !currentNotNeeded
       && shouldAiCompleteLyrics(read.artifact.original, song, { targetLanguage })) } };
 }

@@ -84,10 +84,12 @@ export function buildSongLanguageFilter(language, field = 's.language') {
     ? language
     : String(language).split(',').map((s) => s.trim()).filter(Boolean);
   if (rawCodes.length === 0) return { sql: '', bindings: [] };
-  if (!rawCodes.every(isValidSongLanguage)) return null;
+  if (!rawCodes.every((code) => code === 'untagged' || isValidSongLanguage(code))) return null;
 
+  const includeUntagged = rawCodes.includes('untagged');
   const expandedCodes = new Set();
   for (const code of rawCodes) {
+    if (code === 'untagged') continue;
     if (code === 'other') {
       EXTENDED_SONG_LANGUAGES.forEach((c) => expandedCodes.add(c));
     } else {
@@ -95,12 +97,22 @@ export function buildSongLanguageFilter(language, field = 's.language') {
     }
   }
   const uniqueList = Array.from(expandedCodes);
-  if (uniqueList.length === 0) return { sql: '', bindings: [] };
-  if (uniqueList.length === 1) {
-    return { sql: `${field} = ?`, bindings: [uniqueList[0]] };
+  const untaggedClause = includeUntagged ? `(${field} IS NULL OR TRIM(${field}) = '')` : '';
+  const codeClause = uniqueList.length === 0
+    ? ''
+    : uniqueList.length === 1
+      ? `${field} = ?`
+      : `${field} IN (${uniqueList.map(() => '?').join(', ')})`;
+
+  if (untaggedClause && codeClause) {
+    return {
+      sql: `(${untaggedClause} OR ${codeClause})`,
+      bindings: uniqueList,
+    };
   }
-  return {
-    sql: `${field} IN (${uniqueList.map(() => '?').join(', ')})`,
-    bindings: uniqueList,
-  };
+  if (untaggedClause) {
+    return { sql: untaggedClause, bindings: [] };
+  }
+  if (!codeClause) return { sql: '', bindings: [] };
+  return { sql: codeClause, bindings: uniqueList };
 }

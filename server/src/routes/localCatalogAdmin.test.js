@@ -48,6 +48,26 @@ async function call(db, path, { method = 'GET', body, session = admin, env = {} 
 const songs = '/api/admin/catalog/songs';
 const playlists = '/api/admin/catalog/playlists';
 
+test('catalog deletion rejects invalid or oversized JSON before reading or deleting music', async () => {
+  let databaseCalls = 0;
+  const db = { prepare() { databaseCalls++; throw new Error('Must not access music'); },
+    batch() { databaseCalls++; throw new Error('Must not mutate music'); } };
+  for (const path of ['/api/admin/catalog/delete-preview', '/api/admin/catalog/delete']) {
+    for (const [contentType, body] of [
+      ['text/plain', JSON.stringify({ ids: ['song'] })],
+      ['application/json', '{'],
+      ['application/json', JSON.stringify({ ids: ['x'.repeat(65536)] })],
+    ]) {
+      const request = new Request(`https://tune.example${path}`, { method: 'POST',
+        headers: { 'Content-Type': contentType }, body });
+      const response = await handleLocalCatalogAdminRoute(request, new URL(request.url), db, {}, admin);
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).code, 400);
+    }
+  }
+  assert.equal(databaseCalls, 0);
+});
+
 test('media cleanup accepts only canonical managed media paths', () => {
   assert.equal(managedMediaPath('audio/aaaaaaaaaaaaaaaa.mp3', 'audio'), true);
   assert.equal(managedMediaPath('/media/cover/bbbbbbbbbbbbbbbb.jpg', 'cover'), true);

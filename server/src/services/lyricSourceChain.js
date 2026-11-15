@@ -1,5 +1,6 @@
 import { createLyricDocument, parseLrcDocument, projectCanonicalLrc } from '../utils/lyricDocument.js';
-import { buildReadyLyricArtifact, lyricArtifactStoreForEnv, lyricTextForHash, projectLyricArtifact } from './lyricAssetWorkflow.js';
+import { buildReadyLyricArtifact, lyricArtifactStoreForEnv, lyricTextForHash, projectLyricArtifact,
+  projectLyricTranslation, shouldAiCompleteLyrics } from './lyricAssetWorkflow.js';
 import { computeHash } from '../utils/lyricsParsing.js';
 import { deliveryPluginModules } from '../plugins/delivery.generated.js';
 import { pluginRegistry, installationKey } from '../plugins/registry.js';
@@ -13,6 +14,7 @@ import { isServiceConfigurationAssertionForLease } from '../plugins/serviceConfi
 import { isPluginVisibleToRole } from '../../../shared/plugins/manifest.js';
 import { applyLyricOffset } from './lyricResolution.js';
 import { resolveLyricSong, lyricSongStillExists } from './playbackLyrics.js';
+import { LyricSourceError } from './lyricSourceError.js';
 
 export const DEFAULT_LYRIC_SOURCE_ORDER = Object.freeze(['lyrics-workbench', 'youtube-music', 'file']);
 export const LYRIC_ORDER_KEY = 'lyrics.source-order';
@@ -68,10 +70,11 @@ async function boundedResolve(source, song, options) {
   const result = await run(() => source.resolve(song, { ...options, signal }));
   return typeof result?.onAdopt === 'function' ? { ...result, onAdopt: () => run(() => result.onAdopt()) } : result;
 }
-export function normalizeLyricSourceResult(result, sourceId) {
+export function normalizeLyricSourceResult(result, sourceId, song = {}) {
   if (!result) return null;
   if (!['good', 'weak'].includes(result.quality)) throw new TypeError('Invalid lyric source quality');
   const document = createLyricDocument(result.document);
+  document.lines = document.lines.map(({ tlyric: _embeddedTranslation, ...line }) => line);
   if (!document.lines.length || !document.lines.some(line => /[\p{L}\p{N}]/u.test(line.text))) return null;
   const raw = result.translation || {};
   const state = states.has(raw.state) ? raw.state : 'unavailable';
@@ -79,22 +82,31 @@ export function normalizeLyricSourceResult(result, sourceId) {
   if (state === 'ready' && raw.supported !== true) throw new TypeError('Ready translation must declare support');
   if (state === 'ready' && (lines.length !== document.lines.length || !lines.some(line => typeof line === 'string' && line.trim())
     || lines.some(line => typeof line !== 'string' || line.length > 4000 || /[\r\n]/u.test(line)))) throw new TypeError('Invalid paired lyric translation');
+  const selected = state === 'ready' ? projectLyricTranslation(document, raw, { song,
+    targetLanguage: raw.targetLanguage || null }) : null;
+  if (state === 'ready' && !selected) {
+    const needed = shouldAiCompleteLyrics(document, song, { targetLanguage: raw.targetLanguage || raw.language || 'zh' });
+    return { ...result, sourceId, document, translation: { supported: needed && raw.supported === true,
+      state: needed ? 'failed' : 'not_needed',
+      ...(raw.targetLanguage ? { targetLanguage: raw.targetLanguage } : {}) } };
+  }
   const error = raw.error && typeof raw.error.message === 'string' ? {
     code: /^[A-Za-z0-9_]{1,100}$/u.test(raw.error.code || '') ? raw.error.code : 'LYRIC_TRANSLATION_FAILED',
     message: raw.error.message.slice(0, 1000),
   } : undefined;
   return { ...result, sourceId, document, translation: { supported: raw.supported === true,
-    state, ...(state === 'ready' ? { lines: [...lines] } : {}),
+    state, ...(state === 'ready' ? { lines: selected.lines } : {}),
     ...Object.fromEntries(['language', 'targetLanguage', 'source', 'kind'].filter(key => typeof raw[key] === 'string').map(key => [key, raw[key]])),
     ...(error ? { error } : {}) } };
 }
 export async function selectLyricSource({ sources, order, song, signal, onDiagnostic = () => {}, adopt = false }) {
   const weak = [];
+  let failed = false;
   const adoptResult = async pair => {
     signal?.throwIfAborted();
     if (!adopt || typeof pair.result.onAdopt !== 'function') return pair;
     const beforeHash = await computeHash(lyricTextForHash(pair.result.document.lines));
-    const result = normalizeLyricSourceResult(await pair.result.onAdopt(), pair.source.id);
+    const result = normalizeLyricSourceResult(await pair.result.onAdopt(), pair.source.id, song);
     signal?.throwIfAborted();
     if (!result || await computeHash(lyricTextForHash(result.document.lines)) !== beforeHash) pluginFail('LYRIC_RESULT_CHANGED', 409);
     return { source: pair.source, result };
@@ -105,13 +117,14 @@ export async function selectLyricSource({ sources, order, song, signal, onDiagno
     if (!source) continue;
     try {
       if (!await source.claim(song)) continue;
-      const result = normalizeLyricSourceResult(await boundedResolve(source, song, { signal }), id);
+      const result = normalizeLyricSourceResult(await boundedResolve(source, song, { signal }), id, song);
       if (!result) continue;
       if (result.quality === 'good') return await adoptResult({ source, result });
       weak.push({ source, result });
     } catch (error) {
       signal?.throwIfAborted();
       if (error?.code === 'LYRIC_SONG_DELETED') throw error;
+      failed = true;
       // No upstream error text, credentials or lyric content enters diagnostics.
       onDiagnostic({ sourceId: id, code: /^[A-Z0-9_]{1,100}$/u.test(error?.code || '') ? error.code : 'LYRIC_SOURCE_FAILED' });
     }
@@ -119,8 +132,10 @@ export async function selectLyricSource({ sources, order, song, signal, onDiagno
   for (const pair of weak) {
     try { return await adoptResult(pair); }
     catch (error) { signal?.throwIfAborted(); if (error?.code === 'LYRIC_SONG_DELETED') throw error;
+      failed = true;
       onDiagnostic({ sourceId: pair.source.id, code: 'LYRIC_SOURCE_ADOPTION_FAILED' }); }
   }
+  if (failed) throw new LyricSourceError('upstream', 'chain', 'resolve', 'Lyric sources temporarily unavailable');
   return null;
 }
 
@@ -206,13 +221,14 @@ export async function createLyricSources({ env, db = env.DB, session, executionC
           // only own their virtual IDs; library existence stays with the host.
           resolveSong: songId => resolveLyricSong(db, songId, deps),
           songStillExists: songId => lyricSongStillExists(db, songId, deps), subsonicPrincipal: deps.subsonicPrincipal } });
-      if (!source || source.id !== id || typeof source.claim !== 'function' || typeof source.resolve !== 'function') return null;
+      if (!source || source.id !== id || typeof source.claim !== 'function' || typeof source.resolve !== 'function') throw new TypeError('Invalid lyric source');
       if (source.enabled === false || typeof source.isEnabled === 'function' && !await source.isEnabled()) return null;
       active = { ...source, epoch: context.plugin.epoch, build: registry.getBuildDigest(id), assertCurrent };
       return active;
     } catch (error) {
       if (!['PLUGIN_NOT_INSTALLED', 'PLUGIN_UNAVAILABLE', 'PLUGIN_NOT_FOUND', 'forbidden', 'PLUGIN_BUILD_MISMATCH'].includes(error?.code)) {
         deps.onDiagnostic?.({ sourceId: id, code: 'LYRIC_SOURCE_UNAVAILABLE' });
+        throw new LyricSourceError('upstream', id, 'initialize', 'Lyric source temporarily unavailable');
       }
       return null;
       }
@@ -369,7 +385,7 @@ export async function readLyricsFromChain({ env, db = env.DB, session, song, exe
     const source = sources.find(item => item.id === oldRef.sourceId);
     await source?.initialize?.();
     if (!source || source.epoch !== oldRef.epoch || source.build !== oldRef.build) pluginFail('LYRIC_RESULT_RETIRED', 409);
-    let result = normalizeLyricSourceResult(await boundedResolve(source, song, { signal, resultRef: oldRef }), source.id);
+    let result = normalizeLyricSourceResult(await boundedResolve(source, song, { signal, resultRef: oldRef }), source.id, song);
     const validateResult = async candidate => {
       if (!candidate || await computeHash(lyricTextForHash(candidate.document.lines)) !== oldRef.textHash
         || await documentDigest(candidate) !== oldRef.documentHash
@@ -377,7 +393,7 @@ export async function readLyricsFromChain({ env, db = env.DB, session, song, exe
     };
     await validateResult(result);
     if (translate && typeof source.translate === 'function' && !['ready', 'not_needed'].includes(result.translation.state)) {
-      result = normalizeLyricSourceResult(await source.translate(oldRef, { signal, song }), source.id);
+      result = normalizeLyricSourceResult(await source.translate(oldRef, { signal, song }), source.id, song);
       await validateResult(result);
     }
     chosen = { source, result };

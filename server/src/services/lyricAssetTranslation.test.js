@@ -29,7 +29,8 @@ test('a provider translation in another language does not suppress AI completion
     originalTextHash: artifact.textHash, updatedAt: STARTED_AT };
   const store = createMemoryLyricStore(artifact);
   const result = await beginLyricAssetAiCompletion({ env: {}, db: {}, song: makeSong({ language: 'ja' }),
-    store, targetLanguage: 'zh', deps: successDeps() });
+    store, targetLanguage: 'zh', deps: successDeps({ askAI: async () => ({ songLanguage: 'en',
+      translations: [{ unitId: 0, text: '你好' }] }), updateSongLanguage: async () => {} }) });
   assert.equal(result.state, 'started');
   await result.task;
   assert.equal(store.current().translation.language, 'zh');
@@ -353,7 +354,6 @@ test('AI completion removes whole credit rows and preserves every word timestamp
         assert.equal(payload.artist, 'The Knocks, Sofi Tukker');
         assert.equal('referenceTranslations' in payload, false);
         return { songLanguage: 'en', discardLineIndices: [0, 1, 2], translations: [
-          { unitId: 0, text: '一对一 - 歌手' },
           { unitId: 3, text: '一对一' },
           { unitId: 4, text: '你正对我说话' },
         ] };
@@ -460,7 +460,7 @@ test('AI cleanup refuses to leave only the song title and artist', async () => {
     startedAt: STARTED_AT, textHash: 'a'.repeat(64),
     deps: successDeps({ askAI: async () => ({ songLanguage: 'en',
       discardLineIndices: [1], translations: [
-        { unitId: 0, text: '夜之歌 - 歌手' }, { unitId: 1, text: '你好' },
+        { unitId: 1, text: '你好' },
       ] }), updateSongLanguage: async () => {} }),
   });
   assert.deepEqual(store.current().original.lines.map((line) => line.text),
@@ -774,7 +774,7 @@ test('a concurrent fresh-pending winner is returned as an idempotent result', as
   assert.equal(started.task, null);
 });
 
-test('a first-batch notNeeded result is retried after another batch proves translation is needed', async () => {
+test('a same-target first batch remains blank when a later foreign batch is translated', async () => {
   const store = createMemoryLyricStore(multiBatchPendingArtifact(121, [0, 120]));
   let calls = 0;
   const prompts = [];
@@ -786,20 +786,20 @@ test('a first-batch notNeeded result is retried after another batch proves trans
       askAI: async (messages) => {
         calls += 1;
         prompts.push(messages[0].content);
-        return calls === 1 ? { notNeeded: true } : translatedBatch(messages);
+        return calls === 1 ? { notNeeded: true, songLanguage: 'zh' } : { ...translatedBatch(messages), songLanguage: 'en' };
       },
+      updateSongLanguage: async () => {},
     }),
   });
 
   assert.equal(result.state, 'updated');
-  assert.equal(calls, 3);
-  assert.match(prompts[2], /不得返回 notNeeded/u);
+  assert.equal(calls, 2);
   assert.equal(store.current().translation.lines.length, 121);
-  assert.equal(store.current().translation.lines.every(Boolean), true);
-  assert.equal(store.current().translation.lines[0], '译文0');
+  assert.ok(store.current().translation.lines.slice(0, 120).every(line => line === ''));
+  assert.equal(store.current().translation.lines[120], '译文120');
 });
 
-test('a middle-batch notNeeded result cannot create a partial translation artifact', async () => {
+test('a same-target middle batch stays empty and the surrounding foreign batches are complete', async () => {
   const store = createMemoryLyricStore(multiBatchPendingArtifact(241, [120, 240]));
   let calls = 0;
   const result = await runLyricAssetAiCompletion({
@@ -809,16 +809,17 @@ test('a middle-batch notNeeded result cannot create a partial translation artifa
     deps: successDeps({
       askAI: async (messages) => {
         calls += 1;
-        return calls === 2 ? { notNeeded: true } : translatedBatch(messages);
+        return calls === 2 ? { notNeeded: true, songLanguage: 'zh' } : { ...translatedBatch(messages), songLanguage: 'en' };
       },
     }),
   });
 
   assert.equal(result.state, 'updated');
-  assert.equal(calls, 4);
+  assert.equal(calls, 3);
   assert.equal(store.current().translation.lines.length, 241);
-  assert.equal(store.current().translation.lines.every(Boolean), true);
-  assert.equal(store.current().translation.lines[120], '译文120');
+  assert.ok(store.current().translation.lines.slice(120, 240).every(line => line === ''));
+  assert.equal(store.current().translation.lines[0], '译文0');
+  assert.equal(store.current().translation.lines[240], '译文240');
 });
 
 test('all notNeeded batches clear pending without creating a translation', async () => {
@@ -828,16 +829,18 @@ test('all notNeeded batches clear pending without creating a translation', async
     env: {}, db: {}, song: makeSong(), store,
     startedAt: STARTED_AT,
     textHash: 'a'.repeat(64),
-    deps: successDeps({ askAI: async () => { calls += 1; return { notNeeded: true }; } }),
+    deps: successDeps({ askAI: async () => { calls += 1; return { notNeeded: true, songLanguage: 'zh' }; },
+      updateSongLanguage: async () => {} }),
   });
 
   assert.equal(result.state, 'updated');
   assert.equal(calls, 2);
   assert.equal(store.current().translation, null);
   assert.equal(store.current().aiCompletion.status, 'completed');
+  assert.equal(store.current().translationDecision.status, 'not_needed');
 });
 
-test('an unresolved mixed batch fails safely instead of writing incomplete translation lines', async () => {
+test('an undetermined no-op fails before requesting further batches or writing partial lyrics', async () => {
   const store = createMemoryLyricStore(multiBatchPendingArtifact(121, [0, 120]));
   let calls = 0;
   await runLyricAssetAiCompletion({
@@ -847,13 +850,14 @@ test('an unresolved mixed batch fails safely instead of writing incomplete trans
     deps: successDeps({
       askAI: async (messages) => {
         calls += 1;
-        return calls === 2 ? translatedBatch(messages) : { notNeeded: true };
+        return calls === 2 ? translatedBatch(messages) : { notNeeded: true, songLanguage: 'other' };
       },
     }),
   });
 
-  assert.equal(calls, 3);
+  assert.equal(calls, 1);
   assert.equal(store.current().translation, null);
   assert.equal(store.current().aiCompletion.status, 'failed');
   assert.equal(store.current().aiCompletion.errorCode, 'invalid_output');
+  assert.equal(store.current().translationDecision, undefined);
 });

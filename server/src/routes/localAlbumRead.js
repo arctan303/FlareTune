@@ -224,7 +224,7 @@ async function listArtists(db, url, headers) {
   const total = matched.length;
   return success({ artists: artists.map((row) => ({
     name: row.name, songCount: row.songCount, albumCount: row.albums.size,
-    photoUrl: photoByName.get(row.name) || '', coverUrl: row.cover_url || '',
+    photoUrl: photoByName.get(row.name) || '', coverUrl: row.coverUrl || '',
   })), total, ...page, hasMore: page.offset + artists.length < total }, headers);
 }
 

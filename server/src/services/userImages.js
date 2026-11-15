@@ -4,6 +4,7 @@ export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const folders = { avatar: 'avatars', playlist: 'playlist-covers', chat: 'chat-images' };
 const rows = (r) => r?.results ?? [];
 const changed = (r) => Number(r?.meta?.changes ?? r?.changes ?? 0);
+const validImageId = (value) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,160}$/.test(value);
 export class UserImageError extends Error {
   constructor(code, status = 400) { super(code); this.code = code; this.status = status; }
 }
@@ -129,7 +130,7 @@ export async function setOwnImageSlot(db, bucket, accountId, { purpose, targetId
   await requireReady(db); await requireAccount(db, accountId);
   if (!['avatar','playlist'].includes(purpose) || !Number.isSafeInteger(revision) || revision < 0
     || (purpose === 'avatar' && targetId !== 'avatar') || typeof targetId !== 'string' || targetId.length > 160
-    || (imageId !== null && typeof imageId !== 'string')) throw new UserImageError('invalid_input');
+    || (imageId !== null && !validImageId(imageId))) throw new UserImageError('invalid_input');
   if (purpose === 'playlist' && !await db.prepare("SELECT id FROM Member_Playlists WHERE id = ? AND account_id = ? AND kind = 'regular'")
     .bind(targetId, accountId).first()) throw new UserImageError('playlist_not_found', 404);
   if (imageId && !await db.prepare("SELECT id FROM user_images WHERE id = ? AND account_id = ? AND purpose = ? AND status = 'ready'")
@@ -158,4 +159,45 @@ export async function readOwnImage(db, bucket, accountId, id) {
   const object = await bucket?.get(item.object_key);
   if (!object) throw new UserImageError('image_not_found', 404);
   return { object, item };
+}
+
+// Explicit deletion has a completion contract; post-save cleanup remains best-effort.
+// Claiming a tombstone first makes reads and new references fail closed while R2
+// is unavailable. The same owner can retry that exact ID without resurrecting it.
+export async function deleteOwnImage(db, bucket, accountId, id) {
+  try {
+    if (!validImageId(id)) throw new UserImageError('invalid_input');
+    await requireReady(db); await requireAccount(db, accountId);
+    const ownImage = () => db.prepare('SELECT id,object_key,status FROM user_images WHERE id = ? AND account_id = ?')
+      .bind(id, accountId).first();
+    const hasReference = () => db.prepare('SELECT image_id FROM user_image_refs WHERE image_id = ?').bind(id).first();
+    const image = await ownImage();
+    if (!image || !['ready','deleting'].includes(image.status)) throw new UserImageError('image_not_found', 404);
+    if (await hasReference()) throw new UserImageError('image_in_use', 409);
+    if (typeof bucket?.delete !== 'function') throw new UserImageError('image_storage_unavailable', 503);
+
+    const claim = await db.prepare(`UPDATE user_images SET status = 'deleting'
+      WHERE id = ? AND account_id = ? AND status IN ('ready','deleting')
+        AND NOT EXISTS (SELECT 1 FROM user_image_refs WHERE image_id = ?)
+        AND EXISTS (SELECT 1 FROM accounts WHERE account_id = ? AND status = 'active')`)
+      .bind(id, accountId, id, accountId).run();
+    if (!changed(claim)) {
+      if (await hasReference()) throw new UserImageError('image_in_use', 409);
+      if (!await ownImage()) throw new UserImageError('image_not_found', 404);
+      await requireAccount(db, accountId);
+      throw new UserImageError('image_delete_failed', 503);
+    }
+
+    await bucket.delete(image.object_key);
+    await db.prepare(`DELETE FROM user_images WHERE id = ? AND account_id = ? AND status = 'deleting'
+      AND NOT EXISTS (SELECT 1 FROM user_image_refs WHERE image_id = ?)`)
+      .bind(id, accountId, id).run();
+    // Another cleanup may have completed the same deletion. Absence, rather
+    // than an affected-row count, is the success condition in either case.
+    if (await ownImage()) throw new UserImageError('image_delete_failed', 503);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof UserImageError) throw error;
+    throw new UserImageError('image_delete_failed', 503);
+  }
 }

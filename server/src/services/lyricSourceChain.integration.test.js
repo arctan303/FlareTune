@@ -219,6 +219,59 @@ const lazyResult = () => ({ quality: 'good', document: createLyricDocument({ sou
   lines: originals.map((text, index) => ({ text, time: index * 4 + 1 })) }),
   translation: { supported: false, state: 'unavailable' } });
 
+test('plugin initialization faults and empty results have distinct HTTP outcomes', async () => {
+  const f = lazyChainFixture({ broken: {} });
+  f.deps.modules.broken.createLyricSource = () => { throw new Error('private settings detail'); };
+  const local = { ...song, id: 'local-song' };
+  const db = { prepare(sql) { return { bind() { return this; }, first: async () => sql.includes('FROM Songs') ? local : null }; } };
+  const url = new URL('https://fixture.invalid/api/lyrics?songId=local-song');
+  const response = await handleLocalMetadataReadRoute(new Request(url), url, db, {}, session.account.accountId,
+    f.env, { ...f.deps, session });
+  assert.equal(response.status, 503);
+  assert.doesNotMatch(JSON.stringify(await response.json()), /private settings detail|lyrics_not_found/u);
+  f.deps.modules.broken.createLyricSource = () => ({ id: 'broken', claim: () => true, resolve: () => null });
+  const empty = await handleLocalMetadataReadRoute(new Request(url), url, db, {}, session.account.accountId,
+    f.env, { ...f.deps, session });
+  assert.equal(empty.status, 404);
+  assert.equal((await empty.json()).reason, 'lyrics_not_found');
+});
+
+for (const status of ['failed', 'pending', 'rewritten']) {
+  test(`actual workbench does not advertise Chinese inline borrowings as translatable: ${status}`, async () => {
+    const local = { ...song, id: 'chinese-song', language: 'zh' };
+    const document = createLyricDocument({ source: 'manual', format: 'lrc', lines: [
+      { time: 1, text: '把心事写在日记里' }, { time: 5, text: '今天的心情有点 blue' },
+      { time: 9, text: '手机屏幕上的 QQ' },
+    ] });
+    const initial = (await buildReadyLyricArtifact(local, document)).artifact;
+    initial.aiCompletion = status === 'rewritten' ? null : { status, errorCode: status === 'failed' ? 'completion_failed' : undefined,
+      updatedAt: new Date().toISOString() };
+    if (status === 'rewritten') initial.translation = { source: 'ai', language: 'zh', originalTextHash: initial.textHash,
+      lines: ['将心事记在本子上', '今天心情有些忧郁', '屏幕上的聊天软件'], updatedAt: initial.updatedAt };
+    const before = structuredClone(initial);
+    const store = createMemoryLyricStore(initial);
+    const workbench = await deliveryPluginModules['lyrics-workbench'].createLyricSource({ env: {}, db: {}, session,
+      context: { identity: session.account }, dependencies: { store,
+        assertCurrent: async () => {}, loadSettings: async () => ({ onlineEnabled: false, targetLanguage: 'zh',
+          completionEnabled: true, automaticCompletionEnabled: true }),
+        createAiLease: () => assert.fail('No AI lease is needed for these Chinese verses'),
+      } });
+    const deps = { sources: [{ ...workbench, epoch: 'fixture', build: 'fixture', assertCurrent: async () => {} }],
+      store, requireSession: async () => session.account };
+    const db = { prepare(sql) { return { bind() { return this; }, first: async () => sql.includes('FROM Songs') ? local : null }; } };
+    const url = new URL('https://fixture.invalid/api/lyrics?songId=chinese-song');
+    const response = await handleLocalMetadataReadRoute(new Request(url), url, db, {}, session.account.accountId,
+      { SETUP_SECRET: 'chinese-workbench-fixture-secret-at-least-32-characters' }, { ...deps, session });
+    assert.equal(response.status, 200);
+    const result = (await response.json()).data;
+    assert.equal(result.translation.supported, false);
+    assert.equal(result.translation.state, 'not_needed');
+    assert.equal(result.translationAvailable, false);
+    assert.deepEqual(result.lines, document.lines);
+    assert.deepEqual(store.current(), before);
+  });
+}
+
 test('lazy chain never initializes a later plugin after the first good result', async () => {
   const f = lazyChainFixture({ first: { result: lazyResult() }, unreached: { result: lazyResult() } });
   const declared = await createLyricSources({ env: f.env, db: f.db, session, deps: f.deps });
@@ -336,7 +389,7 @@ for (const scenario of [
     assert.equal(found.lyrics.sourceId, 'lyrics-workbench');
     assert.equal(found.lyrics.translation.state, scenario.state);
     assert.equal(found.lyrics.translation.supported, scenario.partial || scenario.completion);
-    assert.deepEqual(found.lyrics.translation.lines, scenario.partial ? savedLayer.lines : undefined);
+    assert.deepEqual(found.lyrics.translation.lines, scenario.partial ? ['', translatedLines[1]] : undefined);
     assert.deepEqual(store.current().translation, savedLayer, 'projection and completion startup do not delete the old saved layer');
     assert.deepEqual(store.current().original, initial.original);
     assert.equal(calls.youtube, 0);

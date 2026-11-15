@@ -117,7 +117,7 @@ test('an uninstalled plugin may select a historical release, while cancelling it
 });
 
 test('higher versions still require source ownership, explicit trust and compatible manifests before any write', async t => {
-  const f = await versionedApp(t, { releases: [release('2.0.0', 'b'), release('3.0.0', 'd', { hostApiVersion: 4 })] });
+  const f = await versionedApp(t, { releases: [release('2.0.0', 'b'), release('3.0.0', 'd', { hostApiVersion: 5 })] });
   let before = rawDelivery(f), calls = f.calls.length;
   await assert.rejects(f.select(true, { ...selection('3.0.0'), trustCode: false }), { code: 'PLUGIN_CODE_TRUST_REQUIRED' });
   await assert.rejects(f.select(true, selection('3.0.0')), { code: 'PLUGIN_SELECTION_INCOMPATIBLE' });

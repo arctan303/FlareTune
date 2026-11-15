@@ -91,6 +91,25 @@ test('account music route accepts only router-supplied normal account identity',
   ), null);
 });
 
+test('creation retries return the original own playlist after an initial song disappears', async () => {
+  const db = createDb();
+  const body = { name: 'Retry safely', songIds: ['song-1'], idempotencyKey: 'lost-response' };
+  const first = await call(db, '/api/account/playlists', { method: 'POST', body });
+  assert.equal(first.response.status, 201);
+  const id = first.body.data.playlist.id;
+  db.database.exec("DELETE FROM Member_Playlist_Songs WHERE song_id='song-1'; DELETE FROM Songs WHERE id='song-1'");
+  const repeated = await call(db, '/api/account/playlists', { method: 'POST', body });
+  assert.equal(repeated.response.status, 201);
+  assert.equal(repeated.body.data.outcome, 'noop');
+  assert.equal(repeated.body.data.playlist.id, id);
+  assert.equal(repeated.body.data.playlist.songCount, 0);
+  assert.equal(db.database.prepare("SELECT COUNT(*) AS count FROM Member_Playlists WHERE account_id='account-a' AND kind='regular'").get().count, 1);
+  const other = await call(db, '/api/account/playlists', { method: 'POST', body,
+    session: { accountId: 'account-b', mode: 'normal' } });
+  assert.equal(other.response.status, 404);
+  assert.equal(db.database.prepare("SELECT COUNT(*) AS count FROM Member_Playlists WHERE account_id='account-b' AND kind='regular'").get().count, 0);
+});
+
 test('summary statistics read one bounded account ranking without reading the complete ledger', async () => {
   const db = createDb();
   db.database.exec(`INSERT INTO Member_Song_Plays(account_id, song_id, play_count, last_played_at) VALUES

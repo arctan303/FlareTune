@@ -13,7 +13,7 @@ import { createLyricDocument } from '../utils/lyricDocument.js';
 const payload = async response => (await response.json())['subsonic-response'];
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
 const aiReply = () => Response.json({ choices: [{ message: { content: JSON.stringify({
-  songLanguage: 'ja', discardLineIndices: [], translations: [{ unitId: 0, text: '你好' }],
+  songLanguage: 'en', discardLineIndices: [], translations: [{ unitId: 0, text: '你好' }],
 }) } }] });
 const artifact = f => JSON.parse(new TextDecoder().decode(f.objects.get('media/lyrics/s1.json').bytes));
 async function install(f, id, installed = true) {
@@ -201,7 +201,7 @@ test('complete authenticated Subsonic automatic AI including waitUntil fits the 
         executionContext: { waitUntil: task => tasks.push(task) } }));
       assert.equal(result.status, 'ok'); await Promise.all(tasks);
       assert.equal(upstreamCalls, 1); assert.equal(artifact(f).translation?.lines[0], '你好');
-      assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'ja');
+      assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
       assert.ok(calls.length <= 50, JSON.stringify(calls));
       t.diagnostic(`${endpoint} including waitUntil: ${calls.length}/50 D1 bindings`);
     } finally { upstream.mock.restore(); }
@@ -224,7 +224,7 @@ test('Subsonic automatic AI retains the 50 binding budget through 24 seconds of 
   const pollCalls = calls.length - beforePolling;
   reply.resolve(); await Promise.all(tasks);
   assert.equal(pollCalls, 12); assert.equal(upstreamCalls, 1); assert.equal(artifact(f).translation?.lines[0], '你好');
-  assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'ja');
+  assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`24s upstream polling including waitUntil: ${calls.length}/50 D1 bindings (${pollCalls} waiting checks)`);
 });
 
@@ -293,7 +293,7 @@ test('ordinary 176 and 200-line compact lyrics fully complete within the entire 
   }
 });
 
-test('Subsonic mixed not-needed compact batches retain the final completion request before settling', async t => {
+test('Subsonic mixed compact batches keep target-language rows empty without an extra paraphrase request', async t => {
   const f = await setup(t), tasks = []; await compactLyrics(f, 32); let upstream = 0;
   const saved = artifact(f), song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
   const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
@@ -305,7 +305,9 @@ test('Subsonic mixed not-needed compact batches retain the final completion requ
   const calls = enforceBindingBudget(f.db, 50);
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
-  await Promise.all(tasks); assert.equal(upstream, 3); assert.equal(artifact(f).translation?.lines.length, 32);
+  await Promise.all(tasks); assert.equal(upstream, 2); assert.equal(artifact(f).translation?.lines.length, 32);
+  assert.ok(artifact(f).translation.lines.slice(0, 20).every(text => text === ''));
+  assert.ok(artifact(f).translation.lines.slice(20).every(Boolean));
   assert.equal(artifact(f).aiCompletion, null); assert.ok(calls.length <= 50);
 });
 
