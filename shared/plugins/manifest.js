@@ -1,4 +1,4 @@
-export const HOST_PLUGIN_API_VERSION = 4;
+export const HOST_PLUGIN_API_VERSION = 5;
 const identifier = value => typeof value === 'string' && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value) && value.length <= 80;
 const versionParts = value => {
   if (typeof value !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) return null;

@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 // Runtime, resources, schema and build configuration are part of the host.
 // Delivery output is excluded so choosing plugins cannot change host identity.
 const roots = ['client/src', 'client/public', 'server/src', 'server/db/migrations-flaretune', 'shared',
-  'tooling/build', 'tooling/plugins', 'tooling/verify', 'tooling/deploy'];
+  'tooling/build', 'tooling/plugins', 'tooling/verify', 'tooling/deploy', 'tooling/updates'];
 const configuration = ['package.json', 'package-lock.json', 'wrangler.toml', 'client/index.html',
   'client/vite.config.js', 'client/tailwind.config.js', 'client/postcss.config.js'];
 const ignored = name => name.startsWith('.') || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(name)

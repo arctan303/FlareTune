@@ -11,7 +11,7 @@
 | [歌词接入（优先交付）](api/lyrics.md) | 统一取词、逐行/逐词时间轴、译文状态/重试、resultRef、来源顺序、错误与原生播放器接入 |
 | [实例、认证与个人账号](api/authentication.md) | status/health、setup/maintenance、Cookie会话、改密、Google、资料/语言、Subsonic开关、个人图片/封面 |
 | [音乐与个人歌单](api/music.md) | 曲库/搜索/发现、专辑/歌手、现代歌单CRUD/架排序/喜欢、兼容读取、播放统计、媒体Range |
-| [管理员与入库](api/administration.md) | 账户/角色/重置密码、实例设置/迁移、共享曲库CRUD/删除预检/批删、原始媒体上传、设备扫描/任务/进度/重试 |
+| [管理员与入库](api/administration.md) | 账户/角色/重置密码、实例设置/迁移、后台系统更新及专用构建通道、共享曲库CRUD/删除预检/批删、原始媒体上传、设备扫描/任务/进度/重试 |
 | [宿主插件管理框架](api/plugin-management.md) | 能力发现、安装标记、来源/选择/CAS、部署状态及专用机器构建通道；不包含插件业务 |
 | [Subsonic兼容附录](api/subsonic.md) | 实际支持的方法、协议认证、XML/JSON、原文件媒体与限制；不是完整OpenSubsonic实现 |
 

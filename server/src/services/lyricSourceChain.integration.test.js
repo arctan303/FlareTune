@@ -24,6 +24,8 @@ test('library lyrics survive workbench adoption with virtual-provider-only callb
   const artifact = (await buildReadyLyricArtifact(local, original)).artifact;
   artifact.translation = { source: 'kugou', originalTextHash: artifact.textHash,
     lines: translatedLines, updatedAt: artifact.updatedAt };
+  assert.equal(projectLyricArtifact(artifact, { song: local, targetLanguage: 'zh' }).translationAvailable, true,
+    'the host explicitly supports the implicit Chinese language of legacy Kugou layers');
   const store = createMemoryLyricStore(artifact);
   const providerCalls = [];
   const db = { prepare(sql) { return { bind(...args) { this.args = args; return this; },
@@ -46,9 +48,12 @@ test('library lyrics survive workbench adoption with virtual-provider-only callb
   assert.equal(payload.data.sourceId, 'lyrics-workbench');
   assert.equal(payload.data.syncMode, 'word');
   assert.deepEqual(payload.data.lines.map(line => line.text), originals);
-  assert.ok(store.calls.put > 0, 'the previously unassessed asset completes actual adoption');
-  assert.deepEqual(store.current().original, artifact.original);
-  assert.deepEqual(store.current().translation, artifact.translation);
+  assert.equal(payload.data.translation.state, 'ready');
+  assert.equal(payload.data.translation.source, 'kugou');
+  assert.deepEqual(payload.data.translation.lines, translatedLines);
+  assert.equal(store.calls.put, 0, 'reusing the same original does not persist an assessment-only rewrite');
+  assert.equal(store.calls.create, 0);
+  assert.deepEqual(store.current(), artifact, 'library ownership, original timing and the complete native layer remain unchanged');
   assert.deepEqual(providerCalls, [], 'virtual-provider callbacks never decide library identity');
 
   const sources = await createLyricSources({ env, db, session, deps: { ...deps,
@@ -74,7 +79,7 @@ for (const scenario of [
   { name: 'line preference and saved simplified-Chinese target', word: false, savedPolicy: true },
   { name: 'new installation defaults from the administrator Chinese UI', word: true, savedPolicy: false },
 ]) {
-  test(`YT paired zh-CN file survives real workbench adoption: ${scenario.name}`, async t => {
+  test(`YT paired zh-CN file survives real workbench reuse without an assessment-only rewrite: ${scenario.name}`, async t => {
     const workbench = deliveryPluginModules['lyrics-workbench'];
     assert.equal(typeof workbench?.createLyricSource, 'function', 'prepared workbench package exports its real factory');
     const store = createMemoryLyricStore();
@@ -134,6 +139,8 @@ for (const scenario of [
     assert.equal(first.state, 'found');
     assert.equal(first.lyrics.sourceId, 'youtube-music');
     const fromYoutube = store.current();
+    const nativeEtag = (await store.get(song.id)).etag;
+    const nativeWrites = { create: store.calls.create, put: store.calls.put };
     assert.equal(fromYoutube.provenance.managedBy, 'youtube-music');
     assert.equal(fromYoutube.provenance.evaluation, 'unassessed');
     assert.equal(fromYoutube.provenance.originalSource, 'youtube');
@@ -154,17 +161,24 @@ for (const scenario of [
     assert.equal(second.lyrics.translation.state, 'ready');
     assert.equal(second.lyrics.translation.supported, true);
     assert.deepEqual(second.lyrics.translation.lines, translatedLines);
-    const assessed = store.current();
-    assert.equal(assessed.provenance.managedBy, 'lyrics-workbench');
-    assert.equal(assessed.provenance.evaluation, 'assessed');
-    assert.equal(assessed.provenance.originalSource, 'youtube');
-    assert.equal(assessed.provenance.providerLyricId, 'youtube:paired-fixture');
-    assert.match(assessed.provenance.assessmentKey, /^[a-f0-9]{64}$/u);
-    assert.deepEqual(assessed.translation, fromYoutube.translation, 'evaluation preserves the entire paired provider layer');
-    assert.equal(assessed.textHash, fromYoutube.textHash);
-    assert.equal(assessed.aiCompletion, null);
-    assert.deepEqual(assessed.original, fromYoutube.original);
+    assert.deepEqual(store.current(), fromYoutube, 'response ownership is workbench; the already valid native file retains its original ownership and complete layer');
+    assert.equal((await store.get(song.id)).etag, nativeEtag, 'a read does not invalidate editors with an assessment-only ETag change');
+    assert.deepEqual({ create: store.calls.create, put: store.calls.put }, nativeWrites);
     assert.deepEqual(calls, { ai: 0, aiLease: 0, network: 0, candidates: 2, youtube: 1 });
+
+    // The signed response still delegates follow-up translation reads to the
+    // workbench that returned it, independently of the retained file's owner.
+    const joined = await readLyricsFromChain({ env, db, session, song, deps: dependencies,
+      resultRef: second.lyrics.resultRef, translate: true });
+    assert.equal(joined.lyrics.sourceId, 'lyrics-workbench');
+    assert.equal(joined.lyrics.translation.state, 'ready');
+    assert.equal(joined.lyrics.translation.source, 'youtube');
+    assert.equal(joined.lyrics.translation.language, 'zh-CN');
+    assert.deepEqual(joined.lyrics.translation.lines, translatedLines);
+    assert.deepEqual(store.current(), fromYoutube);
+    assert.equal((await store.get(song.id)).etag, nativeEtag);
+    assert.deepEqual({ create: store.calls.create, put: store.calls.put }, nativeWrites);
+    assert.deepEqual(calls, { ai: 0, aiLease: 0, network: 0, candidates: 3, youtube: 1 });
     assert.deepEqual(diagnostics, []);
   });
 }
@@ -254,6 +268,7 @@ for (const status of ['failed', 'pending', 'rewritten']) {
       context: { identity: session.account }, dependencies: { store,
         assertCurrent: async () => {}, loadSettings: async () => ({ onlineEnabled: false, targetLanguage: 'zh',
           completionEnabled: true, automaticCompletionEnabled: true }),
+        resolveSong: async id => id === local.id ? local : null,
         createAiLease: () => assert.fail('No AI lease is needed for these Chinese verses'),
       } });
     const deps = { sources: [{ ...workbench, epoch: 'fixture', build: 'fixture', assertCurrent: async () => {} }],
@@ -268,7 +283,10 @@ for (const status of ['failed', 'pending', 'rewritten']) {
     assert.equal(result.translation.state, 'not_needed');
     assert.equal(result.translationAvailable, false);
     assert.deepEqual(result.lines, document.lines);
-    assert.deepEqual(store.current(), before);
+    assert.deepEqual(store.current().original, before.original);
+    assert.deepEqual(store.current().translation, before.translation);
+    assert.equal(store.current().textHash, before.textHash);
+    assert.equal(store.current().translationDecision.status, 'not_needed');
   });
 }
 
@@ -332,7 +350,7 @@ test('a fixed result lazily initializes only its original source and rejects cha
 
 for (const scenario of [
   { name: 'copied layer with AI disabled', partial: false, completion: false, automatic: true, state: 'unavailable' },
-  { name: 'copied layer with manual AI', partial: false, completion: true, automatic: false, state: 'idle' },
+  { name: 'legacy automatic=false with AI enabled', partial: false, completion: true, automatic: false, state: 'pending' },
   { name: 'copied layer with automatic AI', partial: false, completion: true, automatic: true, state: 'pending' },
   { name: 'partially unchanged real translation', partial: true, completion: true, automatic: true, state: 'ready' },
 ]) {
@@ -368,8 +386,7 @@ for (const scenario of [
       createAiLease: async () => ({ assertCurrent: async () => {}, guardedDb: value => value }),
       aiDeps: { reserveDailyQuota: async () => true,
         createGatewayClient: async () => ({ config: policy, assertCurrent: async () => {}, guardedDb: value => value,
-          ask: async messages => { calls.ai++; await gate; return { songLanguage: 'en', discardLineIndices: [],
-            translations: JSON.parse(messages.at(-1).content).units.map(unit => ({ unitId: unit.unitId,
+          ask: async messages => { calls.ai++; await gate; return { translations: JSON.parse(messages.at(-1).content).units.map(unit => ({ unitId: unit.unitId,
               text: translatedLines[originals.indexOf(unit.text)] })) }; },
         }),
       },
@@ -404,7 +421,7 @@ for (const scenario of [
     release();
     await Promise.all(tasks);
     if (scenario.completion && !scenario.partial) {
-      assert.equal(store.current().aiCompletion, null);
+      assert.equal(store.current().aiCompletion.status, 'completed');
       assert.deepEqual(store.current().translation.lines, translatedLines);
     }
   });

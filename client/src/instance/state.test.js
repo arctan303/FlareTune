@@ -29,6 +29,15 @@ test('validated local account maps into shell auth without OAuth fields', () => 
   assert.equal(toShellAuthSession(normalizeSession({ authenticated: true, mustChangePassword: true, user })).authenticated, false);
 });
 
+test('only the known system update maintenance reason reaches the waiting screen', () => {
+  const updating = normalizeInstanceStatus({ state: 'maintenance', reason: 'system_update_running', privateTask: 'never-visible' });
+  assert.equal(updating.reason, 'system_update_running');
+  assert.equal(screenFor(updating, normalizeSession({ authenticated: true, user })), 'maintenance');
+  assert.equal(Object.hasOwn(updating, 'privateTask'), false);
+  assert.equal(normalizeInstanceStatus({ state: 'maintenance', reason: 'untrusted detail' }).reason, undefined);
+  assert.equal(normalizeInstanceStatus({ state: 'ready', reason: 'system_update_running' }).reason, undefined);
+});
+
 test('password rule uses Unicode code points and UTF-8 byte limit', () => {
   assert.equal(validLocalPassword('a'.repeat(7)), false);
   assert.equal(validLocalPassword('a'.repeat(8)), true);

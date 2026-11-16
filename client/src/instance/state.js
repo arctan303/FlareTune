@@ -9,6 +9,7 @@ export function normalizeInstanceStatus(value) {
     schemaVersion: Number.isSafeInteger(value.schemaVersion) ? value.schemaVersion : null,
     targetVersion: Number.isSafeInteger(value.targetVersion) ? value.targetVersion : null,
     phase: typeof value.phase === 'string' ? value.phase : null,
+    ...(state === 'maintenance' && value.reason === 'system_update_running' ? { reason: 'system_update_running' } : {}),
   };
 }
 

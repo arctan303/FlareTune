@@ -17,13 +17,15 @@ For installation, first configuration, and operation of the Node.js tool, see th
 
 ## Issues and changes
 
+Make ordinary daily changes on `dev`. Do not develop or commit business changes directly on `main`; it only accepts validated merges. Merge temporary task branches back into `dev`, verify that no work remains, and remove completed branches and worktrees.
+
 When reporting a problem, include the operating system, Node.js version, browser, steps, expected result, and actual result. Share only the redacted logs needed to reproduce it. Do not publish account passwords, session cookies, Cloudflare/R2 secrets, personal music files, or another person's data.
 
 `main` holds accepted releases for users to deploy. `dev` collects daily work and changes under development-Worker verification. Create feature branches from `dev`, test them, and merge into `dev` via pull request. When preparing a release, merge accepted `dev` changes into `main` via pull request. Run tests and builds relevant to your changes before submitting.
 
 A Git branch does not create or bind Cloudflare D1/R2 resources. A development Worker must use separate development resources and private Wrangler configuration. Do not commit personal resource IDs, setup secrets, or production bindings. See [Local development](guide/local-development.en.md). Development plans and acceptance records live in the maintainer's internal workspace and are not public user documentation.
 
-The root `/docs/` directory contains Git-ignored internal work records. Do not force-add it or remove its `.gitignore` exclusion. Write user-facing guides in `guide/`.
+Maintainer work records live outside the source repository. Do not force-add it or remove its `.gitignore` exclusion. Write user-facing guides in `guide/`.
 
 ## Interface translations
 

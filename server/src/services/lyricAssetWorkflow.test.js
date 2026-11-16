@@ -145,7 +145,7 @@ test('Chinese verses ignore Latin text confined to a leading extended title and 
   assert.deepEqual(artifact, before);
 });
 
-test('translation need retains real foreign verses and does not extend metadata matching past its boundaries', () => {
+test('a Chinese catalog tag settles the whole song despite minority foreign inserts or later repeated headings', () => {
   const song = makeSong({ title: '晨间来信', artist: '林中客', language: 'zh' });
   const header = { time: 1, text: '晨间来信 (Morning Echo) - 林中客' };
   const body = { time: 6, text: '沿途晨光写成温柔来信' };
@@ -155,7 +155,7 @@ test('translation need retains real foreign verses and does not extend metadata 
       { time: 12, text: header.text }] },
     { lines: [body, { time: 31, text: header.text }] },
   ]) {
-    assert.equal(shouldAiCompleteLyrics(original, song, { targetLanguage: 'zh' }), true);
+    assert.equal(shouldAiCompleteLyrics(original, song, { targetLanguage: 'zh' }), false);
   }
 });
 
@@ -443,7 +443,7 @@ test('song-language write failure stays retryable even when the new translation 
     aiCompletion: { status: 'failed', errorCode: 'language_update_failed',
       updatedAt: '2026-09-10T00:00:00.000Z' },
   });
-  const projected = projectLyricArtifact(artifact, { song: makeSong({ language: 'en' }), targetLanguage: 'en' });
+  const projected = projectLyricArtifact(artifact, { song: makeSong({ language: 'other' }), targetLanguage: 'en' });
   assert.equal(projected.lines[0].tlyric, 'Hello');
   assert.equal(projected.translationState, 'failed');
 });
@@ -453,12 +453,12 @@ test('building an asset never starts AI completion', async () => {
   assert.equal(result.artifact.aiCompletion, null);
 });
 
-test('translation state rejects contradictory metadata without guessing ambiguous script language', async () => {
+test('translation state trusts a known dominant catalog language and does not relabel from scripts', async () => {
   const foreign = await buildReadyLyricArtifact(
     makeSong({ language: 'zh' }),
     makeLyricDocument(),
   );
-  assert.equal(resolveLyricTranslationState(foreign.artifact, makeSong({ language: 'zh' })), 'missing');
+  assert.equal(resolveLyricTranslationState(foreign.artifact, makeSong({ language: 'zh' })), 'unavailable');
 
   const chinese = await buildReadyLyricArtifact(
     makeSong({ language: 'en' }),

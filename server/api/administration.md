@@ -1,6 +1,6 @@
 # 实例、管理员、曲库与入库设备 API
 
-源码盘点基线：`3d0076d8431e8cb9501c5029d1af55bddb40ac9a`（2026-11-12）。这是当前实现合同，不代表本次重新执行了测试或线上验收。入口为 [Worker](../src/flaretune.js) → [HTTP router](../src/instance/httpRouter.js)。公共认证规则见 [API 索引](../API.md)；插件框架另见 [plugin-management.md](plugin-management.md)。本页不包含 Google 管理、个人图片和插件私有业务。
+源码盘点基线：`3d0076d8431e8cb9501c5029d1af55bddb40ac9a`（2026-11-12），第2.1节及维护原因补充为2026-11-14系统更新实现合同。这不代表任一目标实例已部署或通过线上验收。入口为 [Worker](../src/flaretune.js) → [HTTP router](../src/instance/httpRouter.js)。公共认证规则见 [API 索引](../API.md)；插件框架另见 [plugin-management.md](plugin-management.md)。本页不包含 Google 管理、个人图片和插件私有业务。
 
 ## 1. 公共请求与返回规则
 
@@ -49,6 +49,8 @@ Cookie: __Host-ft_session=<会话值>
 
 `state` 当前状态机包括 `setup_required`、`ready`、`maintenance`、`recovery_required`；客户端按返回值处理，不能只看 HTTP200。当前 `targetVersion=2`。`schemaVersion` 未识别时可能为 null。
 
+系统更新迁移窗口由实际持久任务决定，status/health保留真实schema信息并附加 `state:"maintenance",reason:"system_update_running"`；`recovery_required`优先，不伪造为正常维护。此窗口普通业务API、媒体及`/rest`返回HTTP503；静态页面、专用系统更新构建协议，以及精确的`GET /api/auth/session`、`POST /api/auth/login`、`POST /api/auth/logout`继续经原路由处理。认证仍使用实际数据库状态、会话、CSRF和限流；未知结构或基础maintenance不因reason放开认证。正常管理员可在等待页查看更新面板并续接可恢复任务，匿名可显式本地登录，成员/需改密会话仅等待或退出；不加载业务App、Google登录或索取`SETUP_SECRET`/`backupConfirmed`。普通旧数据库维护流程仍按下文执行。
+
 ```ts
 type MigrationStatus = {
   schemaVersion: number | null;
@@ -72,7 +74,7 @@ type MigrationResult = {
 
 维护证明绑定 purpose=maintenance，不与 setup proof 互换。验证按 isolate 局部IP计数，15分钟内已知IP至多5次，unknown至多3次；429 `{error:"rate_limited"}` 带 Retry-After。秘密无效403 `invalid_setup`。
 
-管理员 POST 迁移最多连续推进20个 `in_progress` 步骤；它不从 body 接收 backupConfirmed。若升级进入维护状态，后续管理员会话路径不能继续，需维护证明路径。`backupConfirmed===true` 只在维护 upgrade 中允许既定破坏性清理，不代表服务器替用户完成了备份。
+管理员 POST 迁移最多连续推进20个 `in_progress` 步骤；它不从 body 接收 backupConfirmed。普通数据库升级进入维护状态后，管理员会话路径不能继续，需维护证明路径；第2.1节系统更新的受限迁移通道不使用该证明流程。`backupConfirmed===true` 只在维护 upgrade 中允许既定破坏性清理，不代表服务器替用户完成了备份。
 
 迁移结果可能为 lease_busy，不能认作完成；失败可能返回409 `backup_required/invalid_state`，或503 `migration_schema_inconsistent/migration_expand_failed/migration_supplemental_failed/migration_step_failed/service_unavailable`。迁移使用内置账本与互斥租约，不应并发启动多组迁移。
 
@@ -97,6 +99,76 @@ X-Requested-With: FlareTune
 ```
 
 `/api/auth/recovery` 明确404，不是已实现恢复入口。测试：[flaretune.test.js](../src/flaretune.test.js)、[upgradeDatabase.test.js](../src/instance/upgradeDatabase.test.js)、[migrationControl.test.js](../src/instance/migrationControl.test.js)、[migrationStatus.test.js](../src/instance/migrationStatus.test.js)。
+
+### 2.1 后台系统更新
+
+实现：[管理/构建路由](../src/routes/systemUpdate.js)、[任务服务](../src/systemUpdate/service.js)、[可信版本发现](../src/systemUpdate/releases.js)、[维护门](../src/systemUpdate/gate.js)。首次云端设置及日常操作见[部署指南](../../guide/deployment.md#后台系统更新)；构建端入口为 `npm run updates:build`，不是普通插件选择构建。
+
+管理接口要求实例基础状态为ready、正常管理员会话；写请求使用本页第1节的Origin、请求标记、CSRF与Expected-Account。成员及匿名不能调用。请求仅接受下表字段，不接受任意仓库、下载地址、命令、SQL、插件名单或目标资源绑定。成功返回同一 `SystemUpdateStatus`，错误为 `{error:string}`。
+
+| METHOD + path | JSON请求 | 行为 |
+| --- | --- | --- |
+| `GET /api/admin/system-update` | 无 | 读取配置标记、当前/最新版本及最近持久任务 |
+| `PUT /api/admin/system-update` | `{revision,deployHookUrl?,buildToken?}` | 只保存通道，不触发构建 |
+| `POST /api/admin/system-update/check` | `{revision}` | 获取并校验可信版本，不部署 |
+| `POST /api/admin/system-update/start` | `{revision,releaseId}` | 核对本次检查结果及插件基线，冻结任务，再触发Hook |
+| `POST /api/admin/system-update/retry` | `{revision,taskId}` | failed/activation_pending或后端确认租约已过期的活动任务；重触同一任务，不更换目标 |
+| `POST /api/admin/system-update/recover` | `{revision,taskId}` | 受控运维恢复；仅已有上传版本且未开始数据库迁移的特定状态可用，先记录rolling_back意图；普通后台不提供任意降级入口 |
+
+`revision`从最新响应取得；CAS冲突回读后再确认，不能盲目递增。Hook只接受 `https://api.cloudflare.com/client/v4/workers/builds/deploy_hooks/<id>`；构建密钥为32～256位字母、数字、`_`、`-`。凭据加密保存、GET不返回原文；PUT省略字段保留，显式空字符串删除，网页编辑留空时发送省略。活动任务期间不能改通道或开启另一目标。
+
+```ts
+type SystemUpdateStatus = {
+  revision: number;
+  configured: boolean;
+  configuration: { hookConfigured: boolean; tokenConfigured: boolean };
+  channel: "stable" | "candidate";
+  current: null | {
+    version: string; sourceDigest: string; commit?: string; hostApiVersion: number;
+    plugins: { id: string; version: string; manifest: object; source: object;
+      installation: { epoch: string; revision: number } }[];
+  };
+  latest: null | SystemRelease;
+  checkedAt: number | null;
+  job: null | {
+    taskId: string; planDigest: string; status: string;
+    from: object; target: SystemRelease; plugins: object[];
+    receipt: object | null; createdAt: number; updatedAt: number;
+    error: string | null; providerBuildId?: string; resumable: boolean;
+  };
+  blockingReason: string | null;
+};
+type SystemRelease = {
+  schemaVersion: 1; id: string; version: string; commit: string;
+  host: { version: string; sourceDigest: string }; hostApiVersion: number;
+  minVersion: string; notes: { zh: string; en: string };
+  source: { url: string; sha256: string };
+  migration: { compatible: true }; channel: "stable" | "candidate";
+};
+```
+
+稳定来源固定为官方 `arctan303/FlareTune` 的最新正式、非预发布Release，要求其中各有唯一的 `flaretune-update.json` 与 `flaretune-source.tar.gz` 资产；版本为三段数字且须更高。清单ID为`version:commit`，stable的`source.url`只能是同仓库同版本的 `https://github.com/arctan303/FlareTune/releases/download/{version}/flaretune-source.tar.gz`。下载后严格校验清单SHA256、完整提交及宿主摘要；GitHub自动Source code ZIP/TAR不是该固定资产的替代品，校验失败即停止，不重算或改写SHA放行。首次引导代码须支持此稳定资产合同，不要求部署者日常同步每版仓库。
+
+受信服务器端 `FLARETUNE_UPDATE_CANDIDATE_JSON` 可提供明确标识的candidate，其`source.url`临时固定为 `https://codeload.github.com/arctan303/FlareTune/tar.gz/{commit}`，同样校验SHA和宿主；构建端通道须匹配，允许同版本不同摘要。该候选归档不替代稳定Release的两项资产，客户端不能切换到任意来源或把候选当作正式发布。
+
+任务状态为 `queued/building/uploaded/deploying/migrating/deployed/activation_pending/rolling_back/rolled_back/failed`。它们是实际阶段而非百分比；触发响应丢失可进入activation_pending，不能推断构建未启动或原代码仍服务。重试保留taskId、planDigest、目标及持久receipt；确认前不能以另一版本覆盖未知任务。receipt记录实际Worker/原流量/新版本/绑定摘要及迁移边界，不含秘密。代码恢复不会回退D1、配置或媒体；migrationStarted后拒绝恢复旧代码。
+
+`job.resumable`由后端判断：包括可安全重试的失败、activation_pending，以及执行租约过期或尚未claim且三分钟无活动的任务。活动但可续接时，后台也可通过同一`/retry`继续核实；客户端不能仅靠本地计时宣称任务已停滞或开放新目标。维护恢复仅适用于原认证仍可用的数据库状态，不承诺任意未知或半迁移结构都能网页恢复。
+
+冻结组合只包括实际已安装插件的精确版本、来源、包摘要及安装epoch/revision，不采用发行seed或目录最新包，不导出私人配置，不借卸载重装更新安装代次。待应用插件变更、其他活动插件构建、插件API不兼容或运行元数据缺失会阻止新系统任务。
+
+专用构建通道使用 `Authorization: Bearer <FLARETUNE_SYSTEM_UPDATE_BUILD_TOKEN>`，不使用管理员Cookie、CSRF或初始化密钥；仅基础状态ready/maintenance可达，仍逐次验证该构建能力和冻结任务。
+
+| METHOD + path | 请求与响应摘要 |
+| --- | --- |
+| `GET /api/system-update/plan` | 返回schemaVersion、revision、冻结任务及receipt；无任务404 `SYSTEM_UPDATE_JOB_UNAVAILABLE` |
+| `POST /api/system-update/claim` | `{taskId,planDigest,runnerId}` → `{taskId,planDigest,runnerId,leaseExpiresAt,revision}`；180秒租约，过期接管会隔离旧runner |
+| `POST /api/system-update/report` | `{taskId,planDigest,runnerId,status,receipt?,error?}` → `{ok,taskId,status,revision}`；核验租约、状态转换、实际宿主及安装组合，不凭报告宣称成功 |
+| `POST /api/system-update/migration` | `{taskId,planDigest,runnerId}` → `{taskId,status,migrationCompleted,...}`；仅本任务实际目标部署的内置兼容迁移，禁止任意/破坏性SQL |
+
+构建runner校验固定Cloudflare账号、Worker名、实际Worker tag和Builds分支，完整保留原绑定；租约、目标、绑定或外部部署改变时停止，不越过校验。构建输入与秘密的具体变量见[首次配置](../../guide/deployment.md#首次配置更新通道)，机器协议验证见[protocol.mjs](../../tooling/updates/protocol.mjs)、[deploy.mjs](../../tooling/updates/deploy.mjs)。
+
+常见阻断为 `SYSTEM_UPDATE_IN_PROGRESS/PLUGIN_PENDING/PLUGIN_BUILD_BUSY/PLUGIN_INCOMPATIBLE/RUNTIME_UNAVAILABLE`（每项均有 `SYSTEM_UPDATE_` 前缀）。写冲突/目标变更使用 `SYSTEM_UPDATE_REVISION_MISMATCH/TARGET_CHANGED/JOB_CHANGED`；另有 `SYSTEM_UPDATE_NOT_CONFIGURED/RELEASE_UNAVAILABLE/RELEASE_INVALID/VERSION_UNSUPPORTED/ALREADY_CURRENT/RETRY_UNAVAILABLE/RESULT_UNKNOWN/RECOVERY_UNAVAILABLE`。客户端显示安全、可操作文案，不直接展示不受信的上游错误；网络错误后先读取实际任务再决定重试。
 
 ## 3. 管理员账户
 

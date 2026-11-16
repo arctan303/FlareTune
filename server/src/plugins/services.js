@@ -20,8 +20,8 @@ const credentialPredicate = `EXISTS(SELECT 1 FROM account_credentials credential
   AND length(credential.salt)=22 AND credential.salt NOT GLOB '*[^A-Za-z0-9_-]*'
   AND length(credential.password_hash)=43 AND credential.password_hash NOT GLOB '*[^A-Za-z0-9_-]*')`;
 
-async function requireInstallations(env, registry, ids) {
-  if (registry.requirePluginsInstalled) return registry.requirePluginsInstalled(env, ids);
+async function requireInstallations(env, registry, ids, { fresh = false } = {}) {
+  if (registry.requirePluginsInstalled) return registry.requirePluginsInstalled(env, ids, { fresh });
   // Compatibility for trusted registry adapters implementing the original API.
   const installations = new Map();
   const visit = async id => {
@@ -45,16 +45,16 @@ function expectedEpochs(installations, context) {
 async function diagnoseLease(env, registry, session, manifest, epochs, admin) {
   const identity = await requirePluginSession(env, session, admin);
   if (!isPluginVisibleToRole(manifest, identity.role)) pluginFail('forbidden', 403);
-  const current = await requireInstallations(env, registry, [...epochs.keys()]);
+  const current = await requireInstallations(env, registry, [...epochs.keys()], { fresh: true });
   for (const [id, epoch] of epochs) if (current.get(id)?.epoch !== epoch) pluginFail('PLUGIN_NOT_INSTALLED');
 }
 
-function createLease({ env, session, identity, installations, roles, diagnose }) {
+function createLease({ env, session, identity, installations, roles, diagnose, snapshotGuard }) {
   const epochSql = [...installations].map(() => `EXISTS(SELECT 1 FROM instance_settings WHERE key=?
     AND json_extract(value_json,'$.installed')=1 AND json_extract(value_json,'$.epoch')=?)`).join(' AND ');
   const epochs = [...installations].flatMap(([id, epoch]) => [installationKey(id), epoch]);
-  const predicate = `${sessionPredicate} AND a.role IN (${roles.map(() => '?').join(',')}) AND ${epochSql}`;
-  const bindings = () => [...sessionBindings(session, Date.now()), ...roles, ...epochs];
+  const predicate = `${sessionPredicate} AND a.role IN (${roles.map(() => '?').join(',')}) AND ${epochSql}${snapshotGuard ? ` AND (${snapshotGuard.sql})` : ''}`;
+  const bindings = () => [...sessionBindings(session, Date.now()), ...roles, ...epochs, ...(snapshotGuard?.values || [])];
   const owner = {};
   const databases = new WeakMap();
   async function assertCurrent() {
@@ -103,9 +103,11 @@ export async function createPluginOperationLease({ env, session, pluginId, conte
   if (admin && identity.role !== 'admin') pluginFail('forbidden', 403);
   const manifest = registry.manifests.find(item => item.id === pluginId);
   if (manifest && !isPluginVisibleToRole(manifest, identity.role)) pluginFail('forbidden', 403);
-  const installations = expectedEpochs(await requireInstallations(env, registry, [pluginId]), context);
+  const snapshot = await requireInstallations(env, registry, [pluginId]);
+  const installations = expectedEpochs(snapshot, context);
   const roles = ['admin', 'member'].filter(role => (!admin || role === 'admin') && isPluginVisibleToRole(manifest, role));
   const lease = createLease({ env, session, identity, installations, roles,
+    snapshotGuard: registry.installationSnapshotGuard?.(snapshot),
     diagnose: () => diagnoseLease(env, registry, session, manifest, installations, admin) });
   const currentIdentity = await lease.assertCurrent();
   return Object.freeze({ identity: currentIdentity, plugin: Object.freeze({ id: pluginId, epoch: installations.get(pluginId) }), ...lease });
@@ -130,6 +132,7 @@ export async function createPluginServiceLease({ env, session, consumerId, provi
   const consumerInstallation = snapshot.get(consumerId), providerInstallation = snapshot.get(providerId);
   const roles = ['admin', 'member'].filter(role => (!admin || role === 'admin') && isPluginVisibleToRole(consumer, role));
   const lease = createLease({ env, session, identity, installations,
+    snapshotGuard: registry.installationSnapshotGuard?.(snapshot),
     roles, diagnose: () => diagnoseLease(env, registry, session, consumer, installations, admin) });
   await lease.assertCurrent();
   const service = Object.freeze({ identity: Object.freeze({ ...identity }),

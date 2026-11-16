@@ -13,6 +13,7 @@ import SettingsEditDialog from './SettingsEditDialog.jsx';
 import SettingsSkeleton from './SettingsSkeleton.jsx';
 import { SettingsActions, SettingsButton, SettingsToggle } from './SettingsControls.jsx';
 import DatabaseMigrationStatus from './DatabaseMigrationStatus.jsx';
+import SystemUpdatePanel from './SystemUpdatePanel.jsx';
 import AccountRow from './AdminAccountRow.jsx';
 import { Field, inputClass, buttonClass } from './AdminSettingsFields.jsx';
 import IngestDevicesPanel from './IngestDevicesPanel.jsx';
@@ -450,6 +451,7 @@ export default function AdminView({ onBack, embeddedTab, onTabChange }) {
                 </dl>
                 <DatabaseMigrationStatus status={status} busy={busy} onUpgrade={() => void upgradeDatabase()} />
               </Section>
+              <SystemUpdatePanel session={authSession} />
             </div>
           )}
         </>

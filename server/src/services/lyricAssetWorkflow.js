@@ -276,6 +276,14 @@ export function isFreshLyricAiPending(aiCompletion, now = Date.now()) {
   return Number.isFinite(startedAt) && ageMs >= 0 && ageMs <= LYRIC_AI_PENDING_FRESH_MS;
 }
 
+function languageScript(language) {
+  return ['zh', 'zh-CN', 'zh-TW', 'zh-Hant', 'yue'].includes(language) ? /\p{Script=Han}/u
+    : language === 'ja' ? /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
+      : language === 'ko' ? /\p{Script=Hangul}/u : language === 'ru' ? /\p{Script=Cyrillic}/u
+        : language === 'th' ? /\p{Script=Thai}/u
+          : ['en', 'es', 'fr', 'de', 'sv', 'vi', 'it', 'pt'].includes(language) ? /\p{Script=Latin}/u : null;
+}
+
 export function projectLyricTranslation(original, translation, { targetLanguage = null, song = {} } = {}) {
   if (!translation) return null;
   const language = storedLyricTranslationLanguage(translation);
@@ -292,11 +300,7 @@ export function projectLyricTranslation(original, translation, { targetLanguage 
   // A declared language cannot make an obviously incompatible script valid.
   // Latin remains ambiguous between several languages; this is rejection
   // evidence only, never language inference or a catalog metadata update.
-  const script = ['zh', 'zh-CN', 'zh-TW', 'zh-Hant', 'yue'].includes(language) ? /\p{Script=Han}/u
-    : language === 'ja' ? /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
-      : language === 'ko' ? /\p{Script=Hangul}/u : language === 'ru' ? /\p{Script=Cyrillic}/u
-        : language === 'th' ? /\p{Script=Thai}/u
-          : ['en', 'es', 'fr', 'de', 'sv', 'vi', 'it', 'pt'].includes(language) ? /\p{Script=Latin}/u : null;
+  const script = languageScript(language);
   if (script && !script.test(translatedBody)) return null;
   // A translated song may keep a name or phrase unchanged. Render that row
   // once while retaining alignment and the rest of the useful translation.
@@ -307,14 +311,15 @@ function activeTranslation(artifact, targetLanguage, song = {}) {
   const target = targetLanguage || storedLyricTranslationLanguage(artifact.translation);
   const decision = target ? getCurrentLyricTranslationDecision(artifact, song, { targetLanguage: target }) : null;
   if (decision?.status === 'not_needed') return null;
+  if (artifact.translation?.source === 'ai' && artifact.translationDecision && !decision) return null;
   const need = target ? resolveLyricTranslationNeed(artifact.original, song, { targetLanguage: target }) : null;
-  // Old AI layers with unknown/contradictory source language have no proof of
-  // translation rather than paraphrase. Reassess once through the allowed mode.
-  const targetTag = /^zh(?:-|$)/u.test(target || '') ? 'zh' : target;
-  const targetEvidence = target ? resolveLyricTranslationNeed(artifact.original, { ...song, language: targetTag }, { targetLanguage: target }) : null;
+  // Legacy unassessed AI layers retain their read-only script sanity check.
+  // This neither classifies a song nor reopens tagged dominant-language rules.
+  const targetScript = languageScript(target);
+  const originalText = meaningfulLyricLines(artifact.original, song).map(line => line.text).join('\n');
   if (artifact.translation?.source === 'ai' && need?.state === 'unknown' && decision?.status !== 'translated'
-    && targetEvidence?.reason !== 'script_mismatch') return null;
-  const effectiveSong = decision?.status === 'translated' && !decision.hasForeignPassages
+    && decision?.status !== 'needed' && (!targetScript || targetScript.test(originalText))) return null;
+  const effectiveSong = ['needed', 'translated'].includes(decision?.status)
     ? { ...song, language: decision.sourceLanguage } : song;
   return projectLyricTranslation(artifact.original, artifact.translation, { targetLanguage, song: effectiveSong });
 }

@@ -142,7 +142,8 @@ test('AI completion on a YT song never writes inferred language to Songs', async
     resolveAiFeature: async () => null, reserveDailyQuota: async () => true,
     loadLyricAiConfig: async () => ({ provider: 'deepseek', model: 'test', targetLanguage: 'zh', translateLyrics: true, detectLanguage: true }),
     getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test', systemPrompt: '' }),
-    askAI: async () => ({ songLanguage: 'en', translations: [{ unitId: 0, text: '你好' }] }),
+    askAI: async messages => JSON.parse(messages.at(-1).content).languageTable
+      ? { language: 'en', match: 0.97 } : { translations: [{ unitId: 0, text: '你好' }] },
     updateSongLanguage: async () => { throw new Error('YT language must not write local Songs'); },
   } });
   await started.task;
@@ -172,12 +173,14 @@ test('disconnect while an AI task is in flight prevents its late lyric write', a
   const artifact = makeReadyArtifact({ songId: ytSong.id }); const rawStore = createMemoryLyricStore(artifact);
   let connected = true;
   const store = guardExternalLyricStore(rawStore, ytSong.id, async () => connected);
-  const started = await beginLyricAssetAiCompletion({ env: {}, db: withoutCatalog(), song: ytSong, store, force: true, targetLanguage: 'zh', deps: {
+  const started = await beginLyricAssetAiCompletion({ env: {}, db: withoutCatalog(), song: { ...ytSong, language: 'en' }, store, force: true, targetLanguage: 'zh', deps: {
     resolveAiFeature: async () => null, reserveDailyQuota: async () => true,
+    loadLyricAiConfig: async () => ({ provider: 'deepseek', model: 'test', targetLanguage: 'zh', cleanDirtyLyrics: false, translateLyrics: true, detectLanguage: true }),
     getAIAssistantConfig: async () => ({ provider: 'deepseek', model: 'test', systemPrompt: '' }),
     askAI: async () => { connected = false; return { translations: [{ unitId: 0, text: 'Late' }] }; },
   } });
   await assert.rejects(started.task, /Song source is no longer available/u);
-  assert.equal(rawStore.calls.put, 1); // only the pending marker, before disconnect
+  assert.equal(rawStore.calls.put, 2); // language assessment and pending marker, both before disconnect
+  assert.deepEqual(rawStore.current().original, artifact.original);
   assert.equal(rawStore.current().translation, null);
 });

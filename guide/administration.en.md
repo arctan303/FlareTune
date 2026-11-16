@@ -8,6 +8,8 @@ Explore full pages and configuration dialogs in the [demo administration setting
 
 After signing in, administrators can open Library management, Song ingest, AI and assistant, Account management, and Instance settings from the Settings sidebar. Instance settings brings together the instance name, allowed origins, ingest devices, runtime status, and database upgrades. Members cannot access these areas. Administrators import their own music files. The Worker reads media from private R2 and checks session access.
 
+System update on the same page upgrades the application release. A deployer configures a bootstrap repository, the same Worker Builds project, Deploy Hook and restricted build credentials once. Routine checks only read versions; confirmation starts the build and deployment. Progress, failure retries and verification of unknown results retain the same task without updating installed plugins. During maintenance, normal administrators can still verify resumable tasks, using local administrator sign-in if their session expires. The page waits for recovery without asking for the setup secret; code restoration does not roll back data. See [system updates](deployment.en.md#system-updates-in-administration) for complete setup and operation. Demo has no real update channel, and members cannot update the instance.
+
 Instance settings shows the app version, instance status, base schema version, and individual feature migrations. Administrators can apply compatible pending updates; the database is current only when no migration is pending. The former `/settings/admin/instance` URL redirects to Instance settings. Interface language is an account choice in Personal settings, not an instance-wide admin setting.
 
 ## AI connections

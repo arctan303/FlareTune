@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { pagedSearch, pagedArtist } from './pagination.mjs';
 const makeSong = index => ({ id: 'a' + String(index).padStart(10, '0'), title: 'Song ' + index, item_type: 'song' });
 
-test('search offset pagination follows SDK continuation shelves and coalesces concurrent cursors', async () => {
+test('search pagination keeps request-local cursors and reuses completed progress', async () => {
   let searches = 0, continuations = 0;
   const page = index => ({ contents: index === 0 ? [{ contents: Array.from({ length: 20 }, (_, n) => makeSong(index * 20 + n)) }] :
     { contents: Array.from({ length: 20 }, (_, n) => makeSong(index * 20 + n)) }, has_continuation: index < 2,
@@ -14,10 +14,13 @@ test('search offset pagination follows SDK continuation shelves and coalesces co
   assert.equal(first.songs.length, 20); assert.equal(first.hasMore, true);
   const more = await Promise.all([pagedSearch(yt, 'query', { ...base, offset: 20, limit: 20 }),
     pagedSearch(yt, 'query', { ...base, offset: 40, limit: 20 })]);
-  assert.equal(searches, 1); assert.equal(continuations, 2);
+  // Separate Worker requests cannot inherit unfinished work. Both may advance
+  // page one, then the later request publishes its furthest completed cursor.
+  assert.equal(searches, 1); assert.equal(continuations, 3);
+  assert.equal(more[0].songs.length, 40);
   assert.equal(more[1].songs[40].title, 'Song 40'); assert.equal(more[1].hasMore, false);
   const again = await pagedSearch(yt, 'query', { ...base, offset: 0, limit: 20 });
-  assert.equal(again.songs.length, 60); assert.equal(again.hasMore, true); assert.equal(continuations, 2);
+  assert.equal(again.songs.length, 60); assert.equal(again.hasMore, true); assert.equal(continuations, 3);
 });
 
 test('uncached far search offsets are bounded rather than silently skipping results', async () => {

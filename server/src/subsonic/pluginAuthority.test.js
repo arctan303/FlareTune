@@ -12,9 +12,11 @@ import { createLyricDocument } from '../utils/lyricDocument.js';
 
 const payload = async response => (await response.json())['subsonic-response'];
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
-const aiReply = () => Response.json({ choices: [{ message: { content: JSON.stringify({
-  songLanguage: 'en', discardLineIndices: [], translations: [{ unitId: 0, text: '你好' }],
-}) } }] });
+const aiReply = options => {
+  const input = options?.body ? JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content) : null;
+  return Response.json({ choices: [{ message: { content: JSON.stringify(input?.languageTable
+    ? { language: 'en', match: 0.99 } : { translations: [{ unitId: 0, text: '你好' }] }) } }] });
+};
 const artifact = f => JSON.parse(new TextDecoder().decode(f.objects.get('media/lyrics/s1.json').bytes));
 async function install(f, id, installed = true) {
   return pluginRegistry.setInstalled(f.env, f.signed.session, id,
@@ -103,8 +105,8 @@ async function compactLyrics(f, lineCount) {
 function batchReply(options) {
   const data = JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content);
   return Response.json({ choices: [{ message: { content: JSON.stringify({
-    ...(data.languageSample ? { songLanguage: 'en', discardLineIndices: [] } : {}),
-    translations: data.units.map(unit => ({ unitId: unit.unitId, text: `这是第${unit.unitId}行译文` })),
+    ...(data.languageTable ? { language: 'en', match: 0.99 }
+      : { translations: data.units.map(unit => ({ unitId: unit.unitId, text: `这是第${unit.unitId}行译文` })) }),
   }) } }] });
 }
 
@@ -166,7 +168,7 @@ test('Subsonic final SQL guard rolls back the business write if authority change
 
 test('both Subsonic lyric endpoints keep original reads without plugins, and run the same automatic AI after installation', async t => {
   const f = await setup(t, false); let calls = 0; const tasks = [];
-  t.mock.method(globalThis, 'fetch', async input => { assert.ok(new URL(input).hostname.includes('deepseek')); calls++; return aiReply(); });
+  t.mock.method(globalThis, 'fetch', async (input, options) => { assert.ok(new URL(input).hostname.includes('deepseek')); calls++; return aiReply(options); });
   const options = { username: 'member', executionContext: { waitUntil: task => tasks.push(task) } };
   assert.equal((await payload(await f.rest('getLyrics', { id: 's1' }, options))).lyrics.value, 'Hello');
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, options))).status, 'ok');
@@ -176,10 +178,10 @@ test('both Subsonic lyric endpoints keep original reads without plugins, and run
   await install(f, 'ai-gateway');
   await initializeWorkbenchModel(f);
   assert.equal((await payload(await f.rest('getLyrics', { id: 's1' }, options))).lyrics.value, 'Hello');
-  await Promise.all(tasks); assert.equal(calls, 1); assert.equal(artifact(f).translation.lines[0], '你好');
+  await Promise.all(tasks); assert.equal(calls, 2); assert.equal(artifact(f).translation.lines[0], '你好');
   const refreshed = await payload(await f.rest('getLyricsBySongId', { id: 's1', enhanced: true }, options));
   assert.equal(refreshed.lyricsList.structuredLyrics[1].line[0].value, '你好');
-  assert.equal(f.sqlite.prepare('SELECT generation_count FROM AI_Daily_Usage').get().generation_count, 1);
+  assert.equal(f.sqlite.prepare('SELECT generation_count FROM AI_Daily_Usage').get().generation_count, 2);
 });
 
 test('Subsonic automatic AI preserves the established quota limit', async t => {
@@ -188,19 +190,21 @@ test('Subsonic automatic AI preserves the established quota limit', async t => {
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
   await Promise.all(tasks);
-  assert.equal(upstream.mock.calls.length, 0); assert.equal(artifact(f).aiCompletion.errorCode, 'quota_exhausted');
+  assert.equal(upstream.mock.calls.length, 0); assert.equal(artifact(f).aiCompletion.errorCode, 'language_assessment_failed');
+  assert.equal(artifact(f).aiCompletion.status, 'failed');
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS count FROM AI_Daily_Usage').get().count, 0);
 });
 
 test('complete authenticated Subsonic automatic AI including waitUntil fits the Free 50 binding limit', async t => {
   for (const endpoint of ['getLyricsBySongId', 'getLyrics']) {
     const f = await setup(t), tasks = []; let upstreamCalls = 0;
-    const upstream = t.mock.method(globalThis, 'fetch', async () => { upstreamCalls++; return aiReply(); });
+    const upstream = t.mock.method(globalThis, 'fetch', async (_input, options) => { upstreamCalls++; return aiReply(options); });
     const calls = enforceBindingBudget(f.db, 50);
     try {
       const result = await payload(await f.rest(endpoint, { id: 's1' }, { username: 'member',
         executionContext: { waitUntil: task => tasks.push(task) } }));
       assert.equal(result.status, 'ok'); await Promise.all(tasks);
-      assert.equal(upstreamCalls, 1); assert.equal(artifact(f).translation?.lines[0], '你好');
+      assert.equal(upstreamCalls, 2); assert.equal(artifact(f).translation?.lines[0], '你好');
       assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
       assert.ok(calls.length <= 50, JSON.stringify(calls));
       t.diagnostic(`${endpoint} including waitUntil: ${calls.length}/50 D1 bindings`);
@@ -211,7 +215,12 @@ test('complete authenticated Subsonic automatic AI including waitUntil fits the 
 test('Subsonic automatic AI retains the 50 binding budget through 24 seconds of upstream polling', async t => {
   const f = await setup(t), tasks = [], entered = deferred(), reply = deferred(); let upstreamCalls = 0;
   t.mock.timers.enable({ apis: ['setInterval'] });
-  t.mock.method(globalThis, 'fetch', async () => { upstreamCalls++; entered.resolve(); await reply.promise; return aiReply(); });
+  t.mock.method(globalThis, 'fetch', async (_input, options) => {
+    upstreamCalls++;
+    const input = JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content);
+    if (!input.languageTable) { entered.resolve(); await reply.promise; }
+    return aiReply(options);
+  });
   const calls = enforceBindingBudget(f.db, 50);
   const result = await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }));
@@ -223,17 +232,19 @@ test('Subsonic automatic AI retains the 50 binding budget through 24 seconds of 
   }
   const pollCalls = calls.length - beforePolling;
   reply.resolve(); await Promise.all(tasks);
-  assert.equal(pollCalls, 12); assert.equal(upstreamCalls, 1); assert.equal(artifact(f).translation?.lines[0], '你好');
+  assert.equal(pollCalls, 12); assert.equal(upstreamCalls, 2); assert.equal(artifact(f).translation?.lines[0], '你好');
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`24s upstream polling including waitUntil: ${calls.length}/50 D1 bindings (${pollCalls} waiting checks)`);
 });
 
 test('144-line compact translation and its one JSON retry complete within the full Subsonic 50 binding limit', async t => {
   for (const retry of [false, true]) {
-    const f = await setup(t), tasks = []; await compactLyrics(f, 144); let upstreamCalls = 0;
+    const f = await setup(t), tasks = []; await compactLyrics(f, 144); let upstreamCalls = 0, translationCalls = 0;
     const upstream = t.mock.method(globalThis, 'fetch', async (input, options) => {
       upstreamCalls++;
-      if (retry && upstreamCalls === 1) return Response.json({ choices: [{ message: { content: '{invalid' } }] });
+      const data = JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content);
+      if (!data.languageTable) translationCalls++;
+      if (retry && translationCalls === 1 && !data.languageTable) return Response.json({ choices: [{ message: { content: '{invalid' } }] });
       return batchReply(options);
     });
     const calls = enforceBindingBudget(f.db, 50);
@@ -241,8 +252,8 @@ test('144-line compact translation and its one JSON retry complete within the fu
       const result = await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
         executionContext: { waitUntil: task => tasks.push(task) } }));
       assert.equal(result.status, 'ok'); await Promise.all(tasks);
-      assert.equal(upstreamCalls, retry ? 9 : 8); assert.equal(artifact(f).translation?.lines.length, 144);
-      assert.equal(artifact(f).aiCompletion, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
+      assert.equal(upstreamCalls, 1 + Math.ceil(144 / 40) + Number(retry)); assert.equal(artifact(f).translation?.lines.length, 144);
+      assert.equal(artifact(f).aiCompletion.status, 'completed'); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
       assert.ok(calls.length <= 50); t.diagnostic(`144 lines${retry ? ' with JSON retry' : ''}: ${calls.length}/50 D1 bindings`);
     } finally { upstream.mock.restore(); }
   }
@@ -253,7 +264,8 @@ test('multi-batch AI with JSON retry and upstream waiting reserves failed settle
   t.mock.timers.enable({ apis: ['setInterval'] }); let upstreamCalls = 0, waitFirst = true;
   t.mock.method(globalThis, 'fetch', async (input, options) => {
     upstreamCalls++;
-    if (waitFirst) {
+    const data = JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content);
+    if (waitFirst && !data.languageTable) {
       waitFirst = false; entered.resolve(); await reply.promise;
       return Response.json({ choices: [{ message: { content: '{invalid' } }] });
     }
@@ -267,18 +279,18 @@ test('multi-batch AI with JSON retry and upstream waiting reserves failed settle
   reply.resolve(); await Promise.all(tasks);
   assert.equal(artifact(f).translation, null); assert.equal(artifact(f).aiCompletion?.status, 'failed');
   assert.equal(artifact(f).aiCompletion?.errorCode, 'request_budget_exhausted');
-  assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
+  assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`144 lines plus waiting failed safely: ${calls.length}/50 D1 bindings`);
   calls.length = 0; tasks.length = 0; const priorCalls = upstreamCalls;
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, options))).status, 'ok');
   await Promise.all(tasks);
-  assert.equal(upstreamCalls - priorCalls, 8); assert.equal(artifact(f).translation?.lines.length, 144);
-  assert.equal(artifact(f).aiCompletion, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
+  assert.equal(upstreamCalls - priorCalls, Math.ceil(144 / 40)); assert.equal(artifact(f).translation?.lines.length, 144);
+  assert.equal(artifact(f).aiCompletion.status, 'completed'); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`next invocation retry completes: ${calls.length}/50 D1 bindings`);
 });
 
-test('ordinary 176 and 200-line compact lyrics fully complete within the entire invocation budget', async t => {
-  for (const length of [176, 200]) {
+test('ordinary 176, 200 and 264-line compact lyrics fully complete within the entire invocation budget', async t => {
+  for (const length of [176, 200, 264]) {
     const f = await setup(t), tasks = []; await compactLyrics(f, length); let upstreamCalls = 0;
     const upstream = t.mock.method(globalThis, 'fetch', async (input, options) => { upstreamCalls++; return batchReply(options); });
     const calls = enforceBindingBudget(f.db, 50);
@@ -286,61 +298,76 @@ test('ordinary 176 and 200-line compact lyrics fully complete within the entire 
       assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
         executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
       await Promise.all(tasks);
-      assert.equal(upstreamCalls, Math.ceil(length / 20)); assert.equal(artifact(f).translation?.lines.length, length);
-      assert.equal(artifact(f).aiCompletion, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
+      assert.equal(upstreamCalls, 1 + Math.ceil(length / 40)); assert.equal(artifact(f).translation?.lines.length, length);
+      assert.equal(artifact(f).aiCompletion.status, 'completed'); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
       assert.ok(calls.length <= 50); t.diagnostic(`${length} lines fully complete: ${calls.length}/50 D1 bindings`);
     } finally { upstream.mock.restore(); }
   }
 });
 
-test('Subsonic mixed compact batches keep target-language rows empty without an extra paraphrase request', async t => {
+test('Subsonic mainly Chinese lyrics ignore minor foreign inserts and cache no translation', async t => {
   const f = await setup(t), tasks = []; await compactLyrics(f, 32); let upstream = 0;
   const saved = artifact(f), song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
   const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
-    saved.original.lines.map((line, index) => index < 20 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
+    saved.original.lines.map((line, index) => index < 28 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
-  t.mock.method(globalThis, 'fetch', async (input, options) => ++upstream === 1
-    ? Response.json({ choices: [{ message: { content: JSON.stringify({ songLanguage: 'zh', discardLineIndices: [], notNeeded: true }) } }] })
-    : batchReply(options));
+  t.mock.method(globalThis, 'fetch', async (input, options) => {
+    upstream++;
+    const data = JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content);
+    assert.ok(data.languageTable, 'only the tagging role is needed');
+    return Response.json({ choices: [{ message: { content: JSON.stringify({ language: 'zh', match: 0.9 }) } }] });
+  });
   const calls = enforceBindingBudget(f.db, 50);
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
-  await Promise.all(tasks); assert.equal(upstream, 2); assert.equal(artifact(f).translation?.lines.length, 32);
-  assert.ok(artifact(f).translation.lines.slice(0, 20).every(text => text === ''));
-  assert.ok(artifact(f).translation.lines.slice(20).every(Boolean));
-  assert.equal(artifact(f).aiCompletion, null); assert.ok(calls.length <= 50);
+  await Promise.all(tasks); assert.equal(upstream, 1); assert.equal(artifact(f).translation, null);
+  assert.equal(artifact(f).translationDecision.status, 'not_needed'); assert.equal(artifact(f).aiCompletion.status, 'completed');
+  assert.deepEqual(artifact(f).original, mixed.artifact.original);
+  assert.ok(calls.length <= 50);
 });
 
 test('larger compact lyrics exceeding the request budget finish as failed without a partial translation or pending lock', async t => {
-  const lineCount = 264;
+  const lineCount = 400;
   const f = await setup(t), tasks = []; await compactLyrics(f, lineCount); let upstreamCalls = 0;
+  const original = structuredClone(artifact(f).original);
   t.mock.method(globalThis, 'fetch', async (input, options) => { upstreamCalls++; return batchReply(options); });
   const calls = enforceBindingBudget(f.db, 50);
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
   await Promise.all(tasks);
-  assert.ok(upstreamCalls > 0 && upstreamCalls < Math.ceil(lineCount / 20), 'budget stops upstream batches before the whole document can finish');
+  assert.ok(upstreamCalls > 1 && upstreamCalls < 1 + Math.ceil(lineCount / 40), 'budget stops upstream batches before the whole document can finish');
   assert.equal(artifact(f).translation, null);
   assert.equal(artifact(f).aiCompletion?.status, 'failed'); assert.equal(artifact(f).aiCompletion.errorCode, 'request_budget_exhausted');
-  assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
+  assert.deepEqual(artifact(f).original, original);
+  assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`${lineCount} lines settle without partial save: ${calls.length}/50 D1 bindings`);
+  const previousCalls = upstreamCalls;
+  calls.length = 0; tasks.length = 0;
+  assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
+    executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
+  await Promise.all(tasks);
+  assert.ok(upstreamCalls > previousCalls, 'a fresh invocation can retry rather than inheriting an exhausted pending lock');
+  assert.equal(artifact(f).aiCompletion.status, 'completed');
+  assert.equal(artifact(f).translation.lines.length, lineCount);
+  assert.deepEqual(artifact(f).original, original);
+  assert.ok(calls.length <= 50); t.diagnostic(`${lineCount} lines retry with the cached language: ${calls.length}/50 D1 bindings`);
 });
 
 test('opt-in withdrawal, credential changes and either plugin reinstall discard delayed Subsonic AI without shared writes', async t => {
   for (const revoke of ['opt-in', 'password', 'workbench', 'gateway']) {
     const f = await setup(t); const entered = deferred(), response = deferred(), tasks = [];
-    const upstream = t.mock.method(globalThis, 'fetch', async () => { entered.resolve(); await response.promise; return aiReply(); });
+    const upstream = t.mock.method(globalThis, 'fetch', async (_input, options) => { entered.resolve(); await response.promise; return aiReply(options); });
     try {
-      const result = await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
-        executionContext: { waitUntil: task => tasks.push(task) } }));
-      assert.equal(result.status, 'ok'); await entered.promise;
+      const pendingResponse = f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
+        executionContext: { waitUntil: task => tasks.push(task) } });
+      await entered.promise;
       const pending = JSON.stringify(artifact(f));
       if (revoke === 'opt-in') {
         const status = await (await f.api('account/subsonic', 'GET', undefined, f.member)).json();
         assert.equal((await f.api('account/subsonic', 'PUT', { enabled: false, expectedRevision: status.revision }, f.member)).status, 200);
       } else if (revoke === 'password') f.sqlite.exec("UPDATE account_credentials SET must_change_password=1 WHERE account_id='member'");
       else { const id = revoke === 'workbench' ? 'lyrics-workbench' : 'ai-gateway'; await install(f, id, false); await install(f, id); }
-      response.resolve(); await Promise.allSettled(tasks);
+      response.resolve(); await pendingResponse; await Promise.allSettled(tasks);
       assert.equal(JSON.stringify(artifact(f)), pending, revoke);
       assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null, revoke);
     } finally { response.resolve(); upstream.mock.restore(); }
