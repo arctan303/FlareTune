@@ -34,9 +34,11 @@
 | POST | `/api/instance/upgrade` | `maintenance`，maintenance proof | 200，升级状态 |
 | GET | `/api/admin/system/migration` | `ready`，正常 admin | 200，主版本与补充迁移状态 |
 | POST | `/api/admin/system/migration` | `ready`，正常 admin | 200，升级状态 |
-| GET | `/api/auth/google/status` | `ready`，无需登录 | 200，`{enabled}` |
+| GET | `/api/auth/google/status` | `ready`，无需登录 | 200，`{enabled}`（带 `client=android` 时含 `nativeEnabled`） |
 | POST | `/api/auth/google/start` | `ready`，无需登录 | 200，`{url}` 与交易 Cookie |
-| GET | `/auth/google/callback` | `ready`，有效浏览器交易 | 303，浏览器重定向 |
+| GET | `/auth/google/native/start` | `ready`，原生 Custom Tabs | 303，Google 授权页与交易 Cookie |
+| GET | `/auth/google/callback` | `ready`，有效浏览器交易 | 303，浏览器或原生 deep link 重定向 |
+| POST | `/api/auth/google/exchange` | `ready`，原生一次性换票 | 200，会话摘要及 Cookie |
 | GET | `/api/account/google` | `ready`，正常账号 | 200，本人绑定状态 |
 | POST | `/api/account/google/bind` | `ready`，正常账号及本人密码 | 200，`{url}` 与交易 Cookie |
 | POST | `/api/account/google/unbind` | `ready`，正常账号及本人密码 | 200，`{ok:true}`，清 Cookie |
@@ -55,7 +57,7 @@
 | GET | `/api/account/images/{id}` | `ready`，正常账号且本人图片 | 200，`image/webp` 字节 |
 | DELETE | `/api/account/images/{id}` | `ready`，正常账号且本人未引用图片 | 200，`{ok:true}` |
 
-共 32 种调用组合。统一 OPTIONS 预检不另计为业务接口。已移除的 `/api/auth/recovery` 对所有方法返回 404 `not_found`，不是管理员重置通道。不存在 `GET /api/account/profile` 或 `GET /api/account/ui-language`；读取本人这两项使用 session 响应。
+共 34 种调用组合。统一 OPTIONS 预检不另计为业务接口。已移除的 `/api/auth/recovery` 对所有方法返回 404 `not_found`，不是管理员重置通道。不存在 `GET /api/account/profile` 或 `GET /api/account/ui-language`；读取本人这两项使用 session 响应。
 
 ## 3. 实例探测与首次认领
 
@@ -210,7 +212,8 @@ proof 错误 403 `invalid_setup`；账号/密码格式 400 `invalid_input`；认
   "supplementalMigrations":[
     {"id":"ai_protocols","ready":true},{"id":"user_images","ready":true},
     {"id":"ai_feature_models","ready":true},{"id":"google_login","ready":true},
-    {"id":"hotpath_counts","ready":true},{"id":"external_music","ready":true}
+    {"id":"hotpath_counts","ready":true},{"id":"external_music","ready":true},
+    {"id":"google_native_handoff","ready":true}
   ]
 }
 ```
@@ -302,15 +305,28 @@ enabled 表示本人兼容凭据目前可用；Secret 轮换、损坏或账号�
 
 Google 是现有本站账号的可选登录方式，不会按 email 自动创建或合并账号，也不是 YouTube Music 插件授权。Google sub 与本站账号一对一绑定；未绑定、禁用或必须改密的账号不能借 Google 获得正常本站会话。
 
-### 原生客户端边界
+### 原生客户端交还流程
 
-当前流程依赖 **同一浏览器 cookie jar**：POST start 设置 10 分钟 HttpOnly 交易 Cookie，浏览器访问返回的 Google URL，Google 再导航到实例 `/auth/google/callback`。callback 同时检查 state、浏览器 Cookie、nonce、PKCE、配置版本及当前凭据，成功后只在该浏览器设置本站 Cookie 并重定向 Web 页面。
+Web 端使用同一浏览器 Cookie jar；原生客户端通过系统浏览器（Chrome Custom Tabs）+ 一次性 PKCE 交还码获取 `__Host-ft_session`：
 
-当前没有原生 authorization-code 换本站会话、Google ID token 直登、设备码、app deep link 或把浏览器会话安全移交 App 的接口。原生 HTTP 客户端拿到 `{url}` 不代表已登录；把 URL 交给外部浏览器也不会自动把两个 cookie jar 合并。现有纯原生客户端可使用本站用户名密码；若要原生 Google 登录，需要另行设计明确的会话交还合同，不能把 Web callback 当 token API。
+1. 客户端先通过 `GET /api/auth/google/status?client=android` 探测 `enabled` 与 `nativeEnabled`。
+2. 客户端在本地生成高熵 `codeVerifier` 与 S256 `challenge`，在 Custom Tabs 中打开 `GET /auth/google/native/start?challenge=<43位base64url>`。
+3. Custom Tabs 内完成 Google 授权并回到实例 `GET /auth/google/callback`；服务端不签发浏览器会话 Cookie，而是 303 重定向至 `flaretune://auth/google/callback?code=<43位一次性交还码>`（取消/未绑定/失败时返回 `?error=cancelled|unbound|failed|google_unavailable|rate_limited`）。
+4. 客户端通过 `POST /api/auth/google/exchange` 提交 `{"code":"...","codeVerifier":"..."}`（带标准 `Origin` 与 `X-Requested-With: FlareTune` 头）换取与 `/api/auth/login` 相同格式的会话摘要与 `__Host-ft_session` Cookie；交还码有效期 2 分钟且仅可消费一次，账号状态、密码或 Google 配置变化均使交还失效。
+
+仍不提供 Google ID token 直登或自动按邮箱创建账号。
 
 ### GET /api/auth/google/status
 
-200 `{"enabled":true}`。只有管理员已启用、Secret 可解密且当前 origin 匹配配置 callbackOrigin 才 true；未迁移或未配置通常为 false，不返回客户端密钥。
+200 `{"enabled":true}`。只有管理员已启用、Secret 可解密且当前 origin 匹配配置 callbackOrigin 才 true；未迁移或未配置通常为 false，不返回客户端密钥。带 `?client=android` 查询参数时额外返回 `nativeEnabled`（要求已启用且完成 `google_native_handoff` 补充表迁移）。
+
+### GET /auth/google/native/start
+
+由原生客户端在 Chrome Custom Tabs 中打开，查询参数 `challenge` 为 43 位 base64url（S256 PKCE 摘要）。服务端签发同一浏览器交易 Cookie 并 303 重定向至 Google OAuth（继续使用管理员已配置的 `/auth/google/callback` 回调地址，无需在 Google Cloud Console 增配原生重定向 URI）。不可用、来源不匹配或限流时 303 重定向至 `flaretune://auth/google/callback?error=...`。
+
+### POST /api/auth/google/exchange
+
+需实例 `ready` 且带标准 `Origin` 与 `X-Requested-With: FlareTune` 头；正文 JSON 只允许 `code`（43 位 base64url）与 `codeVerifier`（43–128 位 base64url）。校验 PKCE、配置版本、`auth_epoch` 与账号绑定及有效状态后，原子消费交还码并返回与 `POST /api/auth/login` 相同的 200 JSON 与 `__Host-ft_session` Cookie。校验失败返回 401 `google_failed`，参数格式错误返回 400 `invalid_input`，限流返回 429 `rate_limited`。
 
 ### POST /api/auth/google/start
 

@@ -237,8 +237,10 @@ test('partially expanded v1 is rejected before supplemental migrations write dat
   sqlite.close();
 });
 
-function completeV2(sqlite, { external = false } = {}) {
-  for (const migration of MIGRATION_BUNDLE.slice(1, external ? undefined : -1)) {
+function completeV2(sqlite, { external = false, nativeHandoff = true } = {}) {
+  for (const migration of MIGRATION_BUNDLE.slice(1)) {
+    if (!external && migration.name === '0014_external_music_references.sql') continue;
+    if (!nativeHandoff && migration.name === '0015_google_native_handoff.sql') continue;
     for (const statement of migration.statements) sqlite.prepare(statement).run();
   }
   const migration = KNOWN_MIGRATIONS[1];

@@ -1,5 +1,5 @@
 import { AuthError, clearSessionCookie, sessionCookie, verifyPassword } from './local/index.js';
-import { randomSessionToken, tokenDigest } from './local/crypto.js';
+import { csrfTokenForSession, randomSessionToken, tokenDigest } from './local/crypto.js';
 import { isUsableCredentialMaterial } from '../instance/credentialFormat.js';
 import { requireActiveAdmin } from '../instanceAdmin/common.js';
 import { consumeAuthAttempt } from './local/rateLimit.js';
@@ -9,7 +9,10 @@ const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const CALLBACK = '/auth/google/callback';
+const NATIVE_START = '/auth/google/native/start';
+const NATIVE_CALLBACK = 'flaretune://auth/google/callback';
 const TTL = 10 * 60 * 1000;
+const NATIVE_HANDOFF_TTL = 2 * 60 * 1000;
 const encoder = new TextEncoder();
 const fail = (code = 'google_failed', status = 400) => { throw new AuthError(code, status); };
 const encode = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -20,6 +23,11 @@ let keysCache = null;
 export async function googleSchemaReady(db) {
   const result = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('google_login_config','account_google_bindings','google_login_transactions')").all();
   return result.results?.length === 3;
+}
+
+export async function nativeHandoffSchemaReady(db) {
+  const result = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'google_native_handoffs'").all();
+  return result.results?.length === 1;
 }
 
 async function key(env) {
@@ -87,6 +95,24 @@ function browserCookie(request) {
   return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : '';
 }
 
+function nativeRedirect(params, cookie = '') {
+  const query = new URLSearchParams(params).toString();
+  const headers = new Headers({
+    Location: `${NATIVE_CALLBACK}?${query}`,
+    'Cache-Control': 'no-store',
+    'Referrer-Policy': 'no-referrer',
+  });
+  if (cookie) headers.append('Set-Cookie', cookie);
+  return new Response(null, { status: 303, headers });
+}
+
+async function oauthAuthUrl(config, state, nonce, verifier) {
+  const params = new URLSearchParams({ client_id: config.client_id, redirect_uri: config.callback_origin + CALLBACK,
+    response_type: 'code', scope: 'openid email', state, nonce, access_type: 'online', prompt: 'select_account',
+    code_challenge: encode(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier)))), code_challenge_method: 'S256' });
+  return `${AUTH_URL}?${params}`;
+}
+
 async function start(request, env, config, session, purpose, body, json) {
   if (!config || !config.client_id || !config.encrypted_secret || (purpose === 'login' && config.enabled !== 1)) fail('google_unavailable', 409);
   if (new URL(request.url).origin !== config.callback_origin) fail('google_origin_mismatch', 409);
@@ -102,10 +128,41 @@ async function start(request, env, config, session, purpose, body, json) {
     config.revision, config.auth_epoch, credential ? session.account.accountId : null, credential ? session.tokenHash : null,
     credential?.password_hash ?? null, credential?.salt ?? null, now + TTL),
   ]);
-  const params = new URLSearchParams({ client_id: config.client_id, redirect_uri: config.callback_origin + CALLBACK,
-    response_type: 'code', scope: 'openid email', state, nonce, access_type: 'online', prompt: 'select_account',
-    code_challenge: encode(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier)))), code_challenge_method: 'S256' });
-  return json({ url: AUTH_URL + '?' + params }, 200, { 'Set-Cookie': transactionCookie(request, browser) });
+  return json({ url: await oauthAuthUrl(config, state, nonce, verifier) }, 200, { 'Set-Cookie': transactionCookie(request, browser) });
+}
+
+async function nativeStart(request, env, config) {
+  const challenge = new URL(request.url).searchParams.get('challenge') || '';
+  if (!/^[A-Za-z0-9_-]{43}$/.test(challenge)) return nativeRedirect({ error: 'failed' });
+  if (!config || config.enabled !== 1 || !config.client_id || !config.encrypted_secret || !await nativeHandoffSchemaReady(env.DB)) {
+    return nativeRedirect({ error: 'google_unavailable' });
+  }
+  if (new URL(request.url).origin !== config.callback_origin) return nativeRedirect({ error: 'google_unavailable' });
+  try { await secretFor(config, env); } catch { return nativeRedirect({ error: 'google_unavailable' }); }
+  const limit = await consumeAuthAttempt({ db: env.DB, request, kind: 'login' });
+  if (!limit.allowed) return nativeRedirect({ error: 'rate_limited' });
+  const now = Date.now(), state = randomSessionToken(), browser = randomSessionToken(), nonce = randomSessionToken(), verifier = randomSessionToken();
+  await env.DB.batch([
+    stmt(env.DB, 'DELETE FROM google_login_transactions WHERE expires_at<=?', now),
+    stmt(env.DB, 'DELETE FROM google_native_handoffs WHERE expires_at<=?', now),
+    stmt(env.DB, `INSERT INTO google_login_transactions
+      (state_hash,browser_hash,nonce,verifier,purpose,config_revision,auth_epoch,account_id,session_hash,password_hash,salt,expires_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, await tokenDigest(state), await tokenDigest(browser), nonce, verifier, 'login',
+    config.revision, config.auth_epoch, null, null, null, null, now + TTL),
+    stmt(env.DB, `INSERT INTO google_native_handoffs
+      (handoff_id,state_hash,code_hash,code_challenge,config_revision,auth_epoch,account_id,expires_at,used_at)
+      VALUES (?,?,NULL,?,?,?,NULL,?,NULL)`, crypto.randomUUID(), await tokenDigest(state), challenge,
+    config.revision, config.auth_epoch, now + TTL),
+  ]);
+  return new Response(null, {
+    status: 303,
+    headers: {
+      Location: await oauthAuthUrl(config, state, nonce, verifier),
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+      'Set-Cookie': transactionCookie(request, browser),
+    },
+  });
 }
 
 async function limitedJson(url, options, fetchImpl) {
@@ -159,26 +216,38 @@ const OWNER_GUARD = `EXISTS (SELECT 1 FROM accounts a JOIN account_credentials c
 
 async function callback(request, env, config, fetchImpl) {
   let purpose = 'login';
+  let isNative = false;
   const redirect = (tag, cookie = '') => {
+    if (isNative) {
+      return nativeRedirect({ error: tag || 'failed' }, transactionCookie(request, ''));
+    }
     const headers = new Headers({ Location: (purpose === 'bind' ? '/settings/personal' : '/') + (tag ? '?google=' + tag : ''),
       'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'Set-Cookie': transactionCookie(request, '') });
     if (cookie) headers.append('Set-Cookie', cookie);
     return new Response(null, { status: 303, headers });
   };
   try {
-    if (!config || new URL(request.url).origin !== config.callback_origin) fail();
     const url = new URL(request.url);
+    const state = url.searchParams.getAll('state').length === 1 ? url.searchParams.get('state') : '';
+    const stateHash = /^[A-Za-z0-9_-]{43}$/.test(state || '') ? await tokenDigest(state) : '';
+    const hasNativeTable = stateHash && await nativeHandoffSchemaReady(env.DB);
+    const nativeRow = hasNativeTable ? await stmt(env.DB,
+      'SELECT handoff_id, code_challenge, config_revision, auth_epoch, expires_at, used_at FROM google_native_handoffs WHERE state_hash=?',
+      stateHash).first() : null;
+    isNative = Boolean(nativeRow);
+    if (!config || url.origin !== config.callback_origin) fail();
     if (url.searchParams.getAll('state').length !== 1 || url.searchParams.getAll('code').length > 1) fail();
-    const state = url.searchParams.get('state');
-    if (!/^[A-Za-z0-9_-]{43}$/.test(state || '') || !browserCookie(request)) fail();
-    const hash = await tokenDigest(state), now = Date.now();
+    if (!stateHash || !browserCookie(request)) fail();
+    const now = Date.now();
     const record = await stmt(env.DB, `SELECT * FROM google_login_transactions WHERE state_hash=? AND browser_hash=?
-      AND used_at IS NULL AND expires_at>?`, hash, await tokenDigest(browserCookie(request)), now).first();
+      AND used_at IS NULL AND expires_at>?`, stateHash, await tokenDigest(browserCookie(request)), now).first();
     if (!record) fail();
     purpose = record.purpose;
-    const consumed = await stmt(env.DB, 'UPDATE google_login_transactions SET used_at=? WHERE state_hash=? AND used_at IS NULL AND expires_at>?', now, hash, now).run();
+    const consumed = await stmt(env.DB, 'UPDATE google_login_transactions SET used_at=? WHERE state_hash=? AND used_at IS NULL AND expires_at>?', now, stateHash, now).run();
     if (consumed.meta?.changes !== 1 || record.config_revision !== config.revision) fail();
     if (purpose === 'login' && (config.enabled !== 1 || record.auth_epoch !== config.auth_epoch)) fail();
+    if (isNative && (nativeRow.used_at !== null || nativeRow.expires_at <= now
+      || nativeRow.config_revision !== config.revision || nativeRow.auth_epoch !== config.auth_epoch)) fail();
     if (url.searchParams.has('error')) return redirect('cancelled');
     const code = url.searchParams.get('code');
     if (!code || code.length > 4096) fail();
@@ -187,6 +256,7 @@ async function callback(request, env, config, fetchImpl) {
         client_secret: await secretFor(config, env), redirect_uri: config.callback_origin + CALLBACK, code, code_verifier: record.verifier }) }, fetchImpl);
     const identity = await verifyGoogleIdToken(token.id_token, config.client_id, record.nonce, fetchImpl);
     if (purpose === 'bind') {
+      if (isNative) fail();
       const args = [record.account_id, record.password_hash, record.salt, record.session_hash, Date.now()];
       try {
         await env.DB.batch([
@@ -204,6 +274,20 @@ async function callback(request, env, config, fetchImpl) {
     const account = await stmt(env.DB, `SELECT a.*,c.*,g.binding_id FROM account_google_bindings g JOIN accounts a ON a.account_id=g.account_id
       JOIN account_credentials c ON c.account_id=a.account_id WHERE g.google_sub=? AND a.status='active' AND c.must_change_password=0`, identity.sub).first();
     if (!account || !isUsableCredentialMaterial(account)) return redirect('unbound');
+    if (isNative) {
+      const handoffCode = randomSessionToken();
+      const handoffExpiresAt = Date.now() + NATIVE_HANDOFF_TTL;
+      const updated = await stmt(env.DB, `UPDATE google_native_handoffs
+        SET code_hash=?, account_id=?, expires_at=?
+        WHERE handoff_id=? AND state_hash=? AND code_hash IS NULL AND used_at IS NULL
+          AND config_revision=? AND auth_epoch=?
+          AND EXISTS (SELECT 1 FROM google_login_config WHERE id=1 AND revision=? AND enabled=1 AND auth_epoch=?)`,
+      await tokenDigest(handoffCode), account.account_id, handoffExpiresAt,
+      nativeRow.handoff_id, stateHash, config.revision, record.auth_epoch,
+      config.revision, record.auth_epoch).run();
+      if (updated.meta?.changes !== 1) fail();
+      return nativeRedirect({ code: handoffCode }, transactionCookie(request, ''));
+    }
     const sessionToken = randomSessionToken(), expiresAt = Date.now() + 7 * 24 * 3600000;
     const inserted = await stmt(env.DB, `INSERT INTO account_sessions (token_hash,account_id,mode,created_at,expires_at)
       SELECT ?,a.account_id,'normal',?,? FROM accounts a JOIN account_credentials c ON c.account_id=a.account_id
@@ -218,16 +302,77 @@ async function callback(request, env, config, fetchImpl) {
   } catch { return redirect('failed'); }
 }
 
+async function exchangeNative(request, env, config, json) {
+  if (!config || config.enabled !== 1 || !config.client_id || !config.encrypted_secret || !await nativeHandoffSchemaReady(env.DB)) {
+    fail('google_unavailable', 409);
+  }
+  if (new URL(request.url).origin !== config.callback_origin) fail('google_origin_mismatch', 409);
+  await secretFor(config, env);
+  await rateLimit(request, env);
+  const body = await readBoundedJson(request);
+  if (Object.keys(body).some(k => !['code', 'codeVerifier'].includes(k))
+    || typeof body.code !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(body.code)
+    || typeof body.codeVerifier !== 'string' || !/^[A-Za-z0-9_-]{43,128}$/.test(body.codeVerifier)) {
+    fail('invalid_input', 400);
+  }
+  const now = Date.now();
+  const codeHash = await tokenDigest(body.code);
+  const expectedChallenge = encode(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(body.codeVerifier))));
+  const handoff = await stmt(env.DB,
+    'SELECT handoff_id, account_id, code_challenge, config_revision, auth_epoch FROM google_native_handoffs WHERE code_hash=? AND used_at IS NULL AND expires_at>?',
+    codeHash, now).first();
+  if (!handoff || !handoff.account_id || handoff.code_challenge !== expectedChallenge
+    || handoff.config_revision !== config.revision || handoff.auth_epoch !== config.auth_epoch) {
+    fail('google_failed', 401);
+  }
+  const consumed = await stmt(env.DB,
+    'UPDATE google_native_handoffs SET used_at=? WHERE handoff_id=? AND code_hash=? AND code_challenge=? AND used_at IS NULL AND expires_at>?',
+    now, handoff.handoff_id, codeHash, expectedChallenge, now).run();
+  if (consumed.meta?.changes !== 1) fail('google_failed', 401);
+  const account = await stmt(env.DB, `SELECT a.*,c.*,g.binding_id FROM accounts a
+    JOIN account_credentials c ON c.account_id=a.account_id
+    JOIN account_google_bindings g ON g.account_id=a.account_id
+    WHERE a.account_id=? AND a.status='active' AND c.must_change_password=0`, handoff.account_id).first();
+  if (!account || !isUsableCredentialMaterial(account)) fail('google_failed', 401);
+  const sessionToken = randomSessionToken(), expiresAt = Date.now() + 7 * 24 * 3600000;
+  const inserted = await stmt(env.DB, `INSERT INTO account_sessions (token_hash,account_id,mode,created_at,expires_at)
+    SELECT ?,a.account_id,'normal',?,? FROM accounts a JOIN account_credentials c ON c.account_id=a.account_id
+    JOIN account_google_bindings g ON g.account_id=a.account_id WHERE a.account_id=? AND a.status='active'
+    AND c.must_change_password=0 AND c.password_hash=? AND c.salt=? AND g.binding_id=?
+    AND EXISTS (SELECT 1 FROM google_login_config WHERE id=1 AND revision=? AND enabled=1 AND auth_epoch=?)`,
+  await tokenDigest(sessionToken), Date.now(), expiresAt, account.account_id, account.password_hash, account.salt,
+  account.binding_id, config.revision, handoff.auth_epoch).run();
+  if (inserted.meta?.changes !== 1) fail('google_failed', 401);
+  return json({
+    authenticated: true,
+    mustChangePassword: false,
+    user: {
+      accountId: account.account_id,
+      username: account.username,
+      displayName: account.display_name,
+      role: account.role,
+    },
+    csrfToken: await csrfTokenForSession(sessionToken),
+  }, 200, { 'Set-Cookie': sessionCookie(sessionToken, { expiresAt }) });
+}
+
 export async function handleGoogleRequest(request, env, path, session, json, fetchImpl = fetch) {
-  if (![ '/api/auth/google/status', '/api/auth/google/start', CALLBACK, '/api/account/google',
+  if (![ '/api/auth/google/status', '/api/auth/google/start', '/api/auth/google/exchange',
+    NATIVE_START, CALLBACK, '/api/account/google',
     '/api/account/google/bind', '/api/account/google/unbind', '/api/admin/google' ].includes(path)) return null;
   const config = await readConfig(env);
   if (path === '/api/auth/google/status' && request.method === 'GET') {
     const status = await publicConfig(config, env);
-    return json({ enabled: status.enabled && status.secretReady && config.callback_origin === new URL(request.url).origin });
+    const enabled = Boolean(status.enabled && status.secretReady && config.callback_origin === new URL(request.url).origin);
+    if (new URL(request.url).searchParams.get('client') === 'android') {
+      return json({ enabled, nativeEnabled: enabled && await nativeHandoffSchemaReady(env.DB) });
+    }
+    return json({ enabled });
   }
+  if (path === NATIVE_START && request.method === 'GET') return nativeStart(request, env, config);
   if (path === CALLBACK && request.method === 'GET') return callback(request, env, config, fetchImpl);
   if (path === '/api/auth/google/start' && request.method === 'POST') return start(request, env, config, session, 'login', {}, json);
+  if (path === '/api/auth/google/exchange' && request.method === 'POST') return exchangeNative(request, env, config, json);
   if (!session || session.mode !== 'normal') fail('forbidden', 403);
   if (path === '/api/account/google' && request.method === 'GET') {
     const binding = config ? await stmt(env.DB, 'SELECT email FROM account_google_bindings WHERE account_id=?', session.account.accountId).first() : null;
@@ -240,6 +385,7 @@ export async function handleGoogleRequest(request, env, path, session, json, fet
     if (!config) fail('google_unavailable', 409);
     await rateLimit(request, env, session.account.username);
     const body = await readBoundedJson(request), credential = await verifyOwnerPassword(env, session, body.currentPassword), now = Date.now();
+    const hasNative = await nativeHandoffSchemaReady(env.DB);
     await env.DB.batch([
       stmt(env.DB, `INSERT INTO audit_events (id,actor_account_id,action,result,created_at) VALUES
         (?,?,CASE WHEN ${OWNER_GUARD} THEN 'google.unbind' ELSE NULL END,'success',?)`, crypto.randomUUID(), session.account.accountId,
@@ -247,6 +393,7 @@ export async function handleGoogleRequest(request, env, path, session, json, fet
       stmt(env.DB, 'DELETE FROM account_google_bindings WHERE account_id=?', session.account.accountId),
       stmt(env.DB, 'UPDATE account_sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL', now, session.account.accountId),
       stmt(env.DB, 'DELETE FROM google_login_transactions WHERE account_id=?', session.account.accountId),
+      ...(hasNative ? [stmt(env.DB, 'DELETE FROM google_native_handoffs WHERE account_id=?', session.account.accountId)] : []),
     ]);
     return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
   }

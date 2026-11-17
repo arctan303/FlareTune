@@ -6,6 +6,7 @@ const supplements = [
   ['user_images', ['user_images', 'user_image_refs']],
   ['ai_feature_models', ['ai_feature_models']],
   ['google_login', ['google_login_config', 'account_google_bindings', 'google_login_transactions']],
+  ['google_native_handoff', ['google_native_handoffs']],
 ];
 
 export async function getSupplementalMigrationStatus(db) {

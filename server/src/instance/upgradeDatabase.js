@@ -62,6 +62,13 @@ async function ensureExternalMusic(db) {
   invalidateSchemaInventory(db);
 }
 
+async function ensureNativeGoogleHandoff(db) {
+  if (await objectExists(db, 'google_native_handoffs')) return;
+  try { await db.batch(bundled(14).map(sql => db.prepare(sql))); }
+  catch { throw new DatabaseUpgradeError('migration_supplemental_failed'); }
+  invalidateSchemaInventory(db);
+}
+
 async function ensureExpanded(db) {
   const columns = resultRows(await db.prepare('PRAGMA table_info(Member_Playlists)').all());
   if (!columns.length) throw new DatabaseUpgradeError('migration_schema_inconsistent');
@@ -147,6 +154,7 @@ export async function runKnownDatabaseUpgrade(db, { allowDestructive = false } =
     }
     await ensureHotpaths(db);
     await ensureExternalMusic(db);
+    await ensureNativeGoogleHandoff(db);
     return { status: 'current', schemaVersion: 2 };
   }
   const eligible = (before.state === 'ready' && before.reason === 'migration_available')
@@ -162,6 +170,7 @@ export async function runKnownDatabaseUpgrade(db, { allowDestructive = false } =
     await ensureSupplemental(db, allowDestructive);
     await ensureHotpaths(db);
     await ensureExternalMusic(db);
+    await ensureNativeGoogleHandoff(db);
     const ownerToken = crypto.randomUUID().replaceAll('-', '');
     const step = await runPlaylistCountMigration(db, { ownerToken });
     return { ...step, schemaVersion: (await resolveInstanceState(db)).schemaVersion };

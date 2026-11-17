@@ -50,6 +50,10 @@ test('member and admin roles get distinct management access', () => {
   assert.equal(request('/api/admin/system/migration', 'POST', 'maintenance', member).allowed, false);
   assert.equal(request('/api/admin/system/migration', 'POST', 'maintenance', admin).allowed, false);
   assert.equal(request('/api/auth/login', 'POST', 'maintenance').allowed, false);
+  assert.equal(request('/api/auth/google/exchange', 'POST', 'ready').allowed, true);
+  assert.equal(request('/api/auth/google/exchange', 'POST', 'maintenance').allowed, false);
+  assert.equal(request('/auth/google/native/start', 'GET', 'ready').allowed, true);
+  assert.equal(request('/auth/google/native/start', 'GET', 'maintenance').allowed, false);
   assert.equal(request('/api/instance/upgrade', 'POST', 'maintenance', admin).allowed, true);
   assert.equal(request('/api/instance/upgrade', 'POST', 'recovery_required').allowed, false);
 });

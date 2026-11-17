@@ -212,5 +212,13 @@ export const MIGRATION_BUNDLE = Object.freeze([
       "-- Idempotent repair also restores totals when 0013 needs reinstallation.\nUPDATE Member_Playlists SET cached_song_count=(SELECT COUNT(*) FROM Member_All_Playlist_Songs WHERE playlist_id=Member_Playlists.id);",
       "INSERT INTO Member_Play_Receipt_Counts(account_id,receipt_count)\nSELECT a.account_id,COUNT(e.event_id) FROM accounts a LEFT JOIN Member_All_Play_Events e ON e.account_id=a.account_id GROUP BY a.account_id\nON CONFLICT(account_id) DO UPDATE SET receipt_count=excluded.receipt_count;"
     ]
+  },
+  {
+    "name": "0015_google_native_handoff.sql",
+    "sha256": "a9c61838287b5d6fc632e38f7c219003d4eb1245e9b3e9ad0175ce022881a0e9",
+    "statements": [
+      "-- Native client one-time handoff for Google sign-in; base v2 schema remains unchanged.\nCREATE TABLE IF NOT EXISTS google_native_handoffs (\n    handoff_id TEXT PRIMARY KEY,\n    state_hash TEXT NOT NULL UNIQUE,\n    code_hash TEXT UNIQUE,\n    code_challenge TEXT NOT NULL,\n    config_revision INTEGER NOT NULL,\n    auth_epoch INTEGER NOT NULL,\n    account_id TEXT REFERENCES accounts(account_id) ON DELETE CASCADE,\n    expires_at INTEGER NOT NULL,\n    used_at INTEGER\n);",
+      "CREATE INDEX IF NOT EXISTS idx_google_native_handoffs_expiry ON google_native_handoffs(expires_at);"
+    ]
   }
 ]);

@@ -37,7 +37,7 @@ test('admin migration status explains pending v2 supplements and reports complet
     const get = async () => (await f.api('admin/system/migration')).json();
     const initial = await get();
     assert.equal(initial.supplementalPending, false);
-    assert.equal(initial.supplementalMigrations.length, 6);
+    assert.equal(initial.supplementalMigrations.length, 7);
     assert.ok(initial.supplementalMigrations.every(item => item.ready));
     f.sqlite.exec('DROP TRIGGER google_credentials_changed; DROP TRIGGER google_account_changed; DROP TABLE google_login_transactions; DROP TABLE account_google_bindings; DROP TABLE google_login_config');
     const before = await get();

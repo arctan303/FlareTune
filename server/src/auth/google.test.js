@@ -177,3 +177,92 @@ test('configuration audit and config write commit together; partial Google schem
     await assert.rejects(()=>runKnownDatabaseUpgrade(f.db),{code:'migration_schema_inconsistent'});
   } finally {f.close();}
 });
+
+async function beginNative(f, verifier = 'native_pkce_verifier_example_0123456789_abcdefg', ip = '192.0.2.10') {
+  const challenge = b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  const response = await handleGoogleRequest(
+    new Request(`https://test.example/auth/google/native/start?challenge=${challenge}`, { method: 'GET', headers: { 'CF-Connecting-IP': ip } }),
+    f.env, '/auth/google/native/start', null, json);
+  assert.equal(response.status, 303);
+  const url = new URL(response.headers.get('Location'));
+  assert.equal(url.origin, 'https://accounts.google.com');
+  return { url, verifier, cookie: response.headers.get('Set-Cookie').split(';')[0] };
+}
+
+test('native Google login issues one-time PKCE handoff code, exchanges for session and blocks replay or tampering', async () => {
+  const f = await fixture(); try {
+    assert.deepEqual(await (await f.api('auth/google/status?client=android')).json(), { enabled: false, nativeEnabled: false });
+    await configure(f);
+    assert.deepEqual(await (await f.api('auth/google/status')).json(), { enabled: true });
+    assert.deepEqual(await (await f.api('auth/google/status?client=android')).json(), { enabled: true, nativeEnabled: true });
+    await finish(f, await begin(f));
+
+    const nativeTx = await beginNative(f);
+    const cb = await finish(f, nativeTx);
+    assert.equal(cb.status, 303);
+    const redirect = new URL(cb.headers.get('Location'));
+    assert.equal(`${redirect.protocol}//${redirect.host}${redirect.pathname}`, 'flaretune://auth/google/callback');
+    const handoffCode = redirect.searchParams.get('code');
+    assert.ok(/^[A-Za-z0-9_-]{43}$/.test(handoffCode));
+    const cbCookies = cb.headers.getSetCookie();
+    assert.ok(cbCookies.some(c => c.includes('__Host-ft_google_transaction=;')));
+    assert.ok(!cbCookies.some(c => c.startsWith('__Host-ft_session=')));
+
+    // Wrong verifier fails without leaking session or consuming the real app's code.
+    assert.equal((await f.api('auth/google/exchange', 'POST', { code: handoffCode, codeVerifier: 'wrong_verifier_0123456789_abcdefghijklmnopqrstuvwxyz' })).status, 401);
+
+    // Real verifier succeeds and returns standard session JSON + __Host-ft_session cookie.
+    const exchanged = await f.api('auth/google/exchange', 'POST', { code: handoffCode, codeVerifier: nativeTx.verifier });
+    assert.equal(exchanged.status, 200, await exchanged.clone().text());
+    const payload = await exchanged.json();
+    assert.equal(payload.authenticated, true);
+    assert.equal(payload.mustChangePassword, false);
+    assert.equal(payload.user.accountId, f.owner);
+    assert.ok(payload.csrfToken);
+    const sessionCookie = exchanged.headers.get('Set-Cookie');
+    assert.ok(sessionCookie && sessionCookie.startsWith('__Host-ft_session='));
+    const session = await getSessionAfterReadyCheck({ db: f.db, token: tokenFromCookie(sessionCookie.split(';')[0]) });
+    assert.equal(session.account.accountId, f.owner);
+
+    // Replay is rejected.
+    assert.equal((await f.api('auth/google/exchange', 'POST', { code: handoffCode, codeVerifier: nativeTx.verifier })).status, 401);
+  } finally { f.close(); }
+});
+
+test('native Google login handles cancellation, unbound accounts, expiry, credential changes and missing table', async () => {
+  const f = await fixture(); try {
+    await configure(f);
+    const unboundTx = await beginNative(f, undefined, '192.0.2.11');
+    assert.equal((await finish(f, unboundTx)).headers.get('Location'), 'flaretune://auth/google/callback?error=unbound');
+
+    const cancelledTx = await beginNative(f, undefined, '192.0.2.12');
+    assert.equal((await finish(f, cancelledTx, { error: 'access_denied' })).headers.get('Location'), 'flaretune://auth/google/callback?error=cancelled');
+
+    const wrongBrowserTx = await beginNative(f, undefined, '192.0.2.13');
+    assert.equal((await finish(f, wrongBrowserTx, { cookie: '' })).headers.get('Location'), 'flaretune://auth/google/callback?error=failed');
+
+    await finish(f, await begin(f));
+    const expiredTx = await beginNative(f, undefined, '192.0.2.14');
+    const expiredCb = await finish(f, expiredTx);
+    const expiredCode = new URL(expiredCb.headers.get('Location')).searchParams.get('code');
+    f.sqlite.exec('UPDATE google_native_handoffs SET expires_at=1');
+    assert.equal((await f.api('auth/google/exchange', 'POST', { code: expiredCode, codeVerifier: expiredTx.verifier })).status, 401);
+
+    const changedTx = await beginNative(f, undefined, '192.0.2.15');
+    const changedCb = await finish(f, changedTx);
+    const changedCode = new URL(changedCb.headers.get('Location')).searchParams.get('code');
+    const pwRes = await f.api('auth/change-password', 'POST', { currentPassword: PASSWORD, newPassword: 'replacement-password-2026' });
+    assert.equal(pwRes.status, 200);
+    assert.equal((await f.api('auth/google/exchange', 'POST', { code: changedCode, codeVerifier: changedTx.verifier })).status, 401);
+
+    f.sqlite.exec('DROP TABLE google_native_handoffs');
+    assert.deepEqual(await (await f.api('auth/google/status?client=android')).json(), { enabled: true, nativeEnabled: false });
+    assert.deepEqual(await (await f.api('auth/google/status')).json(), { enabled: true });
+    const unavailable = await handleGoogleRequest(
+      new Request('https://test.example/auth/google/native/start?challenge=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', { method: 'GET' }),
+      f.env, '/auth/google/native/start', null, json);
+    assert.equal(unavailable.headers.get('Location'), 'flaretune://auth/google/callback?error=google_unavailable');
+    await runKnownDatabaseUpgrade(f.db);
+    assert.deepEqual(await (await f.api('auth/google/status?client=android')).json(), { enabled: true, nativeEnabled: true });
+  } finally { f.close(); }
+});

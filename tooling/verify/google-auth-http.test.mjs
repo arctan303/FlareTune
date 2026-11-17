@@ -5,7 +5,7 @@ import { startPreview } from '../dev/preview-worker.mjs';
 test('isolated workerd serves Google config, encrypted credentials, same-origin start and browser-bound callbacks',async()=>{
   const setupSecret='local-google-http-test-setup-secret-2026';
   const preview=await startPreview({ephemeral:true,seedEmpty:true,workerTestBindings:{SETUP_SECRET:setupSecret}});
-  const api=(path,options)=>fetch(preview.origin+path,options);
+  const api=(path,options={})=>fetch(preview.origin+path,{...options,headers:{Connection:'close',...(options.headers||{})}});
   const post=(path,body,headers={},method='POST')=>api(path,{method,headers:{
     Origin:preview.origin,'Content-Type':'application/json','X-Requested-With':'FlareTune','CF-Connecting-IP':'192.0.2.41',...headers},body:JSON.stringify(body)});
   try {
@@ -22,6 +22,17 @@ test('isolated workerd serves Google config, encrypted credentials, same-origin 
     const saved=await (await api('/api/admin/google',{headers:{Cookie:cookie}})).json();
     assert.equal(saved.secretReady,true);assert.equal(saved.revision,1);assert.ok(!JSON.stringify(saved).includes(config.clientSecret));
     assert.deepEqual(await (await api('/api/auth/google/status')).json(),{enabled:true});
+    assert.deepEqual(await (await api('/api/auth/google/status?client=android')).json(),{enabled:true,nativeEnabled:true});
+    const nativeStart=await api('/auth/google/native/start?challenge=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',{redirect:'manual'});
+    assert.equal(nativeStart.status,303);
+    const nativeGoogleUrl=new URL(nativeStart.headers.get('Location'));
+    assert.equal(nativeGoogleUrl.origin,'https://accounts.google.com');
+    const nativeCookie=nativeStart.headers.get('Set-Cookie').split(';')[0];
+    const nativeCancel=await api('/auth/google/callback?state='+nativeGoogleUrl.searchParams.get('state')+'&error=access_denied',{
+      headers:{Cookie:nativeCookie},redirect:'manual'});
+    assert.equal(nativeCancel.status,303);
+    assert.equal(nativeCancel.headers.get('Location'),'flaretune://auth/google/callback?error=cancelled');
+    assert.equal((await post('/api/auth/google/exchange',{code:'A'.repeat(43),codeVerifier:'B'.repeat(43)})).status,401);
     assert.equal((await post('/api/auth/google/start',{}, {Origin:'https://untrusted.example'})).status,403);
     const started=await post('/api/auth/google/start',{});assert.equal(started.status,200);
     const googleUrl=new URL((await started.json()).url);assert.equal(googleUrl.origin,'https://accounts.google.com');

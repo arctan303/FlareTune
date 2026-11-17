@@ -18,6 +18,7 @@ const names = [
   '0012_google_login.sql',
   '0013_hotpath_indexes_and_counts.sql',
   '0014_external_music_references.sql',
+  '0015_google_native_handoff.sql',
 ];
 
 // Split checked-in SQL once at build time. A trigger body contains semicolons;
