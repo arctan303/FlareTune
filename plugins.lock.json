@@ -3,7 +3,7 @@
   "hostApiVersion": 5,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "8bbc9e25d8137fe3dd0f4f387de748a5a77501c16ae6bc24bb135f7634a74be9"
+    "sourceDigest": "d888cf3ad8b89c316002a4d37808802ec04e068d40f82b9682ef546b51f13114"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "4cc787cd4c93fbe554ffc39aed1514ed86f09e85286dbed736b769de95e7cba3",
+      "sourceDigest": "0e00445449c04e6cf0a1977882ea961480de76774e0bd710bb1b02b5ea29c9d6",
       "sources": [
         {
           "path": "client/index.html",
@@ -1049,7 +1049,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "7a5551a36a1e3f6cbdad53598951c184c31924c02e8aa1e499a65eec290edafa"
+          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -1057,7 +1057,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "f2d5a6d3a664f7a2026dd8fe4c286d6eed57e2baa89196196595eefc0f0d784d"
+          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -1065,7 +1065,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "68dfdc566675edbcac98aa5dd6c50b88559b89d434b4606708866d03a32cfb36"
+          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -1924,8 +1924,12 @@
           "sha256": "6d59d8fa3e5880c15f92840a00b963cb072ec37ee4b055933c603137a26363c2"
         },
         {
+          "path": "server/db/migrations-flaretune/0015_google_native_handoff.sql",
+          "sha256": "a9c61838287b5d6fc632e38f7c219003d4eb1245e9b3e9ad0175ce022881a0e9"
+        },
+        {
           "path": "server/src/auth/google.js",
-          "sha256": "942d0cdf7dc68fc1deed2fe4d6909bad86ebcf269e8984e356a7e5e796828f30"
+          "sha256": "11c5629844f9136f33d38670261852c7383099cd03b633fda5a374734e7455a6"
         },
         {
           "path": "server/src/auth/local/crypto.js",
@@ -1953,11 +1957,11 @@
         },
         {
           "path": "server/src/instance/accessPolicy.js",
-          "sha256": "a303456137f2938796a9d4a5c0da5b4bda7347c7064ca1d227862c4ab4e15ffa"
+          "sha256": "7d50bb4baf34f32d4c38b565e9d816085527e0c7608d87ed907554f3ea4bfff6"
         },
         {
           "path": "server/src/instance/bootstrap.js",
-          "sha256": "7a9d427ec1f188f8e1fd7274fd382f8930287eb4a607c1364a30e9d0257e9ac4"
+          "sha256": "cf77a0e6206f308d38617296f0b77b338e4a5611bc75078bc64f095ad2b44ecf"
         },
         {
           "path": "server/src/instance/credentialFormat.js",
@@ -1985,7 +1989,7 @@
         },
         {
           "path": "server/src/instance/migrationStatus.js",
-          "sha256": "3766249d8353ce23174c1705b479b4fa896e89e8de0ba89ff3a1b0720e8cc419"
+          "sha256": "3372554f488b8dde0d9b5f19ccf7dd5423c53a5664b09160681e17cef56f5e55"
         },
         {
           "path": "server/src/instance/playlistCountMigration.js",
@@ -2009,7 +2013,7 @@
         },
         {
           "path": "server/src/instance/upgradeDatabase.js",
-          "sha256": "89bda8501759813fac014bc2456b581201697100b36b5a14cbc31e83ac556d28"
+          "sha256": "8f6dd0a42aff7149a1e32bcfefde65aee7581a214dd7c02a384e80fd599eb54c"
         },
         {
           "path": "server/src/instanceAdmin/accounts.js",
@@ -3729,7 +3733,7 @@
         },
         {
           "path": "tooling/build/generate-migration-bundle.mjs",
-          "sha256": "1a64035b3bcfdda26713f7f76fed40db1a4734ffdd1c21a20bbce30518658492"
+          "sha256": "ae22d2d290da5e95fa7f442403e3f5e8a885cb5aab4085ad62a69f5c3fe05788"
         },
         {
           "path": "tooling/build/system-update-runtime.mjs",
@@ -3876,7 +3880,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "f9f07255ff47d6eb2c903d00c66eff11cf61aac10ab58f29c79cfd05af776180",
+      "sourceDigest": "cf96ef70158b50b229ea12c047688938402db3fd8a53bf3bf1967791649660d9",
       "sources": [
         {
           "path": "client/index.html",
@@ -4912,7 +4916,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "7a5551a36a1e3f6cbdad53598951c184c31924c02e8aa1e499a65eec290edafa"
+          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -4920,7 +4924,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "f2d5a6d3a664f7a2026dd8fe4c286d6eed57e2baa89196196595eefc0f0d784d"
+          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -4928,7 +4932,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "68dfdc566675edbcac98aa5dd6c50b88559b89d434b4606708866d03a32cfb36"
+          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -5787,8 +5791,12 @@
           "sha256": "6d59d8fa3e5880c15f92840a00b963cb072ec37ee4b055933c603137a26363c2"
         },
         {
+          "path": "server/db/migrations-flaretune/0015_google_native_handoff.sql",
+          "sha256": "a9c61838287b5d6fc632e38f7c219003d4eb1245e9b3e9ad0175ce022881a0e9"
+        },
+        {
           "path": "server/src/auth/google.js",
-          "sha256": "942d0cdf7dc68fc1deed2fe4d6909bad86ebcf269e8984e356a7e5e796828f30"
+          "sha256": "11c5629844f9136f33d38670261852c7383099cd03b633fda5a374734e7455a6"
         },
         {
           "path": "server/src/auth/local/crypto.js",
@@ -5816,11 +5824,11 @@
         },
         {
           "path": "server/src/instance/accessPolicy.js",
-          "sha256": "a303456137f2938796a9d4a5c0da5b4bda7347c7064ca1d227862c4ab4e15ffa"
+          "sha256": "7d50bb4baf34f32d4c38b565e9d816085527e0c7608d87ed907554f3ea4bfff6"
         },
         {
           "path": "server/src/instance/bootstrap.js",
-          "sha256": "7a9d427ec1f188f8e1fd7274fd382f8930287eb4a607c1364a30e9d0257e9ac4"
+          "sha256": "cf77a0e6206f308d38617296f0b77b338e4a5611bc75078bc64f095ad2b44ecf"
         },
         {
           "path": "server/src/instance/credentialFormat.js",
@@ -5848,7 +5856,7 @@
         },
         {
           "path": "server/src/instance/migrationStatus.js",
-          "sha256": "3766249d8353ce23174c1705b479b4fa896e89e8de0ba89ff3a1b0720e8cc419"
+          "sha256": "3372554f488b8dde0d9b5f19ccf7dd5423c53a5664b09160681e17cef56f5e55"
         },
         {
           "path": "server/src/instance/playlistCountMigration.js",
@@ -5872,7 +5880,7 @@
         },
         {
           "path": "server/src/instance/upgradeDatabase.js",
-          "sha256": "89bda8501759813fac014bc2456b581201697100b36b5a14cbc31e83ac556d28"
+          "sha256": "8f6dd0a42aff7149a1e32bcfefde65aee7581a214dd7c02a384e80fd599eb54c"
         },
         {
           "path": "server/src/instanceAdmin/accounts.js",
@@ -7864,7 +7872,7 @@
         },
         {
           "path": "tooling/build/generate-migration-bundle.mjs",
-          "sha256": "1a64035b3bcfdda26713f7f76fed40db1a4734ffdd1c21a20bbce30518658492"
+          "sha256": "ae22d2d290da5e95fa7f442403e3f5e8a885cb5aab4085ad62a69f5c3fe05788"
         },
         {
           "path": "tooling/build/system-update-runtime.mjs",
@@ -8011,7 +8019,7 @@
       "apiVersion": 1,
       "source": "artifact:official:8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f",
       "manifestDigest": "6b8d6e7de7d4f99889266d52c0239ab4ed0376e4305dc1ba20390e17bb62f23d",
-      "sourceDigest": "765ddd6434aa4cda98d300012d98f9f530d25d88a26edb3f6ccea08be9316941",
+      "sourceDigest": "1c9375652ee9582b86abad041363c289410abed1a2aa9666b11ab925cc154943",
       "sources": [
         {
           "path": "client/index.html",
@@ -9047,7 +9055,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "7a5551a36a1e3f6cbdad53598951c184c31924c02e8aa1e499a65eec290edafa"
+          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -9055,7 +9063,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "f2d5a6d3a664f7a2026dd8fe4c286d6eed57e2baa89196196595eefc0f0d784d"
+          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -9063,7 +9071,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "68dfdc566675edbcac98aa5dd6c50b88559b89d434b4606708866d03a32cfb36"
+          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -9922,8 +9930,12 @@
           "sha256": "6d59d8fa3e5880c15f92840a00b963cb072ec37ee4b055933c603137a26363c2"
         },
         {
+          "path": "server/db/migrations-flaretune/0015_google_native_handoff.sql",
+          "sha256": "a9c61838287b5d6fc632e38f7c219003d4eb1245e9b3e9ad0175ce022881a0e9"
+        },
+        {
           "path": "server/src/auth/google.js",
-          "sha256": "942d0cdf7dc68fc1deed2fe4d6909bad86ebcf269e8984e356a7e5e796828f30"
+          "sha256": "11c5629844f9136f33d38670261852c7383099cd03b633fda5a374734e7455a6"
         },
         {
           "path": "server/src/auth/local/crypto.js",
@@ -9951,11 +9963,11 @@
         },
         {
           "path": "server/src/instance/accessPolicy.js",
-          "sha256": "a303456137f2938796a9d4a5c0da5b4bda7347c7064ca1d227862c4ab4e15ffa"
+          "sha256": "7d50bb4baf34f32d4c38b565e9d816085527e0c7608d87ed907554f3ea4bfff6"
         },
         {
           "path": "server/src/instance/bootstrap.js",
-          "sha256": "7a9d427ec1f188f8e1fd7274fd382f8930287eb4a607c1364a30e9d0257e9ac4"
+          "sha256": "cf77a0e6206f308d38617296f0b77b338e4a5611bc75078bc64f095ad2b44ecf"
         },
         {
           "path": "server/src/instance/credentialFormat.js",
@@ -9983,7 +9995,7 @@
         },
         {
           "path": "server/src/instance/migrationStatus.js",
-          "sha256": "3766249d8353ce23174c1705b479b4fa896e89e8de0ba89ff3a1b0720e8cc419"
+          "sha256": "3372554f488b8dde0d9b5f19ccf7dd5423c53a5664b09160681e17cef56f5e55"
         },
         {
           "path": "server/src/instance/playlistCountMigration.js",
@@ -10007,7 +10019,7 @@
         },
         {
           "path": "server/src/instance/upgradeDatabase.js",
-          "sha256": "89bda8501759813fac014bc2456b581201697100b36b5a14cbc31e83ac556d28"
+          "sha256": "8f6dd0a42aff7149a1e32bcfefde65aee7581a214dd7c02a384e80fd599eb54c"
         },
         {
           "path": "server/src/instanceAdmin/accounts.js",
@@ -11851,7 +11863,7 @@
         },
         {
           "path": "tooling/build/generate-migration-bundle.mjs",
-          "sha256": "1a64035b3bcfdda26713f7f76fed40db1a4734ffdd1c21a20bbce30518658492"
+          "sha256": "ae22d2d290da5e95fa7f442403e3f5e8a885cb5aab4085ad62a69f5c3fe05788"
         },
         {
           "path": "tooling/build/system-update-runtime.mjs",
@@ -11998,7 +12010,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "a5d15dde6e65323b42b4ebf9a29290fbb182b7353687f26bdcf2cd4e5496a6fc",
+      "sourceDigest": "447108be7671ad4bdcfaf7c80f50ff6058892527f7484c4ef988b3272141103f",
       "sources": [
         {
           "path": "client/index.html",
@@ -13034,7 +13046,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "7a5551a36a1e3f6cbdad53598951c184c31924c02e8aa1e499a65eec290edafa"
+          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -13042,7 +13054,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "f2d5a6d3a664f7a2026dd8fe4c286d6eed57e2baa89196196595eefc0f0d784d"
+          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -13050,7 +13062,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "68dfdc566675edbcac98aa5dd6c50b88559b89d434b4606708866d03a32cfb36"
+          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -13909,8 +13921,12 @@
           "sha256": "6d59d8fa3e5880c15f92840a00b963cb072ec37ee4b055933c603137a26363c2"
         },
         {
+          "path": "server/db/migrations-flaretune/0015_google_native_handoff.sql",
+          "sha256": "a9c61838287b5d6fc632e38f7c219003d4eb1245e9b3e9ad0175ce022881a0e9"
+        },
+        {
           "path": "server/src/auth/google.js",
-          "sha256": "942d0cdf7dc68fc1deed2fe4d6909bad86ebcf269e8984e356a7e5e796828f30"
+          "sha256": "11c5629844f9136f33d38670261852c7383099cd03b633fda5a374734e7455a6"
         },
         {
           "path": "server/src/auth/local/crypto.js",
@@ -13938,11 +13954,11 @@
         },
         {
           "path": "server/src/instance/accessPolicy.js",
-          "sha256": "a303456137f2938796a9d4a5c0da5b4bda7347c7064ca1d227862c4ab4e15ffa"
+          "sha256": "7d50bb4baf34f32d4c38b565e9d816085527e0c7608d87ed907554f3ea4bfff6"
         },
         {
           "path": "server/src/instance/bootstrap.js",
-          "sha256": "7a9d427ec1f188f8e1fd7274fd382f8930287eb4a607c1364a30e9d0257e9ac4"
+          "sha256": "cf77a0e6206f308d38617296f0b77b338e4a5611bc75078bc64f095ad2b44ecf"
         },
         {
           "path": "server/src/instance/credentialFormat.js",
@@ -13970,7 +13986,7 @@
         },
         {
           "path": "server/src/instance/migrationStatus.js",
-          "sha256": "3766249d8353ce23174c1705b479b4fa896e89e8de0ba89ff3a1b0720e8cc419"
+          "sha256": "3372554f488b8dde0d9b5f19ccf7dd5423c53a5664b09160681e17cef56f5e55"
         },
         {
           "path": "server/src/instance/playlistCountMigration.js",
@@ -13994,7 +14010,7 @@
         },
         {
           "path": "server/src/instance/upgradeDatabase.js",
-          "sha256": "89bda8501759813fac014bc2456b581201697100b36b5a14cbc31e83ac556d28"
+          "sha256": "8f6dd0a42aff7149a1e32bcfefde65aee7581a214dd7c02a384e80fd599eb54c"
         },
         {
           "path": "server/src/instanceAdmin/accounts.js",
@@ -15662,7 +15678,7 @@
         },
         {
           "path": "tooling/build/generate-migration-bundle.mjs",
-          "sha256": "1a64035b3bcfdda26713f7f76fed40db1a4734ffdd1c21a20bbce30518658492"
+          "sha256": "ae22d2d290da5e95fa7f442403e3f5e8a885cb5aab4085ad62a69f5c3fe05788"
         },
         {
           "path": "tooling/build/system-update-runtime.mjs",
@@ -15809,7 +15825,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "7acc952b593d3bff030191290a09482591b580bc167c025b5b4fd2dffaa3e933",
+      "sourceDigest": "cb04c14d0d63b60e0b7c203d79cfbcdb941903fe8bc5687fb7d95a3dc461e765",
       "sources": [
         {
           "path": "client/index.html",
@@ -16845,7 +16861,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "7a5551a36a1e3f6cbdad53598951c184c31924c02e8aa1e499a65eec290edafa"
+          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -16853,7 +16869,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "f2d5a6d3a664f7a2026dd8fe4c286d6eed57e2baa89196196595eefc0f0d784d"
+          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -16861,7 +16877,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "68dfdc566675edbcac98aa5dd6c50b88559b89d434b4606708866d03a32cfb36"
+          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -17720,8 +17736,12 @@
           "sha256": "6d59d8fa3e5880c15f92840a00b963cb072ec37ee4b055933c603137a26363c2"
         },
         {
+          "path": "server/db/migrations-flaretune/0015_google_native_handoff.sql",
+          "sha256": "a9c61838287b5d6fc632e38f7c219003d4eb1245e9b3e9ad0175ce022881a0e9"
+        },
+        {
           "path": "server/src/auth/google.js",
-          "sha256": "942d0cdf7dc68fc1deed2fe4d6909bad86ebcf269e8984e356a7e5e796828f30"
+          "sha256": "11c5629844f9136f33d38670261852c7383099cd03b633fda5a374734e7455a6"
         },
         {
           "path": "server/src/auth/local/crypto.js",
@@ -17749,11 +17769,11 @@
         },
         {
           "path": "server/src/instance/accessPolicy.js",
-          "sha256": "a303456137f2938796a9d4a5c0da5b4bda7347c7064ca1d227862c4ab4e15ffa"
+          "sha256": "7d50bb4baf34f32d4c38b565e9d816085527e0c7608d87ed907554f3ea4bfff6"
         },
         {
           "path": "server/src/instance/bootstrap.js",
-          "sha256": "7a9d427ec1f188f8e1fd7274fd382f8930287eb4a607c1364a30e9d0257e9ac4"
+          "sha256": "cf77a0e6206f308d38617296f0b77b338e4a5611bc75078bc64f095ad2b44ecf"
         },
         {
           "path": "server/src/instance/credentialFormat.js",
@@ -17781,7 +17801,7 @@
         },
         {
           "path": "server/src/instance/migrationStatus.js",
-          "sha256": "3766249d8353ce23174c1705b479b4fa896e89e8de0ba89ff3a1b0720e8cc419"
+          "sha256": "3372554f488b8dde0d9b5f19ccf7dd5423c53a5664b09160681e17cef56f5e55"
         },
         {
           "path": "server/src/instance/playlistCountMigration.js",
@@ -17805,7 +17825,7 @@
         },
         {
           "path": "server/src/instance/upgradeDatabase.js",
-          "sha256": "89bda8501759813fac014bc2456b581201697100b36b5a14cbc31e83ac556d28"
+          "sha256": "8f6dd0a42aff7149a1e32bcfefde65aee7581a214dd7c02a384e80fd599eb54c"
         },
         {
           "path": "server/src/instanceAdmin/accounts.js",
@@ -19481,7 +19501,7 @@
         },
         {
           "path": "tooling/build/generate-migration-bundle.mjs",
-          "sha256": "1a64035b3bcfdda26713f7f76fed40db1a4734ffdd1c21a20bbce30518658492"
+          "sha256": "ae22d2d290da5e95fa7f442403e3f5e8a885cb5aab4085ad62a69f5c3fe05788"
         },
         {
           "path": "tooling/build/system-update-runtime.mjs",
@@ -19628,7 +19648,7 @@
       "apiVersion": 1,
       "source": "artifact:official:441a41ff8539e44077d280bf25441f261829df5acea28e901f9eb3bfc415ffe6",
       "manifestDigest": "524ddb4b18133d342c164f073c36130ed6a1c92441557ab54eed1e426c9bc302",
-      "sourceDigest": "56252657c428eb23b59e2c4ade2faf819c674066ceb547805556d4550518c719",
+      "sourceDigest": "d40713ae7cd5dee2f57c298f04434079f7b4c5480a2a781d516499c9f950c7c5",
       "sources": [
         {
           "path": "client/index.html",
@@ -20664,7 +20684,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "7a5551a36a1e3f6cbdad53598951c184c31924c02e8aa1e499a65eec290edafa"
+          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -20672,7 +20692,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "f2d5a6d3a664f7a2026dd8fe4c286d6eed57e2baa89196196595eefc0f0d784d"
+          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -20680,7 +20700,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "68dfdc566675edbcac98aa5dd6c50b88559b89d434b4606708866d03a32cfb36"
+          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -21539,8 +21559,12 @@
           "sha256": "6d59d8fa3e5880c15f92840a00b963cb072ec37ee4b055933c603137a26363c2"
         },
         {
+          "path": "server/db/migrations-flaretune/0015_google_native_handoff.sql",
+          "sha256": "a9c61838287b5d6fc632e38f7c219003d4eb1245e9b3e9ad0175ce022881a0e9"
+        },
+        {
           "path": "server/src/auth/google.js",
-          "sha256": "942d0cdf7dc68fc1deed2fe4d6909bad86ebcf269e8984e356a7e5e796828f30"
+          "sha256": "11c5629844f9136f33d38670261852c7383099cd03b633fda5a374734e7455a6"
         },
         {
           "path": "server/src/auth/local/crypto.js",
@@ -21568,11 +21592,11 @@
         },
         {
           "path": "server/src/instance/accessPolicy.js",
-          "sha256": "a303456137f2938796a9d4a5c0da5b4bda7347c7064ca1d227862c4ab4e15ffa"
+          "sha256": "7d50bb4baf34f32d4c38b565e9d816085527e0c7608d87ed907554f3ea4bfff6"
         },
         {
           "path": "server/src/instance/bootstrap.js",
-          "sha256": "7a9d427ec1f188f8e1fd7274fd382f8930287eb4a607c1364a30e9d0257e9ac4"
+          "sha256": "cf77a0e6206f308d38617296f0b77b338e4a5611bc75078bc64f095ad2b44ecf"
         },
         {
           "path": "server/src/instance/credentialFormat.js",
@@ -21600,7 +21624,7 @@
         },
         {
           "path": "server/src/instance/migrationStatus.js",
-          "sha256": "3766249d8353ce23174c1705b479b4fa896e89e8de0ba89ff3a1b0720e8cc419"
+          "sha256": "3372554f488b8dde0d9b5f19ccf7dd5423c53a5664b09160681e17cef56f5e55"
         },
         {
           "path": "server/src/instance/playlistCountMigration.js",
@@ -21624,7 +21648,7 @@
         },
         {
           "path": "server/src/instance/upgradeDatabase.js",
-          "sha256": "89bda8501759813fac014bc2456b581201697100b36b5a14cbc31e83ac556d28"
+          "sha256": "8f6dd0a42aff7149a1e32bcfefde65aee7581a214dd7c02a384e80fd599eb54c"
         },
         {
           "path": "server/src/instanceAdmin/accounts.js",
@@ -23408,7 +23432,7 @@
         },
         {
           "path": "tooling/build/generate-migration-bundle.mjs",
-          "sha256": "1a64035b3bcfdda26713f7f76fed40db1a4734ffdd1c21a20bbce30518658492"
+          "sha256": "ae22d2d290da5e95fa7f442403e3f5e8a885cb5aab4085ad62a69f5c3fe05788"
         },
         {
           "path": "tooling/build/system-update-runtime.mjs",
