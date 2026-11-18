@@ -6,6 +6,12 @@ import { pluginRegistry } from '../registry.js';
 import { buildReadyLyricArtifact } from '../../services/lyricAssetWorkflow.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../../utils/lyricAiConfig.js';
 
+const workbenchVersion = pluginRegistry.manifests.find(manifest => manifest.id === 'lyrics-workbench').version.split('.').map(Number);
+const boundedAutomaticRetry = workbenchVersion[0] > 1 || workbenchVersion[0] === 1
+  && (workbenchVersion[1] > 0 || workbenchVersion[1] === 0 && workbenchVersion[2] >= 3);
+const assertBudgetFailure = code => boundedAutomaticRetry
+  ? assert.match(code, /^request_budget_exhausted_[a-f0-9]{32}$/u) : assert.equal(code, 'request_budget_exhausted');
+
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
 async function app(t, length = 144, language = null) {
   const f = await fixture(); t.after(f.close);
@@ -237,7 +243,7 @@ test('browser consumers reserve safe budget settlement across retry and waiting 
     // under enough multi-batch pressure to exercise failure and fresh recovery.
     const lineCount = kind === 'playback' ? 264 : 176;
     const f = await app(t, lineCount, 'en'), entered = deferred(), released = deferred(); let first = true, upstream = 0;
-    t.mock.timers.enable({ apis: ['setInterval'] });
+    t.mock.timers.enable({ apis: ['setInterval', 'Date'], now: Date.now() });
     t.mock.method(globalThis, 'fetch', async (input, options) => {
       upstream++;
       if (first) { first = false; entered.resolve(); await released.promise; return reply(options, 'invalid'); }
@@ -248,9 +254,15 @@ test('browser consumers reserve safe budget settlement across retry and waiting 
     released.resolve(); const result = await pending;
     assert.equal(f.read().translation, null); assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
     if (kind === 'draft') { assert.equal(result.response.status, 503); assert.equal(f.read().aiCompletion, null); }
-    else { assert.equal(f.read().aiCompletion?.status, 'failed'); assert.equal(f.read().aiCompletion.errorCode, 'request_budget_exhausted'); }
+    else { assert.equal(f.read().aiCompletion?.status, 'failed'); assertBudgetFailure(f.read().aiCompletion.errorCode); }
     assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
     t.diagnostic(`${kind} wait/retry safely settled: ${f.calls.length}/50 D1 bindings`);
+    if (boundedAutomaticRetry && kind === 'playback') {
+      const settled = JSON.stringify(f.read()), before = upstream; f.calls.length = 0; f.tasks.length = 0;
+      assert.ok((await f.request(kind)).response.ok); assert.equal(upstream, before, '1.0.3 GET respects the persisted cooldown');
+      assert.equal(JSON.stringify(f.read()), settled); assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
+      t.mock.timers.tick(60_000);
+    }
     f.calls.length = 0; f.tasks.length = 0; const before = upstream;
     const retry = await f.request(kind); assert.ok(retry.response.ok, JSON.stringify(retry.body)); assert.equal(upstream - before, Math.ceil(lineCount / 40));
     const lines = kind === 'draft' ? retry.body.data?.lines : f.read().translation?.lines;

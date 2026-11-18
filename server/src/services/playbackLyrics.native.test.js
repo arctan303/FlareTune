@@ -170,3 +170,23 @@ test('an eligible cached native plain asset can automatically upgrade to real na
   assert.equal(store.current().original.syncMode, 'line');
   assert.equal(store.current().original.lines[0].time, 2.75);
 });
+
+test('legacy playback delegates scoped budget failures to the selected plugin without importing a new SDK capability', async () => {
+  for (const [errorCode, expected] of [['request_budget_exhausted', 1],
+    ['request_budget_exhausted_' + 'a'.repeat(32), 1], ['request_budget_retry_exhausted_' + 'b'.repeat(32), 1],
+    ['invalid_output', 0], ['request_budget_exhausted_malformed', 0]]) {
+    const tagged = { ...song, language: 'en' };
+    const store = createMemoryLyricStore(makeReadyArtifact({ songId: tagged.id,
+      aiCompletion: { status: 'failed', errorCode, updatedAt: new Date().toISOString() } }));
+    const before = structuredClone(store.current()); let delegated = 0;
+    const result = await readPlaybackLyrics({ env: {}, db, song: tagged, accountId: 'member', deps: {
+      store, session: { mode: 'normal', account: { accountId: 'member', role: 'member' } },
+      songStillExists: async () => true, readOrCreateLyricArtifact: async () => store.get(tagged.id),
+      createAiLease: async () => ({ assertCurrent: async () => {}, guardedDb: value => value }),
+      loadLyricAiConfig: async () => ({ targetLanguage: 'zh', completionEnabled: true, automaticCompletionEnabled: true }),
+      beginCompletion: async input => { delegated++; assert.equal(input.automatic, true); return store.get(tagged.id); },
+    } });
+    assert.equal(delegated, expected); assert.equal(result.lyrics.translationState, 'failed');
+    assert.deepEqual(store.current(), before); assert.equal(store.calls.put, 0);
+  }
+});

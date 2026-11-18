@@ -20,6 +20,83 @@ function createD1Adapter(sqlite) {
   };
 }
 
+// D1 caps LIKE/GLOB patterns at 50 UTF-8 bytes. Keep SQLite's own LIKE
+// matching semantics while imposing that production limit in these cases.
+function createPatternLimitedD1(sqlite, context) {
+  const reference = new DatabaseSync(':memory:');
+  context.after(() => reference.close());
+  sqlite.function('like', { varargs: true }, (pattern, value, escape) => {
+    if (pattern != null && Buffer.byteLength(pattern, 'utf8') > 50) {
+      throw new Error('LIKE pattern exceeds D1 limit');
+    }
+    return escape === undefined
+      ? reference.prepare('SELECT ? LIKE ? AS matched').get(value, pattern).matched
+      : reference.prepare('SELECT ? LIKE ? ESCAPE ? AS matched').get(value, pattern, escape).matched;
+  });
+  return createD1Adapter(sqlite);
+}
+
+function searchCatalog(context) {
+  const sqlite = new DatabaseSync(':memory:');
+  context.after(() => sqlite.close());
+  sqlite.exec(`CREATE TABLE Songs(id TEXT PRIMARY KEY,title TEXT NOT NULL,artist TEXT,album TEXT,
+    duration INTEGER,audio_url TEXT,cover_url TEXT,language TEXT)`);
+  return { sqlite, db: createPatternLimitedD1(sqlite, context),
+    insert: sqlite.prepare('INSERT INTO Songs(id,title,artist,album,audio_url,language) VALUES(?,?,?,?,?,?)') };
+}
+
+test('long song searches preserve complete literal and compact matches across all metadata fields', async (t) => {
+  const { db, insert } = searchCatalog(t);
+  const query = 'Come Into My World (Extended Version) - Alexandra Stan / NERVO';
+  for (const [index, field] of ['title', 'artist', 'album'].entries()) {
+    for (const compact of [false, true]) {
+      const values = { title: 'Other title', artist: 'Other artist', album: 'Other album',
+        [field]: compact ? query.replaceAll(' ', '\t') : query };
+      insert.run(`${index}-${compact}`, values.title, values.artist, values.album, '/audio', 'en');
+    }
+  }
+  insert.run('truncated-decoy', query.slice(0, 48) + ' Different ending', '', '', '/decoy', 'en');
+  insert.run('unplayable', query, '', '', null, 'en');
+  const page = await querySongPage(db, query, 20);
+  assert.deepEqual(page.songs.map(song => song.id).sort(),
+    ['0-false', '0-true', '1-false', '1-true', '2-false', '2-true']);
+  assert.equal(page.hasMore, false);
+});
+
+test('song substring searches handle the D1 byte boundary, multibyte text and literal pattern characters', async (t) => {
+  const queries = ['a'.repeat(48), 'a'.repeat(49),
+    '非常に長い日本語の曲名が繰り返されるライブ録音', '50%_\\literal'.repeat(4), '100%_\\live'];
+  for (const query of queries) {
+    await t.test(JSON.stringify(query), async (context) => {
+      const { db, insert } = searchCatalog(context);
+      insert.run('exact', `Prefix ${query} Suffix`, '', '', '/exact', 'ja');
+      insert.run('different', `Prefix ${query.slice(0, -1)}X Suffix`, '', '', '/different', 'ja');
+      insert.run('wildcard-decoy', '100ZZZlive', '', '', '/wildcard', 'ja');
+      const result = await querySongPage(db, query, 20);
+      assert.deepEqual(result.songs.map(song => song.id), ['exact']);
+    });
+  }
+});
+
+test('long search candidates retain exact-page exhaustion and cleaned fallback ordering', async (t) => {
+  const { db, insert } = searchCatalog(t);
+  const query = 'Come Into My World (Extended Version) - Alexandra Stan / NERVO';
+  insert.run('exact-1', query, 'Artist A', '', '/1', 'en');
+  insert.run('exact-2', query, 'Artist B', '', '/2', 'en');
+  insert.run('broad-1', 'Come Into My World', 'Artist C', '', '/3', 'en');
+  assert.deepEqual((await querySongPage(db, query, 1, 0)).songs.map(song => song.id), ['exact-1']);
+  const final = await querySongPage(db, query, 1, 1);
+  assert.deepEqual(final.songs.map(song => song.id), ['exact-2']);
+  assert.equal(final.hasMore, false);
+  assert.deepEqual(await querySongPage(db, query, 1, 2), { songs: [], hasMore: false });
+
+  const absentVersion = 'Come Into My World (A Different Extended Version) - Alexandra Stan / NERVO';
+  const fallback = await querySongPage(db, absentVersion, 2, 0);
+  assert.deepEqual(fallback.songs.map(song => song.id), ['broad-1', 'exact-1']);
+  assert.equal(fallback.hasMore, true);
+  assert.deepEqual((await querySongPage(db, absentVersion, 2, 2)).songs.map(song => song.id), ['exact-2']);
+});
+
 test('language search uses stable ordering across real SQLite pages', async () => {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(`

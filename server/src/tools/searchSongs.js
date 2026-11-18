@@ -3,8 +3,6 @@ import { queryRomanizedSongs } from './romanizedSongSearch.js';
 import { isRomanizedSearchQuery } from '../utils/japaneseRomanization.js';
 import { songSearchOrder } from '../utils/songSearchOrder.js';
 
-const escapeLikePattern = (value) => value.replace(/[\\%_]/g, '\\$&');
-
 const normalizeSearchQuery = (value) => (
   String(value || '')
     .normalize('NFKC')
@@ -48,12 +46,12 @@ async function querySongResults(db, rawQuery, lim, offset = 0, { language = null
         AND TRIM(s.audio_url) <> ''
         ${languageSql ? `AND ${languageSql}` : ''}
         AND (
-          LOWER(s.title) LIKE ? ESCAPE '\\'
-          OR LOWER(s.artist) LIKE ? ESCAPE '\\'
-          OR LOWER(s.album) LIKE ? ESCAPE '\\'
-          OR ${compactSqlField('s.title')} LIKE ? ESCAPE '\\'
-          OR ${compactSqlField('s.artist')} LIKE ? ESCAPE '\\'
-          OR ${compactSqlField('s.album')} LIKE ? ESCAPE '\\'
+          INSTR(LOWER(s.title), ?) > 0
+          OR INSTR(LOWER(s.artist), ?) > 0
+          OR INSTR(LOWER(s.album), ?) > 0
+          OR INSTR(${compactSqlField('s.title')}, ?) > 0
+          OR INSTR(${compactSqlField('s.artist')}, ?) > 0
+          OR INSTR(${compactSqlField('s.album')}, ?) > 0
         )`;
 
   let selectedPatterns = null;
@@ -64,11 +62,12 @@ async function querySongResults(db, rawQuery, lim, offset = 0, { language = null
     ORDER BY ${songSearchOrder()} LIMIT ? OFFSET ?`)
     .bind(...languageFilter.bindings, ...patterns, lim, off).all()).results || [];
   for (const qStr of queryCandidates) {
-    const q = `%${escapeLikePattern(qStr.toLowerCase())}%`;
+    // This is a literal substring, not a pattern. D1 limits LIKE/GLOB patterns
+    // to 50 bytes, below the public search query limit (especially for Unicode).
+    const q = qStr.toLowerCase();
     const compactQuery = normalizeSearchQuery(qStr);
-    const compactPattern = `%${escapeLikePattern(compactQuery)}%`;
     if (!compactQuery) continue;
-    const patterns = [q, q, q, compactPattern, compactPattern, compactPattern];
+    const patterns = [q, q, q, compactQuery, compactQuery, compactQuery];
     // Page zero establishes existence itself; later pages must still select the
     // original candidate even after its last result, rather than widen matching.
     if (off === 0) {

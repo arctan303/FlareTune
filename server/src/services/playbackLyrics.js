@@ -137,7 +137,8 @@ export async function readPlaybackLyrics({ env, db, song, accountId, executionCo
       || (read.state === 'found'
         && (read.artifact.aiCompletion === null
           || read.artifact.aiCompletion?.status === 'failed'
-            && read.artifact.aiCompletion.errorCode === 'request_budget_exhausted'
+            && (read.artifact.aiCompletion.errorCode === 'request_budget_exhausted'
+              || /^request_budget_(?:retry_)?exhausted_[a-f0-9]{32}$/u.test(read.artifact.aiCompletion.errorCode || ''))
           || read.artifact.aiCompletion?.status === 'completed')));
   if (needsAutomaticAi) {
     try {

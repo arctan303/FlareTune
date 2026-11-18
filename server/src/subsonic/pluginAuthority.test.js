@@ -10,6 +10,12 @@ import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
 import { createLyricSources, selectLyricSource } from '../services/lyricSourceChain.js';
 import { createLyricDocument } from '../utils/lyricDocument.js';
 
+const workbenchVersion = pluginRegistry.manifests.find(manifest => manifest.id === 'lyrics-workbench').version.split('.').map(Number);
+const boundedAutomaticRetry = workbenchVersion[0] > 1 || workbenchVersion[0] === 1
+  && (workbenchVersion[1] > 0 || workbenchVersion[1] === 0 && workbenchVersion[2] >= 3);
+const assertBudgetFailure = code => boundedAutomaticRetry
+  ? assert.match(code, /^request_budget_exhausted_[a-f0-9]{32}$/u) : assert.equal(code, 'request_budget_exhausted');
+
 const payload = async response => (await response.json())['subsonic-response'];
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
 const aiReply = options => {
@@ -261,7 +267,7 @@ test('144-line compact translation and its one JSON retry complete within the fu
 
 test('multi-batch AI with JSON retry and upstream waiting reserves failed settlement and a later request can retry', async t => {
   const f = await setup(t), tasks = [], entered = deferred(), reply = deferred(); await compactLyrics(f, 144);
-  t.mock.timers.enable({ apis: ['setInterval'] }); let upstreamCalls = 0, waitFirst = true;
+  t.mock.timers.enable({ apis: ['setInterval', 'Date'], now: Date.now() }); let upstreamCalls = 0, waitFirst = true;
   t.mock.method(globalThis, 'fetch', async (input, options) => {
     upstreamCalls++;
     const data = JSON.parse(JSON.parse(options.body).messages.find(message => message.role === 'user').content);
@@ -278,9 +284,16 @@ test('multi-batch AI with JSON retry and upstream waiting reserves failed settle
   for (let second = 1; second <= 24; second++) { t.mock.timers.tick(1000); await new Promise(resolve => setImmediate(resolve)); }
   reply.resolve(); await Promise.all(tasks);
   assert.equal(artifact(f).translation, null); assert.equal(artifact(f).aiCompletion?.status, 'failed');
-  assert.equal(artifact(f).aiCompletion?.errorCode, 'request_budget_exhausted');
+  assertBudgetFailure(artifact(f).aiCompletion?.errorCode);
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`144 lines plus waiting failed safely: ${calls.length}/50 D1 bindings`);
+  if (boundedAutomaticRetry) {
+    const settled = JSON.stringify(artifact(f)), before = upstreamCalls; calls.length = 0; tasks.length = 0;
+    assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, options))).status, 'ok');
+    await Promise.all(tasks); assert.equal(upstreamCalls, before, '1.0.3 GET respects the persisted cooldown');
+    assert.equal(JSON.stringify(artifact(f)), settled); assert.ok(calls.length <= 50);
+    t.mock.timers.tick(60_000);
+  }
   calls.length = 0; tasks.length = 0; const priorCalls = upstreamCalls;
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, options))).status, 'ok');
   await Promise.all(tasks);
@@ -327,6 +340,7 @@ test('Subsonic mainly Chinese lyrics ignore minor foreign inserts and cache no t
 });
 
 test('larger compact lyrics exceeding the request budget finish as failed without a partial translation or pending lock', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const lineCount = 400;
   const f = await setup(t), tasks = []; await compactLyrics(f, lineCount); let upstreamCalls = 0;
   const original = structuredClone(artifact(f).original);
@@ -337,11 +351,19 @@ test('larger compact lyrics exceeding the request budget finish as failed withou
   await Promise.all(tasks);
   assert.ok(upstreamCalls > 1 && upstreamCalls < 1 + Math.ceil(lineCount / 40), 'budget stops upstream batches before the whole document can finish');
   assert.equal(artifact(f).translation, null);
-  assert.equal(artifact(f).aiCompletion?.status, 'failed'); assert.equal(artifact(f).aiCompletion.errorCode, 'request_budget_exhausted');
+  assert.equal(artifact(f).aiCompletion?.status, 'failed'); assertBudgetFailure(artifact(f).aiCompletion.errorCode);
   assert.deepEqual(artifact(f).original, original);
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
   assert.ok(calls.length <= 50); t.diagnostic(`${lineCount} lines settle without partial save: ${calls.length}/50 D1 bindings`);
   const previousCalls = upstreamCalls;
+  if (boundedAutomaticRetry) {
+    const settled = JSON.stringify(artifact(f)); calls.length = 0; tasks.length = 0;
+    assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
+      executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
+    await Promise.all(tasks); assert.equal(upstreamCalls, previousCalls, '1.0.3 GET respects the persisted cooldown');
+    assert.equal(JSON.stringify(artifact(f)), settled); assert.ok(calls.length <= 50);
+    t.mock.timers.tick(60_000);
+  }
   calls.length = 0; tasks.length = 0;
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');

@@ -3,7 +3,7 @@
   "hostApiVersion": 5,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "d888cf3ad8b89c316002a4d37808802ec04e068d40f82b9682ef546b51f13114"
+    "sourceDigest": "21978a8dbd1e36a64b8ea901503cf34a84314f70fc7c422445abaf6de3de4199"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "0e00445449c04e6cf0a1977882ea961480de76774e0bd710bb1b02b5ea29c9d6",
+      "sourceDigest": "f49849361f5c0a59165f3c305d7d4bbe69be2744c70d1ddb512f27b71d3427fa",
       "sources": [
         {
           "path": "client/index.html",
@@ -2705,7 +2705,7 @@
         },
         {
           "path": "server/src/services/playbackLyrics.js",
-          "sha256": "653ef43580998da74d5352ab9b6b5a51322bc1dbd7f9144bdd771dddaf9b2a28"
+          "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -2845,7 +2845,7 @@
         },
         {
           "path": "server/src/tools/searchSongs.js",
-          "sha256": "38b5e5f061fbc874d3a3fdf34596d2d03bd2ac040e33a8d210569432b404d819"
+          "sha256": "44f12d0274805640f12faa2f4bb8b5d48fedafcd2baacfd7fc79c3e3ceb1768c"
         },
         {
           "path": "server/src/tools/songDetails.js",
@@ -3880,7 +3880,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "cf96ef70158b50b229ea12c047688938402db3fd8a53bf3bf1967791649660d9",
+      "sourceDigest": "77f5f2c939c12e8c2bbbaefacd9b5223d54559fe0ee83263773ac80927f64351",
       "sources": [
         {
           "path": "client/index.html",
@@ -6572,7 +6572,7 @@
         },
         {
           "path": "server/src/services/playbackLyrics.js",
-          "sha256": "653ef43580998da74d5352ab9b6b5a51322bc1dbd7f9144bdd771dddaf9b2a28"
+          "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -6712,7 +6712,7 @@
         },
         {
           "path": "server/src/tools/searchSongs.js",
-          "sha256": "38b5e5f061fbc874d3a3fdf34596d2d03bd2ac040e33a8d210569432b404d819"
+          "sha256": "44f12d0274805640f12faa2f4bb8b5d48fedafcd2baacfd7fc79c3e3ceb1768c"
         },
         {
           "path": "server/src/tools/songDetails.js",
@@ -8019,7 +8019,7 @@
       "apiVersion": 1,
       "source": "artifact:official:8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f",
       "manifestDigest": "6b8d6e7de7d4f99889266d52c0239ab4ed0376e4305dc1ba20390e17bb62f23d",
-      "sourceDigest": "1c9375652ee9582b86abad041363c289410abed1a2aa9666b11ab925cc154943",
+      "sourceDigest": "39a06870c8909955a8827c8c8db70bbcd4b7a97a80b4533b88fd74fa3dfafd7f",
       "sources": [
         {
           "path": "client/index.html",
@@ -10711,7 +10711,7 @@
         },
         {
           "path": "server/src/services/playbackLyrics.js",
-          "sha256": "653ef43580998da74d5352ab9b6b5a51322bc1dbd7f9144bdd771dddaf9b2a28"
+          "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -10851,7 +10851,7 @@
         },
         {
           "path": "server/src/tools/searchSongs.js",
-          "sha256": "38b5e5f061fbc874d3a3fdf34596d2d03bd2ac040e33a8d210569432b404d819"
+          "sha256": "44f12d0274805640f12faa2f4bb8b5d48fedafcd2baacfd7fc79c3e3ceb1768c"
         },
         {
           "path": "server/src/tools/songDetails.js",
@@ -12010,7 +12010,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "447108be7671ad4bdcfaf7c80f50ff6058892527f7484c4ef988b3272141103f",
+      "sourceDigest": "e92712e8f329386a116258b4c2761a65d814b4024db511ea86db3923e681d68d",
       "sources": [
         {
           "path": "client/index.html",
@@ -14702,7 +14702,7 @@
         },
         {
           "path": "server/src/services/playbackLyrics.js",
-          "sha256": "653ef43580998da74d5352ab9b6b5a51322bc1dbd7f9144bdd771dddaf9b2a28"
+          "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -14842,7 +14842,7 @@
         },
         {
           "path": "server/src/tools/searchSongs.js",
-          "sha256": "38b5e5f061fbc874d3a3fdf34596d2d03bd2ac040e33a8d210569432b404d819"
+          "sha256": "44f12d0274805640f12faa2f4bb8b5d48fedafcd2baacfd7fc79c3e3ceb1768c"
         },
         {
           "path": "server/src/tools/songDetails.js",
@@ -15825,7 +15825,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "cb04c14d0d63b60e0b7c203d79cfbcdb941903fe8bc5687fb7d95a3dc461e765",
+      "sourceDigest": "b3f069f5de08ffdc1b6cc4e2841773e1a09d7b31b6f64b31caae4317b8a087f4",
       "sources": [
         {
           "path": "client/index.html",
@@ -18517,7 +18517,7 @@
         },
         {
           "path": "server/src/services/playbackLyrics.js",
-          "sha256": "653ef43580998da74d5352ab9b6b5a51322bc1dbd7f9144bdd771dddaf9b2a28"
+          "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -18657,7 +18657,7 @@
         },
         {
           "path": "server/src/tools/searchSongs.js",
-          "sha256": "38b5e5f061fbc874d3a3fdf34596d2d03bd2ac040e33a8d210569432b404d819"
+          "sha256": "44f12d0274805640f12faa2f4bb8b5d48fedafcd2baacfd7fc79c3e3ceb1768c"
         },
         {
           "path": "server/src/tools/songDetails.js",
@@ -19648,7 +19648,7 @@
       "apiVersion": 1,
       "source": "artifact:official:441a41ff8539e44077d280bf25441f261829df5acea28e901f9eb3bfc415ffe6",
       "manifestDigest": "524ddb4b18133d342c164f073c36130ed6a1c92441557ab54eed1e426c9bc302",
-      "sourceDigest": "d40713ae7cd5dee2f57c298f04434079f7b4c5480a2a781d516499c9f950c7c5",
+      "sourceDigest": "64ca0676da51ebf442d5488bee960f4b14dc29a9a31cd587c7532db546ffe2bc",
       "sources": [
         {
           "path": "client/index.html",
@@ -22340,7 +22340,7 @@
         },
         {
           "path": "server/src/services/playbackLyrics.js",
-          "sha256": "653ef43580998da74d5352ab9b6b5a51322bc1dbd7f9144bdd771dddaf9b2a28"
+          "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -22480,7 +22480,7 @@
         },
         {
           "path": "server/src/tools/searchSongs.js",
-          "sha256": "38b5e5f061fbc874d3a3fdf34596d2d03bd2ac040e33a8d210569432b404d819"
+          "sha256": "44f12d0274805640f12faa2f4bb8b5d48fedafcd2baacfd7fc79c3e3ceb1768c"
         },
         {
           "path": "server/src/tools/songDetails.js",

@@ -30,6 +30,24 @@ async function call(db, path, accountId = 'member') {
   return { response, body: response && await response.json() };
 }
 
+test('album and artist searches retain full long and literal queries', async (t) => {
+  const db = catalog();
+  t.after(() => db.sqlite.close());
+  const queries = ['ExceptionallyLongOriginalRecordingNameBeyondTheFiftyByteBoundary%_',
+    '非常に長い日本語の曲名が繰り返されるライブ録音'];
+  const insert = db.sqlite.prepare('INSERT INTO Songs(id,title,artist,album,audio_url,language) VALUES(?,?,?,?,?,?)');
+  for (const [index, query] of queries.entries()) {
+    insert.run(`long-${index}`, 'Track', query, query, '/audio', 'ja');
+    insert.run(`decoy-${index}`, 'Other', query.slice(0, -1) + 'X', query.slice(0, -1) + 'X', '/other', 'ja');
+    const albums = await call(db, '/api/albums?q=' + encodeURIComponent(query));
+    assert.equal(albums.response.status, 200);
+    assert.deepEqual(albums.body.data.albums.map(album => album.title), [query]);
+    const artists = await call(db, '/api/artists?q=' + encodeURIComponent(query));
+    assert.equal(artists.response.status, 200);
+    assert.deepEqual(artists.body.data.artists.map(artist => artist.name), [query]);
+  }
+});
+
 test('album browse, artist membership and detail use full local playable tracks', async () => {
   const db = catalog();
   const listing = (await call(db, '/api/albums?limit=2')).body.data;
