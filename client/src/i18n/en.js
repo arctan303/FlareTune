@@ -12,6 +12,9 @@ import speakerOutput from './speakerOutput.js';
 // Chinese source copy is the stable key until every screen has migrated.
 // Feature catalogs share the same Chinese source keys and translation rules.
 export default Object.freeze({
+  "没有修改共享歌词的权限。": "You do not have permission to edit shared lyrics.",
+  "导入期间草稿已修改，保留当前修改；需要时可重新导入": "Your draft changed during import. Your edits were kept; import again if needed.",
+  "共享歌词已在别处更新，草稿已保留。": "The shared lyrics changed elsewhere. Your draft has been kept.",
   ...systemUpdate,
   ...pluginCatalog,
   ...pluginOverview,

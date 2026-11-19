@@ -17,8 +17,11 @@ import { meaningfulLyricLines, resolveLyricTranslationNeed, getCurrentLyricTrans
 export { LYRIC_TRANSLATION_POLICY_VERSION, resolveLyricTranslationNeed, getCurrentLyricTranslationDecision,
   hasCurrentLyricNoTranslationDecision, buildLyricNoTranslationDecision, buildLyricTranslationDecision } from './lyricTranslationPolicy.js';
 
-export const LYRIC_AI_PENDING_FRESH_MS = 30_000;
+export const LYRIC_AI_PENDING_FRESH_MS = 195_000;
 export const LYRIC_NOT_FOUND_RETRY_MS = 10 * 60_000;
+export const isProcessedLyricArtifact = artifact => artifact?.status === 'ready'
+  && (artifact.original?.source === 'manual' || artifact.provenance?.evaluation === 'manual'
+    || artifact.provenance?.managedBy === 'lyrics-workbench' && artifact.provenance?.evaluation === 'assessed');
 const storesByBucket = new WeakMap();
 
 const nowIso = (now) => new Date(now).toISOString();
@@ -307,7 +310,14 @@ export function projectLyricTranslation(original, translation, { targetLanguage 
   const lines = translation.lines.map((text, index) => normalize(text) === normalize(original.lines[index]?.text) ? '' : text);
   return { ...translation, lines };
 }
+export function lyricArtifactProjectionSong(artifact, song = {}) {
+  return song.language === 'instrumental' && isProcessedLyricArtifact(artifact)
+    ? { ...song, language: artifact.translationDecision?.songLanguage || null } : song;
+}
 function activeTranslation(artifact, targetLanguage, song = {}) {
+  // A processed file precedes an older instrumental catalog tag. Restore the
+  // decision's original tag only for read validation; never mutate the song.
+  song = lyricArtifactProjectionSong(artifact, song);
   const target = targetLanguage || storedLyricTranslationLanguage(artifact.translation);
   const decision = target ? getCurrentLyricTranslationDecision(artifact, song, { targetLanguage: target }) : null;
   if (decision?.status === 'not_needed') return null;

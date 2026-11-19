@@ -7,6 +7,7 @@ import { saveArtistPhotoToDb } from '../services/artistPhotoStore.js';
 import { readLyricsFromChain } from '../services/lyricSourceChain.js';
 import { lyricRouteErrorMessage } from './lyricSourceRoutes.js';
 import { beginLyricReadCache, storeLyricReadCache } from '../services/lyricReadCache.js';
+import { deferredJsonTaskResponse } from '../services/jsonTaskResponse.js';
 
 const MAX_ARTIST_NAMES = 8;
 const MAX_PHOTOS = 12;
@@ -112,10 +113,12 @@ async function readLyrics(request, url, db, headers, env, accountId, deps = {}) 
     catch { /* A cold cache observation is optional after resolving the song. */ }
     if (cached?.hitPayload) return json(cached.hitPayload, 200, headers);
   }
+  return deferredJsonTaskResponse(async ({ signal, onStart }) => {
   try {
     const reader = deps.readLyrics || (deps.session ? readLyricsFromChain : readPlaybackLyrics);
     const read = await reader({ env, db, session: deps.session, song, accountId,
-      executionContext: deps.ctx, signal: deps.signal, resultRef: url.searchParams.get('resultRef') || undefined, deps });
+      executionContext: deps.ctx, signal, resultRef: url.searchParams.get('resultRef') || undefined,
+      deps: { ...deps, signal, onAiTask: onStart } });
     if (read.state === 'song_deleted') return json({ code: 404, message: 'Song not found', reason: 'song_not_found' }, 404, headers);
     if (!read.lyrics) return json({ code: 404, data: null, message: 'No lyrics found', reason: 'lyrics_not_found' }, 404, headers);
     const payload = { code: 200, data: read.lyrics };
@@ -137,6 +140,7 @@ async function readLyrics(request, url, db, headers, env, accountId, deps = {}) 
     }
     return json({ code: 500, message: 'Internal server error' }, 500, headers);
   }
+  }, { signal: deps.signal || request.signal, headers });
 }
 
 async function readArtistPhotos(url, db, headers) {

@@ -5,6 +5,9 @@ import { fixture } from '../../subsonic/test-support.js';
 import { pluginRegistry } from '../registry.js';
 import { buildReadyLyricArtifact } from '../../services/lyricAssetWorkflow.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../../utils/lyricAiConfig.js';
+// Automatic-path fixtures are externally supplied, unprocessed files. Manual
+// files are intentionally read-only caches under the host's current contract.
+const BUDGET_LYRIC_CONFIG = { ...DEFAULT_LYRIC_AI_CONFIG, onlineEnabled: false, lyricPreference: 'line' };
 
 const workbenchVersion = pluginRegistry.manifests.find(manifest => manifest.id === 'lyrics-workbench').version.split('.').map(Number);
 const boundedAutomaticRetry = workbenchVersion[0] > 1 || workbenchVersion[0] === 1
@@ -17,9 +20,9 @@ async function app(t, length = 144, language = null) {
   const f = await fixture(); t.after(f.close);
   f.sqlite.prepare("UPDATE Songs SET language=? WHERE id='s1'").run(language);
   f.sqlite.prepare(`INSERT INTO instance_settings(key,value_json,revision,updated_at,updated_by)
-    VALUES ('lyrics.ai',?,1,1,'test')`).run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash' }));
+    VALUES ('lyrics.ai',?,1,1,'test')`).run(JSON.stringify({ ...BUDGET_LYRIC_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash' }));
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
-  const saved = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
+  const saved = await buildReadyLyricArtifact(song, { source: 'youtube', format: 'lrc', lines:
     Array.from({ length }, (_, index) => ({ time: index, text: `I sing unique verse number ${index} under a blue sky` })) });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(saved.artifact)), type: 'application/json' });
   f.env.DEEPSEEK_API_KEY = 'fixture-key';
@@ -73,7 +76,7 @@ function reply(options, mode = 'normal', notNeededLanguage = 'zh') {
 async function unifiedApp(t, length = 144) {
   const f = await app(t, length, 'en');
   f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'")
-    .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash', completionEnabled: false,
+    .run(JSON.stringify({ ...BUDGET_LYRIC_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash', completionEnabled: false,
       automaticCompletionEnabled: false }));
   const httpRequests = [];
   const resetInvocation = () => { f.calls.length = 0; f.tasks.length = 0; };
@@ -114,7 +117,7 @@ async function unifiedApp(t, length = 144) {
     assert.ok(f.calls.length <= 50, 'the initial GET also respects its own request budget');
     const ref = result.body.data.resultRef;
     f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'").run(JSON.stringify({
-      ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash', completionEnabled: true,
+      ...BUDGET_LYRIC_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash', completionEnabled: true,
       automaticCompletionEnabled: true }));
     resetInvocation();
     return ref;
@@ -209,7 +212,7 @@ test('predominantly Chinese lyrics with a few foreign inserts need only one lang
   for (const kind of ['playback', 'manual', 'draft']) await t.test(kind, async t => {
     const f = await app(t, 32); let upstream = 0;
     const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
-    const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
+    const mixed = await buildReadyLyricArtifact(song, { source: 'youtube', format: 'lrc', lines:
       f.read().original.lines.map((line, index) => index < 29 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
     f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
     t.mock.method(globalThis, 'fetch', async (input, options) => reply(options, ++upstream === 1 ? 'not-needed' : 'normal'));
@@ -316,7 +319,7 @@ test('Gateway uninstall during every browser AI consumer discards delayed shared
 test('same-target language assessment settles without translation and is reused for the same policy', async t => {
   const f = await app(t, 32); let upstream = 0;
   f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'")
-    .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'en', model: 'deepseek-flash' }));
+    .run(JSON.stringify({ ...BUDGET_LYRIC_CONFIG, targetLanguage: 'en', model: 'deepseek-flash' }));
   t.mock.method(globalThis, 'fetch', async (input, options) => { upstream++; return reply(options, 'not-needed', 'en'); });
   assert.equal((await f.request('playback')).response.status, 200); assert.equal(upstream, 1);
   assert.equal(f.read().translation, null); assert.equal(f.read().aiCompletion?.status, 'completed');
@@ -328,11 +331,28 @@ test('same-target language assessment settles without translation and is reused 
 test('a known target-language tag bypasses both AI roles even with a few foreign lyric inserts', async t => {
   const f = await app(t, 32, 'zh'); let upstream = 0;
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
-  const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
+  const mixed = await buildReadyLyricArtifact(song, { source: 'youtube', format: 'lrc', lines:
     f.read().original.lines.map((line, index) => index < 29 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
   t.mock.method(globalThis, 'fetch', async () => { upstream++; assert.fail('A known same-target song does not need either AI role'); });
   assert.equal((await f.request('playback')).response.status, 200);
   assert.equal(upstream, 0); assert.equal(f.read().translation, null);
   assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
+});
+
+test('processed manual and weak workbench browser caches never search or generate after settings change', async t => {
+  for (const processed of ['manual', 'workbench-weak', 'workbench-failed']) await t.test(processed, async t => {
+    const f = await app(t, 144), saved = f.read(); let upstream = 0;
+    if (processed === 'manual') saved.original.source = 'manual';
+    else saved.provenance = { ...saved.provenance, managedBy: 'lyrics-workbench', evaluation: 'assessed', quality: 'weak', assessmentKey: 'a'.repeat(64) };
+    if (processed === 'workbench-failed') saved.aiCompletion = { status: 'failed', errorCode: 'request_budget_exhausted', updatedAt: new Date().toISOString() };
+    f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(saved)), type: 'application/json' });
+    f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'").run(JSON.stringify({
+      ...BUDGET_LYRIC_CONFIG, onlineEnabled: true, lyricPreference: 'word', targetLanguage: 'zh' }));
+    const before = JSON.stringify(f.read());
+    t.mock.method(globalThis, 'fetch', async () => { upstream++; throw new Error('Processed cache must not fetch a provider or model'); });
+    const result = await f.request('playback'); assert.equal(result.response.status, 200); assert.equal(result.body.data.lines.length, 144);
+    assert.equal(upstream, 0); assert.equal(JSON.stringify(f.read()), before); assert.equal(f.nativeLimit(), 0); assert.ok(f.calls.length <= 50);
+    assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
+  });
 });

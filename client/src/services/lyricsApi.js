@@ -15,9 +15,9 @@ async function lyricRequest(path, { method = 'GET', body, signal, session = useU
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const payload = await response.json();
-  if (!response.ok) {
+  if (!response.ok || payload?.ok === false || Number.isInteger(payload?.code) && payload.code >= 400) {
     const error = new Error(payload?.message || payload?.error?.message || t('歌词请求暂时无法完成，请重试。'));
-    error.status = response.status;
+    error.status = !response.ok ? response.status : payload.code || 503;
     error.code = typeof payload?.error === 'string' ? payload.error : payload?.error?.code;
     throw error;
   }

@@ -74,7 +74,10 @@ export function createPluginTransport({ pluginId, session, buildDigest, signal: 
     const result = await response(path, options);
     let data;
     try { data = await result.json(); } catch (error) { if (error?.name === 'AbortError') throw error; throw new InstanceApiError(result.status, 'invalid_response'); }
-    if (!result.ok) { const error = new InstanceApiError(result.status, data?.error || 'request_failed'); error.data = data; throw error; }
+    if (!result.ok || data?.ok === false || Number.isInteger(data?.code) && data.code >= 400) {
+      const status = !result.ok ? result.status : Number.isInteger(data?.code) && data.code >= 400 ? data.code : 503;
+      const error = new InstanceApiError(status, data?.error || 'request_failed'); error.data = data; throw error;
+    }
     if (!isCurrent()) throw retired();
     return data;
   }

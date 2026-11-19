@@ -4,6 +4,7 @@ import { deliveryPluginModules } from './plugins/delivery.generated.js';
 import { deploymentGateAllows } from './deploymentGate.js';
 import { systemUpdateRequestGate } from './systemUpdate/gate.js';
 import { handleSubsonic } from './subsonic/router.js';
+import { createRequestEnvironment, bindRequestResponse } from './services/requestAuthorization.js';
 // Cloudflare binding identity stays stable. Only the selected package supplies
 // executable source behavior; no actor/vendor implementation lives in the host.
 export class YouTubeRuntime {
@@ -29,7 +30,10 @@ export default {
       const handle = deliveryPluginModules['xiaomi-speaker']?.handleOutputMedia;
       return handle ? handle(request, env, ctx) : new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
     }
-    if (path === '/rest' || path.startsWith('/rest/')) return handleSubsonic(request, env, ctx);
+    if (path === '/rest' || path.startsWith('/rest/')) {
+      const scoped = createRequestEnvironment(env, request);
+      return bindRequestResponse(scoped, await handleSubsonic(request, scoped, ctx));
+    }
     if (path.startsWith('/media/')) return handleMediaRoute(request, path, env, ctx);
     if (path === '/api' || path === '/auth') return json({ error: 'not_found' }, 404);
     if (path.startsWith('/api/') || path.startsWith('/auth/')) {

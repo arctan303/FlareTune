@@ -1,5 +1,5 @@
 import { serveMediaObject, resolveMediaObjectKey } from '../routes/media.js';
-import { lyricArtifactStoreForEnv } from '../services/lyricAssetWorkflow.js';
+import { lyricArtifactStoreForEnv, isProcessedLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { readLyricsFromChain } from '../services/lyricSourceChain.js';
 import { findSong, catalog } from './library.js';
 import { required, reject } from './response.js';
@@ -35,9 +35,9 @@ async function findLyricSong(p, db, env) {
   const store = lyricArtifactStoreForEnv(env);
   let readError;
   for (const row of rows) {
-    if (row.language === 'instrumental') continue;
     try {
       const saved = await store.get(row.id);
+      if (row.language === 'instrumental' && !isProcessedLyricArtifact(saved.artifact)) continue;
       if (saved.artifact?.status === 'ready') return row;
     } catch (error) { readError ||= error; }
   }

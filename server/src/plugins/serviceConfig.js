@@ -180,11 +180,18 @@ export function bindServiceConfiguration(request, { slot = 'ai-model', revision,
   if (!revisionValue(revision) || revision === 0) pluginFail('invalid_input', 400);
   const predicates = [configPredicate(key, revision), ...guardData(a, guard)];
   const dbs = new WeakMap();
+  const once = a.lease.authorization === 'request';
+  let checked;
+  let snapshotReady = false;
   const guardedDb = (db = a.env.DB) => {
+    if (once && snapshotReady) return a.lease.guardedDb(db);
     if (!dbs.has(db)) dbs.set(db, guardedDatabase(a.lease.guardedDb(db), predicates));
     return dbs.get(db);
   };
   const assertCurrent = async () => {
+    if (once && snapshotReady) return a.lease.assertCurrent();
+    if (once && checked) return checked;
+    const check = async () => {
     try { await guardedDb().prepare('SELECT 1').first(); }
     catch (error) {
       if (/malformed JSON|service_configuration_changed/i.test(error.message || '')) {
@@ -192,9 +199,13 @@ export function bindServiceConfiguration(request, { slot = 'ai-model', revision,
       }
       throw error;
     }
+    if (once) snapshotReady = true;
+    };
+    if (once) return checked = check();
+    return check();
   };
   configurationAssertions.set(assertCurrent, a.lease);
-  return Object.freeze({ guardedDb, assertCurrent });
+  return Object.freeze({ guardedDb, assertCurrent, authorization: once ? 'request' : 'live' });
 }
 
 function resourceEntries(registry, providerId) {

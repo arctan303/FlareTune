@@ -745,7 +745,7 @@ test('stale pending completion can restart with a fresh task timestamp', async (
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const store = createMemoryLyricStore(pendingArtifact());
-  const restartedAt = Date.parse('2026-09-10T00:00:31.000Z');
+  const restartedAt = Date.parse('2026-09-10T00:03:16.000Z');
   const started = await beginLyricAssetAiCompletion({
     env: {},
     db: {},
@@ -758,7 +758,7 @@ test('stale pending completion can restart with a fresh task timestamp', async (
     }),
   });
   assert.equal(started.state, 'started');
-  assert.equal(store.current().aiCompletion.updatedAt, '2026-09-10T00:00:31.000Z');
+  assert.equal(store.current().aiCompletion.updatedAt, '2026-09-10T00:03:16.000Z');
   release();
   await started.task;
   assert.deepEqual(store.current().translation.lines, ['新译文']);

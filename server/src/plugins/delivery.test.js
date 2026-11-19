@@ -117,7 +117,7 @@ test('an uninstalled plugin may select a historical release, while cancelling it
 });
 
 test('higher versions still require source ownership, explicit trust and compatible manifests before any write', async t => {
-  const f = await versionedApp(t, { releases: [release('2.0.0', 'b'), release('3.0.0', 'd', { hostApiVersion: 6 })] });
+  const f = await versionedApp(t, { releases: [release('2.0.0', 'b'), release('3.0.0', 'd', { hostApiVersion: 7 })] });
   let before = rawDelivery(f), calls = f.calls.length;
   await assert.rejects(f.select(true, { ...selection('3.0.0'), trustCode: false }), { code: 'PLUGIN_CODE_TRUST_REQUIRED' });
   await assert.rejects(f.select(true, selection('3.0.0')), { code: 'PLUGIN_SELECTION_INCOMPATIBLE' });
@@ -127,6 +127,19 @@ test('higher versions still require source ownership, explicit trust and compati
   const other = sources.sources.find(row => !row.official);
   before = rawDelivery(f); calls = f.calls.length;
   await assert.rejects(f.select(true, { ...selection('3.0.0'), sourceId: other.id }), { code: 'PLUGIN_SOURCE_CONFLICT' });
+  assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
+});
+
+test('delivery selects API1 through API6 packages while API7 is rejected before a write', async t => {
+  const releases = Array.from({ length: 7 }, (_, index) => release(`3.0.${index + 1}`, String(index + 1), { hostApiVersion: index + 1 }));
+  const f = await versionedApp(t, { releases });
+  for (const api of [1, 2, 3, 4, 5, 6]) {
+    const result = await f.select(true, selection(`3.0.${api}`));
+    assert.equal(result.desired[0].manifest.hostApiVersion, api);
+    assert.equal(result.desired[0].version, `3.0.${api}`);
+  }
+  const before = rawDelivery(f), calls = f.calls.length;
+  await assert.rejects(f.select(true, selection('3.0.7')), { code: 'PLUGIN_SELECTION_INCOMPATIBLE' });
   assert.deepEqual(rawDelivery(f), before); assert.equal(f.calls.length, calls);
 });
 

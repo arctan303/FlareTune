@@ -3,6 +3,7 @@ import { pluginRegistry, installationKey } from '../plugins/registry.js';
 import { pluginFail } from '../plugins/common.js';
 import { isPluginVisibleToRole, satisfiesPluginVersion } from '../../../shared/plugins/manifest.js';
 import { databaseIdentity, registerDatabaseWrapper } from '../services/databaseIdentity.js';
+import { requestLifetime } from '../services/requestAuthorization.js';
 
 const leases = new WeakMap();
 const leaseOwners = new WeakMap();
@@ -18,11 +19,13 @@ const guardedOwner = Symbol('subsonicPluginOwner');
 // A fixed internal bridge for playback lyric AI. It grants neither browser
 // sessions nor administrator/configuration APIs, and never accepts account IDs.
 export async function createSubsonicPluginServiceLease({ env, principal, consumerId, providerId,
-  registry = pluginRegistry }) {
+  registry = pluginRegistry, authorization }) {
+  const lifetime = authorization === 'request' ? requestLifetime(env) : null;
+  const once = Boolean(lifetime);
   if (consumerId !== 'lyrics-workbench' || providerId !== 'ai-gateway') pluginFail('PLUGIN_SERVICE_FEATURE_FORBIDDEN', 403);
   const authority = subsonicAuthorityForPrincipal(principal, env);
   const cached = leases.get(principal)?.get(registry);
-  if (cached) { await cached.assertCurrent(); return cached; }
+  if (cached && (cached.authorization === 'request') === once) { await cached.assertCurrent(); return cached; }
   const consumer = registry.manifests.find(item => item.id === consumerId);
   const provider = registry.manifests.find(item => item.id === providerId);
   const declaration = consumer?.dependencies?.[providerId] || consumer?.optionalDependencies?.[providerId];
@@ -48,11 +51,13 @@ export async function createSubsonicPluginServiceLease({ env, principal, consume
   const owner = {}, databases = new WeakMap();
   const assertCurrent = async () => {
     subsonicAuthorityForPrincipal(principal, env);
+    if (once) { lifetime.assertCurrent(); return authority.identity; }
     const row = await env.DB.prepare(`SELECT 1 AS allowed WHERE ${predicate}`).bind(...bindings()).first();
     if (!row) pluginFail('PLUGIN_SERVICE_RETIRED', 409);
   };
   const guardedDb = (db = env.DB) => {
     if (databaseIdentity(db) !== databaseIdentity(env.DB)) pluginFail('PLUGIN_SERVICE_CONTEXT_MISMATCH', 403);
+    if (once) { lifetime.assertCurrent(); subsonicAuthorityForPrincipal(principal, env); return db; }
     if (db[guardedOwner] === owner) return db;
     if (databases.has(db)) return databases.get(db);
     const guard = () => {
@@ -76,7 +81,8 @@ export async function createSubsonicPluginServiceLease({ env, principal, consume
   };
   const lease = Object.freeze({ identity: authority.identity,
     consumer: Object.freeze({ id: consumerId, epoch: installations.get(consumerId) }),
-    provider: Object.freeze({ id: providerId, epoch: installations.get(providerId) }), assertCurrent, guardedDb });
+    provider: Object.freeze({ id: providerId, epoch: installations.get(providerId) }), assertCurrent, guardedDb,
+    authorization: once ? 'request' : 'live' });
   await assertCurrent();
   if (!leases.has(principal)) leases.set(principal, new WeakMap());
   leases.get(principal).set(registry, lease);

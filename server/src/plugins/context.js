@@ -1,6 +1,7 @@
 import { installationKey, pluginRegistry } from './registry.js';
 import { pluginFail as fail, requirePluginSession, sessionBindings, sessionPredicate } from './common.js';
 import { canAccessPluginDeclaration, isPluginVisibleToRole } from '../../../shared/plugins/manifest.js';
+import { requestAuthorizationSnapshot } from '../services/requestAuthorization.js';
 
 const validKey = key => typeof key === 'string' && /^[a-z][a-z0-9.-]{0,127}$/.test(key);
 const encodeOwner = owner => btoa(String.fromCharCode(...new TextEncoder().encode(owner)))
@@ -9,21 +10,29 @@ const encodeOwner = owner => btoa(String.fromCharCode(...new TextEncoder().encod
 // A narrow capability facade for trusted bundled modules. JSON configuration
 // here is plaintext: credentials still require a purpose-specific encrypted
 // adapter, such as Xiaomi's existing account store.
-export async function createPluginContext({ env, session, pluginId, registry = pluginRegistry }) {
-  const identity = await requirePluginSession(env, session);
-  await registry.requirePluginRole(env, session, pluginId);
+export async function createPluginContext({ env, session, pluginId, registry = pluginRegistry, authorization }) {
+  const request = authorization === 'request' ? requestAuthorizationSnapshot(env, session) : null;
+  const once = Boolean(request);
+  const identity = request?.identity || await requirePluginSession(env, session);
+  if (!request) await registry.requirePluginRole(env, session, pluginId);
   const manifest = registry.manifests.find(item => item.id === pluginId);
   const allowedRoles = ['admin', 'member'].filter(role => isPluginVisibleToRole(manifest, role));
-  if (!allowedRoles.length) fail('forbidden', 403);
+  if (!allowedRoles.includes(identity.role)) fail('forbidden', 403);
   const installation = await registry.requirePluginInstalled(env, pluginId);
   const owner = session.account.accountId;
   const epoch = installation.epoch;
   async function assertCurrent() {
+    if (once) { request?.assertCurrent(); return identity; }
     const current = await registry.requirePluginRole(env, session, pluginId);
     await registry.requirePluginInstalled(env, pluginId, epoch);
     return current;
   }
   async function requireRoles(roles) {
+    if (once) {
+      request?.assertCurrent();
+      if (!canAccessPluginDeclaration({ roles }, identity.role)) fail('forbidden', 403);
+      return identity;
+    }
     const current = await registry.requirePluginRole(env, session, pluginId);
     await registry.requirePluginInstalled(env, pluginId, epoch);
     if (!canAccessPluginDeclaration({ roles }, current.role)) fail('forbidden', 403);
@@ -74,7 +83,7 @@ export async function createPluginContext({ env, session, pluginId, registry = p
     }
     return { value: JSON.parse(serialized), revision: revision + 1 };
   }
-  return Object.freeze({ plugin: Object.freeze({ id: pluginId, epoch }),
+  return Object.freeze({ plugin: Object.freeze({ id: pluginId, epoch }), authorization: once ? 'request' : 'live',
     identity: Object.freeze(identity), requireRoles, assertCurrent,
     storage: Object.freeze({ get, set }) });
 }

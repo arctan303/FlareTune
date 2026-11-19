@@ -6,6 +6,7 @@ import { canonicalPluginManifest, getRequiredDependents, resolvePluginAvailabili
 import { pluginFail as fail, requirePluginSession, sessionBindings, sessionPredicate, sha256 } from './common.js';
 import { preparePluginMigrations } from './migrations.js';
 import { invocationBudget } from '../services/invocationDatabase.js';
+import { lyricRequestSnapshotKey } from '../services/requestAuthorization.js';
 
 export const XIAOMI_PLUGIN_ID = 'xiaomi-speaker';
 export const installationKey = pluginId => `plugin.installation.${pluginId}`;
@@ -147,7 +148,8 @@ export function createPluginRegistry({ manifests = compiledPluginManifests, modu
     // Consumers of several services need one coherent read, including the
     // migration/delivery gates. Installation writers retain their existing CAS.
     const candidate = !fresh && invocationBudget(env.DB);
-    const owner = candidate?.exhaustedCode === 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' ? candidate : null;
+    const owner = !fresh && lyricRequestSnapshotKey(env)
+      || (candidate?.exhaustedCode === 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' ? candidate : null);
     const loadRows = async () => (await env.DB.prepare(`SELECT key,value_json,revision FROM instance_settings
       WHERE key IN ('plugin.registry','plugin.delivery.v1')
         OR key LIKE 'plugin.installation.%' OR key LIKE 'plugin.migrations.%'`).all()).results || [];

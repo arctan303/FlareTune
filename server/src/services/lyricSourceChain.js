@@ -1,6 +1,6 @@
 import { createLyricDocument, parseLrcDocument, projectCanonicalLrc } from '../utils/lyricDocument.js';
 import { buildReadyLyricArtifact, lyricArtifactStoreForEnv, lyricTextForHash, projectLyricArtifact,
-  projectLyricTranslation, shouldAiCompleteLyrics } from './lyricAssetWorkflow.js';
+  projectLyricTranslation, shouldAiCompleteLyrics, isProcessedLyricArtifact, lyricArtifactProjectionSong } from './lyricAssetWorkflow.js';
 import { computeHash } from '../utils/lyricsParsing.js';
 import { deliveryPluginModules } from '../plugins/delivery.generated.js';
 import { pluginRegistry, installationKey } from '../plugins/registry.js';
@@ -16,6 +16,7 @@ import { isPluginVisibleToRole } from '../../../shared/plugins/manifest.js';
 import { applyLyricOffset } from './lyricResolution.js';
 import { resolveLyricSong, lyricSongStillExists } from './playbackLyrics.js';
 import { LyricSourceError } from './lyricSourceError.js';
+import { requestAuthorizationSnapshot, requestLifetime, authorizeProtocolRequestEnvironment, retainRequestTask } from './requestAuthorization.js';
 
 export const DEFAULT_LYRIC_SOURCE_ORDER = Object.freeze(['lyrics-workbench', 'youtube-music', 'file']);
 export const LYRIC_ORDER_KEY = 'lyrics.source-order';
@@ -34,23 +35,24 @@ export function effectiveLyricSourceOrder(saved, ids) {
   const available = new Set(ids);
   return [...new Set([...saved, ...DEFAULT_LYRIC_SOURCE_ORDER, ...ids])].filter(id => available.has(id));
 }
-export async function loadLyricSourceOrder(db, ids, { session } = {}) {
+export async function loadLyricSourceOrder(db, ids, { session, env } = {}) {
   if (session && (session.mode !== 'normal' || !['admin', 'member'].includes(session.account?.role))) pluginFail('forbidden', 403);
-  const row = session ? await db.prepare(`SELECT c.*,a.role AS current_role,
+  const authorized = env && session ? requestAuthorizationSnapshot(env, session) : null;
+  const row = session && !authorized ? await db.prepare(`SELECT c.*,a.role AS current_role,
     (SELECT value_json FROM instance_settings WHERE key=?) AS value_json,
     COALESCE((SELECT revision FROM instance_settings WHERE key=?),0) AS revision
     FROM account_credentials c JOIN accounts a ON a.account_id=c.account_id
     WHERE c.account_id=? AND ${sessionPredicate}`)
     .bind(LYRIC_ORDER_KEY, LYRIC_ORDER_KEY, session.account.accountId, ...sessionBindings(session, Date.now())).first()
     : await db.prepare('SELECT value_json,revision FROM instance_settings WHERE key=?').bind(LYRIC_ORDER_KEY).first();
-  if (session && (!row || !isUsableCredentialMaterial(row))) pluginFail('forbidden', 403);
+  if (session && !authorized && (!row || !isUsableCredentialMaterial(row))) pluginFail('forbidden', 403);
   let saved = DEFAULT_LYRIC_SOURCE_ORDER;
   if (row?.value_json != null) {
     try { saved = validateLyricSourceOrder(JSON.parse(row.value_json)); }
     catch { pluginFail('LYRIC_ORDER_UNAVAILABLE', 503); }
   }
   return { order: effectiveLyricSourceOrder(saved, ids), revision: Number(row?.revision || 0),
-    ...(session ? { identity: { accountId: session.account.accountId, role: row.current_role } } : {}) };
+    ...(session ? { identity: authorized?.identity || { accountId: session.account.accountId, role: row.current_role } } : {}) };
 }
 
 // Claims never call a different source. Abort the scoped capability before
@@ -92,10 +94,11 @@ export function normalizeLyricSourceResult(result, sourceId, song = {}) {
   if (state === 'ready' && raw.supported !== true) throw new TypeError('Ready translation must declare support');
   if (state === 'ready' && (lines.length !== document.lines.length || !lines.some(line => typeof line === 'string' && line.trim())
     || lines.some(line => typeof line !== 'string' || line.length > 4000 || /[\r\n]/u.test(line)))) throw new TypeError('Invalid paired lyric translation');
-  const selected = state === 'ready' ? projectLyricTranslation(document, raw, { song,
+  const projectionSong = lyricArtifactProjectionSong(result.artifact, song);
+  const selected = state === 'ready' ? projectLyricTranslation(document, raw, { song: projectionSong,
     targetLanguage: raw.targetLanguage || null }) : null;
   if (state === 'ready' && !selected) {
-    const needed = shouldAiCompleteLyrics(document, song, { targetLanguage: raw.targetLanguage || raw.language || 'zh' });
+    const needed = shouldAiCompleteLyrics(document, projectionSong, { targetLanguage: raw.targetLanguage || raw.language || 'zh' });
     return { ...result, sourceId, document, translation: { supported: needed && raw.supported === true,
       state: needed ? 'failed' : 'not_needed',
       ...(raw.targetLanguage ? { targetLanguage: raw.targetLanguage } : {}) } };
@@ -227,6 +230,8 @@ export async function createLyricSources({ env, db = env.DB, session, executionC
       } });
       const source = await module.createLyricSource({ env, db, session, executionContext, context,
         dependencies: { ...sourceDependencies, store, assertCurrent, registerServiceAuthority, assertReadScope: () => scope.signal?.throwIfAborted(),
+          retainBackgroundTask: id === 'lyrics-workbench' && typeof executionContext?.waitUntil === 'function'
+            ? () => retainRequestTask(env) : undefined,
           // A source may evaluate library and external songs. Provider callbacks
           // only own their virtual IDs; library existence stays with the host.
           resolveSong: songId => resolveLyricSong(db, songId, deps),
@@ -263,7 +268,8 @@ export async function createLyricSources({ env, db = env.DB, session, executionC
   return sources;
 }
 async function createSourceContext({ env, session, pluginId, registry, requestIdentity }) {
-  const lease = await createPluginOperationLease({ env, session, pluginId, registry, requestIdentity });
+  const lease = await createPluginOperationLease({ env, session, pluginId, registry, requestIdentity,
+    authorization: pluginId === 'lyrics-workbench' ? 'request' : undefined });
   return { ...lease, requireRoles: async roles => {
     const identity = await lease.assertCurrent(); if (!roles.includes(identity.role)) pluginFail('forbidden', 403);
     return identity;
@@ -272,6 +278,10 @@ async function createSourceContext({ env, session, pluginId, registry, requestId
 
 async function assertProtocol(env, principal) {
   const authority = subsonicAuthorityForPrincipal(principal, env);
+  const lifetime = requestLifetime(env);
+  if (lifetime) {
+    lifetime.assertCurrent(); authorizeProtocolRequestEnvironment(env); return authority.identity;
+  }
   const row = await env.DB.prepare(`SELECT 1 AS allowed WHERE ${authority.predicate}`).bind(...authority.bindings()).first();
   if (!row) pluginFail('PLUGIN_SERVICE_RETIRED', 409);
   return authority.identity;
@@ -375,7 +385,9 @@ const documentDigest = result => computeHash(JSON.stringify({ source: result.doc
   syncMode: result.document.syncMode, lines: result.document.lines, offsetMs: result.artifact?.offsetMs ?? result.offsetMs ?? 0 }));
 export async function readLyricsFromChain({ env, db = env.DB, session, song, executionContext, signal, resultRef, translate = false, deps = {} }) {
   const protocol = deps.subsonicPrincipal;
-  const assertRequest = protocol ? () => assertProtocol(env, protocol) : () => (deps.requireSession || requirePluginSession)(env, session);
+  const authorized = !protocol ? requestAuthorizationSnapshot(env, session) : null;
+  const assertRequest = protocol ? () => assertProtocol(env, protocol)
+    : authorized ? () => authorized.assertCurrent() : () => (deps.requireSession || requirePluginSession)(env, session);
   const hint = !protocol && !resultRef && !translate && deps.requestIdentity;
   if (hint && (hint.accountId !== session?.account?.accountId || !['admin', 'member'].includes(hint.role))) pluginFail('forbidden', 403);
   // A normal GET combines fresh entry authorization with its source-order
@@ -385,7 +397,15 @@ export async function readLyricsFromChain({ env, db = env.DB, session, song, exe
   const identity = protocol ? { accountId: authority.accountId, sessionHash: 'protocol' }
     : { accountId: session.account.accountId, sessionHash: await computeHash(session.tokenHash) };
   if (protocol && (resultRef || translate)) pluginFail('forbidden', 403);
-  if (song.language === 'instrumental') {
+  // A manually or workbench-processed file is the first source of truth,
+  // including when an older catalog tag still says instrumental.
+  let cached = null;
+  if (deps.store || env.MEDIA_BUCKET) {
+    try { cached = await (deps.store || lyricArtifactStoreForEnv(env)).get(song.id); }
+    catch { throw new LyricSourceError('upstream', 'file', 'resolve', 'Lyric source temporarily unavailable'); }
+  }
+  const processedFile = isProcessedLyricArtifact(cached?.artifact);
+  if (song.language === 'instrumental' && !processedFile) {
     if (hint) await assertRequest();
     return { state: 'not_needed', artifact: null, lyrics: {
     version: 2, status: 'not_needed', reason: 'instrumental', source: null, format: null, syncMode: 'none',
@@ -424,14 +444,30 @@ export async function readLyricsFromChain({ env, db = env.DB, session, song, exe
     chosen = { source, result };
   } else {
     if (translate) pluginFail('LYRIC_RESULT_INVALID', 400);
-    const saved = await loadLyricSourceOrder(db, sources.map(source => source.id), { session: hint ? session : undefined });
+    const saved = await loadLyricSourceOrder(db, sources.map(source => source.id), { session: hint ? session : undefined, env });
     if (saved.identity) Object.assign(authority, saved.identity);
-    try { chosen = await selectLyricSource({ sources, order: saved.order, song, signal, onDiagnostic: deps.onDiagnostic, adopt: true }); }
+      // Older immutable workbenches may search during resolve itself. Read a
+      // processed file through the built-in reader until that package upgrades.
+      const cacheAwareWorkbench = (deps.registry || pluginRegistry).manifests
+        ?.find(item => item.id === 'lyrics-workbench')?.hostApiVersion >= 6;
+      const selectedSources = processedFile ? sources.filter(item => item.id === 'file'
+        || cacheAwareWorkbench && item.id === 'lyrics-workbench') : sources;
+      if (processedFile && !selectedSources.some(item => item.id === 'file')) selectedSources.push(fileLyricSource(deps.store || lyricArtifactStoreForEnv(env)));
+      const order = processedFile ? ['lyrics-workbench', 'file'] : saved.order;
+      try { chosen = await selectLyricSource({ sources: selectedSources, order, song, signal, onDiagnostic: deps.onDiagnostic, adopt: !processedFile }); }
     catch (error) { if (error?.code === 'LYRIC_SONG_DELETED') return { state: 'song_deleted', artifact: null, lyrics: null }; throw error; }
   }
   if (!chosen) return { state: 'not_found', artifact: null, lyrics: null };
   const { source } = chosen;
-  const { result } = chosen;
+  let { result } = chosen;
+  // Selection retains its short source-fetch deadline. The adopted source's
+  // model task belongs to the still-open HTTP response, outside that deadline.
+  if (result.settled) {
+    deps.onAiTask?.();
+    const expectedText = await computeHash(lyricTextForHash(result.document.lines));
+    result = normalizeLyricSourceResult(await result.settled, source.id, song);
+    if (!result || await computeHash(lyricTextForHash(result.document.lines)) !== expectedText) pluginFail('LYRIC_RESULT_CHANGED', 409);
+  }
   signal?.throwIfAborted();
   const textHash = await computeHash(lyricTextForHash(result.document.lines));
   const store = deps.store || lyricArtifactStoreForEnv(env);

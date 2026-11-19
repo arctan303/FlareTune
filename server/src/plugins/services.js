@@ -3,6 +3,7 @@ import { pluginFail, requirePluginSession, sessionPredicate, sessionBindings } f
 import { isPluginVisibleToRole, satisfiesPluginVersion } from '../../../shared/plugins/manifest.js';
 import { isUsableCredentialMaterial } from '../instance/credentialFormat.js';
 import { databaseIdentity, registerDatabaseWrapper } from '../services/databaseIdentity.js';
+import { requestAuthorizationSnapshot } from '../services/requestAuthorization.js';
 
 const rawStatement = Symbol('pluginServiceStatement');
 const guardedOwner = Symbol('pluginServiceOwner');
@@ -49,7 +50,11 @@ async function diagnoseLease(env, registry, session, manifest, epochs, admin) {
   for (const [id, epoch] of epochs) if (current.get(id)?.epoch !== epoch) pluginFail('PLUGIN_NOT_INSTALLED');
 }
 
-function createLease({ env, session, identity, installations, roles, diagnose, snapshotGuard }) {
+function createLease({ env, session, identity, installations, roles, diagnose, snapshotGuard, authorization }) {
+  const request = authorization === 'request' ? requestAuthorizationSnapshot(env, session) : null;
+  const once = Boolean(request);
+  let authorizedIdentity = request?.identity || null;
+  let initialCheck;
   const epochSql = [...installations].map(() => `EXISTS(SELECT 1 FROM instance_settings WHERE key=?
     AND json_extract(value_json,'$.installed')=1 AND json_extract(value_json,'$.epoch')=?)`).join(' AND ');
   const epochs = [...installations].flatMap(([id, epoch]) => [installationKey(id), epoch]);
@@ -58,15 +63,29 @@ function createLease({ env, session, identity, installations, roles, diagnose, s
   const owner = {};
   const databases = new WeakMap();
   async function assertCurrent() {
+    if (once && authorizedIdentity) {
+      request?.assertCurrent();
+      return authorizedIdentity;
+    }
+    if (once && initialCheck) return initialCheck;
+    const check = async () => {
     const row = await env.DB.prepare(`SELECT c.*,a.role AS current_role FROM account_credentials c
       JOIN accounts a ON a.account_id=c.account_id WHERE c.account_id=? AND ${predicate}`)
       .bind(identity.accountId, ...bindings()).first();
-    if (row && isUsableCredentialMaterial(row)) return { accountId: identity.accountId, role: row.current_role };
+    if (row && isUsableCredentialMaterial(row)) {
+      const current = { accountId: identity.accountId, role: row.current_role };
+      if (once) authorizedIdentity = Object.freeze(current);
+      return current;
+    }
     await diagnose();
     pluginFail('PLUGIN_SERVICE_RETIRED', 409);
+    };
+    if (once) return initialCheck = check();
+    return check();
   }
   function guardedDb(db = env.DB) {
     if (databaseIdentity(db) !== databaseIdentity(env.DB)) pluginFail('PLUGIN_SERVICE_CONTEXT_MISMATCH', 403);
+    if (once && authorizedIdentity) { request?.assertCurrent(); return db; }
     if (db[guardedOwner] === owner) return db;
     if (databases.has(db)) return databases.get(db);
     const guard = () => db.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM accounts a WHERE a.account_id=?
@@ -88,25 +107,26 @@ function createLease({ env, session, identity, installations, roles, diagnose, s
     registerDatabaseWrapper(wrapped, db);
     databases.set(db, wrapped); return wrapped;
   }
-  return { assertCurrent, guardedDb };
+  return { assertCurrent, guardedDb, authorization: once ? 'request' : 'live' };
 }
 
 export async function createPluginOperationLease({ env, session, pluginId, context, registry = pluginRegistry, admin = false,
-  requestIdentity }) {
+  requestIdentity, authorization }) {
   assertContext(session, context, pluginId);
   // A host request may already have resolved its identity. This is only a
   // query hint: the combined session/credentials/role/epoch predicate below
   // still checks current database authority before returning any capability.
   if (requestIdentity && (session?.mode !== 'normal' || requestIdentity.accountId !== session?.account?.accountId
     || !['admin', 'member'].includes(requestIdentity.role))) pluginFail('forbidden', 403);
-  const identity = context?.identity || requestIdentity || await requirePluginSession(env, session, admin);
+  const identity = (authorization === 'request' ? requestAuthorizationSnapshot(env, session)?.identity : null)
+    || context?.identity || requestIdentity || await requirePluginSession(env, session, admin);
   if (admin && identity.role !== 'admin') pluginFail('forbidden', 403);
   const manifest = registry.manifests.find(item => item.id === pluginId);
   if (manifest && !isPluginVisibleToRole(manifest, identity.role)) pluginFail('forbidden', 403);
   const snapshot = await requireInstallations(env, registry, [pluginId]);
   const installations = expectedEpochs(snapshot, context);
   const roles = ['admin', 'member'].filter(role => (!admin || role === 'admin') && isPluginVisibleToRole(manifest, role));
-  const lease = createLease({ env, session, identity, installations, roles,
+  const lease = createLease({ env, session, identity, installations, roles, authorization,
     snapshotGuard: registry.installationSnapshotGuard?.(snapshot),
     diagnose: () => diagnoseLease(env, registry, session, manifest, installations, admin) });
   const currentIdentity = await lease.assertCurrent();
@@ -116,7 +136,7 @@ export async function createPluginOperationLease({ env, session, pluginId, conte
 // Only trusted compiled consumers choose this capability. Page roles on the
 // provider do not prevent an authorized member from using a declared service.
 export async function createPluginServiceLease({ env, session, consumerId, providerId,
-  consumerContext, registry = pluginRegistry, admin = false }) {
+  consumerContext, registry = pluginRegistry, admin = false, authorization }) {
   const consumer = registry.manifests.find(item => item.id === consumerId);
   const provider = registry.manifests.find(item => item.id === providerId);
   if (!consumer || !provider || consumerId === providerId
@@ -124,14 +144,15 @@ export async function createPluginServiceLease({ env, session, consumerId, provi
   const declaration = consumer.dependencies?.[providerId] || consumer.optionalDependencies[providerId];
   if (declaration.apiVersion !== provider.apiVersion || (declaration.version && !satisfiesPluginVersion(provider.version, declaration.version))) pluginFail('PLUGIN_SERVICE_INCOMPATIBLE', 409);
   assertContext(session, consumerContext, consumerId);
-  const identity = consumerContext?.identity || await requirePluginSession(env, session, admin);
+  const identity = (authorization === 'request' ? requestAuthorizationSnapshot(env, session)?.identity : null)
+    || consumerContext?.identity || await requirePluginSession(env, session, admin);
   if (admin && identity.role !== 'admin') pluginFail('forbidden', 403);
   if (!isPluginVisibleToRole(consumer, identity.role)) pluginFail('forbidden', 403);
   const snapshot = await requireInstallations(env, registry, [consumerId, providerId]);
   const installations = expectedEpochs(snapshot, consumerContext);
   const consumerInstallation = snapshot.get(consumerId), providerInstallation = snapshot.get(providerId);
   const roles = ['admin', 'member'].filter(role => (!admin || role === 'admin') && isPluginVisibleToRole(consumer, role));
-  const lease = createLease({ env, session, identity, installations,
+  const lease = createLease({ env, session, identity, installations, authorization,
     snapshotGuard: registry.installationSnapshotGuard?.(snapshot),
     roles, diagnose: () => diagnoseLease(env, registry, session, consumer, installations, admin) });
   await lease.assertCurrent();

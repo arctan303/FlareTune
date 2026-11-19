@@ -9,6 +9,9 @@ import { buildReadyLyricArtifact } from '../services/lyricAssetWorkflow.js';
 import { DEFAULT_LYRIC_AI_CONFIG } from '../utils/lyricAiConfig.js';
 import { createLyricSources, selectLyricSource } from '../services/lyricSourceChain.js';
 import { createLyricDocument } from '../utils/lyricDocument.js';
+// Keep automatic AI coverage on an unprocessed external file. A manually saved
+// lyric is now a processed cache and must not start work during a normal read.
+const AUTOMATIC_LYRIC_CONFIG = { ...DEFAULT_LYRIC_AI_CONFIG, onlineEnabled: false, lyricPreference: 'line' };
 
 const workbenchVersion = pluginRegistry.manifests.find(manifest => manifest.id === 'lyrics-workbench').version.split('.').map(Number);
 const boundedAutomaticRetry = workbenchVersion[0] > 1 || workbenchVersion[0] === 1
@@ -37,10 +40,10 @@ async function setup(t, installed = true) {
   const f = await fixture(); t.after(f.close);
   const member = await f.signIn('member'); await f.enable(member);
   f.sqlite.prepare(`INSERT OR REPLACE INTO instance_settings(key,value_json,revision,updated_at,updated_by)
-    VALUES ('lyrics.ai',?,1,1,'test')`).run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh',
+    VALUES ('lyrics.ai',?,1,1,'test')`).run(JSON.stringify({ ...AUTOMATIC_LYRIC_CONFIG, targetLanguage: 'zh',
     completionEnabled: true, automaticCompletionEnabled: true }));
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
-  const saved = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines: [{ time: 1, text: 'Hello' }] });
+  const saved = await buildReadyLyricArtifact(song, { source: 'youtube', format: 'lrc', lines: [{ time: 1, text: 'Hello' }] });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(saved.artifact)), type: 'application/json' });
   f.env.DEEPSEEK_API_KEY = 'fixture-key';
   if (installed) for (const id of ['lyrics-workbench', 'ai-gateway']) await install(f, id);
@@ -96,14 +99,14 @@ test('lyric source authority accepts a genuine Subsonic lease under the consumer
 
 async function compactLyrics(f, lineCount) {
   f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'")
-    .run(JSON.stringify({ ...DEFAULT_LYRIC_AI_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash' }));
+    .run(JSON.stringify({ ...AUTOMATIC_LYRIC_CONFIG, targetLanguage: 'zh', model: 'deepseek-flash' }));
   const modelKey = 'plugin.data.lyrics-workbench.instance.ai-model';
   const selected = f.sqlite.prepare('SELECT value_json,revision FROM instance_settings WHERE key=?').get(modelKey);
   const value = JSON.parse(selected.value_json);
   value.selection.model = 'deepseek-flash';
   f.sqlite.prepare('UPDATE instance_settings SET value_json=?,revision=revision+1 WHERE key=?').run(JSON.stringify(value), modelKey);
   const song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
-  const saved = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc',
+  const saved = await buildReadyLyricArtifact(song, { source: 'youtube', format: 'lrc',
     lines: Array.from({ length: lineCount }, (_, unitId) => ({ time: unitId, text: `I sing unique verse number ${unitId} under a blue sky` })) });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(saved.artifact)), type: 'application/json' });
 }
@@ -321,7 +324,7 @@ test('ordinary 176, 200 and 264-line compact lyrics fully complete within the en
 test('Subsonic mainly Chinese lyrics ignore minor foreign inserts and cache no translation', async t => {
   const f = await setup(t), tasks = []; await compactLyrics(f, 32); let upstream = 0;
   const saved = artifact(f), song = f.sqlite.prepare("SELECT * FROM Songs WHERE id='s1'").get();
-  const mixed = await buildReadyLyricArtifact(song, { source: 'manual', format: 'lrc', lines:
+  const mixed = await buildReadyLyricArtifact(song, { source: 'youtube', format: 'lrc', lines:
     saved.original.lines.map((line, index) => index < 28 ? { ...line, text: `我们唱着第${index}行的歌迎接晴天` } : line) });
   f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(mixed.artifact)), type: 'application/json' });
   t.mock.method(globalThis, 'fetch', async (input, options) => {
@@ -339,40 +342,73 @@ test('Subsonic mainly Chinese lyrics ignore minor foreign inserts and cache no t
   assert.ok(calls.length <= 50);
 });
 
-test('larger compact lyrics exceeding the request budget finish as failed without a partial translation or pending lock', async t => {
+test('pinned legacy Subsonic completes 400 known-language lines within the unchanged binding limit', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const lineCount = 400;
   const f = await setup(t), tasks = []; await compactLyrics(f, lineCount); let upstreamCalls = 0;
+  // This isolates the longest legacy translation workload. Unknown-language
+  // classification remains covered at 176/200/264 lines above; that extra phase
+  // plus first source assessment can exhaust the pinned package's own budget.
+  f.sqlite.prepare("UPDATE Songs SET language='en' WHERE id='s1'").run();
   const original = structuredClone(artifact(f).original);
   t.mock.method(globalThis, 'fetch', async (input, options) => { upstreamCalls++; return batchReply(options); });
   const calls = enforceBindingBudget(f.db, 50);
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
   await Promise.all(tasks);
-  assert.ok(upstreamCalls > 1 && upstreamCalls < 1 + Math.ceil(lineCount / 40), 'budget stops upstream batches before the whole document can finish');
-  assert.equal(artifact(f).translation, null);
-  assert.equal(artifact(f).aiCompletion?.status, 'failed'); assertBudgetFailure(artifact(f).aiCompletion.errorCode);
+  assert.equal(upstreamCalls, Math.ceil(lineCount / 40));
+  assert.equal(artifact(f).translation.lines.length, lineCount);
+  assert.equal(artifact(f).aiCompletion?.status, 'completed');
   assert.deepEqual(artifact(f).original, original);
   assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, 'en');
-  assert.ok(calls.length <= 50); t.diagnostic(`${lineCount} lines settle without partial save: ${calls.length}/50 D1 bindings`);
+  assert.ok(calls.length <= 50); t.diagnostic(`${lineCount} legacy lines complete: ${calls.length}/50 D1 bindings`);
   const previousCalls = upstreamCalls;
-  if (boundedAutomaticRetry) {
-    const settled = JSON.stringify(artifact(f)); calls.length = 0; tasks.length = 0;
-    assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
-      executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
-    await Promise.all(tasks); assert.equal(upstreamCalls, previousCalls, '1.0.3 GET respects the persisted cooldown');
-    assert.equal(JSON.stringify(artifact(f)), settled); assert.ok(calls.length <= 50);
-    t.mock.timers.tick(60_000);
-  }
+  const settled = JSON.stringify(artifact(f));
   calls.length = 0; tasks.length = 0;
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member',
     executionContext: { waitUntil: task => tasks.push(task) } }))).status, 'ok');
   await Promise.all(tasks);
-  assert.ok(upstreamCalls > previousCalls, 'a fresh invocation can retry rather than inheriting an exhausted pending lock');
+  assert.equal(upstreamCalls, previousCalls, 'completed translation is reused on the next request');
+  assert.equal(JSON.stringify(artifact(f)), settled);
   assert.equal(artifact(f).aiCompletion.status, 'completed');
   assert.equal(artifact(f).translation.lines.length, lineCount);
   assert.deepEqual(artifact(f).original, original);
-  assert.ok(calls.length <= 50); t.diagnostic(`${lineCount} lines retry with the cached language: ${calls.length}/50 D1 bindings`);
+  assert.ok(calls.length <= 50);
+});
+
+test('pinned legacy unknown 400-line automatic work fails safely without partial translation or pending state', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const f = await setup(t), tasks = []; await compactLyrics(f, 400); let upstreamCalls = 0;
+  const original = structuredClone(artifact(f).original);
+  t.mock.method(globalThis, 'fetch', async (_input, options) => { upstreamCalls++; return batchReply(options); });
+  const calls = enforceBindingBudget(f.db, 50);
+  const options = { username: 'member', executionContext: { waitUntil: task => tasks.push(task) } };
+  assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }, options))).status, 'ok');
+  await Promise.all(tasks);
+  const failed = artifact(f);
+  assert.equal(upstreamCalls, 10, 'classification plus partial legacy batch work stops before the final batch');
+  assert.equal(failed.aiCompletion.status, 'failed'); assertBudgetFailure(failed.aiCompletion.errorCode);
+  assert.equal(failed.translation, null); assert.deepEqual(failed.original, original); assert.ok(calls.length <= 50);
+  t.diagnostic(`legacy unknown 400: ${calls.length}/50 bindings; safe failed settlement with original retained and no partial translation`);
+});
+
+test('processed manual and weak workbench files remain read-only through authenticated Subsonic reads', async t => {
+  for (const processed of ['manual', 'workbench-weak', 'workbench-failed']) await t.test(processed, async t => {
+    const f = await setup(t), saved = artifact(f); let upstream = 0;
+    if (processed === 'manual') saved.original.source = 'manual';
+    else saved.provenance = { ...saved.provenance, managedBy: 'lyrics-workbench', evaluation: 'assessed', quality: 'weak', assessmentKey: 'a'.repeat(64) };
+    if (processed === 'workbench-failed') saved.aiCompletion = { status: 'failed', errorCode: 'request_budget_exhausted', updatedAt: new Date().toISOString() };
+    f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(saved)), type: 'application/json' });
+    f.sqlite.prepare("UPDATE instance_settings SET value_json=? WHERE key='lyrics.ai'").run(JSON.stringify({
+      ...AUTOMATIC_LYRIC_CONFIG, onlineEnabled: true, lyricPreference: 'word', targetLanguage: 'zh' }));
+    const before = JSON.stringify(artifact(f));
+    t.mock.method(globalThis, 'fetch', async () => { upstream++; throw new Error('Processed cache must not fetch a provider or model'); });
+    const calls = enforceBindingBudget(f.db, 50), tasks = [];
+    const result = await payload(await f.rest('getLyricsBySongId', { id: 's1' }, { username: 'member', executionContext: { waitUntil: task => tasks.push(task) } }));
+    assert.equal(result.status, 'ok'); await Promise.all(tasks);
+    assert.equal(upstream, 0); assert.equal(JSON.stringify(artifact(f)), before); assert.ok(calls.length <= 50);
+    assert.equal(f.sqlite.prepare("SELECT language FROM Songs WHERE id='s1'").get().language, null);
+  });
 });
 
 test('opt-in withdrawal, credential changes and either plugin reinstall discard delayed Subsonic AI without shared writes', async t => {

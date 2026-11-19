@@ -22,6 +22,20 @@ test('account language updates copy, interpolation and document tag', async () =
     assert.equal(t('已处理 {count} 条记录，继续升级以完成下一批。',{count:3}),'Processed 3 records. Continue the upgrade to complete the next batch.');
   } finally { globalThis.document=original; await setUiLanguage('en'); }
 });
+
+test('workspace permissions, late imports and retained conflict drafts are translated in all five UI languages', async () => {
+  const keys=['没有修改共享歌词的权限。','导入期间草稿已修改，保留当前修改；需要时可重新导入','共享歌词已在别处更新，草稿已保留。'];
+  try {
+    for (const locale of ['zh','en','zh-Hant','ja','ko']) {
+      assert.equal(await setUiLanguage(locale),true);
+      for (const key of keys) {
+        assert.ok(t(key).trim());
+        if (locale==='zh') assert.equal(t(key),key);
+        else assert.notEqual(t(key),key,`${locale}: ${key}`);
+      }
+    }
+  } finally { await setUiLanguage('en'); }
+});
 test('late language load cannot override a newer account choice; failures retry', async () => {
   const isolated=await import('./index.js?race');
   let finish;

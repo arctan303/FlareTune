@@ -2,6 +2,7 @@ import { readBoundedJson } from '../instance/httpSecurity.js';
 import { readLyricsFromChain, verifyLyricResultRef, lyricSourceOrderSettings } from '../services/lyricSourceChain.js';
 import { resolveLyricSong } from '../services/playbackLyrics.js';
 import { computeHash } from '../utils/lyricsParsing.js';
+import { deferredJsonTaskResponse } from '../services/jsonTaskResponse.js';
 
 const messages = {
   zh: ['歌词结果已更新，请重新加载。', '没有权限执行此操作。', '歌词服务暂不可用。'],
@@ -35,9 +36,17 @@ export async function handleLyricSourceRoute(request, url, env, session, executi
       sessionHash: await computeHash(session?.tokenHash || '') });
     const song = await resolveLyricSong(env.DB, ref.songId, deps);
     if (!song) return json({ code: 404, message: 'Song not found', reason: 'song_not_found' }, 404);
-    const read = await readLyricsFromChain({ env, session, song, executionContext, signal: request.signal,
-      resultRef: body.resultRef, translate: true, deps });
-    return json({ code: 200, data: read.lyrics });
+    return await deferredJsonTaskResponse(async ({ signal, onStart }) => {
+      try {
+        const read = await readLyricsFromChain({ env, session, song, executionContext, signal,
+          resultRef: body.resultRef, translate: true, deps: { ...deps, signal, onAiTask: onStart } });
+        return json({ code: 200, data: read.lyrics });
+      } catch (error) {
+        const status = error?.status >= 400 && error.status <= 599 ? error.status : 503;
+        return json({ code: status, error: /^[A-Za-z0-9_]{1,100}$/u.test(error?.code || '') ? error.code : 'LYRIC_SERVICE_UNAVAILABLE',
+          message: lyricRouteErrorMessage(status, deps.locale) }, status);
+      }
+    }, { signal: request.signal });
   } catch (error) {
     const status = error?.status >= 400 && error.status <= 599 ? error.status : error?.name === 'RequestBodyError' ? 400 : 503;
     return json({ code: status, error: /^[A-Za-z0-9_]{1,100}$/u.test(error?.code || '') ? error.code : 'LYRIC_SERVICE_UNAVAILABLE',

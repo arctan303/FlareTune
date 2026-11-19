@@ -91,6 +91,19 @@ test('legacy duplicate names prefer an existing asset and do not fetch ambiguous
   assert.equal(provider.mock.calls.length, 0);
 });
 
+test('legacy duplicate names keep a processed recording with an old instrumental tag', async t => {
+  const f = await fixture(); t.after(f.close); await f.enable(); config(f);
+  const provider = t.mock.method(globalThis, 'fetch', async () => assert.fail('a processed recording needs no provider'));
+  f.sqlite.exec("UPDATE Songs SET title='Saved instrumental tag',artist='Artist' WHERE id IN ('s1','s2')");
+  await saved(f, 's2', 'This processed vocal file must remain visible');
+  f.sqlite.exec("UPDATE Songs SET language='instrumental' WHERE id='s2'");
+  const before = f.objects.get('media/lyrics/s2.json').bytes.slice();
+  const result = await payload(await f.rest('getLyrics', { title: 'Saved instrumental tag', artist: 'Artist' }));
+  assert.equal(result.lyrics.value, 'This processed vocal file must remain visible');
+  assert.deepEqual(f.objects.get('media/lyrics/s2.json').bytes, before);
+  assert.equal(provider.mock.calls.length, 0);
+});
+
 test('an unambiguous legacy name request also performs first-time source retrieval', async t => {
   const f = await fixture(); t.after(f.close); await f.enable(); await installWorkbench(f); config(f);
   f.sqlite.exec("UPDATE Songs SET title='Unique legacy first play',language='en' WHERE id='s1'");
@@ -101,16 +114,17 @@ test('an unambiguous legacy name request also performs first-time source retriev
   assert.ok(calls.length > 0); assert.ok(f.objects.has('media/lyrics/s1.json'));
 });
 
-test('instrumental and unauthorized requests do not read assets, fetch providers or start AI', async t => {
+test('unauthorized reads no asset; instrumental checks its file but never fetches providers or starts AI', async t => {
   const f = await fixture(); t.after(f.close); config(f, { completionEnabled: true });
   const provider = t.mock.method(globalThis, 'fetch', async () => { throw new Error('No external work expected'); });
   const before = f.mediaReads();
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1' }))).error.code, 40);
+  assert.equal(f.mediaReads(), before);
   await f.enable(); f.sqlite.exec("UPDATE Songs SET language='instrumental' WHERE id='s1'");
   assert.deepEqual((await payload(await f.rest('getLyricsBySongId', { id: 's1', enhanced: true }))).lyricsList.structuredLyrics, []);
   assert.equal((await payload(await f.rest('getLyrics', { id: 's1' }))).lyrics.value, '');
   assert.equal((await payload(await f.rest('getLyricsBySongId', { id: 's1', t: 'bad' }))).error.code, 40);
-  assert.equal(f.mediaReads(), before); assert.equal(provider.mock.calls.length, 0);
+  assert.equal(f.mediaReads(), before + 2); assert.equal(provider.mock.calls.length, 0);
 });
 
 test('temporary provider failures return a retryable error without leaking details or saving a miss marker', async t => {
@@ -184,7 +198,12 @@ test('member third-party playback follows the single AI switch and ignores the r
         { 'X-FlareTune-Plugin-Build': pluginRegistry.getBuildDigest('lyrics-workbench') });
       assert.equal(initialized.status, 200, await initialized.clone().text());
       f.sqlite.exec("UPDATE Songs SET language='en' WHERE id='s1'");
-      await saved(f, 's1'); f.env.DEEPSEEK_API_KEY = 'test-only-key';
+      const unprocessed = await saved(f, 's1');
+      unprocessed.original.source = 'youtube';
+      unprocessed.provenance = { managedBy: 'youtube-music', evaluation: 'unassessed' };
+      f.objects.set('media/lyrics/s1.json', { bytes: new TextEncoder().encode(JSON.stringify(unprocessed)), type: 'application/json' });
+      f.env.DEEPSEEK_API_KEY = 'test-only-key';
+      config(f, { completionEnabled, automaticCompletionEnabled, onlineEnabled: false, lyricPreference: 'line' });
       const tasks = []; let aiCalls = 0;
       const mock = t.mock.method(globalThis, 'fetch', async input => {
         assert.ok(new URL(input).hostname.includes('deepseek'));

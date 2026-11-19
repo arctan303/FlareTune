@@ -11,6 +11,7 @@ import {
   readOrCreateLyricArtifact,
   resolveLyricTranslationState,
   shouldAiCompleteLyrics,
+  buildLyricTranslationDecision,
 } from './lyricAssetWorkflow.js';
 import {
   createMemoryLyricStore,
@@ -19,6 +20,26 @@ import {
   makeReadyArtifact,
   makeSong,
 } from '../test/lyricAssetFixtures.js';
+
+test('processed files retain their valid translation despite an older instrumental tag', async () => {
+  const song = makeSong({ language: 'en' });
+  for (const automatic of [false, true]) {
+    const artifact = (await buildReadyLyricArtifact(song, { source: automatic ? 'lrclib' : 'manual', format: 'lrc',
+      lines: [{ time: 1, text: 'We sing together' }, { time: 3, text: 'Across the summer sky' }] })).artifact;
+    artifact.translation = { source: automatic ? 'ai' : 'manual', language: 'zh', originalTextHash: artifact.textHash,
+      lines: ['我们一起歌唱', '穿过夏日的天空'], updatedAt: artifact.updatedAt };
+    if (automatic) {
+      artifact.provenance = { managedBy: 'lyrics-workbench', evaluation: 'assessed', quality: 'weak' };
+      artifact.translationDecision = buildLyricTranslationDecision(artifact, song,
+        { targetLanguage: 'zh', sourceLanguage: 'en', basis: 'tag', status: 'translated' });
+    }
+    const before = structuredClone(artifact);
+    const projected = projectLyricArtifact(artifact, { song: { ...song, language: 'instrumental' }, targetLanguage: 'zh' });
+    assert.equal(projected.translationAvailable, true);
+    assert.deepEqual(projected.translation.lines, artifact.translation.lines);
+    assert.deepEqual(artifact, before);
+  }
+});
 
 test('ready asset strips CustomKrc tlyric from original and stores aligned translation once', async () => {
   const document = makeLyricDocument({
@@ -485,7 +506,8 @@ test('public translation state honors pending freshness and old-translation fall
   assert.doesNotMatch(JSON.stringify(projected), /errorCode/u);
 
   assert.equal(resolveLyricTranslationState(pending, makeSong(), now - 21_000), 'failed');
-  assert.equal(resolveLyricTranslationState(pending, makeSong(), now + 11_000), 'failed');
+  assert.equal(resolveLyricTranslationState(pending, makeSong(), now + 174_999), 'pending');
+  assert.equal(resolveLyricTranslationState(pending, makeSong(), now + 175_001), 'failed');
   const failedProjection = projectLyricArtifact(makeReadyArtifact({
     aiCompletion: {
       status: 'failed',

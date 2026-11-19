@@ -280,13 +280,13 @@ for (const status of ['failed', 'pending', 'rewritten']) {
     assert.equal(response.status, 200);
     const result = (await response.json()).data;
     assert.equal(result.translation.supported, false);
-    assert.equal(result.translation.state, 'not_needed');
+    assert.equal(result.translation.state, 'unavailable', 'the old package uses the direct file reader, without reprocessing its missing translation');
     assert.equal(result.translationAvailable, false);
     assert.deepEqual(result.lines, document.lines);
     assert.deepEqual(store.current().original, before.original);
     assert.deepEqual(store.current().translation, before.translation);
     assert.equal(store.current().textHash, before.textHash);
-    assert.equal(store.current().translationDecision.status, 'not_needed');
+    assert.deepEqual(store.current(), before, 'reading a processed manual file must not rewrite its decision or completion history');
   });
 }
 

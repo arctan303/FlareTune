@@ -24,13 +24,15 @@ import { consumeAuthAttempt, RateLimitError } from '../auth/local/rateLimit.js';
 import { getOwnUiLanguage, updateOwnDisplayName, updateOwnUiLanguage } from '../auth/local/profile.js';
 import { handleUserImages } from '../routes/userImages.js';
 import { deliveryPluginModules } from '../plugins/delivery.generated.js';
+import { deliveryPluginManifests } from '../../../shared/plugins/delivery.generated.js';
 import { handlePluginApi } from '../routes/plugins.js';
 import { handlePluginDelivery, handlePluginBuild } from '../routes/pluginDelivery.js';
 import { handleSystemUpdate, handleSystemUpdatePipeline } from '../routes/systemUpdate.js';
 import { handleGoogleRequest } from '../auth/google.js';
 import { getOwnImageSlot, userImagesReady } from '../services/userImages.js';
 import { ownStatus as subsonicStatus, setEnabled as setSubsonicEnabled } from '../subsonic/credentials.js';
-import { createInvocationDatabase as createLyricsInvocationDatabase } from '../services/invocationDatabase.js';
+import { createRequestEnvironment, authorizeRequestEnvironment, bindRequestResponse } from '../services/requestAuthorization.js';
+import { createInvocationDatabase as createLegacyLyricsInvocationDatabase } from '../services/invocationDatabase.js';
 import {
   AuthError,
   claimInstance,
@@ -92,9 +94,14 @@ function attachCors(response, origin) {
 
 export async function handleApi(request, env, path, ctx) {
   if (path === '/api/auth/recovery') return json({ error: 'not_found' }, 404);
-  if (path === '/api/lyrics' || path === '/api/lyrics/translation' || path.startsWith('/api/lyrics/workspace/')
-    || path.startsWith('/api/account/plugins/lyrics-workbench/workspace/')) {
-    env = { ...env, DB: createLyricsInvocationDatabase(env.DB, request.signal,
+  env = createRequestEnvironment(env, request);
+  // A host upgrade can inherit an older installed workbench. Its immutable
+  // live-polling client still needs the old settlement reserve until the plugin
+  // is upgraded. API 6 workbenches use one request snapshot and have no such cap.
+  const legacyWorkbench = deliveryPluginManifests.find(item => item.id === 'lyrics-workbench')?.hostApiVersion < 6;
+  if (legacyWorkbench && (path === '/api/lyrics' || path === '/api/lyrics/translation'
+    || path.startsWith('/api/lyrics/workspace/') || path.startsWith('/api/account/plugins/lyrics-workbench/workspace/'))) {
+    env = { ...env, DB: createLegacyLyricsInvocationDatabase(env.DB, request.signal,
       { settlementReserve: 6, exhaustedCode: 'LYRICS_INVOCATION_BUDGET_EXHAUSTED' }) };
   }
   const cacheSchema = (request.method === 'GET'
@@ -108,7 +115,7 @@ export async function handleApi(request, env, path, ctx) {
   const crossOrigin = origin && origin !== sameOrigin
     ? await configuredCrossOrigin(env?.DB, origin, instance.state) : null;
   const response = await handleApiInternal(request, env, path, instance, crossOrigin, ctx);
-  return attachCors(response, crossOrigin);
+  return bindRequestResponse(env, attachCors(response, crossOrigin));
 }
 
 async function handleApiInternal(request, env, path, instance, crossOrigin, ctx) {
@@ -177,6 +184,8 @@ async function handleApiInternal(request, env, path, instance, crossOrigin, ctx)
   if (session && expectedAccountId && expectedAccountId !== session.account?.accountId) {
     return json({ error: 'account_changed' }, 409);
   }
+
+  authorizeRequestEnvironment(env, session);
 
   try {
     const systemUpdateResponse = await handleSystemUpdate(request, path, env, session, json);

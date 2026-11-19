@@ -38,7 +38,8 @@ export async function handlePluginApi(request, path, env, session, json, {
         return json(await registry.setInstalled(env, session, pluginId, await readBoundedJson(request),
           { uiLanguage: request.headers.get('Accept-Language') || 'en' }));
       }
-      const context = await createPluginContext({ env, session, pluginId, registry });
+      const context = await createPluginContext({ env, session, pluginId, registry,
+        authorization: pluginId === 'lyrics-workbench' && scope === 'account' ? 'request' : undefined });
       if (scope === 'admin' && context.identity.role !== 'admin') return json({ error: 'forbidden' }, 403);
       const buildDigest = registry.getBuildDigest(pluginId);
       if ((['roam', 'ai-gateway', 'assistant', 'lyrics-workbench'].includes(pluginId) && !buildDigest)

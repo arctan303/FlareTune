@@ -69,6 +69,45 @@ const memory = initial => {
 };
 const db = { prepare: () => ({ bind: () => ({ first: async () => null }) }) };
 
+test('processed manual and workbench files precede provider order and stale instrumental tags', async () => {
+  const base = (await buildReadyLyricArtifact(song, document)).artifact;
+  for (const workbench of [false, true]) {
+    const initial = { ...base, ...(workbench ? { original: { ...base.original, source: 'youtube' },
+      provenance: { managedBy: 'lyrics-workbench', evaluation: 'assessed', quality: 'weak', assessmentKey: 'old' } } : {}) };
+    const store = memory(initial);
+    const source = provider('youtube-music', () => assert.fail('processed files must bypass other providers'));
+    const result = await readLyricsFromChain({ env, db, session, song: { ...song, language: 'instrumental' },
+      deps: { store, sources: [source], requireSession: async () => session.account } });
+    assert.deepEqual(result.lyrics.lines, document.lines);
+    assert.equal(store.writes(), 0); assert.deepEqual(store.current(), initial);
+  }
+});
+
+test('instrumental without a processed file does not initialize or fetch a provider', async () => {
+  const base = (await buildReadyLyricArtifact(song, { ...document, source: 'youtube' })).artifact;
+  for (const initial of [null, base]) {
+    const store = memory(initial);
+    const source = provider('youtube-music', () => assert.fail('instrumental must not fetch lyrics'));
+    const result = await readLyricsFromChain({ env, db, session, song: { ...song, language: 'instrumental' },
+      deps: { store, sources: [source], requireSession: async () => session.account } });
+    assert.equal(result.lyrics.translation.state, 'not_needed');
+    assert.deepEqual(result.lyrics.lines, []); assert.equal(store.writes(), 0);
+  }
+});
+
+test('the source normalization boundary retains a processed file translation with an old instrumental tag', async () => {
+  const initial = (await buildReadyLyricArtifact(song, document)).artifact;
+  initial.translation = { source: 'manual', language: 'zh', originalTextHash: initial.textHash,
+    lines: ['第一行', '第二行'], updatedAt: initial.updatedAt };
+  const store = memory(initial);
+  const read = await readLyricsFromChain({ env, db, session, song: { ...song, language: 'instrumental' },
+    deps: { store, sources: [], requireSession: async () => session.account } });
+  assert.equal(read.lyrics.translation.state, 'ready');
+  assert.equal(read.lyrics.translationAvailable, true);
+  assert.deepEqual(read.lyrics.translation.lines, ['第一行', '第二行']);
+  assert.equal(store.writes(), 0);
+});
+
 test('first good wins after retaining weak; later sources are not called', async () => {
   const called = [];
   const sources = ['first', 'second', 'third'].map(id => provider(id, async () => { called.push(id); return value(id === 'first' ? 'weak' : 'good'); }));

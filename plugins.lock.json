@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "hostApiVersion": 5,
+  "hostApiVersion": 6,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "21978a8dbd1e36a64b8ea901503cf34a84314f70fc7c422445abaf6de3de4199"
+    "sourceDigest": "64ae28d9f7ed34ddddff5d933a5e7a9a4ae9ca8deeaa82599704928889acbb66"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "f49849361f5c0a59165f3c305d7d4bbe69be2744c70d1ddb512f27b71d3427fa",
+      "sourceDigest": "6abceaac399bed739c0be6dedb0f6bdd211a9eafe05bd1791ac40243cc9b0813",
       "sources": [
         {
           "path": "client/index.html",
@@ -1037,7 +1037,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "b1ca3da4dcd93aa7f71d16b6ad1d827e4cee6f1ee70bb68baed459ed804c29a5"
+          "sha256": "f0b05dcbe20fe2104f32dd9764d93edbe557b42e230a8ed605e9445fe954746c"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -1049,7 +1049,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
+          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -1057,7 +1057,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
+          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -1065,7 +1065,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
+          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -1369,7 +1369,7 @@
         },
         {
           "path": "client/src/plugins/transport.js",
-          "sha256": "98d75205d1643a8c601ad028544df6f9d33034495fb2fa514e3503aaac79eb19"
+          "sha256": "d83cad90c65600896c6e0029898e42acf2c1fb71c14b2cc7f819b19d43821032"
         },
         {
           "path": "client/src/plugins/xiaomi/SpeakerPluginSection.jsx",
@@ -1505,7 +1505,7 @@
         },
         {
           "path": "client/src/services/lyricsApi.js",
-          "sha256": "fdcf8e76289ece006133597a29d565e86c5f28039bac8bb9fbbf8b9a47c289ec"
+          "sha256": "d0b4891e45e2eac027ffa9117f9ebf7da596e703707ed35e54daef68257b72b5"
         },
         {
           "path": "client/src/services/musicSourcePlayback.js",
@@ -1953,7 +1953,7 @@
         },
         {
           "path": "server/src/flaretune.js",
-          "sha256": "481750363ae9efcc07ade515fb6e1083f9a8ce918a14486fb437992f9a4fc4f7"
+          "sha256": "59b2323648a1b2b9245dd2cc3a8fdbd49d1019ce1a4891c319976421511a0556"
         },
         {
           "path": "server/src/instance/accessPolicy.js",
@@ -1977,7 +1977,7 @@
         },
         {
           "path": "server/src/instance/httpRouter.js",
-          "sha256": "34cc395bf744ea70d290f16ea1c0c234573c8e257a7de5cef999b48cba90077a"
+          "sha256": "d6d083165ef2a72593ff8d504ea5baffe4cf8b189d116bfd06167034ba3f4ce7"
         },
         {
           "path": "server/src/instance/httpSecurity.js",
@@ -2129,7 +2129,7 @@
         },
         {
           "path": "server/src/plugins/context.js",
-          "sha256": "74356685de831638d6dfaed2dafb0fb4f3e3f909e13d40845bb61304e095b188"
+          "sha256": "50fa9f6127d1b5c8996186ad3e295b7e885fd99ddea6e9a2b26e2c0ae2c787ee"
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
@@ -2177,7 +2177,7 @@
         },
         {
           "path": "server/src/plugins/registry.js",
-          "sha256": "c16aaa67a829f79f0c5013b565b6ce6cb66a025ca4466495a8da6f83a679bd0f"
+          "sha256": "4643571f6fc4ddffec5f063c04ded718691f5bdfec119494dcffe5b2d664c002"
         },
         {
           "path": "server/src/plugins/roam/catalog.js",
@@ -2233,7 +2233,7 @@
         },
         {
           "path": "server/src/plugins/sdk/http-security.js",
-          "sha256": "132faa435e1603f573f87e8dec1efbf5162b563efa5292a355bd6c0d09258a18"
+          "sha256": "5bd3b3c5d902c5e3b1c924ee1c39b13f5cf587b7b6cf9cf81db950970c1d5415"
         },
         {
           "path": "server/src/plugins/sdk/image-resources.js",
@@ -2361,11 +2361,11 @@
         },
         {
           "path": "server/src/plugins/serviceConfig.js",
-          "sha256": "a7ec7b971d12a1997a1d8a005fd7ff79b1b138ad157b66027d14be161c19991c"
+          "sha256": "381233cbd373680738d355d26f2625380e5b1475956deb49ad6982d23d6f73ec"
         },
         {
           "path": "server/src/plugins/services.js",
-          "sha256": "0f1288c9f21b563669538c0f241b0fac434edc7d7480db81142fd296ce035e6f"
+          "sha256": "2afd5a966112b286ce652be2aa21633106b6b431630cac63d38d3e736905a29c"
         },
         {
           "path": "server/src/plugins/xiaomiAdapter.js",
@@ -2469,7 +2469,7 @@
         },
         {
           "path": "server/src/routes/localMetadataRead.js",
-          "sha256": "2085dfa21dc642d51b9700fcecfa8f6911ebc94d88040cb9b312278c81af0567"
+          "sha256": "4206e28f483e42a227300560afde9cf96ecbac4750f78ca19885a53d126dedc3"
         },
         {
           "path": "server/src/routes/localMusicDiscovery.js",
@@ -2481,7 +2481,7 @@
         },
         {
           "path": "server/src/routes/lyricSourceRoutes.js",
-          "sha256": "ebba813ed6f05fcb8216520511650979b7f3b6a737a1f563fc303a5b702b710f"
+          "sha256": "796f0d77c07485ddd5ccf887e58b94a0fd7e640b07ee6b5430276bebe0a654e2"
         },
         {
           "path": "server/src/routes/media.js",
@@ -2493,7 +2493,7 @@
         },
         {
           "path": "server/src/routes/plugins.js",
-          "sha256": "df4a182af1a8bd48212dc6e9146cf2bae3b18c47ca20fc0dbfcf582dc12bc442"
+          "sha256": "4389d8467d3c44942df6f1a8d40a21edac456768606f0ed61f9465b8cc798a4f"
         },
         {
           "path": "server/src/routes/speakerMedia.js",
@@ -2612,6 +2612,10 @@
           "sha256": "adbccbb1ee818cddc0ac6094d2d4ea244be9e1bcaf67861772305b1fbaafbeb6"
         },
         {
+          "path": "server/src/services/jsonTaskResponse.js",
+          "sha256": "bf820ef5e78a8d6b003fcd8009de64cc464f3ad58bbe82ae343074901ff8d961"
+        },
+        {
           "path": "server/src/services/lrclibRequestCoordinator.js",
           "sha256": "3051c6fc7ff1b96a08c64f795fed36110dceae358fcb14bba7f469add4362a5f"
         },
@@ -2633,7 +2637,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "44f9334b8dad8d6dae265e935eb4489fd9ed078f1bff7989e9f72a9c1a9b2d7c"
+          "sha256": "527ffa71fefa71b4fc7a423b49f373514590a18670b6e4ff60c36b1bea6d13c2"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -2673,7 +2677,7 @@
         },
         {
           "path": "server/src/services/lyricSourceChain.js",
-          "sha256": "e0a190a4b1ff5efebf941eb120db67ecd07176e42f196a343181e0cd2b7fcc53"
+          "sha256": "3e8dabd61c1ce03544e621607beab93f46eb512fe167b65b5b579bd0cc8816aa"
         },
         {
           "path": "server/src/services/lyricSourceError.js",
@@ -2706,6 +2710,10 @@
         {
           "path": "server/src/services/playbackLyrics.js",
           "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
+        },
+        {
+          "path": "server/src/services/requestAuthorization.js",
+          "sha256": "cc9959ca5107010e20d4bf50fc4d7bf5d2bfc58c1120f67392ff1bd0f5a85c38"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -2749,11 +2757,11 @@
         },
         {
           "path": "server/src/subsonic/media.js",
-          "sha256": "edafdc28fc6fc26b5b6dd4e1b1f9ae2220138170edbe4306c21d4e59c1444bf0"
+          "sha256": "420799ab7de61a9e02607bd02522193aed0b2b64bb0249fc157f85edb8208e47"
         },
         {
           "path": "server/src/subsonic/pluginAuthority.js",
-          "sha256": "7fc0f85f0e74d2b544b660a228dc83dc697f6dbaed19fbc11b95ae239c1ce4be"
+          "sha256": "9a92d4fd982294fa7f58df64cd4b0aad8923801f505ddd66e0798271dba2f902"
         },
         {
           "path": "server/src/subsonic/response.js",
@@ -3721,7 +3729,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "fffa0ac448eca3a0b4b4fd414871c05d997faa0956d3f6142978a9b9982e1001"
+          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -3880,7 +3888,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "77f5f2c939c12e8c2bbbaefacd9b5223d54559fe0ee83263773ac80927f64351",
+      "sourceDigest": "9b95b624a6c8d4c2f09622a0f15f2d47a2a6b3fddeccbc22813ec6e051c1ba98",
       "sources": [
         {
           "path": "client/index.html",
@@ -4904,7 +4912,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "b1ca3da4dcd93aa7f71d16b6ad1d827e4cee6f1ee70bb68baed459ed804c29a5"
+          "sha256": "f0b05dcbe20fe2104f32dd9764d93edbe557b42e230a8ed605e9445fe954746c"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -4916,7 +4924,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
+          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -4924,7 +4932,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
+          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -4932,7 +4940,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
+          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -5236,7 +5244,7 @@
         },
         {
           "path": "client/src/plugins/transport.js",
-          "sha256": "98d75205d1643a8c601ad028544df6f9d33034495fb2fa514e3503aaac79eb19"
+          "sha256": "d83cad90c65600896c6e0029898e42acf2c1fb71c14b2cc7f819b19d43821032"
         },
         {
           "path": "client/src/plugins/xiaomi/SpeakerPluginSection.jsx",
@@ -5372,7 +5380,7 @@
         },
         {
           "path": "client/src/services/lyricsApi.js",
-          "sha256": "fdcf8e76289ece006133597a29d565e86c5f28039bac8bb9fbbf8b9a47c289ec"
+          "sha256": "d0b4891e45e2eac027ffa9117f9ebf7da596e703707ed35e54daef68257b72b5"
         },
         {
           "path": "client/src/services/musicSourcePlayback.js",
@@ -5820,7 +5828,7 @@
         },
         {
           "path": "server/src/flaretune.js",
-          "sha256": "481750363ae9efcc07ade515fb6e1083f9a8ce918a14486fb437992f9a4fc4f7"
+          "sha256": "59b2323648a1b2b9245dd2cc3a8fdbd49d1019ce1a4891c319976421511a0556"
         },
         {
           "path": "server/src/instance/accessPolicy.js",
@@ -5844,7 +5852,7 @@
         },
         {
           "path": "server/src/instance/httpRouter.js",
-          "sha256": "34cc395bf744ea70d290f16ea1c0c234573c8e257a7de5cef999b48cba90077a"
+          "sha256": "d6d083165ef2a72593ff8d504ea5baffe4cf8b189d116bfd06167034ba3f4ce7"
         },
         {
           "path": "server/src/instance/httpSecurity.js",
@@ -5996,7 +6004,7 @@
         },
         {
           "path": "server/src/plugins/context.js",
-          "sha256": "74356685de831638d6dfaed2dafb0fb4f3e3f909e13d40845bb61304e095b188"
+          "sha256": "50fa9f6127d1b5c8996186ad3e295b7e885fd99ddea6e9a2b26e2c0ae2c787ee"
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
@@ -6044,7 +6052,7 @@
         },
         {
           "path": "server/src/plugins/registry.js",
-          "sha256": "c16aaa67a829f79f0c5013b565b6ce6cb66a025ca4466495a8da6f83a679bd0f"
+          "sha256": "4643571f6fc4ddffec5f063c04ded718691f5bdfec119494dcffe5b2d664c002"
         },
         {
           "path": "server/src/plugins/roam/catalog.js",
@@ -6100,7 +6108,7 @@
         },
         {
           "path": "server/src/plugins/sdk/http-security.js",
-          "sha256": "132faa435e1603f573f87e8dec1efbf5162b563efa5292a355bd6c0d09258a18"
+          "sha256": "5bd3b3c5d902c5e3b1c924ee1c39b13f5cf587b7b6cf9cf81db950970c1d5415"
         },
         {
           "path": "server/src/plugins/sdk/image-resources.js",
@@ -6228,11 +6236,11 @@
         },
         {
           "path": "server/src/plugins/serviceConfig.js",
-          "sha256": "a7ec7b971d12a1997a1d8a005fd7ff79b1b138ad157b66027d14be161c19991c"
+          "sha256": "381233cbd373680738d355d26f2625380e5b1475956deb49ad6982d23d6f73ec"
         },
         {
           "path": "server/src/plugins/services.js",
-          "sha256": "0f1288c9f21b563669538c0f241b0fac434edc7d7480db81142fd296ce035e6f"
+          "sha256": "2afd5a966112b286ce652be2aa21633106b6b431630cac63d38d3e736905a29c"
         },
         {
           "path": "server/src/plugins/xiaomiAdapter.js",
@@ -6336,7 +6344,7 @@
         },
         {
           "path": "server/src/routes/localMetadataRead.js",
-          "sha256": "2085dfa21dc642d51b9700fcecfa8f6911ebc94d88040cb9b312278c81af0567"
+          "sha256": "4206e28f483e42a227300560afde9cf96ecbac4750f78ca19885a53d126dedc3"
         },
         {
           "path": "server/src/routes/localMusicDiscovery.js",
@@ -6348,7 +6356,7 @@
         },
         {
           "path": "server/src/routes/lyricSourceRoutes.js",
-          "sha256": "ebba813ed6f05fcb8216520511650979b7f3b6a737a1f563fc303a5b702b710f"
+          "sha256": "796f0d77c07485ddd5ccf887e58b94a0fd7e640b07ee6b5430276bebe0a654e2"
         },
         {
           "path": "server/src/routes/media.js",
@@ -6360,7 +6368,7 @@
         },
         {
           "path": "server/src/routes/plugins.js",
-          "sha256": "df4a182af1a8bd48212dc6e9146cf2bae3b18c47ca20fc0dbfcf582dc12bc442"
+          "sha256": "4389d8467d3c44942df6f1a8d40a21edac456768606f0ed61f9465b8cc798a4f"
         },
         {
           "path": "server/src/routes/speakerMedia.js",
@@ -6479,6 +6487,10 @@
           "sha256": "adbccbb1ee818cddc0ac6094d2d4ea244be9e1bcaf67861772305b1fbaafbeb6"
         },
         {
+          "path": "server/src/services/jsonTaskResponse.js",
+          "sha256": "bf820ef5e78a8d6b003fcd8009de64cc464f3ad58bbe82ae343074901ff8d961"
+        },
+        {
           "path": "server/src/services/lrclibRequestCoordinator.js",
           "sha256": "3051c6fc7ff1b96a08c64f795fed36110dceae358fcb14bba7f469add4362a5f"
         },
@@ -6500,7 +6512,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "44f9334b8dad8d6dae265e935eb4489fd9ed078f1bff7989e9f72a9c1a9b2d7c"
+          "sha256": "527ffa71fefa71b4fc7a423b49f373514590a18670b6e4ff60c36b1bea6d13c2"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -6540,7 +6552,7 @@
         },
         {
           "path": "server/src/services/lyricSourceChain.js",
-          "sha256": "e0a190a4b1ff5efebf941eb120db67ecd07176e42f196a343181e0cd2b7fcc53"
+          "sha256": "3e8dabd61c1ce03544e621607beab93f46eb512fe167b65b5b579bd0cc8816aa"
         },
         {
           "path": "server/src/services/lyricSourceError.js",
@@ -6573,6 +6585,10 @@
         {
           "path": "server/src/services/playbackLyrics.js",
           "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
+        },
+        {
+          "path": "server/src/services/requestAuthorization.js",
+          "sha256": "cc9959ca5107010e20d4bf50fc4d7bf5d2bfc58c1120f67392ff1bd0f5a85c38"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -6616,11 +6632,11 @@
         },
         {
           "path": "server/src/subsonic/media.js",
-          "sha256": "edafdc28fc6fc26b5b6dd4e1b1f9ae2220138170edbe4306c21d4e59c1444bf0"
+          "sha256": "420799ab7de61a9e02607bd02522193aed0b2b64bb0249fc157f85edb8208e47"
         },
         {
           "path": "server/src/subsonic/pluginAuthority.js",
-          "sha256": "7fc0f85f0e74d2b544b660a228dc83dc697f6dbaed19fbc11b95ae239c1ce4be"
+          "sha256": "9a92d4fd982294fa7f58df64cd4b0aad8923801f505ddd66e0798271dba2f902"
         },
         {
           "path": "server/src/subsonic/response.js",
@@ -7860,7 +7876,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "fffa0ac448eca3a0b4b4fd414871c05d997faa0956d3f6142978a9b9982e1001"
+          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -8019,7 +8035,7 @@
       "apiVersion": 1,
       "source": "artifact:official:8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f",
       "manifestDigest": "6b8d6e7de7d4f99889266d52c0239ab4ed0376e4305dc1ba20390e17bb62f23d",
-      "sourceDigest": "39a06870c8909955a8827c8c8db70bbcd4b7a97a80b4533b88fd74fa3dfafd7f",
+      "sourceDigest": "33f72344b513c8dc7a029ea46c9188d423e2f530d6ca853fd5881f234264b858",
       "sources": [
         {
           "path": "client/index.html",
@@ -9043,7 +9059,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "b1ca3da4dcd93aa7f71d16b6ad1d827e4cee6f1ee70bb68baed459ed804c29a5"
+          "sha256": "f0b05dcbe20fe2104f32dd9764d93edbe557b42e230a8ed605e9445fe954746c"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -9055,7 +9071,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
+          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -9063,7 +9079,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
+          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -9071,7 +9087,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
+          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -9375,7 +9391,7 @@
         },
         {
           "path": "client/src/plugins/transport.js",
-          "sha256": "98d75205d1643a8c601ad028544df6f9d33034495fb2fa514e3503aaac79eb19"
+          "sha256": "d83cad90c65600896c6e0029898e42acf2c1fb71c14b2cc7f819b19d43821032"
         },
         {
           "path": "client/src/plugins/xiaomi/SpeakerPluginSection.jsx",
@@ -9511,7 +9527,7 @@
         },
         {
           "path": "client/src/services/lyricsApi.js",
-          "sha256": "fdcf8e76289ece006133597a29d565e86c5f28039bac8bb9fbbf8b9a47c289ec"
+          "sha256": "d0b4891e45e2eac027ffa9117f9ebf7da596e703707ed35e54daef68257b72b5"
         },
         {
           "path": "client/src/services/musicSourcePlayback.js",
@@ -9959,7 +9975,7 @@
         },
         {
           "path": "server/src/flaretune.js",
-          "sha256": "481750363ae9efcc07ade515fb6e1083f9a8ce918a14486fb437992f9a4fc4f7"
+          "sha256": "59b2323648a1b2b9245dd2cc3a8fdbd49d1019ce1a4891c319976421511a0556"
         },
         {
           "path": "server/src/instance/accessPolicy.js",
@@ -9983,7 +9999,7 @@
         },
         {
           "path": "server/src/instance/httpRouter.js",
-          "sha256": "34cc395bf744ea70d290f16ea1c0c234573c8e257a7de5cef999b48cba90077a"
+          "sha256": "d6d083165ef2a72593ff8d504ea5baffe4cf8b189d116bfd06167034ba3f4ce7"
         },
         {
           "path": "server/src/instance/httpSecurity.js",
@@ -10135,7 +10151,7 @@
         },
         {
           "path": "server/src/plugins/context.js",
-          "sha256": "74356685de831638d6dfaed2dafb0fb4f3e3f909e13d40845bb61304e095b188"
+          "sha256": "50fa9f6127d1b5c8996186ad3e295b7e885fd99ddea6e9a2b26e2c0ae2c787ee"
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
@@ -10183,7 +10199,7 @@
         },
         {
           "path": "server/src/plugins/registry.js",
-          "sha256": "c16aaa67a829f79f0c5013b565b6ce6cb66a025ca4466495a8da6f83a679bd0f"
+          "sha256": "4643571f6fc4ddffec5f063c04ded718691f5bdfec119494dcffe5b2d664c002"
         },
         {
           "path": "server/src/plugins/roam/catalog.js",
@@ -10239,7 +10255,7 @@
         },
         {
           "path": "server/src/plugins/sdk/http-security.js",
-          "sha256": "132faa435e1603f573f87e8dec1efbf5162b563efa5292a355bd6c0d09258a18"
+          "sha256": "5bd3b3c5d902c5e3b1c924ee1c39b13f5cf587b7b6cf9cf81db950970c1d5415"
         },
         {
           "path": "server/src/plugins/sdk/image-resources.js",
@@ -10367,11 +10383,11 @@
         },
         {
           "path": "server/src/plugins/serviceConfig.js",
-          "sha256": "a7ec7b971d12a1997a1d8a005fd7ff79b1b138ad157b66027d14be161c19991c"
+          "sha256": "381233cbd373680738d355d26f2625380e5b1475956deb49ad6982d23d6f73ec"
         },
         {
           "path": "server/src/plugins/services.js",
-          "sha256": "0f1288c9f21b563669538c0f241b0fac434edc7d7480db81142fd296ce035e6f"
+          "sha256": "2afd5a966112b286ce652be2aa21633106b6b431630cac63d38d3e736905a29c"
         },
         {
           "path": "server/src/plugins/xiaomiAdapter.js",
@@ -10475,7 +10491,7 @@
         },
         {
           "path": "server/src/routes/localMetadataRead.js",
-          "sha256": "2085dfa21dc642d51b9700fcecfa8f6911ebc94d88040cb9b312278c81af0567"
+          "sha256": "4206e28f483e42a227300560afde9cf96ecbac4750f78ca19885a53d126dedc3"
         },
         {
           "path": "server/src/routes/localMusicDiscovery.js",
@@ -10487,7 +10503,7 @@
         },
         {
           "path": "server/src/routes/lyricSourceRoutes.js",
-          "sha256": "ebba813ed6f05fcb8216520511650979b7f3b6a737a1f563fc303a5b702b710f"
+          "sha256": "796f0d77c07485ddd5ccf887e58b94a0fd7e640b07ee6b5430276bebe0a654e2"
         },
         {
           "path": "server/src/routes/media.js",
@@ -10499,7 +10515,7 @@
         },
         {
           "path": "server/src/routes/plugins.js",
-          "sha256": "df4a182af1a8bd48212dc6e9146cf2bae3b18c47ca20fc0dbfcf582dc12bc442"
+          "sha256": "4389d8467d3c44942df6f1a8d40a21edac456768606f0ed61f9465b8cc798a4f"
         },
         {
           "path": "server/src/routes/speakerMedia.js",
@@ -10618,6 +10634,10 @@
           "sha256": "adbccbb1ee818cddc0ac6094d2d4ea244be9e1bcaf67861772305b1fbaafbeb6"
         },
         {
+          "path": "server/src/services/jsonTaskResponse.js",
+          "sha256": "bf820ef5e78a8d6b003fcd8009de64cc464f3ad58bbe82ae343074901ff8d961"
+        },
+        {
           "path": "server/src/services/lrclibRequestCoordinator.js",
           "sha256": "3051c6fc7ff1b96a08c64f795fed36110dceae358fcb14bba7f469add4362a5f"
         },
@@ -10639,7 +10659,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "44f9334b8dad8d6dae265e935eb4489fd9ed078f1bff7989e9f72a9c1a9b2d7c"
+          "sha256": "527ffa71fefa71b4fc7a423b49f373514590a18670b6e4ff60c36b1bea6d13c2"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -10679,7 +10699,7 @@
         },
         {
           "path": "server/src/services/lyricSourceChain.js",
-          "sha256": "e0a190a4b1ff5efebf941eb120db67ecd07176e42f196a343181e0cd2b7fcc53"
+          "sha256": "3e8dabd61c1ce03544e621607beab93f46eb512fe167b65b5b579bd0cc8816aa"
         },
         {
           "path": "server/src/services/lyricSourceError.js",
@@ -10712,6 +10732,10 @@
         {
           "path": "server/src/services/playbackLyrics.js",
           "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
+        },
+        {
+          "path": "server/src/services/requestAuthorization.js",
+          "sha256": "cc9959ca5107010e20d4bf50fc4d7bf5d2bfc58c1120f67392ff1bd0f5a85c38"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -10755,11 +10779,11 @@
         },
         {
           "path": "server/src/subsonic/media.js",
-          "sha256": "edafdc28fc6fc26b5b6dd4e1b1f9ae2220138170edbe4306c21d4e59c1444bf0"
+          "sha256": "420799ab7de61a9e02607bd02522193aed0b2b64bb0249fc157f85edb8208e47"
         },
         {
           "path": "server/src/subsonic/pluginAuthority.js",
-          "sha256": "7fc0f85f0e74d2b544b660a228dc83dc697f6dbaed19fbc11b95ae239c1ce4be"
+          "sha256": "9a92d4fd982294fa7f58df64cd4b0aad8923801f505ddd66e0798271dba2f902"
         },
         {
           "path": "server/src/subsonic/response.js",
@@ -11851,7 +11875,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "fffa0ac448eca3a0b4b4fd414871c05d997faa0956d3f6142978a9b9982e1001"
+          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -12010,7 +12034,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "e92712e8f329386a116258b4c2761a65d814b4024db511ea86db3923e681d68d",
+      "sourceDigest": "d4c70449cc43cfcde9f0825cbbe7295f5a8054a0a725ae0126b545e100ca94ef",
       "sources": [
         {
           "path": "client/index.html",
@@ -13034,7 +13058,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "b1ca3da4dcd93aa7f71d16b6ad1d827e4cee6f1ee70bb68baed459ed804c29a5"
+          "sha256": "f0b05dcbe20fe2104f32dd9764d93edbe557b42e230a8ed605e9445fe954746c"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -13046,7 +13070,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
+          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -13054,7 +13078,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
+          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -13062,7 +13086,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
+          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -13366,7 +13390,7 @@
         },
         {
           "path": "client/src/plugins/transport.js",
-          "sha256": "98d75205d1643a8c601ad028544df6f9d33034495fb2fa514e3503aaac79eb19"
+          "sha256": "d83cad90c65600896c6e0029898e42acf2c1fb71c14b2cc7f819b19d43821032"
         },
         {
           "path": "client/src/plugins/xiaomi/SpeakerPluginSection.jsx",
@@ -13502,7 +13526,7 @@
         },
         {
           "path": "client/src/services/lyricsApi.js",
-          "sha256": "fdcf8e76289ece006133597a29d565e86c5f28039bac8bb9fbbf8b9a47c289ec"
+          "sha256": "d0b4891e45e2eac027ffa9117f9ebf7da596e703707ed35e54daef68257b72b5"
         },
         {
           "path": "client/src/services/musicSourcePlayback.js",
@@ -13950,7 +13974,7 @@
         },
         {
           "path": "server/src/flaretune.js",
-          "sha256": "481750363ae9efcc07ade515fb6e1083f9a8ce918a14486fb437992f9a4fc4f7"
+          "sha256": "59b2323648a1b2b9245dd2cc3a8fdbd49d1019ce1a4891c319976421511a0556"
         },
         {
           "path": "server/src/instance/accessPolicy.js",
@@ -13974,7 +13998,7 @@
         },
         {
           "path": "server/src/instance/httpRouter.js",
-          "sha256": "34cc395bf744ea70d290f16ea1c0c234573c8e257a7de5cef999b48cba90077a"
+          "sha256": "d6d083165ef2a72593ff8d504ea5baffe4cf8b189d116bfd06167034ba3f4ce7"
         },
         {
           "path": "server/src/instance/httpSecurity.js",
@@ -14126,7 +14150,7 @@
         },
         {
           "path": "server/src/plugins/context.js",
-          "sha256": "74356685de831638d6dfaed2dafb0fb4f3e3f909e13d40845bb61304e095b188"
+          "sha256": "50fa9f6127d1b5c8996186ad3e295b7e885fd99ddea6e9a2b26e2c0ae2c787ee"
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
@@ -14174,7 +14198,7 @@
         },
         {
           "path": "server/src/plugins/registry.js",
-          "sha256": "c16aaa67a829f79f0c5013b565b6ce6cb66a025ca4466495a8da6f83a679bd0f"
+          "sha256": "4643571f6fc4ddffec5f063c04ded718691f5bdfec119494dcffe5b2d664c002"
         },
         {
           "path": "server/src/plugins/roam/catalog.js",
@@ -14230,7 +14254,7 @@
         },
         {
           "path": "server/src/plugins/sdk/http-security.js",
-          "sha256": "132faa435e1603f573f87e8dec1efbf5162b563efa5292a355bd6c0d09258a18"
+          "sha256": "5bd3b3c5d902c5e3b1c924ee1c39b13f5cf587b7b6cf9cf81db950970c1d5415"
         },
         {
           "path": "server/src/plugins/sdk/image-resources.js",
@@ -14358,11 +14382,11 @@
         },
         {
           "path": "server/src/plugins/serviceConfig.js",
-          "sha256": "a7ec7b971d12a1997a1d8a005fd7ff79b1b138ad157b66027d14be161c19991c"
+          "sha256": "381233cbd373680738d355d26f2625380e5b1475956deb49ad6982d23d6f73ec"
         },
         {
           "path": "server/src/plugins/services.js",
-          "sha256": "0f1288c9f21b563669538c0f241b0fac434edc7d7480db81142fd296ce035e6f"
+          "sha256": "2afd5a966112b286ce652be2aa21633106b6b431630cac63d38d3e736905a29c"
         },
         {
           "path": "server/src/plugins/xiaomiAdapter.js",
@@ -14466,7 +14490,7 @@
         },
         {
           "path": "server/src/routes/localMetadataRead.js",
-          "sha256": "2085dfa21dc642d51b9700fcecfa8f6911ebc94d88040cb9b312278c81af0567"
+          "sha256": "4206e28f483e42a227300560afde9cf96ecbac4750f78ca19885a53d126dedc3"
         },
         {
           "path": "server/src/routes/localMusicDiscovery.js",
@@ -14478,7 +14502,7 @@
         },
         {
           "path": "server/src/routes/lyricSourceRoutes.js",
-          "sha256": "ebba813ed6f05fcb8216520511650979b7f3b6a737a1f563fc303a5b702b710f"
+          "sha256": "796f0d77c07485ddd5ccf887e58b94a0fd7e640b07ee6b5430276bebe0a654e2"
         },
         {
           "path": "server/src/routes/media.js",
@@ -14490,7 +14514,7 @@
         },
         {
           "path": "server/src/routes/plugins.js",
-          "sha256": "df4a182af1a8bd48212dc6e9146cf2bae3b18c47ca20fc0dbfcf582dc12bc442"
+          "sha256": "4389d8467d3c44942df6f1a8d40a21edac456768606f0ed61f9465b8cc798a4f"
         },
         {
           "path": "server/src/routes/speakerMedia.js",
@@ -14609,6 +14633,10 @@
           "sha256": "adbccbb1ee818cddc0ac6094d2d4ea244be9e1bcaf67861772305b1fbaafbeb6"
         },
         {
+          "path": "server/src/services/jsonTaskResponse.js",
+          "sha256": "bf820ef5e78a8d6b003fcd8009de64cc464f3ad58bbe82ae343074901ff8d961"
+        },
+        {
           "path": "server/src/services/lrclibRequestCoordinator.js",
           "sha256": "3051c6fc7ff1b96a08c64f795fed36110dceae358fcb14bba7f469add4362a5f"
         },
@@ -14630,7 +14658,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "44f9334b8dad8d6dae265e935eb4489fd9ed078f1bff7989e9f72a9c1a9b2d7c"
+          "sha256": "527ffa71fefa71b4fc7a423b49f373514590a18670b6e4ff60c36b1bea6d13c2"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -14670,7 +14698,7 @@
         },
         {
           "path": "server/src/services/lyricSourceChain.js",
-          "sha256": "e0a190a4b1ff5efebf941eb120db67ecd07176e42f196a343181e0cd2b7fcc53"
+          "sha256": "3e8dabd61c1ce03544e621607beab93f46eb512fe167b65b5b579bd0cc8816aa"
         },
         {
           "path": "server/src/services/lyricSourceError.js",
@@ -14703,6 +14731,10 @@
         {
           "path": "server/src/services/playbackLyrics.js",
           "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
+        },
+        {
+          "path": "server/src/services/requestAuthorization.js",
+          "sha256": "cc9959ca5107010e20d4bf50fc4d7bf5d2bfc58c1120f67392ff1bd0f5a85c38"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -14746,11 +14778,11 @@
         },
         {
           "path": "server/src/subsonic/media.js",
-          "sha256": "edafdc28fc6fc26b5b6dd4e1b1f9ae2220138170edbe4306c21d4e59c1444bf0"
+          "sha256": "420799ab7de61a9e02607bd02522193aed0b2b64bb0249fc157f85edb8208e47"
         },
         {
           "path": "server/src/subsonic/pluginAuthority.js",
-          "sha256": "7fc0f85f0e74d2b544b660a228dc83dc697f6dbaed19fbc11b95ae239c1ce4be"
+          "sha256": "9a92d4fd982294fa7f58df64cd4b0aad8923801f505ddd66e0798271dba2f902"
         },
         {
           "path": "server/src/subsonic/response.js",
@@ -15666,7 +15698,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "fffa0ac448eca3a0b4b4fd414871c05d997faa0956d3f6142978a9b9982e1001"
+          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -15825,7 +15857,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "b3f069f5de08ffdc1b6cc4e2841773e1a09d7b31b6f64b31caae4317b8a087f4",
+      "sourceDigest": "4836c93ef80a4820875602c15762307a891af19b1bf43afb3e29757852ef30fe",
       "sources": [
         {
           "path": "client/index.html",
@@ -16849,7 +16881,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "b1ca3da4dcd93aa7f71d16b6ad1d827e4cee6f1ee70bb68baed459ed804c29a5"
+          "sha256": "f0b05dcbe20fe2104f32dd9764d93edbe557b42e230a8ed605e9445fe954746c"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -16861,7 +16893,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
+          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -16869,7 +16901,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
+          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -16877,7 +16909,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
+          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -17181,7 +17213,7 @@
         },
         {
           "path": "client/src/plugins/transport.js",
-          "sha256": "98d75205d1643a8c601ad028544df6f9d33034495fb2fa514e3503aaac79eb19"
+          "sha256": "d83cad90c65600896c6e0029898e42acf2c1fb71c14b2cc7f819b19d43821032"
         },
         {
           "path": "client/src/plugins/xiaomi/SpeakerPluginSection.jsx",
@@ -17317,7 +17349,7 @@
         },
         {
           "path": "client/src/services/lyricsApi.js",
-          "sha256": "fdcf8e76289ece006133597a29d565e86c5f28039bac8bb9fbbf8b9a47c289ec"
+          "sha256": "d0b4891e45e2eac027ffa9117f9ebf7da596e703707ed35e54daef68257b72b5"
         },
         {
           "path": "client/src/services/musicSourcePlayback.js",
@@ -17765,7 +17797,7 @@
         },
         {
           "path": "server/src/flaretune.js",
-          "sha256": "481750363ae9efcc07ade515fb6e1083f9a8ce918a14486fb437992f9a4fc4f7"
+          "sha256": "59b2323648a1b2b9245dd2cc3a8fdbd49d1019ce1a4891c319976421511a0556"
         },
         {
           "path": "server/src/instance/accessPolicy.js",
@@ -17789,7 +17821,7 @@
         },
         {
           "path": "server/src/instance/httpRouter.js",
-          "sha256": "34cc395bf744ea70d290f16ea1c0c234573c8e257a7de5cef999b48cba90077a"
+          "sha256": "d6d083165ef2a72593ff8d504ea5baffe4cf8b189d116bfd06167034ba3f4ce7"
         },
         {
           "path": "server/src/instance/httpSecurity.js",
@@ -17941,7 +17973,7 @@
         },
         {
           "path": "server/src/plugins/context.js",
-          "sha256": "74356685de831638d6dfaed2dafb0fb4f3e3f909e13d40845bb61304e095b188"
+          "sha256": "50fa9f6127d1b5c8996186ad3e295b7e885fd99ddea6e9a2b26e2c0ae2c787ee"
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
@@ -17989,7 +18021,7 @@
         },
         {
           "path": "server/src/plugins/registry.js",
-          "sha256": "c16aaa67a829f79f0c5013b565b6ce6cb66a025ca4466495a8da6f83a679bd0f"
+          "sha256": "4643571f6fc4ddffec5f063c04ded718691f5bdfec119494dcffe5b2d664c002"
         },
         {
           "path": "server/src/plugins/roam/catalog.js",
@@ -18045,7 +18077,7 @@
         },
         {
           "path": "server/src/plugins/sdk/http-security.js",
-          "sha256": "132faa435e1603f573f87e8dec1efbf5162b563efa5292a355bd6c0d09258a18"
+          "sha256": "5bd3b3c5d902c5e3b1c924ee1c39b13f5cf587b7b6cf9cf81db950970c1d5415"
         },
         {
           "path": "server/src/plugins/sdk/image-resources.js",
@@ -18173,11 +18205,11 @@
         },
         {
           "path": "server/src/plugins/serviceConfig.js",
-          "sha256": "a7ec7b971d12a1997a1d8a005fd7ff79b1b138ad157b66027d14be161c19991c"
+          "sha256": "381233cbd373680738d355d26f2625380e5b1475956deb49ad6982d23d6f73ec"
         },
         {
           "path": "server/src/plugins/services.js",
-          "sha256": "0f1288c9f21b563669538c0f241b0fac434edc7d7480db81142fd296ce035e6f"
+          "sha256": "2afd5a966112b286ce652be2aa21633106b6b431630cac63d38d3e736905a29c"
         },
         {
           "path": "server/src/plugins/xiaomiAdapter.js",
@@ -18281,7 +18313,7 @@
         },
         {
           "path": "server/src/routes/localMetadataRead.js",
-          "sha256": "2085dfa21dc642d51b9700fcecfa8f6911ebc94d88040cb9b312278c81af0567"
+          "sha256": "4206e28f483e42a227300560afde9cf96ecbac4750f78ca19885a53d126dedc3"
         },
         {
           "path": "server/src/routes/localMusicDiscovery.js",
@@ -18293,7 +18325,7 @@
         },
         {
           "path": "server/src/routes/lyricSourceRoutes.js",
-          "sha256": "ebba813ed6f05fcb8216520511650979b7f3b6a737a1f563fc303a5b702b710f"
+          "sha256": "796f0d77c07485ddd5ccf887e58b94a0fd7e640b07ee6b5430276bebe0a654e2"
         },
         {
           "path": "server/src/routes/media.js",
@@ -18305,7 +18337,7 @@
         },
         {
           "path": "server/src/routes/plugins.js",
-          "sha256": "df4a182af1a8bd48212dc6e9146cf2bae3b18c47ca20fc0dbfcf582dc12bc442"
+          "sha256": "4389d8467d3c44942df6f1a8d40a21edac456768606f0ed61f9465b8cc798a4f"
         },
         {
           "path": "server/src/routes/speakerMedia.js",
@@ -18424,6 +18456,10 @@
           "sha256": "adbccbb1ee818cddc0ac6094d2d4ea244be9e1bcaf67861772305b1fbaafbeb6"
         },
         {
+          "path": "server/src/services/jsonTaskResponse.js",
+          "sha256": "bf820ef5e78a8d6b003fcd8009de64cc464f3ad58bbe82ae343074901ff8d961"
+        },
+        {
           "path": "server/src/services/lrclibRequestCoordinator.js",
           "sha256": "3051c6fc7ff1b96a08c64f795fed36110dceae358fcb14bba7f469add4362a5f"
         },
@@ -18445,7 +18481,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "44f9334b8dad8d6dae265e935eb4489fd9ed078f1bff7989e9f72a9c1a9b2d7c"
+          "sha256": "527ffa71fefa71b4fc7a423b49f373514590a18670b6e4ff60c36b1bea6d13c2"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -18485,7 +18521,7 @@
         },
         {
           "path": "server/src/services/lyricSourceChain.js",
-          "sha256": "e0a190a4b1ff5efebf941eb120db67ecd07176e42f196a343181e0cd2b7fcc53"
+          "sha256": "3e8dabd61c1ce03544e621607beab93f46eb512fe167b65b5b579bd0cc8816aa"
         },
         {
           "path": "server/src/services/lyricSourceError.js",
@@ -18518,6 +18554,10 @@
         {
           "path": "server/src/services/playbackLyrics.js",
           "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
+        },
+        {
+          "path": "server/src/services/requestAuthorization.js",
+          "sha256": "cc9959ca5107010e20d4bf50fc4d7bf5d2bfc58c1120f67392ff1bd0f5a85c38"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -18561,11 +18601,11 @@
         },
         {
           "path": "server/src/subsonic/media.js",
-          "sha256": "edafdc28fc6fc26b5b6dd4e1b1f9ae2220138170edbe4306c21d4e59c1444bf0"
+          "sha256": "420799ab7de61a9e02607bd02522193aed0b2b64bb0249fc157f85edb8208e47"
         },
         {
           "path": "server/src/subsonic/pluginAuthority.js",
-          "sha256": "7fc0f85f0e74d2b544b660a228dc83dc697f6dbaed19fbc11b95ae239c1ce4be"
+          "sha256": "9a92d4fd982294fa7f58df64cd4b0aad8923801f505ddd66e0798271dba2f902"
         },
         {
           "path": "server/src/subsonic/response.js",
@@ -19489,7 +19529,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "fffa0ac448eca3a0b4b4fd414871c05d997faa0956d3f6142978a9b9982e1001"
+          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -19648,7 +19688,7 @@
       "apiVersion": 1,
       "source": "artifact:official:441a41ff8539e44077d280bf25441f261829df5acea28e901f9eb3bfc415ffe6",
       "manifestDigest": "524ddb4b18133d342c164f073c36130ed6a1c92441557ab54eed1e426c9bc302",
-      "sourceDigest": "64ca0676da51ebf442d5488bee960f4b14dc29a9a31cd587c7532db546ffe2bc",
+      "sourceDigest": "4a3baf95558916bd66758ea2322edd483256679a6fee67078292674b5ec01bef",
       "sources": [
         {
           "path": "client/index.html",
@@ -20672,7 +20712,7 @@
         },
         {
           "path": "client/src/i18n/en.js",
-          "sha256": "b1ca3da4dcd93aa7f71d16b6ad1d827e4cee6f1ee70bb68baed459ed804c29a5"
+          "sha256": "f0b05dcbe20fe2104f32dd9764d93edbe557b42e230a8ed605e9445fe954746c"
         },
         {
           "path": "client/src/i18n/index.js",
@@ -20684,7 +20724,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "5e17c66a2cda48b980d2eceadce0427e31565379b76030d362bc60896cab9b7d"
+          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -20692,7 +20732,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "513b3deb94e9c2c936ac3b32246c16fbd0a36199ecab24d7c3f294c81b3e064f"
+          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -20700,7 +20740,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "2acbc2066f68176e445e6f419812c51bdfdc862ea7261aecbb0c674df0d4b9de"
+          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -21004,7 +21044,7 @@
         },
         {
           "path": "client/src/plugins/transport.js",
-          "sha256": "98d75205d1643a8c601ad028544df6f9d33034495fb2fa514e3503aaac79eb19"
+          "sha256": "d83cad90c65600896c6e0029898e42acf2c1fb71c14b2cc7f819b19d43821032"
         },
         {
           "path": "client/src/plugins/xiaomi/SpeakerPluginSection.jsx",
@@ -21140,7 +21180,7 @@
         },
         {
           "path": "client/src/services/lyricsApi.js",
-          "sha256": "fdcf8e76289ece006133597a29d565e86c5f28039bac8bb9fbbf8b9a47c289ec"
+          "sha256": "d0b4891e45e2eac027ffa9117f9ebf7da596e703707ed35e54daef68257b72b5"
         },
         {
           "path": "client/src/services/musicSourcePlayback.js",
@@ -21588,7 +21628,7 @@
         },
         {
           "path": "server/src/flaretune.js",
-          "sha256": "481750363ae9efcc07ade515fb6e1083f9a8ce918a14486fb437992f9a4fc4f7"
+          "sha256": "59b2323648a1b2b9245dd2cc3a8fdbd49d1019ce1a4891c319976421511a0556"
         },
         {
           "path": "server/src/instance/accessPolicy.js",
@@ -21612,7 +21652,7 @@
         },
         {
           "path": "server/src/instance/httpRouter.js",
-          "sha256": "34cc395bf744ea70d290f16ea1c0c234573c8e257a7de5cef999b48cba90077a"
+          "sha256": "d6d083165ef2a72593ff8d504ea5baffe4cf8b189d116bfd06167034ba3f4ce7"
         },
         {
           "path": "server/src/instance/httpSecurity.js",
@@ -21764,7 +21804,7 @@
         },
         {
           "path": "server/src/plugins/context.js",
-          "sha256": "74356685de831638d6dfaed2dafb0fb4f3e3f909e13d40845bb61304e095b188"
+          "sha256": "50fa9f6127d1b5c8996186ad3e295b7e885fd99ddea6e9a2b26e2c0ae2c787ee"
         },
         {
           "path": "server/src/plugins/delivery.generated.js",
@@ -21812,7 +21852,7 @@
         },
         {
           "path": "server/src/plugins/registry.js",
-          "sha256": "c16aaa67a829f79f0c5013b565b6ce6cb66a025ca4466495a8da6f83a679bd0f"
+          "sha256": "4643571f6fc4ddffec5f063c04ded718691f5bdfec119494dcffe5b2d664c002"
         },
         {
           "path": "server/src/plugins/roam/catalog.js",
@@ -21868,7 +21908,7 @@
         },
         {
           "path": "server/src/plugins/sdk/http-security.js",
-          "sha256": "132faa435e1603f573f87e8dec1efbf5162b563efa5292a355bd6c0d09258a18"
+          "sha256": "5bd3b3c5d902c5e3b1c924ee1c39b13f5cf587b7b6cf9cf81db950970c1d5415"
         },
         {
           "path": "server/src/plugins/sdk/image-resources.js",
@@ -21996,11 +22036,11 @@
         },
         {
           "path": "server/src/plugins/serviceConfig.js",
-          "sha256": "a7ec7b971d12a1997a1d8a005fd7ff79b1b138ad157b66027d14be161c19991c"
+          "sha256": "381233cbd373680738d355d26f2625380e5b1475956deb49ad6982d23d6f73ec"
         },
         {
           "path": "server/src/plugins/services.js",
-          "sha256": "0f1288c9f21b563669538c0f241b0fac434edc7d7480db81142fd296ce035e6f"
+          "sha256": "2afd5a966112b286ce652be2aa21633106b6b431630cac63d38d3e736905a29c"
         },
         {
           "path": "server/src/plugins/xiaomiAdapter.js",
@@ -22104,7 +22144,7 @@
         },
         {
           "path": "server/src/routes/localMetadataRead.js",
-          "sha256": "2085dfa21dc642d51b9700fcecfa8f6911ebc94d88040cb9b312278c81af0567"
+          "sha256": "4206e28f483e42a227300560afde9cf96ecbac4750f78ca19885a53d126dedc3"
         },
         {
           "path": "server/src/routes/localMusicDiscovery.js",
@@ -22116,7 +22156,7 @@
         },
         {
           "path": "server/src/routes/lyricSourceRoutes.js",
-          "sha256": "ebba813ed6f05fcb8216520511650979b7f3b6a737a1f563fc303a5b702b710f"
+          "sha256": "796f0d77c07485ddd5ccf887e58b94a0fd7e640b07ee6b5430276bebe0a654e2"
         },
         {
           "path": "server/src/routes/media.js",
@@ -22128,7 +22168,7 @@
         },
         {
           "path": "server/src/routes/plugins.js",
-          "sha256": "df4a182af1a8bd48212dc6e9146cf2bae3b18c47ca20fc0dbfcf582dc12bc442"
+          "sha256": "4389d8467d3c44942df6f1a8d40a21edac456768606f0ed61f9465b8cc798a4f"
         },
         {
           "path": "server/src/routes/speakerMedia.js",
@@ -22247,6 +22287,10 @@
           "sha256": "adbccbb1ee818cddc0ac6094d2d4ea244be9e1bcaf67861772305b1fbaafbeb6"
         },
         {
+          "path": "server/src/services/jsonTaskResponse.js",
+          "sha256": "bf820ef5e78a8d6b003fcd8009de64cc464f3ad58bbe82ae343074901ff8d961"
+        },
+        {
           "path": "server/src/services/lrclibRequestCoordinator.js",
           "sha256": "3051c6fc7ff1b96a08c64f795fed36110dceae358fcb14bba7f469add4362a5f"
         },
@@ -22268,7 +22312,7 @@
         },
         {
           "path": "server/src/services/lyricAssetWorkflow.js",
-          "sha256": "44f9334b8dad8d6dae265e935eb4489fd9ed078f1bff7989e9f72a9c1a9b2d7c"
+          "sha256": "527ffa71fefa71b4fc7a423b49f373514590a18670b6e4ff60c36b1bea6d13c2"
         },
         {
           "path": "server/src/services/lyricAutomaticSelection.js",
@@ -22308,7 +22352,7 @@
         },
         {
           "path": "server/src/services/lyricSourceChain.js",
-          "sha256": "e0a190a4b1ff5efebf941eb120db67ecd07176e42f196a343181e0cd2b7fcc53"
+          "sha256": "3e8dabd61c1ce03544e621607beab93f46eb512fe167b65b5b579bd0cc8816aa"
         },
         {
           "path": "server/src/services/lyricSourceError.js",
@@ -22341,6 +22385,10 @@
         {
           "path": "server/src/services/playbackLyrics.js",
           "sha256": "9cb34c9f3a818caef0ee084eefa71a056549651e5a1aad133656f5b74b55fc5d"
+        },
+        {
+          "path": "server/src/services/requestAuthorization.js",
+          "sha256": "cc9959ca5107010e20d4bf50fc4d7bf5d2bfc58c1120f67392ff1bd0f5a85c38"
         },
         {
           "path": "server/src/services/roamSampler.js",
@@ -22384,11 +22432,11 @@
         },
         {
           "path": "server/src/subsonic/media.js",
-          "sha256": "edafdc28fc6fc26b5b6dd4e1b1f9ae2220138170edbe4306c21d4e59c1444bf0"
+          "sha256": "420799ab7de61a9e02607bd02522193aed0b2b64bb0249fc157f85edb8208e47"
         },
         {
           "path": "server/src/subsonic/pluginAuthority.js",
-          "sha256": "7fc0f85f0e74d2b544b660a228dc83dc697f6dbaed19fbc11b95ae239c1ce4be"
+          "sha256": "9a92d4fd982294fa7f58df64cd4b0aad8923801f505ddd66e0798271dba2f902"
         },
         {
           "path": "server/src/subsonic/response.js",
@@ -23420,7 +23468,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "fffa0ac448eca3a0b4b4fd414871c05d997faa0956d3f6142978a9b9982e1001"
+          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
         },
         {
           "path": "shared/plugins/sdkImports.js",
