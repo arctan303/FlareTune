@@ -115,6 +115,22 @@ export function normalizeLyricSourceResult(result, sourceId, song = {}) {
 export async function selectLyricSource({ sources, order, song, signal, onDiagnostic = () => {}, adopt = false }) {
   const weak = [];
   let failed = false;
+  const sameDocument = (left, right) => JSON.stringify([left.document.source, left.document.format,
+    left.document.syncMode, left.document.lines, left.artifact?.offsetMs ?? left.offsetMs ?? 0])
+    === JSON.stringify([right.document.source, right.document.format,
+      right.document.syncMode, right.document.lines, right.artifact?.offsetMs ?? right.offsetMs ?? 0]);
+  const sameUnprocessedFile = (candidate, file) => {
+    const before = file.artifact, prepared = candidate.artifact;
+    return before?.status === 'ready' && prepared?.status === 'ready'
+      && before.songId === song.id && prepared.songId === song.id
+      && !isProcessedLyricArtifact(before)
+      && !['failed', 'pending'].includes(before.aiCompletion?.status)
+      && !['failed', 'pending'].includes(prepared.aiCompletion?.status)
+      && typeof file.etag === 'string' && file.etag.length > 0 && file.etag === candidate.etag
+      && typeof before.textHash === 'string' && before.textHash === prepared.textHash
+      && JSON.stringify(before.original) === JSON.stringify(prepared.original)
+      && before.offsetMs === prepared.offsetMs && sameDocument(candidate, file);
+  };
   const adoptResult = async pair => {
     signal?.throwIfAborted();
     if (!adopt || typeof pair.result.onAdopt !== 'function') return pair;
@@ -132,7 +148,30 @@ export async function selectLyricSource({ sources, order, song, signal, onDiagno
       if (!await source.claim(song)) continue;
       const result = normalizeLyricSourceResult(await boundedResolve(source, song, { signal }), id, song);
       if (!result) continue;
-      if (result.quality === 'good') return await adoptResult({ source, result });
+      if (result.quality === 'good') {
+        if (adopt && source.id === 'file') {
+          // The file has already won normal source selection. A prepared
+          // workbench may finish this exact unprocessed snapshot without
+          // changing which original or timeline was selected.
+          const index = weak.findIndex(pair => pair.source.id === 'lyrics-workbench'
+            && typeof pair.result.onAdopt === 'function' && sameUnprocessedFile(pair.result, result));
+          if (index >= 0) {
+            // A failed adoption must not be attempted again in weak fallback.
+            const [prepared] = weak.splice(index, 1);
+            try {
+              const selected = await adoptResult(prepared);
+              if (!sameDocument(selected.result, result)) pluginFail('LYRIC_RESULT_CHANGED', 409);
+              return selected;
+            } catch (error) {
+              signal?.throwIfAborted();
+              if (error?.code === 'LYRIC_SONG_DELETED') throw error;
+              failed = true;
+              onDiagnostic({ sourceId: prepared.source.id, code: 'LYRIC_SOURCE_ADOPTION_FAILED' });
+            }
+          }
+        }
+        return await adoptResult({ source, result });
+      }
       weak.push({ source, result });
     } catch (error) {
       signal?.throwIfAborted();
