@@ -61,7 +61,7 @@ test('one confirmation advances the exact plugin plan after the host succeeds, e
   const installed = (await f.get()).running[0], priorRelease = coreRelease('1.2.1', 'a', 'b'), target = coreRelease('1.3.0', 'c', 'd');
   const previousTask = { status: 'deployed', target: priorRelease, receipt: { migrationCompleted: true } };
   f.sqlite.prepare('INSERT INTO instance_settings VALUES(?,?,1,1,?)').run(SYSTEM_UPDATE_KEY, JSON.stringify({ schemaVersion: 1, job: previousTask }), 'test');
-  let hostHooks = 0, pluginHooks = 0;
+  let hostHooks = 0, pluginHooks = 0, rejectNextHook = false;
   const hostToken = 'synthetic_host_build_token_9876543210';
   const hostRequest = new Request('https://test.example/api/system-update/report', { headers: { Authorization: `Bearer ${hostToken}` } });
   const coreOptions = { discover: async () => target, state: async () => ({ state: 'ready' }),
@@ -100,7 +100,11 @@ test('one confirmation advances the exact plugin plan after the host succeeds, e
   await report(initial, 'deploying');
 
   const launched = { registry: f.registry, host: target.host, sources: { sample: installed.source },
-    fetchImpl: async () => { pluginHooks++; return Response.json({ success: true, result: { build_uuid: 'synthetic-plugin-build' } }); } };
+    fetchImpl: async () => {
+      pluginHooks++;
+      if (rejectNextHook) { rejectNextHook = false; return Response.json({ success: false }, { status: 503 }); }
+      return Response.json({ success: true, result: { build_uuid: 'synthetic-plugin-build' } });
+    } };
   const newDelivery = createPluginDelivery(launched);
   const current = createSystemUpdate({ ...coreOptions, runtime: () => runtime(target.host, installed), pluginUpdates: newDelivery });
   await report(current, 'migrating');
@@ -120,12 +124,23 @@ test('one confirmation advances the exact plugin plan after the host succeeds, e
   assert.equal(failed.job.status, 'deployed');
   assert.equal(failed.job.followUp.status, 'failed');
   assert.equal(failed.job.followUp.canContinue, true);
-  await current.continueUpdate(f.env, owner, { revision: failed.revision, taskId: task.taskId });
+  const resume = () => current.continueUpdate(f.env, owner, { revision: failed.revision, taskId: task.taskId });
+  rejectNextHook = true;
+  const ambiguous = await resume();
+  assert.equal(ambiguous.job.followUp.status, 'awaiting_verification');
+  assert.equal(ambiguous.job.followUp.canContinue, false);
+  await resume();
+  assert.equal(pluginHooks, 2);
+  await newDelivery.resolveBuild(f.env, owner, { revision: ambiguous.pluginUpdates.revision, confirmedStopped: true });
+  const stopped = await current.get(f.env, owner);
+  assert.equal(stopped.pluginUpdates.build.status, 'cancelled');
+  assert.equal(stopped.job.followUp.canContinue, true);
+  await resume();
   const retried = await newDelivery.snapshot(f.env, authorized());
   assert.notEqual(retried.buildId, once.buildId);
   assert.equal(retried.planDigest, once.planDigest);
   assert.equal(hostHooks, 1);
-  assert.equal(pluginHooks, 2);
+  assert.equal(pluginHooks, 3);
   await assert.rejects(newDelivery.report(f.env, authorized(), { buildId: once.buildId, planDigest: once.planDigest, status: 'deployed' }),
     { code: 'PLUGIN_BUILD_CHANGED' });
   assert.equal((await current.plan(f.env, hostRequest)).hostSuccessor, undefined);
@@ -144,7 +159,7 @@ test('one confirmation advances the exact plugin plan after the host succeeds, e
   assert.equal(result.job.followUp.canContinue, false);
   assert.equal((await nextRegistry.readInstallation(f.env, 'sample')).epoch, epoch);
   assert.equal((await report(after, 'deployed')).status, 'deployed');
-  assert.equal(pluginHooks, 2);
+  assert.equal(pluginHooks, 3);
   const separate = await after.start(f.env, owner, { revision: result.revision, releaseId: null,
     pluginRevision: result.pluginUpdates.revision, plugins: [selectedUpdate('3.0.0')], trustCode: true });
   assert.equal(separate.job.followUp.status, 'deployed', 'later plugin updates do not rewrite completed bundles');

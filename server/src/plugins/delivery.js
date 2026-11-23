@@ -21,8 +21,9 @@ const knownKeys = (input, keys) => input && typeof input === 'object' && !Array.
   && Object.keys(input).every(key => keys.includes(key));
 const timedOut = build => build && ACTIVE_PLUGIN_BUILDS.has(build.status) && Date.now() - build.updatedAt > PLUGIN_BUILD_TIMEOUT;
 const active = build => build && ACTIVE_PLUGIN_BUILDS.has(build.status) && !timedOut(build) && !build.resultUnknown;
-const canRetrySelected = build => build?.selectedUpdate === true && build.status === 'failed' && !build.resultUnknown
-  && (!build.deploymentStarted || build.error === 'PLUGIN_BUILD_ROLLED_BACK');
+const canRetrySelected = build => build?.selectedUpdate === true && !build.resultUnknown
+  && ((['failed', 'cancelled'].includes(build.status) && !build.deploymentStarted)
+    || (build.status === 'failed' && build.error === 'PLUGIN_BUILD_ROLLED_BACK'));
 const validHost = value => knownKeys(value, ['version', 'sourceDigest'])
   && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value.version || '')
   && value.version.split('.').every(part => Number.isSafeInteger(Number(part)))
@@ -394,7 +395,6 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
   }
   async function reserveBuild(env, record, running, desired, { session, parent, selectedUpdate = false, registryRevision } = {}) {
     if (record.value.build?.selectedUpdate && (timedOut(record.value.build) || record.value.build.resultUnknown)) fail('PLUGIN_BUILD_RESULT_UNKNOWN');
-    if (record.value.build?.selectedUpdate && (timedOut(record.value.build) || record.value.build.resultUnknown)) fail('PLUGIN_BUILD_RESULT_UNKNOWN');
     if (record.value.build?.deploymentStarted && record.value.build?.status !== 'deployed' && record.value.build?.resultUnknown) fail('PLUGIN_DEPLOYMENT_UNCONFIRMED');
     if (record.value.build?.deploymentStarted && timedOut(record.value.build)) fail('PLUGIN_DEPLOYMENT_UNCONFIRMED');
     if (active(record.value.build)) fail('PLUGIN_BUILD_IN_PROGRESS');
@@ -468,7 +468,6 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     return { ...clone(build.snapshot), buildStatus: build.status, baseDeployment: build.previousDeployment?.buildId
       ? { buildId: build.previousDeployment.buildId, planDigest: build.previousDeployment.planDigest } : null,
     ...(hostRelease ? { hostRelease } : {}), ...(build.kind === 'host-upgrade' ? { kind: build.kind } : {}),
-    ...(build.selectedUpdate ? { selectedUpdate: true } : {}),
     ...(build.selectedUpdate ? { selectedUpdate: true } : {}),
     ...(build.workerName ? { target: { workerName: build.workerName } } : {}) };
   }
