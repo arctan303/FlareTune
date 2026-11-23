@@ -24,16 +24,21 @@ export function deliveryPlanDigest({ host, plugins }) {
   return sha256(canonicalPluginPlan({ host, plugins }));
 }
 
-export function validateDeliveryPlan(snapshot) {
+// The immutable wire shape is shared by fixed launchers. Package manifest and
+// SDK policy belongs to the checkout that will actually execute the packages.
+export function validateDeliveryEnvelope(snapshot) {
   if (!plain(snapshot) || !plain(snapshot.host) || !ownKeys(snapshot.host, ['version', 'sourceDigest'])
     || !/^\d+\.\d+\.\d+$/.test(snapshot.host.version) || !digest(snapshot.host.sourceDigest)
     || !Array.isArray(snapshot.plugins) || snapshot.plugins.length > 32) fail('PLUGIN_SNAPSHOT_INVALID');
   const ids = new Set();
   for (const entry of snapshot.plugins) {
     if (!plain(entry) || !ownKeys(entry, ['id', 'version', 'manifest', 'source']) || !identifier(entry.id)
-      || ids.has(entry.id) || entry.version !== entry.manifest?.version || entry.id !== entry.manifest?.id
+      || ids.has(entry.id) || typeof entry.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(entry.version)
+      || !plain(entry.manifest) || entry.version !== entry.manifest.version || entry.id !== entry.manifest.id
       || !plain(entry.source) || !identifier(entry.source.id)) fail('PLUGIN_SNAPSHOT_INVALID');
     ids.add(entry.id);
+    // Bound opaque JSON before generic canonical hashing in either protocol.
+    canonicalPluginManifest(entry.manifest);
     if (entry.source.type === 'workspace') {
       if (entry.source.id !== 'workspace' || !digest(entry.source.sourceDigest)
         || !ownKeys(entry.source, ['type', 'id', 'sourceDigest'])) fail('PLUGIN_SNAPSHOT_INVALID');
@@ -42,17 +47,30 @@ export function validateDeliveryPlan(snapshot) {
       publicHttpsUrl(entry.source.url);
     } else fail('PLUGIN_SNAPSHOT_INVALID');
   }
+  return snapshot;
+}
+
+function validateDeliveryCompatibility(snapshot) {
   const manifests = validatePluginManifests(snapshot.plugins.map(entry => entry.manifest));
-  for (const entry of snapshot.plugins) if (!resolvePluginAvailability(manifests, [...ids], entry.id).available) fail('PLUGIN_PLAN_INCOMPATIBLE');
+  const ids = manifests.map(manifest => manifest.id);
+  for (const entry of snapshot.plugins) if (!resolvePluginAvailability(manifests, ids, entry.id).available) fail('PLUGIN_PLAN_INCOMPATIBLE');
+  return snapshot;
+}
+
+export function validateDeliveryPlan(snapshot) {
+  return validateDeliveryCompatibility(validateDeliveryEnvelope(snapshot));
+}
+
+export function validateDeliverySnapshotEnvelope(snapshot) {
+  if (!plain(snapshot) || snapshot.schemaVersion !== 1 || typeof snapshot.buildId !== 'string'
+    || !/^[a-f0-9-]{36}$/.test(snapshot.buildId) || !digest(snapshot.planDigest)) fail('PLUGIN_SNAPSHOT_INVALID');
+  validateDeliveryEnvelope(snapshot);
+  if (deliveryPlanDigest(snapshot) !== snapshot.planDigest) fail('PLUGIN_PLAN_DIGEST_MISMATCH');
   return snapshot;
 }
 
 export function validateDeliverySnapshot(snapshot) {
-  if (!plain(snapshot) || snapshot.schemaVersion !== 1 || typeof snapshot.buildId !== 'string'
-    || !/^[a-f0-9-]{36}$/.test(snapshot.buildId) || !digest(snapshot.planDigest)) fail('PLUGIN_SNAPSHOT_INVALID');
-  validateDeliveryPlan(snapshot);
-  if (deliveryPlanDigest(snapshot) !== snapshot.planDigest) fail('PLUGIN_PLAN_DIGEST_MISMATCH');
-  return snapshot;
+  return validateDeliveryCompatibility(validateDeliverySnapshotEnvelope(snapshot));
 }
 
 function safeFilePath(path, binary = false) {

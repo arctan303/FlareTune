@@ -3,7 +3,7 @@
   "hostApiVersion": 6,
   "host": {
     "version": "1.3.0",
-    "sourceDigest": "0e6c97c0c49669d9752e2025a7b155ec5f318234612627a23749820bf7a2f322"
+    "sourceDigest": "d69053d06c8082212bcc1b178a4b5e2e15c7b75863c27637bf8fce33e9ea8587"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "apiVersion": 1,
       "source": "artifact:official:7ede0113112259022539d240dc010c97b178b256c351a1781529723bb3256ce5",
       "manifestDigest": "b73a2cf62aca517ad50ffc40d1e4f94dbcf8255147035105883f4567feca3d8b",
-      "sourceDigest": "df9f6c3f335e234c75dfaff459425f06049a3a4fadcc349c16957344a8bb283e",
+      "sourceDigest": "68edef126c0ff6a39d12a0ae386959d44c8ab40a3fcb8d0d4ba64a2d3d59b161",
       "sources": [
         {
           "path": "client/index.html",
@@ -489,7 +489,7 @@
         },
         {
           "path": "client/src/components/SystemUpdatePanel.jsx",
-          "sha256": "454fa1b29a779187f19f93c01355421cfb43035680f1e35e67d745d04960b0b9"
+          "sha256": "35ba8c0f0be6417033540a77825c004a44e734fb135414a448f5a3460eb6a75f"
         },
         {
           "path": "client/src/components/TrackRow.jsx",
@@ -1001,7 +1001,7 @@
         },
         {
           "path": "client/src/hooks/useSystemUpdate.js",
-          "sha256": "57bbb69b1cd7a4d848af3346546ca43da0208964d56927142d3396b5b3b43476"
+          "sha256": "afa61439c5574596fd6dcd0ae767becf6d055b7d0103a71ed85c97c73e0af638"
         },
         {
           "path": "client/src/hooks/useTheme.js",
@@ -1049,7 +1049,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
+          "sha256": "17e63b3fac344fcc32024db17744ed3d491557080bc1fe0e34cfe1db4dfc2d07"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -1057,7 +1057,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
+          "sha256": "7943a98318e5b65ebe95aecc84b8310e82f04801413a190e2f3f0804db5a36a3"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -1065,7 +1065,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
+          "sha256": "9675ef763550965218f14e53c68f4c193510dfd97f724c9bb4e94b72ca6f1c9f"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -1093,7 +1093,7 @@
         },
         {
           "path": "client/src/i18n/systemUpdate.js",
-          "sha256": "ceb765684a7bc7b4fab5cff34bfa295984bb956c09312965d5feb8a23b3d1750"
+          "sha256": "8a00bd718b1682026db67900aed0947f8899e1fc795cae77993508ad7bd7e81f"
         },
         {
           "path": "client/src/i18n/uiRepairs.js",
@@ -1553,7 +1553,7 @@
         },
         {
           "path": "client/src/services/systemUpdate.js",
-          "sha256": "510957f2f3a3f2c5ec552445fcc085a0f60df1fcd1ea875f9cfb146bcfec5151"
+          "sha256": "99833b24bbd78b693f4fca2e16296d5329432fa1c63b3a1fc1cb66c387b6f105"
         },
         {
           "path": "client/src/services/userImages.js",
@@ -2137,7 +2137,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "a8c45b45b0b476579787c3201eb32a66727007fc6cacf0346bd2d13931857fb3"
+          "sha256": "cd1ca4b1cd5ede0ee77c5fdd635de6561f8e058cc2a1d40b7e4a9321180d4234"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -2505,7 +2505,7 @@
         },
         {
           "path": "server/src/routes/systemUpdate.js",
-          "sha256": "6131c1d4561bb1a3fe17206fb48300ca7157a62d2e68c5328fef0543a0214d84"
+          "sha256": "5458aa8fff4c635812f838e9e13fb58f9f1777d649721e5e2bb071cdde80c8ed"
         },
         {
           "path": "server/src/routes/userImages.js",
@@ -2788,12 +2788,20 @@
           "sha256": "4f9daa5c7e7de403f61a1e55e7f10e936d94f5a3751cae98ca97fb3f7bd4a227"
         },
         {
+          "path": "server/src/systemUpdate/providerStatus.js",
+          "sha256": "0700c221c9f314c597a6c4e9d56ff14b141941679391c98d56e9b3110cf1027d"
+        },
+        {
           "path": "server/src/systemUpdate/releases.js",
           "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
+          "path": "server/src/systemUpdate/runningSource.js",
+          "sha256": "eb077122b9b808897246303f6a9bd72430be0c9970655bb69f54c68ad164a706"
+        },
+        {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
+          "sha256": "1f025617d6456ba3061fe2c8c7b26ccc6d35d5bd280fe3fc6652300666cb7a90"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -3729,7 +3737,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
+          "sha256": "517e31f5ec10ff90b5291dca75e67741aab2218b070ed72079f2d302754c41f5"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -3765,7 +3773,7 @@
         },
         {
           "path": "tooling/plugins/assemble.mjs",
-          "sha256": "83c0cd8884d0ec5e8de72b4a3f898318377832b7f22390bcaed5a8d86422aa42"
+          "sha256": "c3a9a8d102f61bd62e2cec406c731ac78b5f13ada0142b72917523418db97602"
         },
         {
           "path": "tooling/plugins/assert-release-source.mjs",
@@ -3773,7 +3781,11 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
+          "sha256": "bb198f6f7f9f359f63f1ecc969a834672d527a6002d0fe658e2748213f1b214c"
+        },
+        {
+          "path": "tooling/plugins/ci-exact-source.mjs",
+          "sha256": "8baeb6316d0ac26c052fd0fca57c605bbb5df51f3562db7bf305f4d03f8c5404"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -3789,7 +3801,7 @@
         },
         {
           "path": "tooling/plugins/delivery.mjs",
-          "sha256": "587744499ee257bc1fd238f953d9aae4369ff17bb836ce4c2530c32702b8c4a5"
+          "sha256": "4dc258c9ebbf117084f7027bb42c66426b2c4a472475a6f80dd6cbab67d4da3d"
         },
         {
           "path": "tooling/plugins/dev-build-config.mjs",
@@ -3833,7 +3845,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
+          "sha256": "1fdcab99fe3a71e78527246c8a70a2694aab6fdbca24989b8b130d754fcb9a0a"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -3841,7 +3853,7 @@
         },
         {
           "path": "tooling/updates/protocol.mjs",
-          "sha256": "6c19d5671bdb3b5f5ba708f3c2131a666025eb56fdeb83ff853de8605f17ae61"
+          "sha256": "dd4d2cefd147ec3ddc61e5452bd7e4fd7a25331321e87ca7977619e7324a3802"
         },
         {
           "path": "tooling/verify/inspect-legacy-export.mjs",
@@ -3888,7 +3900,7 @@
       "apiVersion": 1,
       "source": "artifact:official:589f07a9045a65a592efeef20e914bb009b409535d39d1ceb2c85924ffcf806d",
       "manifestDigest": "a3a001e5da41b7e67a0887772041ac75b6234cabe22314688d35474e36c6313f",
-      "sourceDigest": "a4c88f754c50e6946dd6373d5e66adc7409db47efb04ff3d4d8a2b39993189a8",
+      "sourceDigest": "483b80649353d6c84ae8428bf68153637c637d2f1ed772985665537426a9644a",
       "sources": [
         {
           "path": "client/index.html",
@@ -4364,7 +4376,7 @@
         },
         {
           "path": "client/src/components/SystemUpdatePanel.jsx",
-          "sha256": "454fa1b29a779187f19f93c01355421cfb43035680f1e35e67d745d04960b0b9"
+          "sha256": "35ba8c0f0be6417033540a77825c004a44e734fb135414a448f5a3460eb6a75f"
         },
         {
           "path": "client/src/components/TrackRow.jsx",
@@ -4876,7 +4888,7 @@
         },
         {
           "path": "client/src/hooks/useSystemUpdate.js",
-          "sha256": "57bbb69b1cd7a4d848af3346546ca43da0208964d56927142d3396b5b3b43476"
+          "sha256": "afa61439c5574596fd6dcd0ae767becf6d055b7d0103a71ed85c97c73e0af638"
         },
         {
           "path": "client/src/hooks/useTheme.js",
@@ -4924,7 +4936,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
+          "sha256": "17e63b3fac344fcc32024db17744ed3d491557080bc1fe0e34cfe1db4dfc2d07"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -4932,7 +4944,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
+          "sha256": "7943a98318e5b65ebe95aecc84b8310e82f04801413a190e2f3f0804db5a36a3"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -4940,7 +4952,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
+          "sha256": "9675ef763550965218f14e53c68f4c193510dfd97f724c9bb4e94b72ca6f1c9f"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -4968,7 +4980,7 @@
         },
         {
           "path": "client/src/i18n/systemUpdate.js",
-          "sha256": "ceb765684a7bc7b4fab5cff34bfa295984bb956c09312965d5feb8a23b3d1750"
+          "sha256": "8a00bd718b1682026db67900aed0947f8899e1fc795cae77993508ad7bd7e81f"
         },
         {
           "path": "client/src/i18n/uiRepairs.js",
@@ -5428,7 +5440,7 @@
         },
         {
           "path": "client/src/services/systemUpdate.js",
-          "sha256": "510957f2f3a3f2c5ec552445fcc085a0f60df1fcd1ea875f9cfb146bcfec5151"
+          "sha256": "99833b24bbd78b693f4fca2e16296d5329432fa1c63b3a1fc1cb66c387b6f105"
         },
         {
           "path": "client/src/services/userImages.js",
@@ -6012,7 +6024,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "a8c45b45b0b476579787c3201eb32a66727007fc6cacf0346bd2d13931857fb3"
+          "sha256": "cd1ca4b1cd5ede0ee77c5fdd635de6561f8e058cc2a1d40b7e4a9321180d4234"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -6380,7 +6392,7 @@
         },
         {
           "path": "server/src/routes/systemUpdate.js",
-          "sha256": "6131c1d4561bb1a3fe17206fb48300ca7157a62d2e68c5328fef0543a0214d84"
+          "sha256": "5458aa8fff4c635812f838e9e13fb58f9f1777d649721e5e2bb071cdde80c8ed"
         },
         {
           "path": "server/src/routes/userImages.js",
@@ -6663,12 +6675,20 @@
           "sha256": "4f9daa5c7e7de403f61a1e55e7f10e936d94f5a3751cae98ca97fb3f7bd4a227"
         },
         {
+          "path": "server/src/systemUpdate/providerStatus.js",
+          "sha256": "0700c221c9f314c597a6c4e9d56ff14b141941679391c98d56e9b3110cf1027d"
+        },
+        {
           "path": "server/src/systemUpdate/releases.js",
           "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
+          "path": "server/src/systemUpdate/runningSource.js",
+          "sha256": "eb077122b9b808897246303f6a9bd72430be0c9970655bb69f54c68ad164a706"
+        },
+        {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
+          "sha256": "1f025617d6456ba3061fe2c8c7b26ccc6d35d5bd280fe3fc6652300666cb7a90"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -7876,7 +7896,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
+          "sha256": "517e31f5ec10ff90b5291dca75e67741aab2218b070ed72079f2d302754c41f5"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -7912,7 +7932,7 @@
         },
         {
           "path": "tooling/plugins/assemble.mjs",
-          "sha256": "83c0cd8884d0ec5e8de72b4a3f898318377832b7f22390bcaed5a8d86422aa42"
+          "sha256": "c3a9a8d102f61bd62e2cec406c731ac78b5f13ada0142b72917523418db97602"
         },
         {
           "path": "tooling/plugins/assert-release-source.mjs",
@@ -7920,7 +7940,11 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
+          "sha256": "bb198f6f7f9f359f63f1ecc969a834672d527a6002d0fe658e2748213f1b214c"
+        },
+        {
+          "path": "tooling/plugins/ci-exact-source.mjs",
+          "sha256": "8baeb6316d0ac26c052fd0fca57c605bbb5df51f3562db7bf305f4d03f8c5404"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -7936,7 +7960,7 @@
         },
         {
           "path": "tooling/plugins/delivery.mjs",
-          "sha256": "587744499ee257bc1fd238f953d9aae4369ff17bb836ce4c2530c32702b8c4a5"
+          "sha256": "4dc258c9ebbf117084f7027bb42c66426b2c4a472475a6f80dd6cbab67d4da3d"
         },
         {
           "path": "tooling/plugins/dev-build-config.mjs",
@@ -7980,7 +8004,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
+          "sha256": "1fdcab99fe3a71e78527246c8a70a2694aab6fdbca24989b8b130d754fcb9a0a"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -7988,7 +8012,7 @@
         },
         {
           "path": "tooling/updates/protocol.mjs",
-          "sha256": "6c19d5671bdb3b5f5ba708f3c2131a666025eb56fdeb83ff853de8605f17ae61"
+          "sha256": "dd4d2cefd147ec3ddc61e5452bd7e4fd7a25331321e87ca7977619e7324a3802"
         },
         {
           "path": "tooling/verify/inspect-legacy-export.mjs",
@@ -8035,7 +8059,7 @@
       "apiVersion": 1,
       "source": "artifact:official:8d73b02cec743646381885b777cd1f266f0a39c515e90ab6f8e3531ddb09658f",
       "manifestDigest": "6b8d6e7de7d4f99889266d52c0239ab4ed0376e4305dc1ba20390e17bb62f23d",
-      "sourceDigest": "e67f5c35acc382a83f4673bff88a007fd3f017aab21adcb57b464edc7bfc0af9",
+      "sourceDigest": "2eadbcf224a437c88fded8d9e116c7c85b4a95781a8f4adb8b6402794ce28acb",
       "sources": [
         {
           "path": "client/index.html",
@@ -8511,7 +8535,7 @@
         },
         {
           "path": "client/src/components/SystemUpdatePanel.jsx",
-          "sha256": "454fa1b29a779187f19f93c01355421cfb43035680f1e35e67d745d04960b0b9"
+          "sha256": "35ba8c0f0be6417033540a77825c004a44e734fb135414a448f5a3460eb6a75f"
         },
         {
           "path": "client/src/components/TrackRow.jsx",
@@ -9023,7 +9047,7 @@
         },
         {
           "path": "client/src/hooks/useSystemUpdate.js",
-          "sha256": "57bbb69b1cd7a4d848af3346546ca43da0208964d56927142d3396b5b3b43476"
+          "sha256": "afa61439c5574596fd6dcd0ae767becf6d055b7d0103a71ed85c97c73e0af638"
         },
         {
           "path": "client/src/hooks/useTheme.js",
@@ -9071,7 +9095,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
+          "sha256": "17e63b3fac344fcc32024db17744ed3d491557080bc1fe0e34cfe1db4dfc2d07"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -9079,7 +9103,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
+          "sha256": "7943a98318e5b65ebe95aecc84b8310e82f04801413a190e2f3f0804db5a36a3"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -9087,7 +9111,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
+          "sha256": "9675ef763550965218f14e53c68f4c193510dfd97f724c9bb4e94b72ca6f1c9f"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -9115,7 +9139,7 @@
         },
         {
           "path": "client/src/i18n/systemUpdate.js",
-          "sha256": "ceb765684a7bc7b4fab5cff34bfa295984bb956c09312965d5feb8a23b3d1750"
+          "sha256": "8a00bd718b1682026db67900aed0947f8899e1fc795cae77993508ad7bd7e81f"
         },
         {
           "path": "client/src/i18n/uiRepairs.js",
@@ -9575,7 +9599,7 @@
         },
         {
           "path": "client/src/services/systemUpdate.js",
-          "sha256": "510957f2f3a3f2c5ec552445fcc085a0f60df1fcd1ea875f9cfb146bcfec5151"
+          "sha256": "99833b24bbd78b693f4fca2e16296d5329432fa1c63b3a1fc1cb66c387b6f105"
         },
         {
           "path": "client/src/services/userImages.js",
@@ -10159,7 +10183,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "a8c45b45b0b476579787c3201eb32a66727007fc6cacf0346bd2d13931857fb3"
+          "sha256": "cd1ca4b1cd5ede0ee77c5fdd635de6561f8e058cc2a1d40b7e4a9321180d4234"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -10527,7 +10551,7 @@
         },
         {
           "path": "server/src/routes/systemUpdate.js",
-          "sha256": "6131c1d4561bb1a3fe17206fb48300ca7157a62d2e68c5328fef0543a0214d84"
+          "sha256": "5458aa8fff4c635812f838e9e13fb58f9f1777d649721e5e2bb071cdde80c8ed"
         },
         {
           "path": "server/src/routes/userImages.js",
@@ -10810,12 +10834,20 @@
           "sha256": "4f9daa5c7e7de403f61a1e55e7f10e936d94f5a3751cae98ca97fb3f7bd4a227"
         },
         {
+          "path": "server/src/systemUpdate/providerStatus.js",
+          "sha256": "0700c221c9f314c597a6c4e9d56ff14b141941679391c98d56e9b3110cf1027d"
+        },
+        {
           "path": "server/src/systemUpdate/releases.js",
           "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
+          "path": "server/src/systemUpdate/runningSource.js",
+          "sha256": "eb077122b9b808897246303f6a9bd72430be0c9970655bb69f54c68ad164a706"
+        },
+        {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
+          "sha256": "1f025617d6456ba3061fe2c8c7b26ccc6d35d5bd280fe3fc6652300666cb7a90"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -11875,7 +11907,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
+          "sha256": "517e31f5ec10ff90b5291dca75e67741aab2218b070ed72079f2d302754c41f5"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -11911,7 +11943,7 @@
         },
         {
           "path": "tooling/plugins/assemble.mjs",
-          "sha256": "83c0cd8884d0ec5e8de72b4a3f898318377832b7f22390bcaed5a8d86422aa42"
+          "sha256": "c3a9a8d102f61bd62e2cec406c731ac78b5f13ada0142b72917523418db97602"
         },
         {
           "path": "tooling/plugins/assert-release-source.mjs",
@@ -11919,7 +11951,11 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
+          "sha256": "bb198f6f7f9f359f63f1ecc969a834672d527a6002d0fe658e2748213f1b214c"
+        },
+        {
+          "path": "tooling/plugins/ci-exact-source.mjs",
+          "sha256": "8baeb6316d0ac26c052fd0fca57c605bbb5df51f3562db7bf305f4d03f8c5404"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -11935,7 +11971,7 @@
         },
         {
           "path": "tooling/plugins/delivery.mjs",
-          "sha256": "587744499ee257bc1fd238f953d9aae4369ff17bb836ce4c2530c32702b8c4a5"
+          "sha256": "4dc258c9ebbf117084f7027bb42c66426b2c4a472475a6f80dd6cbab67d4da3d"
         },
         {
           "path": "tooling/plugins/dev-build-config.mjs",
@@ -11979,7 +12015,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
+          "sha256": "1fdcab99fe3a71e78527246c8a70a2694aab6fdbca24989b8b130d754fcb9a0a"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -11987,7 +12023,7 @@
         },
         {
           "path": "tooling/updates/protocol.mjs",
-          "sha256": "6c19d5671bdb3b5f5ba708f3c2131a666025eb56fdeb83ff853de8605f17ae61"
+          "sha256": "dd4d2cefd147ec3ddc61e5452bd7e4fd7a25331321e87ca7977619e7324a3802"
         },
         {
           "path": "tooling/verify/inspect-legacy-export.mjs",
@@ -12034,7 +12070,7 @@
       "apiVersion": 1,
       "source": "artifact:official:ba90fa83c0ecac29b07966e4ce217e982af86be841864c2b4c4f80d2845140fd",
       "manifestDigest": "8b0029128df37c4c886fc9f46254584e3400594cbc2fd6eb897a41694eb89f38",
-      "sourceDigest": "e86ca846b4495b3bda57c8d9345e035455f887b15695b28fea460154ae5102e9",
+      "sourceDigest": "5fabd3b5aba82777c248ac5ad4464c55a46896d6e59abeacfb88036882b31e68",
       "sources": [
         {
           "path": "client/index.html",
@@ -12510,7 +12546,7 @@
         },
         {
           "path": "client/src/components/SystemUpdatePanel.jsx",
-          "sha256": "454fa1b29a779187f19f93c01355421cfb43035680f1e35e67d745d04960b0b9"
+          "sha256": "35ba8c0f0be6417033540a77825c004a44e734fb135414a448f5a3460eb6a75f"
         },
         {
           "path": "client/src/components/TrackRow.jsx",
@@ -13022,7 +13058,7 @@
         },
         {
           "path": "client/src/hooks/useSystemUpdate.js",
-          "sha256": "57bbb69b1cd7a4d848af3346546ca43da0208964d56927142d3396b5b3b43476"
+          "sha256": "afa61439c5574596fd6dcd0ae767becf6d055b7d0103a71ed85c97c73e0af638"
         },
         {
           "path": "client/src/hooks/useTheme.js",
@@ -13070,7 +13106,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
+          "sha256": "17e63b3fac344fcc32024db17744ed3d491557080bc1fe0e34cfe1db4dfc2d07"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -13078,7 +13114,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
+          "sha256": "7943a98318e5b65ebe95aecc84b8310e82f04801413a190e2f3f0804db5a36a3"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -13086,7 +13122,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
+          "sha256": "9675ef763550965218f14e53c68f4c193510dfd97f724c9bb4e94b72ca6f1c9f"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -13114,7 +13150,7 @@
         },
         {
           "path": "client/src/i18n/systemUpdate.js",
-          "sha256": "ceb765684a7bc7b4fab5cff34bfa295984bb956c09312965d5feb8a23b3d1750"
+          "sha256": "8a00bd718b1682026db67900aed0947f8899e1fc795cae77993508ad7bd7e81f"
         },
         {
           "path": "client/src/i18n/uiRepairs.js",
@@ -13574,7 +13610,7 @@
         },
         {
           "path": "client/src/services/systemUpdate.js",
-          "sha256": "510957f2f3a3f2c5ec552445fcc085a0f60df1fcd1ea875f9cfb146bcfec5151"
+          "sha256": "99833b24bbd78b693f4fca2e16296d5329432fa1c63b3a1fc1cb66c387b6f105"
         },
         {
           "path": "client/src/services/userImages.js",
@@ -14158,7 +14194,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "a8c45b45b0b476579787c3201eb32a66727007fc6cacf0346bd2d13931857fb3"
+          "sha256": "cd1ca4b1cd5ede0ee77c5fdd635de6561f8e058cc2a1d40b7e4a9321180d4234"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -14526,7 +14562,7 @@
         },
         {
           "path": "server/src/routes/systemUpdate.js",
-          "sha256": "6131c1d4561bb1a3fe17206fb48300ca7157a62d2e68c5328fef0543a0214d84"
+          "sha256": "5458aa8fff4c635812f838e9e13fb58f9f1777d649721e5e2bb071cdde80c8ed"
         },
         {
           "path": "server/src/routes/userImages.js",
@@ -14809,12 +14845,20 @@
           "sha256": "4f9daa5c7e7de403f61a1e55e7f10e936d94f5a3751cae98ca97fb3f7bd4a227"
         },
         {
+          "path": "server/src/systemUpdate/providerStatus.js",
+          "sha256": "0700c221c9f314c597a6c4e9d56ff14b141941679391c98d56e9b3110cf1027d"
+        },
+        {
           "path": "server/src/systemUpdate/releases.js",
           "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
+          "path": "server/src/systemUpdate/runningSource.js",
+          "sha256": "eb077122b9b808897246303f6a9bd72430be0c9970655bb69f54c68ad164a706"
+        },
+        {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
+          "sha256": "1f025617d6456ba3061fe2c8c7b26ccc6d35d5bd280fe3fc6652300666cb7a90"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -15698,7 +15742,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
+          "sha256": "517e31f5ec10ff90b5291dca75e67741aab2218b070ed72079f2d302754c41f5"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -15734,7 +15778,7 @@
         },
         {
           "path": "tooling/plugins/assemble.mjs",
-          "sha256": "83c0cd8884d0ec5e8de72b4a3f898318377832b7f22390bcaed5a8d86422aa42"
+          "sha256": "c3a9a8d102f61bd62e2cec406c731ac78b5f13ada0142b72917523418db97602"
         },
         {
           "path": "tooling/plugins/assert-release-source.mjs",
@@ -15742,7 +15786,11 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
+          "sha256": "bb198f6f7f9f359f63f1ecc969a834672d527a6002d0fe658e2748213f1b214c"
+        },
+        {
+          "path": "tooling/plugins/ci-exact-source.mjs",
+          "sha256": "8baeb6316d0ac26c052fd0fca57c605bbb5df51f3562db7bf305f4d03f8c5404"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -15758,7 +15806,7 @@
         },
         {
           "path": "tooling/plugins/delivery.mjs",
-          "sha256": "587744499ee257bc1fd238f953d9aae4369ff17bb836ce4c2530c32702b8c4a5"
+          "sha256": "4dc258c9ebbf117084f7027bb42c66426b2c4a472475a6f80dd6cbab67d4da3d"
         },
         {
           "path": "tooling/plugins/dev-build-config.mjs",
@@ -15802,7 +15850,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
+          "sha256": "1fdcab99fe3a71e78527246c8a70a2694aab6fdbca24989b8b130d754fcb9a0a"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -15810,7 +15858,7 @@
         },
         {
           "path": "tooling/updates/protocol.mjs",
-          "sha256": "6c19d5671bdb3b5f5ba708f3c2131a666025eb56fdeb83ff853de8605f17ae61"
+          "sha256": "dd4d2cefd147ec3ddc61e5452bd7e4fd7a25331321e87ca7977619e7324a3802"
         },
         {
           "path": "tooling/verify/inspect-legacy-export.mjs",
@@ -15857,7 +15905,7 @@
       "apiVersion": 1,
       "source": "artifact:official:d266ec9c3eb2dab7ea44b3239c9b9f81be2cc9b00327ad353e28a1fbe92a95c8",
       "manifestDigest": "2f441fa624490b208a3cd8cb3d4a3b6e3e72f3372d69cedaeadad9334e2d61ea",
-      "sourceDigest": "65d5ef001177420e4643c38607eec4fd9f6fbab98e4127781c6a23bfd7cde5f6",
+      "sourceDigest": "3d73487a6b0b6b2959b81b958d56666a89a91ec21e9db125673d82b8ad0ac699",
       "sources": [
         {
           "path": "client/index.html",
@@ -16333,7 +16381,7 @@
         },
         {
           "path": "client/src/components/SystemUpdatePanel.jsx",
-          "sha256": "454fa1b29a779187f19f93c01355421cfb43035680f1e35e67d745d04960b0b9"
+          "sha256": "35ba8c0f0be6417033540a77825c004a44e734fb135414a448f5a3460eb6a75f"
         },
         {
           "path": "client/src/components/TrackRow.jsx",
@@ -16845,7 +16893,7 @@
         },
         {
           "path": "client/src/hooks/useSystemUpdate.js",
-          "sha256": "57bbb69b1cd7a4d848af3346546ca43da0208964d56927142d3396b5b3b43476"
+          "sha256": "afa61439c5574596fd6dcd0ae767becf6d055b7d0103a71ed85c97c73e0af638"
         },
         {
           "path": "client/src/hooks/useTheme.js",
@@ -16893,7 +16941,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
+          "sha256": "17e63b3fac344fcc32024db17744ed3d491557080bc1fe0e34cfe1db4dfc2d07"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -16901,7 +16949,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
+          "sha256": "7943a98318e5b65ebe95aecc84b8310e82f04801413a190e2f3f0804db5a36a3"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -16909,7 +16957,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
+          "sha256": "9675ef763550965218f14e53c68f4c193510dfd97f724c9bb4e94b72ca6f1c9f"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -16937,7 +16985,7 @@
         },
         {
           "path": "client/src/i18n/systemUpdate.js",
-          "sha256": "ceb765684a7bc7b4fab5cff34bfa295984bb956c09312965d5feb8a23b3d1750"
+          "sha256": "8a00bd718b1682026db67900aed0947f8899e1fc795cae77993508ad7bd7e81f"
         },
         {
           "path": "client/src/i18n/uiRepairs.js",
@@ -17397,7 +17445,7 @@
         },
         {
           "path": "client/src/services/systemUpdate.js",
-          "sha256": "510957f2f3a3f2c5ec552445fcc085a0f60df1fcd1ea875f9cfb146bcfec5151"
+          "sha256": "99833b24bbd78b693f4fca2e16296d5329432fa1c63b3a1fc1cb66c387b6f105"
         },
         {
           "path": "client/src/services/userImages.js",
@@ -17981,7 +18029,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "a8c45b45b0b476579787c3201eb32a66727007fc6cacf0346bd2d13931857fb3"
+          "sha256": "cd1ca4b1cd5ede0ee77c5fdd635de6561f8e058cc2a1d40b7e4a9321180d4234"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -18349,7 +18397,7 @@
         },
         {
           "path": "server/src/routes/systemUpdate.js",
-          "sha256": "6131c1d4561bb1a3fe17206fb48300ca7157a62d2e68c5328fef0543a0214d84"
+          "sha256": "5458aa8fff4c635812f838e9e13fb58f9f1777d649721e5e2bb071cdde80c8ed"
         },
         {
           "path": "server/src/routes/userImages.js",
@@ -18632,12 +18680,20 @@
           "sha256": "4f9daa5c7e7de403f61a1e55e7f10e936d94f5a3751cae98ca97fb3f7bd4a227"
         },
         {
+          "path": "server/src/systemUpdate/providerStatus.js",
+          "sha256": "0700c221c9f314c597a6c4e9d56ff14b141941679391c98d56e9b3110cf1027d"
+        },
+        {
           "path": "server/src/systemUpdate/releases.js",
           "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
+          "path": "server/src/systemUpdate/runningSource.js",
+          "sha256": "eb077122b9b808897246303f6a9bd72430be0c9970655bb69f54c68ad164a706"
+        },
+        {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
+          "sha256": "1f025617d6456ba3061fe2c8c7b26ccc6d35d5bd280fe3fc6652300666cb7a90"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -19529,7 +19585,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
+          "sha256": "517e31f5ec10ff90b5291dca75e67741aab2218b070ed72079f2d302754c41f5"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -19565,7 +19621,7 @@
         },
         {
           "path": "tooling/plugins/assemble.mjs",
-          "sha256": "83c0cd8884d0ec5e8de72b4a3f898318377832b7f22390bcaed5a8d86422aa42"
+          "sha256": "c3a9a8d102f61bd62e2cec406c731ac78b5f13ada0142b72917523418db97602"
         },
         {
           "path": "tooling/plugins/assert-release-source.mjs",
@@ -19573,7 +19629,11 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
+          "sha256": "bb198f6f7f9f359f63f1ecc969a834672d527a6002d0fe658e2748213f1b214c"
+        },
+        {
+          "path": "tooling/plugins/ci-exact-source.mjs",
+          "sha256": "8baeb6316d0ac26c052fd0fca57c605bbb5df51f3562db7bf305f4d03f8c5404"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -19589,7 +19649,7 @@
         },
         {
           "path": "tooling/plugins/delivery.mjs",
-          "sha256": "587744499ee257bc1fd238f953d9aae4369ff17bb836ce4c2530c32702b8c4a5"
+          "sha256": "4dc258c9ebbf117084f7027bb42c66426b2c4a472475a6f80dd6cbab67d4da3d"
         },
         {
           "path": "tooling/plugins/dev-build-config.mjs",
@@ -19633,7 +19693,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
+          "sha256": "1fdcab99fe3a71e78527246c8a70a2694aab6fdbca24989b8b130d754fcb9a0a"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -19641,7 +19701,7 @@
         },
         {
           "path": "tooling/updates/protocol.mjs",
-          "sha256": "6c19d5671bdb3b5f5ba708f3c2131a666025eb56fdeb83ff853de8605f17ae61"
+          "sha256": "dd4d2cefd147ec3ddc61e5452bd7e4fd7a25331321e87ca7977619e7324a3802"
         },
         {
           "path": "tooling/verify/inspect-legacy-export.mjs",
@@ -19688,7 +19748,7 @@
       "apiVersion": 1,
       "source": "artifact:official:441a41ff8539e44077d280bf25441f261829df5acea28e901f9eb3bfc415ffe6",
       "manifestDigest": "524ddb4b18133d342c164f073c36130ed6a1c92441557ab54eed1e426c9bc302",
-      "sourceDigest": "ff254d861a123b47324748fc9374d6e9210d541e93e95087fa859db1f644f1a6",
+      "sourceDigest": "feec5b075c82de82bcd1d0c4c471d10feea9bda20030ddf04db699a901ee497e",
       "sources": [
         {
           "path": "client/index.html",
@@ -20164,7 +20224,7 @@
         },
         {
           "path": "client/src/components/SystemUpdatePanel.jsx",
-          "sha256": "454fa1b29a779187f19f93c01355421cfb43035680f1e35e67d745d04960b0b9"
+          "sha256": "35ba8c0f0be6417033540a77825c004a44e734fb135414a448f5a3460eb6a75f"
         },
         {
           "path": "client/src/components/TrackRow.jsx",
@@ -20676,7 +20736,7 @@
         },
         {
           "path": "client/src/hooks/useSystemUpdate.js",
-          "sha256": "57bbb69b1cd7a4d848af3346546ca43da0208964d56927142d3396b5b3b43476"
+          "sha256": "afa61439c5574596fd6dcd0ae767becf6d055b7d0103a71ed85c97c73e0af638"
         },
         {
           "path": "client/src/hooks/useTheme.js",
@@ -20724,7 +20784,7 @@
         },
         {
           "path": "client/src/i18n/locales/ja.json",
-          "sha256": "011e06b745d024b3753111ad97be82f94cd9129cde4768ffe0fc6f4cfb15c677"
+          "sha256": "17e63b3fac344fcc32024db17744ed3d491557080bc1fe0e34cfe1db4dfc2d07"
         },
         {
           "path": "client/src/i18n/locales/ko.js",
@@ -20732,7 +20792,7 @@
         },
         {
           "path": "client/src/i18n/locales/ko.json",
-          "sha256": "01ff2461d385aeb7c15cd644b2d44d75744de2676516addca193ec0a88767500"
+          "sha256": "7943a98318e5b65ebe95aecc84b8310e82f04801413a190e2f3f0804db5a36a3"
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.js",
@@ -20740,7 +20800,7 @@
         },
         {
           "path": "client/src/i18n/locales/zh-Hant.json",
-          "sha256": "466eb51651f814ab48b867eb93995fd21eac02364b6bb08f8dd834be729783bd"
+          "sha256": "9675ef763550965218f14e53c68f4c193510dfd97f724c9bb4e94b72ca6f1c9f"
         },
         {
           "path": "client/src/i18n/pluginCatalog.js",
@@ -20768,7 +20828,7 @@
         },
         {
           "path": "client/src/i18n/systemUpdate.js",
-          "sha256": "ceb765684a7bc7b4fab5cff34bfa295984bb956c09312965d5feb8a23b3d1750"
+          "sha256": "8a00bd718b1682026db67900aed0947f8899e1fc795cae77993508ad7bd7e81f"
         },
         {
           "path": "client/src/i18n/uiRepairs.js",
@@ -21228,7 +21288,7 @@
         },
         {
           "path": "client/src/services/systemUpdate.js",
-          "sha256": "510957f2f3a3f2c5ec552445fcc085a0f60df1fcd1ea875f9cfb146bcfec5151"
+          "sha256": "99833b24bbd78b693f4fca2e16296d5329432fa1c63b3a1fc1cb66c387b6f105"
         },
         {
           "path": "client/src/services/userImages.js",
@@ -21812,7 +21872,7 @@
         },
         {
           "path": "server/src/plugins/delivery.js",
-          "sha256": "a8c45b45b0b476579787c3201eb32a66727007fc6cacf0346bd2d13931857fb3"
+          "sha256": "cd1ca4b1cd5ede0ee77c5fdd635de6561f8e058cc2a1d40b7e4a9321180d4234"
         },
         {
           "path": "server/src/plugins/deliverySecrets.js",
@@ -22180,7 +22240,7 @@
         },
         {
           "path": "server/src/routes/systemUpdate.js",
-          "sha256": "6131c1d4561bb1a3fe17206fb48300ca7157a62d2e68c5328fef0543a0214d84"
+          "sha256": "5458aa8fff4c635812f838e9e13fb58f9f1777d649721e5e2bb071cdde80c8ed"
         },
         {
           "path": "server/src/routes/userImages.js",
@@ -22463,12 +22523,20 @@
           "sha256": "4f9daa5c7e7de403f61a1e55e7f10e936d94f5a3751cae98ca97fb3f7bd4a227"
         },
         {
+          "path": "server/src/systemUpdate/providerStatus.js",
+          "sha256": "0700c221c9f314c597a6c4e9d56ff14b141941679391c98d56e9b3110cf1027d"
+        },
+        {
           "path": "server/src/systemUpdate/releases.js",
           "sha256": "e690bda4fc02a3291fa953c0dfd9158b213b3f9498192b07da288d6d3dcfe3f9"
         },
         {
+          "path": "server/src/systemUpdate/runningSource.js",
+          "sha256": "eb077122b9b808897246303f6a9bd72430be0c9970655bb69f54c68ad164a706"
+        },
+        {
           "path": "server/src/systemUpdate/service.js",
-          "sha256": "70e78b2a345464b98446f38144383ab54d73506002d7fc5f7090e1fd29db5a76"
+          "sha256": "1f025617d6456ba3061fe2c8c7b26ccc6d35d5bd280fe3fc6652300666cb7a90"
         },
         {
           "path": "server/src/tools/assistantMemory.js",
@@ -23468,7 +23536,7 @@
         },
         {
           "path": "shared/plugins/manifest.js",
-          "sha256": "2b3f2d140999c496a5a75b8f86e2047813ad508708bb49c7093266e1475d5569"
+          "sha256": "517e31f5ec10ff90b5291dca75e67741aab2218b070ed72079f2d302754c41f5"
         },
         {
           "path": "shared/plugins/sdkImports.js",
@@ -23504,7 +23572,7 @@
         },
         {
           "path": "tooling/plugins/assemble.mjs",
-          "sha256": "83c0cd8884d0ec5e8de72b4a3f898318377832b7f22390bcaed5a8d86422aa42"
+          "sha256": "c3a9a8d102f61bd62e2cec406c731ac78b5f13ada0142b72917523418db97602"
         },
         {
           "path": "tooling/plugins/assert-release-source.mjs",
@@ -23512,7 +23580,11 @@
         },
         {
           "path": "tooling/plugins/ci-channel.mjs",
-          "sha256": "35ca7f3ea64b6f40a5a7213bf823c350bf17b41af53b0e199ffec88c9c4f76d0"
+          "sha256": "bb198f6f7f9f359f63f1ecc969a834672d527a6002d0fe658e2748213f1b214c"
+        },
+        {
+          "path": "tooling/plugins/ci-exact-source.mjs",
+          "sha256": "8baeb6316d0ac26c052fd0fca57c605bbb5df51f3562db7bf305f4d03f8c5404"
         },
         {
           "path": "tooling/plugins/compatibility.json",
@@ -23528,7 +23600,7 @@
         },
         {
           "path": "tooling/plugins/delivery.mjs",
-          "sha256": "587744499ee257bc1fd238f953d9aae4369ff17bb836ce4c2530c32702b8c4a5"
+          "sha256": "4dc258c9ebbf117084f7027bb42c66426b2c4a472475a6f80dd6cbab67d4da3d"
         },
         {
           "path": "tooling/plugins/dev-build-config.mjs",
@@ -23572,7 +23644,7 @@
         },
         {
           "path": "tooling/updates/deploy.mjs",
-          "sha256": "8c4c873f52211e4981a41b26c1a9f53f4df8d2f810a3bdcdd858e17ee46a29f3"
+          "sha256": "1fdcab99fe3a71e78527246c8a70a2694aab6fdbca24989b8b130d754fcb9a0a"
         },
         {
           "path": "tooling/updates/process.mjs",
@@ -23580,7 +23652,7 @@
         },
         {
           "path": "tooling/updates/protocol.mjs",
-          "sha256": "6c19d5671bdb3b5f5ba708f3c2131a666025eb56fdeb83ff853de8605f17ae61"
+          "sha256": "dd4d2cefd147ec3ddc61e5452bd7e4fd7a25331321e87ca7977619e7324a3802"
         },
         {
           "path": "tooling/verify/inspect-legacy-export.mjs",

@@ -15,7 +15,8 @@ export async function handleSystemUpdate(request, path, env, session, json, { up
       if (request.method === 'GET') return json(await update.get(env, session));
       if (request.method === 'PUT') return json(await update.configure(env, session, await readBoundedJson(request)));
     }
-    const action = /^\/api\/admin\/system-update\/(check|start|retry|recover)$/.exec(path)?.[1];
+    const suffix = /^\/api\/admin\/system-update\/(check|start|retry|recover|verify|continue|plugin-retry)$/.exec(path)?.[1];
+    const action = { continue: 'continueUpdate', 'plugin-retry': 'pluginRetry' }[suffix] || suffix;
     if (action && request.method === 'POST') return json(await update[action](env, session, await readBoundedJson(request)));
     return json({ error: 'not_found' }, 404);
   } catch (error) { return failure(error, json); }

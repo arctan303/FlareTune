@@ -7,6 +7,7 @@ import { ACTIVE_PLUGIN_BUILDS, OFFICIAL_PLUGIN_SOURCE, PLUGIN_BUILD_TIMEOUT, can
 import { pluginFail as fail, requirePluginSession, sessionBindings, sessionPredicate, sha256 } from './common.js';
 import { openDeliverySecrets, sealDeliverySecrets } from './deliverySecrets.js';
 import { preparePluginMigrations } from './migrations.js';
+import { releaseForRunningHost } from '../systemUpdate/runningSource.js';
 
 export const PLUGIN_DELIVERY_KEY = 'plugin.delivery.v1';
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -20,6 +21,8 @@ const knownKeys = (input, keys) => input && typeof input === 'object' && !Array.
   && Object.keys(input).every(key => keys.includes(key));
 const timedOut = build => build && ACTIVE_PLUGIN_BUILDS.has(build.status) && Date.now() - build.updatedAt > PLUGIN_BUILD_TIMEOUT;
 const active = build => build && ACTIVE_PLUGIN_BUILDS.has(build.status) && !timedOut(build) && !build.resultUnknown;
+const canRetrySelected = build => build?.selectedUpdate === true && build.status === 'failed' && !build.resultUnknown
+  && (!build.deploymentStarted || build.error === 'PLUGIN_BUILD_ROLLED_BACK');
 const validHost = value => knownKeys(value, ['version', 'sourceDigest'])
   && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value.version || '')
   && value.version.split('.').every(part => Number.isSafeInteger(Number(part)))
@@ -62,7 +65,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       return { revision: Number(row.revision), value };
     } catch { fail('PLUGIN_DELIVERY_STATE_INVALID', 503); }
   }
-  async function save(env, record, value, { session, actor = 'plugin-build', registryRevision } = {}) {
+  async function save(env, record, value, { session, actor = 'plugin-build', registryRevision, parent } = {}) {
     const now = Date.now();
     const serialized = JSON.stringify(value);
     if (new TextEncoder().encode(serialized).byteLength > 1000000) fail('PLUGIN_SOURCE_TOO_LARGE', 400);
@@ -70,6 +73,8 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       SELECT ?,?,1,?,? WHERE COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?
       ${registryRevision !== undefined ? 'AND COALESCE((SELECT revision FROM instance_settings WHERE key=?),0)=?' : ''}
       ${session ? `AND ${sessionPredicate}` : ''}
+      ${parent ? `AND EXISTS (SELECT 1 FROM instance_settings WHERE key='system.update.v1'
+        AND json_extract(value_json,'$.job.taskId')=? AND json_extract(value_json,'$.job.status')='deployed')` : ''}
       AND NOT EXISTS (SELECT 1 FROM instance_settings u WHERE u.key='system.update.v1'
         AND json_extract(u.value_json,'$.job.status') IS NOT NULL
         AND (json_extract(u.value_json,'$.job.status') NOT IN ('deployed','rolled_back','failed')
@@ -79,7 +84,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
         updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
       .bind(PLUGIN_DELIVERY_KEY, serialized, now, session?.account.accountId || actor, PLUGIN_DELIVERY_KEY, record.revision,
         ...(registryRevision !== undefined ? [REGISTRY_KEY, registryRevision] : []),
-        ...(session ? sessionBindings(session, now, true) : [])).run();
+        ...(session ? sessionBindings(session, now, true) : []), ...(parent ? [parent.taskId] : [])).run();
     if (Number(result?.meta?.changes) !== 1) {
       if (session) await requirePluginSession(env, session, true);
       fail('PLUGIN_DELIVERY_CHANGED');
@@ -142,12 +147,15 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     catch { needsReconnect = true; }
     const running = await runningFor(env, record); const desired = record.value.desired ?? running;
     const build = record.value.build;
+    const retryable = canRetrySelected(build) && record.value.desired !== null
+      && canonicalPluginPlan({ host, plugins: desired.map(snapshotPlugin) }) === canonicalPluginPlan(build.snapshot);
     return { revision: record.revision, settings: { mode: record.value.mode, hookConfigured: Boolean(secrets.deployHookUrl),
       buildTokenConfigured: Boolean(secrets.buildToken), ...(needsReconnect ? { needsReconnect: true } : {}) }, sources: record.value.sources.map(({ catalog, ...source }) => source),
     catalog: catalogFor(record), running, desired, pending: pluginSelectionChanges(running, desired),
     build: build ? { id: build.id, planDigest: build.planDigest, status: timedOut(build) ? 'failed' : build.status,
       createdAt: build.createdAt, updatedAt: build.updatedAt, error: timedOut(build) ? 'PLUGIN_BUILD_RESULT_UNKNOWN' : build.error,
-      resultUnknown: Boolean(timedOut(build) || build.resultUnknown), deploymentStarted: Boolean(build.deploymentStarted), providerBuildId: build.providerBuildId || null } : null };
+      resultUnknown: Boolean(timedOut(build) || build.resultUnknown), deploymentStarted: Boolean(build.deploymentStarted), providerBuildId: build.providerBuildId || null,
+      ...(build.selectedUpdate ? { updateTaskId: build.updateTaskId ?? null, retryable } : {}) } : null };
   }
   async function get(env, session) {
     await requirePluginSession(env, session, true);
@@ -197,10 +205,7 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       status: 'ready', error: null, updatedAt: Date.now(), catalog: directory.plugins });
     return publicState(env, await save(env, record, value, { session }));
   }
-  async function refreshSource(env, session, sourceId, input) {
-    const record = await administrator(env, session, input, []); assertEditable(record);
-    const value = clone(record.value); const source = value.sources.find(item => item.id === sourceId);
-    if (!source) fail('PLUGIN_SOURCE_NOT_FOUND', 404);
+  async function refreshCatalog(source) {
     try {
       const directory = await fetchDirectory(validatePublicHttpsUrl(source.url));
       source.name = directory.name; source.catalog = directory.plugins; source.status = 'ready'; source.error = null;
@@ -209,7 +214,21 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       source.error = source.status === 'unpublished' ? null : 'PLUGIN_SOURCE_UNAVAILABLE';
     }
     source.updatedAt = Date.now();
+  }
+  async function refreshSource(env, session, sourceId, input) {
+    const record = await administrator(env, session, input, []); assertEditable(record);
+    const value = clone(record.value); const source = value.sources.find(item => item.id === sourceId);
+    if (!source) fail('PLUGIN_SOURCE_NOT_FOUND', 404);
+    await refreshCatalog(source);
     return publicState(env, await save(env, record, value, { session }));
+  }
+  async function refreshUpdateCatalogs(env, session) {
+    await requirePluginSession(env, session, true);
+    const record = await read(env);
+    if (record.value.desired !== null || active(record.value.build) || timedOut(record.value.build) || record.value.build?.resultUnknown) return;
+    const value = clone(record.value);
+    await Promise.all(value.sources.map(refreshCatalog));
+    await save(env, record, value, { session });
   }
   async function removeSource(env, session, sourceId, input) {
     const record = await administrator(env, session, input, []); assertEditable(record);
@@ -219,12 +238,74 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     const value = clone(record.value); value.sources = value.sources.filter(item => item.id !== sourceId);
     return publicState(env, await save(env, record, value, { session }));
   }
-  function validateSelection(desired) {
+  function validateSelection(desired, hostApiVersion) {
     if (desired.length > 32) fail('PLUGIN_SELECTION_LIMIT', 400);
+    const manifests = desired.map(item => item.manifest), ids = desired.map(item => item.id);
     for (const row of desired) {
-      const availability = resolvePluginAvailability(desired.map(item => item.manifest), desired.map(item => item.id), row.id);
+      const availability = resolvePluginAvailability(manifests, ids, row.id, hostApiVersion);
       if (!availability.available) fail('PLUGIN_SELECTION_INCOMPATIBLE', 409, { availability });
     }
+  }
+  function updateCandidates(record, running) {
+    const catalog = catalogFor(record);
+    return running.flatMap(current => catalog.filter(candidate => candidate.id === current.id && candidate.source.id === current.source.id
+      && candidate.source.type === 'artifact' && comparePluginVersions(candidate.version, current.version) > 0));
+  }
+  async function updateOptions(env) {
+    const record = await read(env);
+    const state = await publicState(env, record);
+    const running = new Map(state.running.map(row => [row.id, row]));
+    const sourceUrls = new Map(state.sources.map(source => [source.id, source.url]));
+    const configured = state.settings.hookConfigured && state.settings.buildTokenConfigured;
+    const blockedReason = state.build?.resultUnknown ? 'PLUGIN_BUILD_RESULT_UNKNOWN'
+      : active(record.value.build) ? 'PLUGIN_BUILD_IN_PROGRESS'
+        : record.value.desired !== null ? 'SYSTEM_UPDATE_PLUGIN_PENDING'
+          : !configured ? 'PLUGIN_BUILD_NOT_CONFIGURED' : null;
+    const latest = new Map();
+    for (const candidate of updateCandidates(record, state.running)) {
+      const previous = latest.get(candidate.id);
+      if (!previous || comparePluginVersions(candidate.version, previous.version) > 0) latest.set(candidate.id, candidate);
+    }
+    return { revision: state.revision, configured, blockedReason, build: state.build,
+      completedTaskId: record.value.completedUpdate?.taskId ?? null,
+      candidates: [...latest.values()].map(row => ({ id: row.id, version: row.version, sourceId: row.source.id,
+        sourceName: row.sourceName, sourceUrl: sourceUrls.get(row.source.id), currentVersion: running.get(row.id).version,
+        name: row.manifest.name || row.id, hostApiVersion: row.manifest.hostApiVersion })) };
+  }
+  async function hostSuccessor(env, taskId, plan) {
+    const record = await read(env);
+    const build = record.value.build;
+    if (build?.updateTaskId !== taskId || build.rollbackStarted || !build.deploymentStarted
+      || !['deploying', 'activation_pending', 'deployed'].includes(build.status)) return null;
+    if (canonicalPluginPlan(build.snapshot) !== canonicalPluginPlan({ host, plugins: plan.desired.map(snapshotPlugin) })) return null;
+    return { buildId: build.id, planDigest: build.planDigest };
+  }
+  async function registryVersion(env) {
+    return Number((await env.DB.prepare('SELECT revision FROM instance_settings WHERE key=?').bind(REGISTRY_KEY).first())?.revision || 0);
+  }
+  async function prepareSelected(env, session, input, targetHostApi) {
+    const record = await administrator(env, session, input, ['selections', 'trustCode']);
+    assertEditable(record);
+    if (record.value.desired !== null) fail('SYSTEM_UPDATE_PLUGIN_PENDING');
+    if (input.trustCode !== true) fail('PLUGIN_CODE_TRUST_REQUIRED', 400);
+    if (!Array.isArray(input.selections) || input.selections.length < 1 || input.selections.length > 32
+      || input.selections.some(row => !knownKeys(row, ['id', 'sourceId', 'version'])
+        || ![row.id, row.sourceId, row.version].every(value => typeof value === 'string' && value.length > 0 && value.length <= 80))
+      || new Set(input.selections.map(row => row.id)).size !== input.selections.length) fail('invalid_input', 400);
+    const registryRevision = await registryVersion(env);
+    const running = await runningFor(env, record);
+    const candidates = updateCandidates(record, running);
+    const replacements = new Map();
+    for (const wanted of input.selections) {
+      const candidate = candidates.find(row => row.id === wanted.id && row.source.id === wanted.sourceId && row.version === wanted.version);
+      if (!candidate) fail('PLUGIN_VERSION_NOT_NEWER');
+      replacements.set(wanted.id, candidate);
+    }
+    const desired = running.map(row => replacements.get(row.id) ?? row).sort((a, b) => a.id.localeCompare(b.id));
+    validateSelection(desired, targetHostApi);
+    const secrets = record.value.secrets && await openDeliverySecrets(env, record.value.secrets);
+    if (!secrets?.deployHookUrl || !secrets?.buildToken) fail('PLUGIN_BUILD_NOT_CONFIGURED');
+    return { record, plan: { plugins: clone(input.selections), desired, pluginRevision: record.revision, registryRevision }, running };
   }
   async function select(env, session, input, { uiLanguage = 'en' } = {}) {
     const record = await administrator(env, session, input, ['pluginId', 'installed', 'sourceId', 'version', 'trustCode']);
@@ -284,11 +365,39 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     return publicState(env, await save(env, record, value, { session }));
   }
   async function startBuild(env, session, input) {
-    let record = await administrator(env, session, input, []);
+    const record = await administrator(env, session, input, []);
+    const running = await runningFor(env, record);
+    return reserveBuild(env, record, running, record.value.desired ?? running, { session });
+  }
+  async function startSelected(env, session, input) {
+    const { record, plan, running } = await prepareSelected(env, session, input);
+    return reserveBuild(env, record, running, plan.desired, { session, selectedUpdate: true, registryRevision: plan.registryRevision });
+  }
+  async function runFollowUp(env, plan, parent, { session, retry = false } = {}) {
+    const record = await read(env);
+    const build = record.value.build;
+    if (build?.updateTaskId === parent.taskId) {
+      if (!retry || !canRetrySelected(build)) return publicState(env, record);
+      if (canonicalPluginPlan({ host, plugins: (record.value.desired || []).map(snapshotPlugin) })
+        !== canonicalPluginPlan({ host, plugins: plan.desired.map(snapshotPlugin) })) fail('PLUGIN_BUILD_CHANGED');
+    } else if (record.revision !== plan.pluginRevision || record.value.desired !== null) fail('PLUGIN_DELIVERY_CHANGED');
+    const running = await runningFor(env, record);
+    return reserveBuild(env, record, running, plan.desired, { session, parent, selectedUpdate: true, registryRevision: plan.registryRevision });
+  }
+  async function retrySelected(env, session, input) {
+    const record = await administrator(env, session, input, ['buildId']);
+    const build = record.value.build;
+    if (!canRetrySelected(build) || build.id !== input.buildId || build.updateTaskId || !record.value.desired
+      || canonicalPluginPlan({ host, plugins: record.value.desired.map(snapshotPlugin) }) !== canonicalPluginPlan(build.snapshot)) fail('PLUGIN_BUILD_CHANGED');
+    const running = await runningFor(env, record);
+    return reserveBuild(env, record, running, record.value.desired, { session, selectedUpdate: true, registryRevision: build.registryRevision });
+  }
+  async function reserveBuild(env, record, running, desired, { session, parent, selectedUpdate = false, registryRevision } = {}) {
+    if (record.value.build?.selectedUpdate && (timedOut(record.value.build) || record.value.build.resultUnknown)) fail('PLUGIN_BUILD_RESULT_UNKNOWN');
+    if (record.value.build?.selectedUpdate && (timedOut(record.value.build) || record.value.build.resultUnknown)) fail('PLUGIN_BUILD_RESULT_UNKNOWN');
     if (record.value.build?.deploymentStarted && record.value.build?.status !== 'deployed' && record.value.build?.resultUnknown) fail('PLUGIN_DEPLOYMENT_UNCONFIRMED');
     if (record.value.build?.deploymentStarted && timedOut(record.value.build)) fail('PLUGIN_DEPLOYMENT_UNCONFIRMED');
     if (active(record.value.build)) fail('PLUGIN_BUILD_IN_PROGRESS');
-    const running = await runningFor(env, record); const desired = record.value.desired ?? running;
     if (!pluginSelectionChanges(running, desired).length) fail('PLUGIN_NO_PENDING_CHANGES');
     validateSelection(desired);
     if (!host || typeof host.version !== 'string' || !/^[a-f0-9]{64}$/.test(host.sourceDigest || '')) fail('PLUGIN_BUILD_HOST_UNKNOWN', 503);
@@ -296,20 +405,23 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     const now = Date.now(); const buildId = crypto.randomUUID();
     const plugins = desired.map(snapshotPlugin); const planDigest = await sha256(canonicalPluginPlan({ host, plugins }));
     if ((timedOut(record.value.build) || record.value.build?.resultUnknown) && record.value.build.planDigest !== planDigest) fail('PLUGIN_BUILD_RESULT_UNKNOWN');
-    const registryRevision = Number((await env.DB.prepare('SELECT revision FROM instance_settings WHERE key=?').bind(REGISTRY_KEY).first())?.revision || 0);
+    const guardedRegistryRevision = registryRevision ?? await registryVersion(env);
     const value = clone(record.value); value.running = running;
+    if (selectedUpdate) value.desired = clone(desired);
     value.build = { id: buildId, planDigest, status: 'triggering', createdAt: now, updatedAt: now, error: null,
       installationLanguages: clone(value.installationLanguages || {}),
-      registryRevision, previousDeployment: deployment, previousBuilds: registry.manifests.map(row => ({ id: row.id, sourceDigest: registry.getBuildDigest(row.id) })),
+      registryRevision: guardedRegistryRevision, previousDeployment: deployment,
+      previousBuilds: registry.manifests.map(row => ({ id: row.id, sourceDigest: registry.getBuildDigest(row.id) })),
+      ...(selectedUpdate ? { selectedUpdate: true, ...(parent ? { updateTaskId: parent.taskId } : {}) } : {}),
       snapshot: { schemaVersion: 1, buildId, planDigest, host, plugins } };
     if (!secrets.deployHookUrl || !secrets.buildToken) {
       value.build.status = 'failed'; value.build.error = 'PLUGIN_BUILD_NOT_CONFIGURED';
-      return publicState(env, await save(env, record, value, { session }));
+      return publicState(env, await save(env, record, value, { session, parent, registryRevision }));
     }
-    record = await save(env, record, value, { session });
+    record = await save(env, record, value, { session, parent, registryRevision });
     let providerBuildId = null; let workerName = null; let triggerError = null;
     try {
-      await requirePluginSession(env, session, true);
+      if (session) await requirePluginSession(env, session, true);
       const response = await fetchImpl(validateDeployHookUrl(secrets.deployHookUrl), { method: 'POST', redirect: 'manual', credentials: 'omit',
         headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) });
       const body = await boundedJson(response, 32768);
@@ -348,8 +460,16 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     const record = await pipeline(env, request);
     if (!record.value.build || (!ACTIVE_PLUGIN_BUILDS.has(record.value.build.status) && record.value.build.status !== 'deployed')) fail('PLUGIN_BUILD_NOT_ACTIVE');
     const build = record.value.build;
+    const stored = build.kind !== 'host-upgrade' && await env.DB.prepare('SELECT value_json FROM instance_settings WHERE key=?').bind('system.update.v1').first();
+    let hostRelease;
+    try { if (stored && canonicalPluginManifest(host) === canonicalPluginManifest(build.snapshot.host))
+      hostRelease = releaseForRunningHost(JSON.parse(stored.value_json), host); }
+    catch { /* The current source is unknown; do not suggest a substitute checkout. */ }
     return { ...clone(build.snapshot), buildStatus: build.status, baseDeployment: build.previousDeployment?.buildId
       ? { buildId: build.previousDeployment.buildId, planDigest: build.previousDeployment.planDigest } : null,
+    ...(hostRelease ? { hostRelease } : {}), ...(build.kind === 'host-upgrade' ? { kind: build.kind } : {}),
+    ...(build.selectedUpdate ? { selectedUpdate: true } : {}),
+    ...(build.selectedUpdate ? { selectedUpdate: true } : {}),
     ...(build.workerName ? { target: { workerName: build.workerName } } : {}) };
   }
   async function upgradeState(env, record) {
@@ -463,6 +583,9 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
       sourceName: record.value.desired.find(item => item.id === row.id)?.sourceName || row.source.id }));
     value.desired = null;
     value.activeDeployment = { buildId: snapshot.buildId, planDigest: snapshot.planDigest };
+    if (record.value.build.updateTaskId) {
+      value.completedUpdate = { taskId: record.value.build.updateTaskId, buildId: snapshot.buildId };
+    }
     value.build.status = 'deployed'; value.build.updatedAt = Date.now(); value.build.error = null; value.build.resultUnknown = false;
     const now = Date.now(); const operation = JSON.stringify({ operationId: crypto.randomUUID() });
     const statements = [env.DB.prepare(`UPDATE instance_settings SET value_json=?,revision=revision+1,updated_at=?,updated_by='plugin-build'
@@ -507,7 +630,8 @@ export function createPluginDelivery({ registry = pluginRegistry, host = buildMe
     try { await env.DB.batch(statements); } catch { fail('PLUGIN_BUILD_APPLY_FAILED'); }
     return { ok: true, status: 'deployed' };
   }
-  return Object.freeze({ get, configure, addSource, refreshSource, removeSource, select, discard, resolveBuild, startBuild, snapshot, upgrade, report });
+  return Object.freeze({ get, configure, addSource, refreshSource, removeSource, select, discard, resolveBuild, startBuild, snapshot, upgrade, report,
+    updateOptions, refreshUpdateCatalogs, prepareSelected, startSelected, runFollowUp, retrySelected, hostSuccessor });
 }
 
 export const pluginDelivery = createPluginDelivery();

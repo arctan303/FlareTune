@@ -1,6 +1,6 @@
 import { canonical, sha256, plain, keys, uuid, digest, validVersion, revision } from '../../server/src/systemUpdate/common.js';
 import { validateRelease } from '../../server/src/systemUpdate/releases.js';
-import { publicHttpsUrl, readBoundedResponse, validateDeliveryPlan } from '../plugins/assemble.mjs';
+import { publicHttpsUrl, readBoundedResponse, validateDeliveryEnvelope } from '../plugins/assemble.mjs';
 
 export const fail = code => { throw Object.assign(new Error(code), { code }); };
 export const UPDATE_STATUSES = new Set(['queued', 'building', 'uploaded', 'deploying', 'migrating', 'deployed',
@@ -43,12 +43,18 @@ export async function validateUpdatePlan(value, { channel = 'stable' } = {}) {
     || value.from.commit !== undefined && !/^[a-f0-9]{40}$/.test(value.from.commit)
     || !Number.isSafeInteger(value.from.hostApiVersion) || value.from.hostApiVersion < 1) fail('SYSTEM_UPDATE_PLAN_INVALID');
   validateRelease(value.target, { channel });
-  if (!Array.isArray(value.plugins) || value.plugins.some(row => !keys(row, ['id', 'version', 'manifest', 'source', 'installation'])
+  if (!Array.isArray(value.plugins) || value.plugins.length > 32 || value.plugins.some(row => !keys(row, ['id', 'version', 'manifest', 'source', 'installation'])
     || row.source?.type !== 'artifact' || !keys(row.installation, ['epoch', 'revision']) || !uuid(row.installation.epoch)
     || !revision(row.installation.revision))) fail('SYSTEM_UPDATE_PLAN_INVALID');
-  validateDeliveryPlan({ host: value.target.host, plugins: value.plugins.map(({ installation, ...entry }) => entry) });
+  // This launcher can outlive a host API. The verified source checkout's own
+  // assembly step validates installed manifests, dependencies and SDK imports.
+  validateDeliveryEnvelope({ host: value.target.host, plugins: value.plugins.map(({ installation, ...entry }) => entry) });
   if (await sha256(canonical({ from: value.from, target: value.target, plugins: value.plugins })) !== value.planDigest) fail('SYSTEM_UPDATE_PLAN_DIGEST_MISMATCH');
   if (value.receipt !== null) validateReceipt(value.receipt);
+  if (value.hostSuccessor !== undefined && (value.status !== 'deployed'
+    || !keys(value.hostSuccessor, ['buildId', 'planDigest']) || !uuid(value.hostSuccessor.buildId) || !digest(value.hostSuccessor.planDigest))) {
+    fail('SYSTEM_UPDATE_PLAN_INVALID');
+  }
   return structuredClone(value);
 }
 

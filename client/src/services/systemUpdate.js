@@ -1,6 +1,7 @@
 import { instanceRequest, InstanceApiError, getInstanceStatus } from '../instance/api.js';
 import { runtimeFetch, isDemoRuntime } from './runtimeFetch.js';
 import { getLocale } from '../i18n/index.js';
+import { deliveryErrorMessage } from './pluginDelivery.js';
 
 export const SYSTEM_UPDATE_STATUS_EVENT = 'tune-system-update-status-refresh';
 
@@ -39,6 +40,8 @@ const errors = Object.freeze({
   SYSTEM_UPDATE_PLUGIN_PENDING: '请先完成或撤销待应用的插件变更。',
   SYSTEM_UPDATE_PENDING_PLUGIN_CHANGES: '请先完成或撤销待应用的插件变更。',
   SYSTEM_UPDATE_PLUGIN_BUILD_BUSY: '请先完成或核实当前插件构建。',
+  SYSTEM_UPDATE_FOLLOW_UP_UNAVAILABLE: '暂时无法继续插件更新，请刷新后重试。',
+  PLUGIN_BUILD_CHANGED: '更新任务已变化，请刷新后核实。',
   SYSTEM_UPDATE_RELEASE_CHANGED: '可用版本已变化，请重新检查更新。',
   SYSTEM_UPDATE_RELEASE_UNAVAILABLE: '无法取得可用版本，请稍后重新检查。',
   SYSTEM_UPDATE_RELEASE_FETCH_FAILED: '无法取得可用版本，请稍后重新检查。',
@@ -57,6 +60,7 @@ const errors = Object.freeze({
   SYSTEM_UPDATE_NOT_NEWER: '当前已是此版本，请重新检查更新。',
   SYSTEM_UPDATE_TRIGGER_FAILED: '构建提交结果尚未确认，请继续核实同一更新任务。',
   SYSTEM_UPDATE_DEPLOYMENT_UNCONFIRMED: '新版本的部署结果尚未确认，请继续核实同一任务。',
+  SYSTEM_UPDATE_PROMOTION_REJECTED: 'Cloudflare 拒绝了这次发布。修复权限后可以继续原任务。',
   SYSTEM_UPDATE_RETRY_FORBIDDEN: '此任务暂不能重试，请刷新核实状态。',
   SYSTEM_UPDATE_RETRY_UNAVAILABLE: '此任务暂不能重试，请刷新核实状态。',
   SYSTEM_UPDATE_RESULT_UNKNOWN: '新版本的部署结果尚未确认，请继续核实同一任务。',
@@ -66,4 +70,9 @@ const errors = Object.freeze({
   invalid_input: '请检查更新通道的输入内容。',
 });
 
-export const systemUpdateErrorMessage = error => errors[error?.code || error] || '系统更新未完成，请刷新核实状态。';
+export const systemUpdateErrorMessage = error => {
+  const code = error?.code || error;
+  if (typeof code !== 'string') return '系统更新未完成，请刷新核实状态。';
+  if (Object.hasOwn(errors, code)) return errors[code];
+  return /^PLUGIN_[A-Z_]+$/u.test(code) ? deliveryErrorMessage(code) : '系统更新未完成，请刷新核实状态。';
+};

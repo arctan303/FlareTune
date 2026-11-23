@@ -4,6 +4,9 @@ import { runKnownDatabaseUpgrade } from '../instance/upgradeDatabase.js';
 import { canonical, compareVersions, digest, fail, keys, matchesToken, open, plain, requireAdmin,
   revision, seal, sessionBindings, sessionPredicate, sha256, uuid, validVersion } from './common.js';
 import { boundedJson, discoverRelease, validateRelease } from './releases.js';
+import { pluginDelivery } from '../plugins/delivery.js';
+import { releaseForRunningHost } from './runningSource.js';
+import { readSystemUpdateProviderStatus } from './providerStatus.js';
 
 export const SYSTEM_UPDATE_KEY = 'system.update.v1';
 const MAX_RETIRED_RUNNERS = 64;
@@ -64,7 +67,7 @@ async function defaultRuntime() {
   return (await generated).systemUpdateRuntime;
 }
 
-export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), runtime = defaultRuntime, clock = Date.now,
+export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), runtime = defaultRuntime, clock = Date.now, pluginUpdates,
   discover = discoverRelease, state = resolveInstanceState, supplemental = getSupplementalMigrationStatus,
   migrate = runKnownDatabaseUpgrade, requireAdminImpl = requireAdmin } = {}) {
   async function read(env) {
@@ -146,15 +149,34 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     if (job.status === 'failed') return !job.receipt?.migrationStarted && !(job.receipt?.uploadStarted && !job.receipt?.nextVersionId);
     return expiredExecution(job);
   }
+  function followUpView(job, options) {
+    if (job.status === 'deployed' && options?.completedTaskId === job.taskId) {
+      return { plugins: job.followUp.plugins, status: 'deployed', canContinue: false, error: null };
+    }
+    const build = options?.build;
+    const matched = build?.updateTaskId === job.taskId;
+    const changed = !matched && options?.revision !== job.followUp.pluginRevision;
+    const status = job.status !== 'deployed' ? 'waiting'
+      : !matched ? (changed || job.followUp.error ? 'failed' : 'waiting')
+        : build.resultUnknown || build.status === 'activation_pending' ? 'awaiting_verification'
+          : ['failed', 'cancelled'].includes(build.status) ? 'failed'
+            : build.status === 'deployed' ? 'deployed' : 'running';
+    return { plugins: job.followUp.plugins, status,
+      canContinue: job.status === 'deployed' && (matched ? build.retryable === true : !changed),
+      error: matched ? build.error : changed ? 'PLUGIN_DELIVERY_CHANGED' : job.followUp.error };
+  }
   async function view(env, record) {
     const secrets = record.value.secrets ? await open(env, record.value.secrets) : {};
     let info = null, currentError = null;
     try { info = await current(env); delete info.delivery; delete info.controls; } catch (error) { currentError = safeError(error.code); }
+    const pluginOptions = pluginUpdates && await pluginUpdates.updateOptions(env);
     return { revision: record.revision, configured: Boolean(secrets.deployHookUrl && secrets.buildToken),
       configuration: { hookConfigured: Boolean(secrets.deployHookUrl), tokenConfigured: Boolean(secrets.buildToken) },
       channel: env.FLARETUNE_UPDATE_CANDIDATE_JSON === undefined ? 'stable' : 'candidate', current: info,
       latest: record.value.latest, checkedAt: record.value.checkedAt,
-      job: record.value.job ? { ...Object.fromEntries(Object.entries(clone(record.value.job)).filter(([key]) => !['execution', 'retiredRunners'].includes(key))),
+      ...(pluginOptions ? { pluginUpdates: pluginOptions } : {}),
+      job: record.value.job ? { ...Object.fromEntries(Object.entries(clone(record.value.job)).filter(([key]) => !['execution', 'retiredRunners', 'followUp'].includes(key))),
+        ...(record.value.job.followUp ? { followUp: followUpView(record.value.job, pluginOptions) } : {}),
         resumable: resumable(record.value.job) } : null,
       blockingReason: currentError || await blocking(env, record) };
   }
@@ -166,6 +188,14 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     return record;
   }
   async function get(env, session) { await requireAdminImpl(env, session); return view(env, await read(env)); }
+  async function verify(env, session, input) {
+    const record = await adminRecord(env, session, input, ['taskId']);
+    if (!uuid(input.taskId)) fail('SYSTEM_UPDATE_INVALID_INPUT', 400);
+    if (input.taskId !== record.value.job?.taskId) fail('SYSTEM_UPDATE_JOB_CHANGED');
+    const result = await readSystemUpdateProviderStatus(env, record.value.job, { fetchImpl });
+    await adminRecord(env, session, input, ['taskId']);
+    return result;
+  }
   async function configure(env, session, input) {
     const record = await adminRecord(env, session, input, ['deployHookUrl', 'buildToken']);
     if (active(record.value.job)) fail('SYSTEM_UPDATE_IN_PROGRESS');
@@ -181,6 +211,13 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
   async function check(env, session, input) {
     const record = await adminRecord(env, session, input);
     if (active(record.value.job)) fail('SYSTEM_UPDATE_IN_PROGRESS');
+    if (pluginUpdates) {
+      const job = record.value.job;
+      const followUp = job?.followUp && followUpView(job, await pluginUpdates.updateOptions(env));
+      if (!followUp || followUp.status === 'deployed' || followUp.status === 'failed' && !followUp.canContinue) {
+        await pluginUpdates.refreshUpdateCatalogs(env, session);
+      }
+    }
     const latest = await discover(env, { fetchImpl });
     const valid = validateRelease(latest, { channel: latest.channel });
     return view(env, await save(env, record, { ...record.value, latest: valid, checkedAt: Date.now() }, session));
@@ -207,7 +244,17 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     return view(env, await save(env, fresh, value, session));
   }
   async function start(env, session, input) {
-    const record = await adminRecord(env, session, input, ['releaseId']);
+    const record = await adminRecord(env, session, input, ['releaseId', 'pluginRevision', 'plugins', 'trustCode']);
+    const selected = input.plugins !== undefined;
+    if (selected ? !pluginUpdates || !revision(input.pluginRevision) : input.pluginRevision !== undefined || input.trustCode !== undefined) {
+      fail('SYSTEM_UPDATE_INVALID_INPUT', 400);
+    }
+    const selection = selected ? { revision: input.pluginRevision, selections: input.plugins, trustCode: input.trustCode } : null;
+    if (selection && input.releaseId === null) {
+      if (active(record.value.job)) fail('SYSTEM_UPDATE_IN_PROGRESS');
+      await pluginUpdates.startSelected(env, session, selection);
+      return view(env, await read(env));
+    }
     const reason = await blocking(env, record); if (reason) fail(reason);
     const secrets = record.value.secrets ? await open(env, record.value.secrets) : {};
     if (!secrets.deployHookUrl || !secrets.buildToken) fail('SYSTEM_UPDATE_NOT_CONFIGURED');
@@ -224,12 +271,45 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     if (compareVersions(info.version, target.minVersion) < 0 || comparison < 0) fail('SYSTEM_UPDATE_VERSION_UNSUPPORTED');
     if ((target.channel === 'stable' && comparison <= 0) || canonical(target.host) === canonical(hostOf(info))) fail('SYSTEM_UPDATE_ALREADY_CURRENT');
     if (info.plugins.some(item => item.manifest?.hostApiVersion > target.hostApiVersion)) fail('SYSTEM_UPDATE_PLUGIN_INCOMPATIBLE');
+    const followUp = selection ? (await pluginUpdates.prepareSelected(env, session, selection, target.hostApiVersion)).plan : null;
+    if (followUp && (info.controls.deliveryRevision !== followUp.pluginRevision || info.controls.registryRevision !== followUp.registryRevision)) {
+      fail('SYSTEM_UPDATE_REVISION_MISMATCH');
+    }
     const from = { host: hostOf(info), ...(info.commit ? { commit: info.commit } : {}), hostApiVersion: info.hostApiVersion };
     const taskId = crypto.randomUUID(), plan = { from, target, plugins: info.plugins };
     const now = Date.now(), value = clone(record.value);
+    const previousRelease = releaseForRunningHost(record.value, from.host);
+    if (previousRelease) value.runningRelease = previousRelease;
     value.job = { taskId, planDigest: await sha256(canonical(plan)), status: 'queued', ...clone(plan), receipt: null,
+      ...(followUp ? { followUp } : {}),
       createdAt: now, updatedAt: now, error: null };
     return trigger(env, await save(env, record, value, session, info.controls), session);
+  }
+
+  async function launchFollowUp(env, record, { session, retry = false } = {}) {
+    const job = record.value.job;
+    if (!pluginUpdates || !job?.followUp || job.status !== 'deployed' || !job.receipt?.migrationCompleted) fail('SYSTEM_UPDATE_FOLLOW_UP_UNAVAILABLE');
+    const options = await pluginUpdates.updateOptions(env);
+    if (options.completedTaskId === job.taskId) return;
+    const build = options.build;
+    if (build?.updateTaskId === job.taskId && (!retry || !build.retryable)) return;
+    await actualMatches(env, job, job.target.host);
+    await pluginUpdates.runFollowUp(env, job.followUp, { taskId: job.taskId }, { session, retry });
+  }
+
+  async function continueUpdate(env, session, input) {
+    const record = await adminRecord(env, session, input, ['taskId']);
+    if (record.value.job?.taskId !== input.taskId) fail('SYSTEM_UPDATE_JOB_CHANGED');
+    await launchFollowUp(env, record, { session, retry: true });
+    return view(env, await read(env));
+  }
+
+  async function pluginRetry(env, session, input) {
+    const record = await adminRecord(env, session, input, ['pluginRevision', 'buildId']);
+    if (!pluginUpdates || !revision(input.pluginRevision) || !uuid(input.buildId)) fail('SYSTEM_UPDATE_INVALID_INPUT', 400);
+    if (active(record.value.job)) fail('SYSTEM_UPDATE_IN_PROGRESS');
+    await pluginUpdates.retrySelected(env, session, { revision: input.pluginRevision, buildId: input.buildId });
+    return view(env, await read(env));
   }
   async function retry(env, session, input) {
     const record = await adminRecord(env, session, input, ['taskId']);
@@ -247,7 +327,8 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
       value.job.execution = null;
       value.job.status = 'queued';
     }
-    value.job.error = null; value.job.updatedAt = Date.now();
+    if (value.job.error !== 'SYSTEM_UPDATE_PROMOTION_REJECTED') value.job.error = null;
+    value.job.updatedAt = Date.now();
     return trigger(env, await save(env, record, value, session), session);
   }
   async function recover(env, session, input) {
@@ -264,8 +345,16 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     return record;
   }
   const planView = record => ({ schemaVersion: 1, revision: record.revision,
-    ...Object.fromEntries(Object.entries(clone(record.value.job)).filter(([key]) => key !== 'retiredRunners')) });
-  async function plan(env, request) { return planView(await pipeline(env, request)); }
+    ...Object.fromEntries(Object.entries(clone(record.value.job)).filter(([key]) => !['retiredRunners', 'followUp'].includes(key))) });
+  async function plan(env, request) {
+    const record = await pipeline(env, request);
+    const view = planView(record), job = record.value.job;
+    if (pluginUpdates && job.status === 'deployed' && job.followUp) {
+      const hostSuccessor = await pluginUpdates.hostSuccessor(env, job.taskId, job.followUp);
+      if (hostSuccessor) view.hostSuccessor = hostSuccessor;
+    }
+    return view;
+  }
   function matchJob(record, input, extra = []) {
     if (!keys(input, ['taskId', 'planDigest', ...extra]) || input.taskId !== record.value.job?.taskId || input.planDigest !== record.value.job?.planDigest) fail('SYSTEM_UPDATE_JOB_CHANGED');
   }
@@ -304,6 +393,8 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     const record = await pipeline(env, request); matchJob(record, input, ['status', 'receipt', 'error', 'runnerId']);
     const old = record.value.job;
     requireRunner(old, input.runnerId);
+    if (input.error === 'SYSTEM_UPDATE_PROMOTION_REJECTED' && (input.status !== 'activation_pending'
+      || old.status !== 'deploying' || !old.receipt?.nextVersionId || old.receipt.migrationStarted)) fail('SYSTEM_UPDATE_TRANSITION_INVALID');
     if (['rolling_back', 'rolled_back'].includes(input.status) && old.receipt?.migrationStarted) fail('SYSTEM_UPDATE_RECOVERY_UNAVAILABLE');
     if (!states.has(input.status) || !transition[old.status].includes(input.status)
       || (terminal.has(old.status) && input.status !== old.status)) fail('SYSTEM_UPDATE_TRANSITION_INVALID');
@@ -326,6 +417,14 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
       job.receipt = receiptValue(input.receipt, job.receipt);
     }
     if (['uploaded', 'deploying', 'migrating', 'deployed', 'rolling_back', 'rolled_back'].includes(input.status) && !job.receipt?.nextVersionId) fail('SYSTEM_UPDATE_RECEIPT_INVALID');
+    if (old.status === 'deployed' && old.followUp && pluginUpdates) {
+      const build = (await pluginUpdates.updateOptions(env)).build;
+      if (build?.updateTaskId === job.taskId && build.status === 'deployed') {
+        const info = await current(env);
+        if (canonical(hostOf(info)) !== canonical(job.target.host) || !await databaseReady(env)) fail('SYSTEM_UPDATE_RUNTIME_MISMATCH');
+        return { ok: true, taskId: job.taskId, status: job.status, revision: record.revision };
+      }
+    }
     if (['migrating', 'deployed'].includes(input.status)) await actualMatches(env, job, job.target.host);
     if (input.status === 'migrating') job.receipt.migrationStarted = true;
     if (['rolling_back', 'rolled_back'].includes(input.status) && job.receipt?.migrationStarted) fail('SYSTEM_UPDATE_RECOVERY_UNAVAILABLE');
@@ -333,11 +432,29 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     if (input.status === 'deployed' && (!job.receipt.migrationCompleted || !await databaseReady(env))) fail('SYSTEM_UPDATE_MIGRATION_REQUIRED');
     if (input.status === 'failed' && (job.receipt?.migrationStarted || (job.receipt?.uploadStarted && !job.receipt?.nextVersionId)
       || ['deploying', 'migrating', 'activation_pending', 'rolling_back'].includes(old.status))) fail('SYSTEM_UPDATE_RESULT_UNKNOWN');
-    if (terminal.has(old.status)) return { ok: true, taskId: job.taskId, status: job.status, revision: record.revision };
+    if (terminal.has(old.status)) {
+      if (old.status === 'deployed' && old.followUp) await reportFollowUp(env, record);
+      return { ok: true, taskId: job.taskId, status: job.status, revision: record.revision };
+    }
     job.status = input.status; job.updatedAt = Date.now(); job.error = input.error ? safeError(input.error) : null;
     job.execution.leaseExpiresAt = clock() + 180000;
+    if (job.status === 'deployed') value.runningRelease = job.target;
     const saved = await save(env, record, value);
+    if (job.status === 'deployed' && job.followUp) await reportFollowUp(env, saved);
     return { ok: true, taskId: job.taskId, status: job.status, revision: saved.revision };
+  }
+  async function reportFollowUp(env, record) {
+    try { await launchFollowUp(env, record); }
+    catch (error) {
+      // Host completion is durable even if the plugin step cannot be prepared.
+      try {
+        const fresh = await read(env);
+        if (fresh.value.job?.taskId !== record.value.job.taskId || !fresh.value.job.followUp) return;
+        const value = clone(fresh.value);
+        value.job.followUp.error = /^(?:PLUGIN|SYSTEM_UPDATE)_[A-Z_]{1,70}$/.test(error?.code || '') ? error.code : 'SYSTEM_UPDATE_FOLLOW_UP_UNAVAILABLE';
+        await save(env, fresh, value);
+      } catch { /* Host completion was already saved. */ }
+    }
   }
   async function migration(env, request, input) {
     const record = await pipeline(env, request); matchJob(record, input, ['runnerId']);
@@ -355,10 +472,10 @@ export function createSystemUpdate({ fetchImpl = (...args) => fetch(...args), ru
     await save(env, fresh, value);
     return { taskId: job.taskId, ...result, migrationCompleted: complete };
   }
-  return Object.freeze({ get, configure, check, start, retry, recover, claim, plan, report, migration });
+  return Object.freeze({ get, verify, configure, check, start, retry, recover, continueUpdate, pluginRetry, claim, plan, report, migration });
 }
 
-export const systemUpdate = createSystemUpdate();
+export const systemUpdate = createSystemUpdate({ pluginUpdates: pluginDelivery });
 export async function systemUpdateBusy(env) {
   if (!env?.DB?.prepare) return false;
   try {

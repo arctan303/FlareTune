@@ -5,6 +5,7 @@ import { createPluginRegistry, installationKey } from './registry.js';
 import { createPluginDelivery, PLUGIN_DELIVERY_KEY } from './delivery.js';
 import { migrationChecksum } from './migrations.js';
 import { handlePluginApi } from '../routes/plugins.js';
+import { createSystemUpdate, SYSTEM_UPDATE_KEY } from '../systemUpdate/service.js';
 import { validateDeployHookUrl, validatePluginDirectory, validatePublicHttpsUrl } from '../../../shared/plugins/delivery.js';
 
 const host = { version: '1.2.1', sourceDigest: 'a'.repeat(64) };
@@ -46,6 +47,126 @@ async function versionedApp(t, { installed = true, releases = [release('3.0.0', 
 }
 const rawDelivery = f => f.sqlite.prepare('SELECT value_json,revision,updated_at,updated_by FROM instance_settings WHERE key=?').get(PLUGIN_DELIVERY_KEY);
 const selection = version => ({ sourceId: 'official', version, trustCode: true });
+
+const coreRelease = (version, source, commit) => ({ schemaVersion: 1, version, id: `${version}:${commit.repeat(40)}`,
+  commit: commit.repeat(40), host: { version, sourceDigest: source.repeat(64) }, hostApiVersion: 6, minVersion: '1.2.1',
+  source: { url: `https://github.com/arctan303/FlareTune/releases/download/${version}/flaretune-source.tar.gz`, sha256: 'e'.repeat(64) },
+  notes: { en: '', zh: '' }, migration: { compatible: true }, channel: 'stable' });
+const selectedUpdate = version => ({ id: 'sample', sourceId: 'official', version });
+
+test('one confirmation advances the exact plugin plan after the host succeeds, even after the administrator leaves', async t => {
+  const f = await versionedApp(t);
+  await f.config({ mode: 'auto', deployHookUrl: hook, buildToken: token });
+  const owner = f.signed.session, before = rawDelivery(f), beforeHooks = f.calls.filter(([, request]) => request.method === 'POST').length;
+  const installed = (await f.get()).running[0], priorRelease = coreRelease('1.2.1', 'a', 'b'), target = coreRelease('1.3.0', 'c', 'd');
+  const previousTask = { status: 'deployed', target: priorRelease, receipt: { migrationCompleted: true } };
+  f.sqlite.prepare('INSERT INTO instance_settings VALUES(?,?,1,1,?)').run(SYSTEM_UPDATE_KEY, JSON.stringify({ schemaVersion: 1, job: previousTask }), 'test');
+  let hostHooks = 0, pluginHooks = 0;
+  const hostToken = 'synthetic_host_build_token_9876543210';
+  const hostRequest = new Request('https://test.example/api/system-update/report', { headers: { Authorization: `Bearer ${hostToken}` } });
+  const coreOptions = { discover: async () => target, state: async () => ({ state: 'ready' }),
+    supplemental: async () => ({ supplementalPending: false }), migrate: async () => ({ status: 'completed' }),
+    fetchImpl: async () => { hostHooks++; return Response.json({ success: true, result: { build_uuid: 'synthetic-host-build' } }); } };
+  const runtime = (host, plugin) => ({ ...host, hostApiVersion: 6, plugins: [{ id: plugin.id, version: plugin.version, source: plugin.source, manifest: plugin.manifest }] });
+  const initial = createSystemUpdate({ ...coreOptions, runtime: () => runtime(host, installed), pluginUpdates: f.delivery });
+  await initial.configure(f.env, owner, { revision: 1, deployHookUrl: hook, buildToken: hostToken });
+  const checked = await initial.check(f.env, owner, { revision: 2 });
+  assert.deepEqual(checked.pluginUpdates.candidates.map(({ id, version }) => ({ id, version })), [{ id: 'sample', version: '3.0.0' }]);
+  const start = { revision: checked.revision, releaseId: target.id, pluginRevision: checked.pluginUpdates.revision,
+    plugins: [selectedUpdate('2.0.1')], trustCode: true };
+  await assert.rejects(initial.start(f.env, null, start), { code: 'forbidden' });
+  await assert.rejects(initial.start(f.env, owner, { ...start, trustCode: false }), { code: 'PLUGIN_CODE_TRUST_REQUIRED' });
+  await assert.rejects(initial.start(f.env, owner, { ...start, pluginRevision: before.revision }), { code: 'PLUGIN_DELIVERY_CHANGED' });
+  const started = await initial.start(f.env, owner, start);
+  assert.equal(started.job.status, 'queued');
+  assert.equal(started.job.followUp.status, 'waiting');
+  assert.equal(JSON.parse(rawDelivery(f).value_json).desired, null);
+  assert.equal(f.calls.filter(([, request]) => request.method === 'POST').length, beforeHooks);
+  assert.equal(hostHooks, 1);
+  assert.deepEqual(JSON.parse(f.sqlite.prepare('SELECT value_json FROM instance_settings WHERE key=?').get(SYSTEM_UPDATE_KEY).value_json).runningRelease, priorRelease);
+
+  const task = await initial.plan(f.env, hostRequest);
+  assert.equal(task.followUp, undefined);
+  const execution = { taskId: task.taskId, planDigest: task.planDigest, runnerId: 'test-worker' };
+  await initial.claim(f.env, hostRequest, execution);
+  const receipt = { schemaVersion: 1, accountId: 'f'.repeat(32), workerName: 'test-worker',
+    previous: { id: crypto.randomUUID(), strategy: 'percentage', versions: [{ version_id: crypto.randomUUID(), percentage: 100 }] },
+    nextVersionId: null, uploadStarted: false, migrationStarted: false, migrationCompleted: false };
+  const report = (service, status, supplied) => service.report(f.env, hostRequest,
+    { ...execution, status, ...(supplied ? { receipt: supplied } : {}) });
+  await report(initial, 'building', receipt);
+  receipt.nextVersionId = crypto.randomUUID(); receipt.uploadStarted = true;
+  await report(initial, 'uploaded', receipt);
+  await report(initial, 'deploying');
+
+  const launched = { registry: f.registry, host: target.host, sources: { sample: installed.source },
+    fetchImpl: async () => { pluginHooks++; return Response.json({ success: true, result: { build_uuid: 'synthetic-plugin-build' } }); } };
+  const newDelivery = createPluginDelivery(launched);
+  const current = createSystemUpdate({ ...coreOptions, runtime: () => runtime(target.host, installed), pluginUpdates: newDelivery });
+  await report(current, 'migrating');
+  assert.equal(pluginHooks, 0);
+  await current.migration(f.env, hostRequest, execution);
+  await report(current, 'deployed');
+  const once = await newDelivery.snapshot(f.env, authorized());
+  assert.deepEqual(once.hostRelease, target);
+  assert.equal(once.plugins[0].source.sha256, 'c'.repeat(64));
+  assert.equal(once.buildStatus, 'queued');
+  assert.equal(pluginHooks, 1);
+  await report(current, 'deployed');
+  assert.equal(pluginHooks, 1);
+
+  await newDelivery.report(f.env, authorized(), { buildId: once.buildId, planDigest: once.planDigest, status: 'failed' });
+  const failed = await current.get(f.env, owner);
+  assert.equal(failed.job.status, 'deployed');
+  assert.equal(failed.job.followUp.status, 'failed');
+  assert.equal(failed.job.followUp.canContinue, true);
+  await current.continueUpdate(f.env, owner, { revision: failed.revision, taskId: task.taskId });
+  const retried = await newDelivery.snapshot(f.env, authorized());
+  assert.notEqual(retried.buildId, once.buildId);
+  assert.equal(retried.planDigest, once.planDigest);
+  assert.equal(hostHooks, 1);
+  assert.equal(pluginHooks, 2);
+  await assert.rejects(newDelivery.report(f.env, authorized(), { buildId: once.buildId, planDigest: once.planDigest, status: 'deployed' }),
+    { code: 'PLUGIN_BUILD_CHANGED' });
+  assert.equal((await current.plan(f.env, hostRequest)).hostSuccessor, undefined);
+  await newDelivery.report(f.env, authorized(), { buildId: retried.buildId, planDigest: retried.planDigest, status: 'deploying' });
+  assert.deepEqual((await current.plan(f.env, hostRequest)).hostSuccessor, { buildId: retried.buildId, planDigest: retried.planDigest });
+
+  const sorted = retried.plugins.map(({ id, version, source }) => ({ id, version, source }));
+  const activatedManifest = retried.plugins[0].manifest, epoch = (await f.registry.readInstallation(f.env, 'sample')).epoch;
+  const nextRegistry = createPluginRegistry({ manifests: [activatedManifest], builds: [{ id: 'sample', sourceDigest: 'd'.repeat(64) }], modules: {} });
+  const nextDelivery = createPluginDelivery({ ...launched, registry: nextRegistry, sources: { sample: sorted[0].source },
+    deployment: { buildId: retried.buildId, planDigest: retried.planDigest, host: target.host, plugins: sorted } });
+  await nextDelivery.report(f.env, authorized(), { buildId: retried.buildId, planDigest: retried.planDigest, status: 'deployed' });
+  const after = createSystemUpdate({ ...coreOptions, runtime: () => runtime(target.host, retried.plugins[0]), pluginUpdates: nextDelivery });
+  const result = await after.get(f.env, owner);
+  assert.equal(result.job.followUp.status, 'deployed');
+  assert.equal(result.job.followUp.canContinue, false);
+  assert.equal((await nextRegistry.readInstallation(f.env, 'sample')).epoch, epoch);
+  assert.equal((await report(after, 'deployed')).status, 'deployed');
+  assert.equal(pluginHooks, 2);
+  const separate = await after.start(f.env, owner, { revision: result.revision, releaseId: null,
+    pluginRevision: result.pluginUpdates.revision, plugins: [selectedUpdate('3.0.0')], trustCode: true });
+  assert.equal(separate.job.followUp.status, 'deployed', 'later plugin updates do not rewrite completed bundles');
+  assert.equal(separate.pluginUpdates.build.updateTaskId, null);
+});
+
+test('plug-in-only selection checks source, compatibility and optimistic revision without a host task', async t => {
+  const f = await versionedApp(t, { releases: [release('2.0.1', 'c'), release('3.0.0', 'd', { hostApiVersion: 7 })] });
+  await f.config({ deployHookUrl: hook, buildToken: token });
+  const service = createSystemUpdate({ pluginUpdates: f.delivery });
+  const before = rawDelivery(f), start = { revision: 0, pluginRevision: before.revision,
+    releaseId: null, plugins: [selectedUpdate('2.0.1')], trustCode: true };
+  const owner = f.signed.session;
+  await assert.rejects(service.start(f.env, owner, { ...start, plugins: [{ ...start.plugins[0], sourceId: 'other' }] }), { code: 'PLUGIN_VERSION_NOT_NEWER' });
+  await assert.rejects(service.start(f.env, owner, { ...start, plugins: [selectedUpdate('3.0.0')] }), { code: 'PLUGIN_SELECTION_INCOMPATIBLE' });
+  assert.deepEqual(rawDelivery(f), before);
+  const status = await service.start(f.env, owner, start);
+  assert.equal(status.job, null);
+  assert.equal(status.pluginUpdates.build.status, 'queued');
+  assert.equal(status.pluginUpdates.build.updateTaskId, null);
+  assert.equal(f.calls.filter(([, request]) => request.method === 'POST').length, 1);
+});
 
 for (const mode of ['manual', 'auto']) test(`ordinary ${mode} selection rejects older releases without changing delivery or triggering a Hook`, async t => {
   const f = await versionedApp(t);

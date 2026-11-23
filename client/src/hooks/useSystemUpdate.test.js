@@ -35,6 +35,7 @@ test('Demo never reads or mutates the real update service', async () => {
   const s = subject({ demo: true });
   const view = s.render({ session: session('A') });
   await view.action('/start', 'POST', { releaseId: 'fixture' });
+  await view.verify('fixture-task');
   await view.refresh();
   assert.equal(view.demo, true); assert.equal(s.requests.length, 0); s.unmount();
 });
@@ -118,4 +119,49 @@ test('maintenance rechecks carry a live account guard and drop late owner result
   assert.equal(s.render().error, ''); assert.equal(s.render().data, null);
   s.requests[1].resolve({ revision: 2, job: null }); await flushBackgroundAsync();
   assert.equal(s.render().data.revision, 2); s.unmount();
+});
+
+test('a verified provider version never replaces the persisted task or clears its progress', async () => {
+  const s = subject(); s.render({ session: session('A') });
+  const job = { taskId: 'known-task', providerBuildId: 'known-build', status: 'activation_pending', updatedAt: 2 };
+  s.requests[0].resolve({ revision: 5, job }); await flushBackgroundAsync();
+  const pending = s.render().verify('known-task');
+  await s.render().verify('known-task');
+  assert.equal(s.requests.length, 2);
+  assert.equal(s.requests[1].path, '/verify');
+  assert.deepEqual(JSON.parse(JSON.stringify(s.requests[1].options.body)), { revision: 5, taskId: 'known-task' });
+  s.requests[1].resolve({ taskId: 'known-task', providerBuildId: 'known-build', status: 'deployment_confirmed' });
+  await pending;
+  assert.equal(s.render().verification.result.status, 'deployment_confirmed');
+  assert.equal(s.render().data.job.status, 'activation_pending');
+  assert.equal(s.scheduler.intervals.size, 1); s.unmount();
+});
+
+test('verification is discarded after the run or owner changes, including when an old request resolves late', async () => {
+  const s = subject(); s.render({ session: session('A') });
+  const job = { taskId: 'same-task', providerBuildId: 'first-build', status: 'activation_pending', updatedAt: 2 };
+  s.requests[0].resolve({ revision: 5, job }); await flushBackgroundAsync();
+  const before = s.render().verify(job.taskId);
+  const refresh = s.render().refresh();
+  s.requests[2].resolve({ revision: 6, job: { ...job, providerBuildId: 'second-build', updatedAt: 3 } }); await refresh;
+  s.requests[1].resolve({ taskId: 'same-task', providerBuildId: 'first-build', status: 'pre_claim_failed' }); await before;
+  assert.equal(s.render().verification, null);
+  const second = s.render().verify(job.taskId);
+  s.render({ session: session('B') });
+  assert.equal(s.requests[3].options.signal.aborted, true);
+  s.requests[3].resolve({ taskId: 'same-task', providerBuildId: 'second-build', status: 'deployment_confirmed' }); await second;
+  assert.equal(s.render().verification, null); s.unmount();
+});
+
+test('the unified panel continues polling plugin builds after the host has finished', async () => {
+  const s = subject(); s.render({ session: session('A') });
+  const job = { taskId: 'system', status: 'deployed', followUp: { status: 'waiting' } };
+  s.requests[0].resolve({ revision: 1, job, pluginUpdates: { build: null } }); await flushBackgroundAsync();
+  s.render(); assert.equal(s.scheduler.intervals.size, 1);
+  const active = s.render().refresh();
+  s.requests[1].resolve({ revision: 2, job: { ...job, followUp: { status: 'running' } }, pluginUpdates: { build: { status: 'building' } } }); await active;
+  s.render(); assert.equal(s.scheduler.intervals.size, 1);
+  const done = s.render().refresh();
+  s.requests[2].resolve({ revision: 3, job: { ...job, followUp: { status: 'deployed' } }, pluginUpdates: { build: { status: 'deployed' } } }); await done;
+  s.render(); assert.equal(s.scheduler.intervals.size, 0); s.unmount();
 });

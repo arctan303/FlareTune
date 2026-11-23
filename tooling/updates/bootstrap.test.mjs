@@ -1,14 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, stat, realpath } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, stat, realpath } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createServer } from 'node:http';
+import { build } from 'esbuild';
 import { canonical, sha256 } from '../../server/src/systemUpdate/common.js';
 import { createPluginHostBuild } from '../plugins/host-identity.mjs';
 import { sanitizedBuildEnvironment, verifySourceCheckout, buildSystemUpdate, runSystemUpdate, runBuildCommand } from './bootstrap.mjs';
-import { fetchUpdatePlan, updateConnection, withUpdateLease, reportUpdate } from './protocol.mjs';
+import { fetchUpdatePlan, updateConnection, validateUpdatePlan, withUpdateLease, reportUpdate } from './protocol.mjs';
+import { validateDeliveryPlan, validatePluginArtifact } from '../plugins/assemble.mjs';
 import { canCleanProcessDirectory, runManagedProcess } from './process.mjs';
 
 const TASK = '895c1cb8-cea8-4f32-abf7-b324191005c8';
@@ -67,6 +71,61 @@ test('failed compilation removes its private plan input and stops before later s
   await assert.rejects(buildSystemUpdate(plan, { root, environment, downloadImpl: async () => Buffer.from('x'), extractImpl: async () => {},
     verifySourceImpl: async () => {}, runCommandImpl: async () => { calls++; throw Error('synthetic build failure'); } }));
   assert.equal(calls, 1); await assert.rejects(stat(resolve(root, '.system-update-plan.json')), { code: 'ENOENT' });
+});
+
+test('a fixed capability-6 launcher accepts a capability-7 plan while the verified target validates its new SDK', async t => {
+  const root = await directory(t), plan = await makePlan();
+  const sdk = '@flaretune/plugin-sdk/server/future-capability';
+  const sdkPath = 'server/src/plugins/sdk/future-capability.js';
+  const manifest = { id: 'future-plugin', name: 'Future', description: 'Synthetic future host package', icon: 'puzzle',
+    version: '1.0.0', hostApiVersion: 7, apiVersion: 1, pages: [], entries: [] };
+  const artifact = { schemaVersion: 2, manifest, entries: { server: 'server/index.js' }, exports: {}, assets: {},
+    files: { 'server/index.js': `import { value } from '${sdk}'; export const actual = value;` } };
+  const bytes = Buffer.from(JSON.stringify(artifact));
+  const entry = { id: manifest.id, version: manifest.version, manifest, source: { type: 'artifact', id: 'test-source',
+    url: 'https://plugins.example.net/fixed.json', sha256: createHash('sha256').update(bytes).digest('hex') } };
+  await mkdir(resolve(root, dirname(sdkPath)), { recursive: true });
+  await writeFile(resolve(root, 'package.json'), '{"type":"module","version":"1.3.0"}');
+  await writeFile(resolve(root, sdkPath), 'export const value = "new target SDK";');
+  plan.target.host = await createPluginHostBuild(root);
+  plan.target.hostApiVersion = 7;
+  plan.plugins = [{ ...entry, installation: { epoch: TASK, revision: 1 } }];
+  plan.planDigest = await sha256(canonical({ from: plan.from, target: plan.target, plugins: plan.plugins }));
+  await writeFile(resolve(root, 'plugins.lock.json'), JSON.stringify({ host: plan.target.host, hostApiVersion: 7 }));
+  assert.throws(() => validateDeliveryPlan({ host: plan.target.host, plugins: [entry] }), { code: 'PLUGIN_PLAN_INCOMPATIBLE' });
+  assert.throws(() => validatePluginArtifact(artifact, manifest), { code: 'PLUGIN_ARTIFACT_IMPORT_INVALID' });
+  await assert.rejects(validateUpdatePlan({ ...plan, planDigest: '0'.repeat(64) }), { code: 'SYSTEM_UPDATE_PLAN_DIGEST_MISMATCH' });
+  const verified = await validateUpdatePlan(plan);
+
+  // Model the official target checkout adding just its capability and SDK.
+  // The assembly code is otherwise the real, unchanged target validator.
+  const targetBundle = await build({ bundle: true, write: false, format: 'esm', platform: 'node',
+    entryPoints: [fileURLToPath(new URL('../build/system-update-runtime.mjs', import.meta.url))], plugins: [{
+      name: 'synthetic-target-capability', setup(builder) {
+        builder.onResolve({ filter: /^@babel\/parser$/ }, () => ({ path: import.meta.resolve('@babel/parser'), external: true }));
+        builder.onLoad({ filter: /[\\/]shared[\\/]plugins[\\/](?:manifest|sdkImports)\.js$/ }, async ({ path }) => {
+          const original = await readFile(path, 'utf8');
+          return { contents: basename(path) === 'manifest.js'
+            ? original.replace('HOST_PLUGIN_API_VERSION = 6', 'HOST_PLUGIN_API_VERSION = 7')
+            : original.replace('pluginSdkImports = Object.freeze({', `pluginSdkImports = Object.freeze({\n  '${sdk}': { target: '${sdkPath}', side: 'server' },`), loader: 'js' };
+        });
+      },
+    }] });
+  const targetPath = resolve(root, 'target-build.mjs');
+  await writeFile(targetPath, targetBundle.outputFiles[0].contents);
+  const target = await import(pathToFileURL(targetPath).href);
+  let artifactReads = 0;
+  await buildSystemUpdate(verified, { root, environment, downloadImpl: async () => Buffer.from('synthetic'), extractImpl: async () => {},
+    runCommandImpl: async (cwd, command, args, env) => {
+      assert.equal(cwd, root); assert.equal(env.CLOUDFLARE_API_TOKEN, undefined);
+      if (command !== 'node' || args[1] !== 'prepare') return;
+      await target.prepareSystemUpdateRuntime({ root, plan: JSON.parse(await readFile(args[3], 'utf8')), fetchImpl: async url => {
+        assert.equal(url, entry.source.url); artifactReads++; return new Response(bytes);
+      } });
+    } });
+  const output = await import(pathToFileURL(resolve(root, 'server/src/plugins/delivery.generated.js')).href);
+  assert.equal(output.deliveryPluginModules[entry.id].actual, 'new target SDK');
+  assert.equal(artifactReads, 1);
 });
 
 test('an unconfirmed build stop keeps the private plan and source scratch and preserves cleanupUnsafe through error mapping', async t => {

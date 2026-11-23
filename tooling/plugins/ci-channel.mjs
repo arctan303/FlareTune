@@ -1,9 +1,13 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deliveryConnection, reportDelivery, runDeliveryCommand } from './delivery.mjs';
+import { deliveryConnection, fetchDeliveryWireSnapshot, reportDelivery, runDeliveryCommand } from './delivery.mjs';
 import { deployPluginDelivery } from './delivery-deploy.mjs';
 import { prepareDevelopmentBuildConfig } from './dev-build-config.mjs';
+import { createPluginHostBuild } from './host-identity.mjs';
+import { runBuildCommand, sanitizedBuildEnvironment, verifySourceCheckout } from '../updates/bootstrap.mjs';
+import { classifyPluginCiSnapshot, exactHostRelease, loadExactPluginTool, pinPluginBuildFetch, readExactPluginSource,
+  saveExactPluginSource, saveIdlePluginBuild, stageExactPluginSource } from './ci-exact-source.mjs';
 
 const rootDirectory = fileURLToPath(new URL('../../', import.meta.url));
 const fail = code => { throw Object.assign(new Error(code), { code }); };
@@ -42,9 +46,12 @@ async function runNpm(root, args, environment) {
   });
 }
 
+const runPinnedNpm = (root, args, environment) => runBuildCommand(root, 'npm', args, environment);
+
 export async function runPluginCiChannel(command, { root = rootDirectory, environment = process.env,
-  runDeliveryImpl = runDeliveryCommand, runNpmImpl = runNpm,
-  prepareConfigImpl = prepareDevelopmentBuildConfig, deployImpl = deployPluginDelivery, reportImpl = reportDelivery } = {}) {
+  runDeliveryImpl, runNpmImpl, prepareConfigImpl, deployImpl, reportImpl = reportDelivery, fetchImpl = fetch,
+  fetchSnapshot = fetchDeliveryWireSnapshot, stageSource = stageExactPluginSource, loadTool = loadExactPluginTool,
+  hostIdentity = createPluginHostBuild } = {}) {
   pluginCiContext(environment);
   const buildWorkerName = environment.WRANGLER_CI_OVERRIDE_NAME === buildController ? buildController : undefined;
   // A dedicated Builds controller has no application bindings or traffic. Its
@@ -54,26 +61,72 @@ export async function runPluginCiChannel(command, { root = rootDirectory, enviro
     environment = { ...environment, WRANGLER_CI_OVERRIDE_NAME: 'flaretune-dev',
       WRANGLER_CI_MATCH_TAG: environment.FLARETUNE_PLUGIN_DEPLOY_WORKER_TAG };
   }
+  const connection = deliveryConnection(environment);
   if (command === 'build') {
     let prepared;
     try {
-      prepared = await runDeliveryImpl('prepare-current', { root, environment });
-      await runNpmImpl(root, ['run', 'plugins:lock'], environment);
-      await runNpmImpl(root, ['run', 'build'], environment);
+      const snapshot = await fetchSnapshot(connection, { fetchImpl });
+      const selected = classifyPluginCiSnapshot(snapshot);
+      if (selected === 'idle') {
+        await saveIdlePluginBuild(root, snapshot);
+        return { status: 'idle' };
+      }
+      const frozenFetch = pinPluginBuildFetch(connection, snapshot, fetchImpl, fetchSnapshot);
+      if (selected === 'legacy') {
+        const local = await hostIdentity(root);
+        if (local.version !== snapshot.host.version || local.sourceDigest !== snapshot.host.sourceDigest) fail('PLUGIN_HOST_BUILD_MISMATCH');
+        // Continue an explicitly reserved, matching host upgrade. The standalone
+        // maintainer CLI still handles a deliberate new reservation.
+        prepared = await (runDeliveryImpl ?? runDeliveryCommand)('prepare-current', { root, environment, fetchImpl: frozenFetch });
+        await (runNpmImpl ?? runNpm)(root, ['run', 'plugins:lock'], environment);
+        await (runNpmImpl ?? runNpm)(root, ['run', 'build'], environment);
+      } else {
+        const release = exactHostRelease(snapshot);
+        const checkout = release ? await stageSource(root, release, { fetchImpl }) : root;
+        const compile = runNpmImpl ?? runPinnedNpm;
+        const compileEnv = sanitizedBuildEnvironment(environment, release?.commit);
+        if (release) {
+          await compile(checkout, ['ci'], compileEnv);
+          await verifySourceCheckout(checkout, release);
+        } else {
+          const local = await hostIdentity(root);
+          if (local.version !== snapshot.host.version || local.sourceDigest !== snapshot.host.sourceDigest) fail('PLUGIN_CI_SOURCE_REQUIRED');
+        }
+        const prepare = runDeliveryImpl ?? (release ? (await loadTool(checkout, 'tooling/plugins/delivery.mjs')).runDeliveryCommand : runDeliveryCommand);
+        prepared = await prepare('prepare', { root: checkout,
+          environment: { FLARETUNE_PLUGIN_SITE_URL: connection.origin, FLARETUNE_PLUGIN_BUILD_TOKEN: connection.token },
+          fetchImpl: frozenFetch });
+        if (prepared?.buildId !== snapshot.buildId || prepared?.planDigest !== snapshot.planDigest) {
+          prepared = undefined;
+          fail('PLUGIN_BUILD_SUPERSEDED');
+        }
+        await compile(checkout, ['run', 'plugins:lock'], compileEnv);
+        await compile(checkout, ['run', 'build'], compileEnv);
+        if (release) {
+          await verifySourceCheckout(checkout, release);
+          await saveExactPluginSource(root, checkout, snapshot, release);
+        }
+      }
     } catch (error) {
       // Preparation failures cannot fail somebody else's old task. Compilation
       // failures after a reservation belong only to that frozen build ID.
       if (prepared && !prepared.replay && /^[a-f0-9-]{36}$/.test(prepared.buildId || '')
         && /^[a-f0-9]{64}$/.test(prepared.planDigest || '')) {
-        await reportImpl(deliveryConnection(environment), prepared, 'failed').catch(() => {});
+        await reportImpl(connection, prepared, 'failed', { fetchImpl }).catch(() => {});
       }
       throw error;
     }
     return { status: 'built' };
   }
   if (command === 'deploy' || command === 'recover') {
-    const { configPath } = await prepareConfigImpl({ root, environment });
-    return deployImpl({ root, ...(buildWorkerName ? { buildWorkerName } : {}), environment: { ...environment,
+    const exact = await readExactPluginSource(root, connection, { fetchImpl, fetchSnapshot });
+    if (exact?.idle) return { status: 'idle' };
+    const checkout = exact?.checkout ?? root;
+    const prepareConfig = prepareConfigImpl ?? (exact ? (await loadTool(checkout, 'tooling/plugins/dev-build-config.mjs')).prepareDevelopmentBuildConfig : prepareDevelopmentBuildConfig);
+    const deploy = deployImpl ?? (exact ? (await loadTool(checkout, 'tooling/plugins/delivery-deploy.mjs')).deployPluginDelivery : deployPluginDelivery);
+    const pinnedFetch = exact ? pinPluginBuildFetch(connection, exact.snapshot, fetchImpl, fetchSnapshot) : fetchImpl;
+    const { configPath } = await prepareConfig({ root: checkout, environment, fetchImpl: pinnedFetch });
+    return deploy({ root: checkout, fetchImpl: pinnedFetch, ...(buildWorkerName ? { buildWorkerName } : {}), environment: { ...environment,
       FLARETUNE_PLUGIN_WRANGLER_CONFIG: configPath, FLARETUNE_PLUGIN_WRANGLER_ENV: '' }, recover: command === 'recover' });
   }
   fail('PLUGIN_BUILD_COMMAND_INVALID');

@@ -37,7 +37,11 @@ async function provider(target, path, { fetchImpl = fetch, body, service = false
     signal: AbortSignal.timeout(60000), headers: { Authorization: `Bearer ${target.token}`, Accept: 'application/json',
       ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
   catch { fail('SYSTEM_UPDATE_PROVIDER_UNCONFIRMED'); }
-  if (!response.ok) { await response.body?.cancel().catch(() => {}); fail('SYSTEM_UPDATE_PROVIDER_REJECTED'); }
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
+    const code = 'SYSTEM_UPDATE_PROVIDER_REJECTED';
+    throw Object.assign(new Error(code), { code, providerStatus: response.status });
+  }
   let data;
   try { data = JSON.parse((await readBoundedResponse(response, 2 * 1024 * 1024)).toString('utf8')); }
   catch { fail('SYSTEM_UPDATE_PROVIDER_RESPONSE_INVALID'); }
@@ -153,7 +157,53 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     await refresh();
     if (plan.status !== status) fail('SYSTEM_UPDATE_REPORT_UNCONFIRMED');
   };
-  const onRuntime = async (versions, action) => {
+  const waitForVisibility = async (read, missingCode, retryRead = () => false) => {
+    const deadline = AbortSignal.timeout(12000);
+    const readOptions = { fetchImpl: (url, init) => fetchImpl(url, {
+      ...init, signal: AbortSignal.any([deadline, lease.signal, init?.signal].filter(Boolean)),
+    }) };
+    for (let attempt = 0; attempt < 6; attempt++) {
+      lease.check();
+      if (deadline.aborted) break;
+      try {
+        const result = await read(readOptions);
+        lease.check();
+        if (deadline.aborted) break;
+        if (result) return result;
+      } catch (error) {
+        lease.check();
+        if (deadline.aborted) break;
+        if (!retryRead(error)) throw error;
+      }
+      if (attempt < 5) await sleepImpl(1000);
+    }
+    fail(missingCode);
+  };
+  const waitForUpload = () => waitForVisibility(readOptions => uploadedForTask(target, plan, readOptions),
+    'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED');
+  const checkedUploadedVersion = versionId => waitForVisibility(async readOptions => {
+    const version = await provider(target, `/versions/${versionId}`, readOptions);
+    if (version.id !== versionId || version.annotations?.['workers/tag'] !== `system-${plan.taskId}`) fail('SYSTEM_UPDATE_UPLOAD_INVALID');
+    if (workerVersionBindingsDigest(version) !== receipt.bindingDigest) fail('SYSTEM_UPDATE_BINDINGS_MISMATCH');
+    return version;
+  }, 'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED', error => error.providerStatus === 404);
+  const deploymentStillPrevious = current => current.id === receipt.previous.id && sameVersions(current.versions, receipt.previous.versions);
+  const waitForCutover = next => waitForVisibility(async readOptions => {
+    const current = await currentWorkerDeployment(target, readOptions);
+    if (sameVersions(current.versions, next)) return current;
+    if (!deploymentStillPrevious(current)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+    return null;
+  }, 'SYSTEM_UPDATE_DEPLOYMENT_UNCONFIRMED');
+  const servingHostSuccessor = async (current, readOptions) => {
+    if (plan.status !== 'deployed' || !receipt?.migrationCompleted || !plan.hostSuccessor || current.versions.length !== 1
+      || current.versions[0].percentage !== 100) return false;
+    assertReceiptTarget(receipt, target);
+    const { version_id: versionId } = current.versions[0];
+    const version = await provider(target, `/versions/${versionId}`, readOptions);
+    return version.id === versionId && version.annotations?.['workers/tag'] === `plugin-${plan.hostSuccessor.buildId}`
+      && workerVersionBindingsDigest(version) === receipt.bindingDigest;
+  };
+  const onRuntime = async (versions, action, allowCompletedSuccessor = false) => {
     // A 100% deployment may still reach an old edge runtime during propagation.
     // Only that precise confirmed rejection is retried; never retry an unknown
     // write, a changed installation, or a different provider deployment.
@@ -191,7 +241,14 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     });
     const guard = async () => {
       const current = await bounded(() => currentWorkerDeployment(target, phaseOptions));
-      if (!sameVersions(current.versions, versions)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+      if (sameVersions(current.versions, versions)) return;
+      if (allowCompletedSuccessor) {
+        // A linked plugin step may promote immediately after the host's
+        // durable completion. Re-read that completion and its successor.
+        await phaseRefresh();
+        if (await bounded(() => servingHostSuccessor(current, phaseOptions))) return;
+      }
+      fail('SYSTEM_UPDATE_TARGET_CHANGED');
     };
     let firstMismatch;
     try {
@@ -219,13 +276,12 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
   };
   const reportOnRuntime = async (status, versions, diagnostic) => {
     await onRuntime(versions, phaseOptions => reportUpdate(connection, expected, status,
-      { ...phaseOptions, ...(diagnostic ? { error: diagnostic } : {}) }));
+      { ...phaseOptions, ...(diagnostic ? { error: diagnostic } : {}) }), status === 'deployed');
     if (plan.status !== status) fail('SYSTEM_UPDATE_REPORT_UNCONFIRMED');
   };
   try {
     if (plan.status === 'deployed') {
       assertReceiptTarget(receipt, target);
-      if (!sameVersions((await currentWorkerDeployment(target, options)).versions, [{ version_id: receipt.nextVersionId, percentage: 100 }])) fail('SYSTEM_UPDATE_TARGET_CHANGED');
       await reportOnRuntime('deployed', [{ version_id: receipt.nextVersionId, percentage: 100 }]);
       return { taskId: plan.taskId, status: 'deployed', versionId: receipt.nextVersionId };
     }
@@ -248,9 +304,8 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
       if (!['queued', 'building', 'activation_pending'].includes(plan.status)) fail('SYSTEM_UPDATE_RECEIPT_MISSING');
       const current = await currentWorkerDeployment(target, options);
       if (current.id !== receipt.previous.id) fail('SYSTEM_UPDATE_TARGET_CHANGED');
-      let nextVersionId = await uploadedForTask(target, plan, options);
+      let nextVersionId = receipt.uploadStarted ? await waitForUpload() : await uploadedForTask(target, plan, options);
       if (!nextVersionId) {
-        if (receipt.uploadStarted) fail('SYSTEM_UPDATE_UPLOAD_UNCONFIRMED');
         const baseline = await baselineVersion(target, receipt.previous, options);
         if (baseline.digest !== receipt.bindingDigest) fail('SYSTEM_UPDATE_BINDINGS_MISMATCH');
         const config = systemBuildConfig(baseline.version, { root, target, template: await readTemplateImpl(root) });
@@ -260,38 +315,48 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
           await lease.renew();
           await report('building', { ...receipt, uploadStarted: true });
           lease.check();
-          nextVersionId = await uploadImpl(target, plan, { root, configPath, environment, signal: lease.signal });
+          try {
+            nextVersionId = await uploadImpl(target, plan, { root, configPath, environment, signal: lease.signal });
+          } catch (error) {
+            if (error.cleanupUnsafe || !['SYSTEM_UPDATE_UPLOAD_UNCONFIRMED', 'PLUGIN_DEPLOY_UPLOAD_INVALID'].includes(error.code)) throw error;
+            // The upload may already have reached Cloudflare. Look for our tag,
+            // never run the upload again, even if the version isn't visible yet.
+            nextVersionId = await waitForUpload();
+          }
         }
         finally { if (canCleanProcessDirectory(root)) await rm(configPath, { force: true }); }
       }
       if (!uuid(nextVersionId)) fail('SYSTEM_UPDATE_UPLOAD_INVALID');
-      const version = await provider(target, `/versions/${nextVersionId}`, options);
-      if (version.id !== nextVersionId || version.annotations?.['workers/tag'] !== `system-${plan.taskId}`) fail('SYSTEM_UPDATE_UPLOAD_INVALID');
-      if (workerVersionBindingsDigest(version) !== receipt.bindingDigest) fail('SYSTEM_UPDATE_BINDINGS_MISMATCH');
+      await checkedUploadedVersion(nextVersionId);
       await refresh();
+      if (!deploymentStillPrevious(await currentWorkerDeployment(target, options))) fail('SYSTEM_UPDATE_TARGET_CHANGED');
       await report('uploaded', { ...receipt, uploadStarted: true, nextVersionId });
     }
     const next = [{ version_id: receipt.nextVersionId, percentage: 100 }];
-    const version = await provider(target, `/versions/${receipt.nextVersionId}`, options);
-    if (version.id !== receipt.nextVersionId || version.annotations?.['workers/tag'] !== `system-${plan.taskId}`
-      || workerVersionBindingsDigest(version) !== receipt.bindingDigest) fail('SYSTEM_UPDATE_BINDINGS_MISMATCH');
-    let current = await currentWorkerDeployment(target, options);
+    await checkedUploadedVersion(receipt.nextVersionId);
+    const current = await currentWorkerDeployment(target, options);
     if (!sameVersions(current.versions, next)) {
-      if (receipt.migrationStarted || !sameVersions(current.versions, receipt.previous.versions)
-        || current.id !== receipt.previous.id) fail('SYSTEM_UPDATE_TARGET_CHANGED');
-      if (plan.status === 'activation_pending') await report('deploying');
-      else if (plan.status !== 'deploying') await report('deploying');
-      await refresh();
-      current = await currentWorkerDeployment(target, options);
-      if (current.id !== receipt.previous.id) fail('SYSTEM_UPDATE_TARGET_CHANGED');
-      await lease.renew();
-      await refresh();
-      if ((await currentWorkerDeployment(target, options)).id !== receipt.previous.id) fail('SYSTEM_UPDATE_TARGET_CHANGED');
-      lease.check();
-      promotionAttempted = true;
-      await changedDeployment(target, next, plan.taskId, options);
-      current = await currentWorkerDeployment(target, options);
-      if (!sameVersions(current.versions, next)) fail('SYSTEM_UPDATE_DEPLOYMENT_UNCONFIRMED');
+      if (receipt.migrationStarted || !deploymentStillPrevious(current)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+      const rejectedPromotion = plan.status === 'activation_pending' && plan.error === 'SYSTEM_UPDATE_PROMOTION_REJECTED';
+      if (rejectedPromotion || !['activation_pending', 'deploying'].includes(plan.status)) {
+        await report('deploying');
+        await refresh();
+        if (!deploymentStillPrevious(await currentWorkerDeployment(target, options))) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+        await lease.renew();
+        await refresh();
+        if (!deploymentStillPrevious(await currentWorkerDeployment(target, options))) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+        lease.check();
+        promotionAttempted = true;
+        try { await changedDeployment(target, next, plan.taskId, options); }
+        catch (error) {
+          if ([401, 403].includes(error.providerStatus)) fail('SYSTEM_UPDATE_PROMOTION_REJECTED');
+          if (!['SYSTEM_UPDATE_PROVIDER_UNCONFIRMED', 'SYSTEM_UPDATE_PROVIDER_RESPONSE_INVALID'].includes(error.code)
+            && !(error.providerStatus >= 500)) throw error;
+        }
+      }
+      // After a durable cutover intent, or a lost/late response, the old live
+      // version alone cannot prove that Cloudflare did not accept the request.
+      await waitForCutover(next);
     }
     await refresh();
     if (!receipt.migrationStarted || plan.status === 'activation_pending') {
@@ -312,7 +377,10 @@ export async function deploySystemUpdate({ root = rootDirectory, environment = p
     try { latest = await refresh(); } catch { /* Lost acknowledgement remains unknown. */ }
     if (latest?.status === 'deployed') {
       const current = await currentWorkerDeployment(target, options);
-      if (!sameVersions(current.versions, [{ version_id: receipt.nextVersionId, percentage: 100 }])) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+      if (!sameVersions(current.versions, [{ version_id: receipt.nextVersionId, percentage: 100 }])) {
+        await refresh();
+        if (!await servingHostSuccessor(current, options)) fail('SYSTEM_UPDATE_TARGET_CHANGED');
+      }
       // A durable completed task can recover a lost acknowledgement, but it
       // cannot turn an exhausted actual-runtime rejection into readiness.
       if (runtimeMismatch(error) || error.code === 'SYSTEM_UPDATE_RUNTIME_WAIT_UNCONFIRMED') throw error;

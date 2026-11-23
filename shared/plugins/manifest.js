@@ -208,7 +208,7 @@ export function validatePluginManifests(manifests) {
   return manifests;
 }
 
-function requiredIssues(manifests, installed, pluginId) {
+function requiredIssues(manifests, installed, pluginId, hostApiVersion) {
   const byId = new Map(manifests.map(manifest => [manifest.id, manifest]));
   const issues = [];
   const visited = new Set();
@@ -217,7 +217,7 @@ function requiredIssues(manifests, installed, pluginId) {
     if (visited.has(id)) return;
     const manifest = byId.get(id);
     if (!manifest) { issues.push({ code: 'missing_dependency', pluginId, dependencyId: id }); return; }
-    if (manifest.hostApiVersion > HOST_PLUGIN_API_VERSION) issues.push({ code: 'host_incompatible', pluginId: id });
+    if (manifest.hostApiVersion > hostApiVersion) issues.push({ code: 'host_incompatible', pluginId: id });
     const next = new Set(path); next.add(id);
     for (const [dependencyId, declaration] of Object.entries(manifest.dependencies || {})) {
       const dependency = byId.get(dependencyId);
@@ -235,17 +235,18 @@ function requiredIssues(manifests, installed, pluginId) {
   return issues;
 }
 
-export function resolvePluginAvailability(manifests, installedIds, pluginId) {
+export function resolvePluginAvailability(manifests, installedIds, pluginId, hostApiVersion = HOST_PLUGIN_API_VERSION) {
   validatePluginManifests(manifests);
+  if (!Number.isSafeInteger(hostApiVersion) || hostApiVersion < 1) throw new TypeError('Invalid host API version');
   const installed = new Set(installedIds);
   const manifest = manifests.find(item => item.id === pluginId);
-  const issues = requiredIssues(manifests, installed, pluginId);
+  const issues = requiredIssues(manifests, installed, pluginId, hostApiVersion);
   const optionalFeatures = {};
   for (const [dependencyId, declaration] of Object.entries(manifest?.optionalDependencies || {})) {
     const dependency = manifests.find(item => item.id === dependencyId);
     const reason = !dependency ? 'missing_dependency' : !installed.has(dependencyId) ? 'dependency_not_installed'
       : dependency.apiVersion !== declaration.apiVersion || (declaration.version && !satisfiesPluginVersion(dependency.version, declaration.version))
-        ? 'incompatible_dependency' : requiredIssues(manifests, installed, dependencyId)[0]?.code || null;
+        ? 'incompatible_dependency' : requiredIssues(manifests, installed, dependencyId, hostApiVersion)[0]?.code || null;
     for (const feature of declaration.features || [dependencyId]) optionalFeatures[feature] = { available: reason === null, reason, dependencyId };
   }
   return { available: issues.length === 0, reason: issues[0]?.code || null, issues, optionalFeatures };

@@ -67,11 +67,13 @@ Builds 提供的 `WORKERS_CI=1` 和 `WORKERS_CI_BRANCH` 用于核对执行环境
 ### 日常检查与升级
 
 1. 管理员打开「实例设置 → 系统更新」，点击「检查更新」。检查读取官方稳定Release的 `flaretune-update.json`，并确认同一Release包含固定源码资产 `flaretune-source.tar.gz`，不会部署。只有已正式发布、非预发布且两项资产齐全、清单有效的版本才进入稳定通道；缺失资产或暂时不可访问时会报错，不能据此判断已经更新。
-2. 核对当前版本、目标版本及说明，再点击「升级系统 → 确认升级」。受信服务器配置的待发布候选会单独标识，不等于正式稳定版。待应用插件变更、其他活动构建、版本不兼容或运行元数据缺失时，先按提示处理，再重新检查。
-3. 页面显示真实构建、发布和迁移阶段。刷新或关闭网页不取消任务，重新进入仍继续读取同一任务。系统升级冻结已安装插件的精确版本、来源、包摘要及安装代次，保留原配置和数据，不顺带更新插件；插件新增、升级或卸载仍在[来源与部署](plugin-deployment.md)单独确认。
+2. 核对当前版本、目标版本及说明。在同一更新区选择基础服务、已安装插件或两者，查看目标和来源后确认。受信服务器配置的待发布候选会单独标识。待应用插件变更、其他活动构建、版本不兼容或运行元数据缺失时，按提示处理。
+3. 页面显示真实构建、发布和迁移阶段。刷新或关闭网页后，后台仍执行原任务。基础服务更新先保留已安装插件的精确版本、来源、包摘要及安装代次。若同时选了插件，基础服务完成且核验通过后才执行这些插件更新。插件更新已判定失败时，可只继续该步骤。插件安装、卸载与独立通道仍由[来源与部署](plugin-deployment.md)管理。
 4. 进入迁移维护窗口后，音乐、媒体和普通业务暂时不可用，页面持续核实并在完成后恢复。正常管理员仍可查看系统更新面板；会话过期时可从等待页使用本地管理员账号登录，成员仅等待或退出切换账号。已确认失败时使用「重试本次更新」；结果待确认，或后台确认任务已停滞可续接时，使用「继续核实更新」，保持原任务与目标，不重新创建升级或假定旧代码仍在服务。完成后重新加载网页。缺失凭据、目标身份或绑定变化等问题需先修正云端配置。
 
 维护页管理入口要求底层数据库仍可通过原有正常认证；未知结构或实际未完成的基础迁移不会因此放开登录，仍须等待已配置构建继续或联系部署者维护，不能保证任意半迁移都可在网页恢复。
+
+「核对云端状态」只读取本次任务的构建及部署证据。若希望在站内读取 Cloudflare 回执，可在应用 Worker 配置只读秘密 `FLARETUNE_UPDATE_STATUS_TOKEN`，并提供 `FLARETUNE_UPDATE_STATUS_ACCOUNT_ID` 和 `FLARETUNE_UPDATE_STATUS_WORKER_NAME`。先验证该凭据能读取相应的 [Builds 状态](https://developers.cloudflare.com/api/resources/workers_builds/subresources/builds/methods/get/)和 [Worker 部署](https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/deployments/methods/list/)。未配置或读取失败时，站内保留待确认状态；可用时附对应构建链接。正常部署凭据继续放在构建环境。
 
 稳定构建使用清单指定的官方Release源码资产，不使用GitHub自动生成的“Source code (zip/tar.gz)”作为长期固定字节输入；[GitHub说明](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives#stability-of-source-code-archives)指出自动归档的压缩字节可能变化。下载后仍严格核对清单SHA256、完整提交及宿主摘要；失败即停止，不以重新计算或改写SHA放行。受信候选通道临时使用固定完整提交的codeload归档，也遵守同样校验，不能代替稳定Release的两项资产。
 

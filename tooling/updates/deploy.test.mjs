@@ -78,11 +78,14 @@ export async function fixture(t, options = {}) {
       return response({ ok: true, taskId: TASK, status: body.status });
     }
     assert.equal(init.headers.Authorization, `Bearer ${environment.CLOUDFLARE_API_TOKEN}`);
+    const providerResponse = await options.onProviderRequest?.(url, init, state);
+    if (providerResponse) return providerResponse;
     if (url.includes('/services/')) return response({ success: true, result: { default_environment: { script: { tag: options.wrongTarget ? '0'.repeat(32) : environment.FLARETUNE_SYSTEM_UPDATE_WORKER_TAG } } } });
     if (url.endsWith('/deployments') && init.method === 'GET') return response({ success: true, result: { deployments: [state.current] } });
     if (url.endsWith('/deployments')) {
       const body = JSON.parse(init.body); state.promotions.push(body);
       state.current = { id: AFTER, strategy: 'percentage', versions: body.versions };
+      if (options.loseDeploymentResponse) throw Error('synthetic lost cutover response');
       return response({ success: true, result: state.current });
     }
     if (url.endsWith('/versions?per_page=100')) return response({ success: true, result: { items: [...state.versions.values()] } });
@@ -145,12 +148,123 @@ test('an uploaded durable receipt resumes on a different build without another u
   assert.equal((await retry.run()).status, 'deployed'); assert.equal(retry.state.uploads, 0); assert.equal(retry.state.promotions.length, 0);
 });
 test('a crash after upload but before receipt delivery recovers the task-tagged inactive version', async t => {
-  const f = await fixture(t, { loseUploadResponse: true });
+  let visible = false;
+  const f = await fixture(t, { loseUploadResponse: true, onProviderRequest: url => !visible && url.endsWith('/versions?per_page=100')
+    ? response({ success: true, result: { items: [] } }) : undefined });
   await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_UPLOAD_UNCONFIRMED' });
   assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 0);
+  visible = true;
   f.state.plan.status = 'queued';
   f.state.plan.execution.leaseExpiresAt = Date.now() - 1;
   assert.equal((await f.run()).status, 'deployed'); assert.equal(f.state.uploads, 1);
+});
+test('a lost upload response and late version index or metadata visibility still complete in the same run', async t => {
+  let tagReads = 0, detailReads = 0;
+  const f = await fixture(t, { loseUploadResponse: true, onProviderRequest: (url, _init, state) => {
+    if (state.uploads && url.endsWith('/versions?per_page=100') && ++tagReads < 2) return response({ success: true, result: { items: [] } });
+    if (url.endsWith(`/versions/${NEXT}`) && ++detailReads === 1) return response({}, 404);
+  } });
+  assert.equal((await f.run()).status, 'deployed');
+  assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 1); assert.equal(f.state.migrations, 1);
+  assert.equal(f.state.plan.receipt.nextVersionId, NEXT); assert.equal(tagReads, 2); assert.equal(detailReads, 3);
+  assert.deepEqual(f.state.sleeps, [1000, 1000]);
+});
+
+test('a lost cutover response and an old first read never resend the promotion', async t => {
+  let readsAfterPromotion = 0;
+  const f = await fixture(t, { loseDeploymentResponse: true, onProviderRequest: (url, init, state) => {
+    if (state.promotions.length && url.endsWith('/deployments') && init.method === 'GET' && ++readsAfterPromotion === 1) {
+      return response({ success: true, result: { deployments: [deployment(BEFORE, OLD)] } });
+    }
+  } });
+  assert.equal((await f.run()).status, 'deployed');
+  assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 1); assert.equal(f.state.migrations, 1);
+  assert.deepEqual(f.state.sleeps, [1000]);
+});
+
+test('a resumed cutter reads an uncertain old deployment without writing again or starting migration', async t => {
+  let holdOld = true;
+  const f = await fixture(t, { onProviderRequest: (url, init, state) => {
+    if (holdOld && state.promotions.length && url.endsWith('/deployments') && init.method === 'GET') {
+      return response({ success: true, result: { deployments: [deployment(BEFORE, OLD)] } });
+    }
+  } });
+  await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_DEPLOYMENT_UNCONFIRMED' });
+  const task = f.state.plan.taskId;
+  f.state.plan.execution.leaseExpiresAt = Date.now() - 1;
+  await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_DEPLOYMENT_UNCONFIRMED' });
+  assert.equal(f.state.plan.taskId, task); assert.equal(f.state.plan.status, 'activation_pending');
+  assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 1); assert.equal(f.state.migrations, 0);
+  holdOld = false;
+  f.state.plan.execution.leaseExpiresAt = Date.now() - 1;
+  assert.equal((await f.run()).status, 'deployed');
+  assert.equal(f.state.plan.taskId, task); assert.equal(f.state.promotions.length, 1); assert.equal(f.state.migrations, 1);
+});
+test('an explicitly rejected promotion can retry its existing upload with repaired permissions', async t => {
+  for (const status of [401, 403]) await t.test(`HTTP ${status}`, async st => {
+    let permissionRestored = false, attempts = 0;
+    const f = await fixture(st, { onProviderRequest: (url, init) => {
+      if (!url.endsWith('/deployments') || init.method !== 'POST') return;
+      attempts++;
+      if (!permissionRestored) return response({}, status);
+    } });
+    await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_PROMOTION_REJECTED' });
+    assert.equal(f.state.plan.status, 'activation_pending');
+    assert.equal(f.state.plan.error, 'SYSTEM_UPDATE_PROMOTION_REJECTED');
+    assert.equal(f.state.plan.receipt.nextVersionId, NEXT);
+    assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 0); assert.equal(f.state.migrations, 0);
+    permissionRestored = true;
+    f.state.plan.execution.leaseExpiresAt = Date.now() - 1;
+    assert.equal((await f.run()).status, 'deployed');
+    assert.equal(attempts, 2); assert.equal(f.state.promotions.length, 1); assert.equal(f.state.uploads, 1); assert.equal(f.state.migrations, 1);
+    assert.deepEqual(f.state.current.versions, deployment(AFTER, NEXT).versions);
+  });
+});
+
+test('a provider 5xx does not authorize another promotion when the previous deployment is still visible', async t => {
+  let attempts = 0;
+  const f = await fixture(t, { onProviderRequest: (url, init) => {
+    if (url.endsWith('/deployments') && init.method === 'POST') { attempts++; return response({}, 503); }
+  } });
+  await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_DEPLOYMENT_UNCONFIRMED' });
+  f.state.plan.execution.leaseExpiresAt = Date.now() - 1;
+  await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_DEPLOYMENT_UNCONFIRMED' });
+  assert.equal(attempts, 1); assert.equal(f.state.uploads, 1); assert.equal(f.state.promotions.length, 0); assert.equal(f.state.migrations, 0);
+});
+
+test('durable host completion accepts its exact plugin successor across final acknowledgement and retry', async t => {
+  for (const loseDeployedReport of [false, true]) await t.test(loseDeployedReport ? 'lost acknowledgement' : 'confirmed acknowledgement', async st => {
+    const successor = { buildId: '5ad5c212-06b4-49a4-8e12-6d075a2f8ed1', planDigest: 'e'.repeat(64) };
+    const f = await fixture(st, { loseDeployedReport, onReport: async (status, state) => {
+      if (status !== 'deployed') return;
+      state.plan.hostSuccessor = successor;
+      state.versions.set(OTHER, { id: OTHER, annotations: { 'workers/tag': `plugin-${successor.buildId}` }, resources: { bindings: bindings() } });
+      state.current = deployment(OTHER, OTHER);
+    } });
+    assert.equal((await f.run()).status, 'deployed');
+    f.state.plan.execution.leaseExpiresAt = Date.now() - 1;
+    assert.equal((await f.run()).status, 'deployed');
+    assert.equal(f.state.current.id, OTHER); assert.equal(f.state.promotions.length, 1);
+    assert.equal(f.state.uploads, 1); assert.equal(f.state.migrations, 1);
+  });
+});
+
+test('durable host completion does not accept an unrelated build or changed successor bindings', async t => {
+  for (const foreignTag of [false, true]) await t.test(foreignTag ? 'unrelated build' : 'changed bindings', async st => {
+    const successor = { buildId: '5ad5c212-06b4-49a4-8e12-6d075a2f8ed1', planDigest: 'e'.repeat(64) };
+    const f = await fixture(st, { onReport: async (status, state) => {
+      if (status !== 'deployed') return;
+      state.plan.hostSuccessor = successor;
+      const actualBindings = bindings();
+      if (!foreignTag) actualBindings.find(row => row.name === 'DB').id = OTHER;
+      const tagId = foreignTag ? OTHER : successor.buildId;
+      state.versions.set(OTHER, { id: OTHER, annotations: { 'workers/tag': `plugin-${tagId}` }, resources: { bindings: actualBindings } });
+      state.current = deployment(OTHER, OTHER);
+    } });
+    await assert.rejects(f.run(), { code: 'SYSTEM_UPDATE_TARGET_CHANGED' });
+    assert.equal(f.state.current.id, OTHER); assert.equal(f.state.promotions.length, 1);
+    assert.equal(f.state.uploads, 1); assert.equal(f.state.migrations, 1);
+  });
 });
 test('full instance bindings must remain identical before any promotion', async t => {
   for (const mutateBindings of [rows => rows.find(row => row.name === 'DB').id = OTHER,

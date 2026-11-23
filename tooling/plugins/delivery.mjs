@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assemblePluginDelivery, deliveryPlanDigest, publicHttpsUrl, readBoundedResponse, SNAPSHOT_MAX_BYTES,
-  validateDeliveryPlan, validateDeliverySnapshot, verifyDeliveryCheckout } from './assemble.mjs';
+  validateDeliveryPlan, validateDeliverySnapshot, validateDeliverySnapshotEnvelope, verifyDeliveryCheckout } from './assemble.mjs';
 import { canonicalPluginManifest } from '../../shared/plugins/manifest.js';
 import { ACTIVE_PLUGIN_BUILDS } from '../../shared/plugins/delivery.js';
 import { createPluginHostBuild } from './host-identity.mjs';
@@ -21,13 +21,21 @@ export function deliveryConnection(environment = process.env) {
   return { origin: site.origin, token };
 }
 
-async function buildRequest(connection, path, { fetchImpl = fetch, body } = {}) {
+async function buildRequest(connection, path, { fetchImpl = fetch, body, allowInactive = false } = {}) {
   const response = await fetchImpl(`${connection.origin}/api/plugin-build/${path}`, {
     method: body ? 'POST' : 'GET', redirect: 'error', credentials: 'omit', signal: AbortSignal.timeout(30000),
     headers: { Accept: 'application/json', Authorization: `Bearer ${connection.token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) {
+    if (allowInactive && response.status === 409 && response.body) {
+      // Older and newer sites all use this exact response for no active
+      // plugin build. Never treat auth, transport or other conflict as idle.
+      try {
+        const payload = await readBoundedResponse(new Response(response.body, { headers: response.headers }), 4096);
+        if (JSON.parse(payload.toString('utf8'))?.error === 'PLUGIN_BUILD_NOT_ACTIVE') return null;
+      } catch { /* Malformed or oversized responses are not idle. */ }
+    }
     await response.body?.cancel().catch(() => {});
     const error = new Error(response.status === 401 || response.status === 403 ? 'PLUGIN_BUILD_AUTH_FAILED' : 'PLUGIN_BUILD_REQUEST_FAILED');
     error.code = error.message;
@@ -45,6 +53,11 @@ async function buildRequest(connection, path, { fetchImpl = fetch, body } = {}) 
 export async function fetchDeliverySnapshot(connection, { fetchImpl = fetch } = {}) {
   const snapshot = await buildRequest(connection, 'snapshot', { fetchImpl });
   return validateDeliverySnapshot(snapshot);
+}
+
+export async function fetchDeliveryWireSnapshot(connection, { fetchImpl = fetch } = {}) {
+  const snapshot = await buildRequest(connection, 'snapshot', { fetchImpl, allowInactive: true });
+  return snapshot === null ? null : validateDeliverySnapshotEnvelope(snapshot);
 }
 
 export async function readPreparedDeployment(root = repositoryRoot) {

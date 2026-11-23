@@ -115,6 +115,98 @@ test('a confirmed start freezes manifest and digest; no release or source can be
   await assert.rejects(f.update.plan(f.env, request('wrong_token_123456789012345678901234567890')), { code: 'forbidden' });
 });
 
+test('an administrator can verify a specific stopped build without admitting a new task or saving provider status', async t => {
+  const buildId = 'e18bc5c9-4111-44d2-9b14-ce7fdb4c041b';
+  const calls = [];
+  let providerReply = () => Response.json({ success: true, result: { build_uuid: buildId, status: 'stopped', build_outcome: 'fail',
+    build_trigger_metadata: { environment_variables: { private: 'synthetic-private-value' } } } });
+  const f = fixture(t, { fetchImpl: async (url, init) => {
+    if (url === hook && init.method === 'POST') return Response.json({ success: true, result: { build_uuid: buildId } });
+    calls.push({ url, init });
+    return providerReply();
+  } });
+  const started = await f.start(), input = { revision: started.revision, taskId: started.job.taskId };
+  const raw = f.raw();
+  Object.assign(f.env, { FLARETUNE_UPDATE_STATUS_ACCOUNT_ID: 'e'.repeat(32), FLARETUNE_UPDATE_STATUS_WORKER_NAME: 'synthetic-worker' });
+  for (const bad of [null, f.member]) await assert.rejects(f.update.verify(f.env, bad, input), { code: 'forbidden' });
+  await assert.rejects(f.update.verify(f.env, f.owner, { ...input, revision: input.revision - 1 }), { code: 'SYSTEM_UPDATE_REVISION_MISMATCH' });
+  await assert.rejects(f.update.verify(f.env, f.owner, { ...input, taskId: 'afeb830d-2060-497a-a6a4-f205be93d628' }), { code: 'SYSTEM_UPDATE_JOB_CHANGED' });
+  const noToken = await f.update.verify(f.env, f.owner, input);
+  assert.equal(noToken.status, 'awaiting_verification'); assert.equal(noToken.reason, 'status_access_unconfigured');
+  assert.equal(new URL(noToken.buildUrl).origin, 'https://dash.cloudflare.com'); assert.equal(calls.length, 0);
+  f.env.FLARETUNE_UPDATE_STATUS_TOKEN = 'synthetic_provider_status_token';
+  const verified = await f.update.verify(f.env, f.owner, input);
+  assert.equal(verified.status, 'pre_claim_failed'); assert.equal(verified.providerBuildId, buildId);
+  assert.equal(verified.taskId, input.taskId); assert.equal(JSON.stringify(verified).includes('private'), false);
+  assert.equal(calls[0].url, `https://api.cloudflare.com/client/v4/accounts/${'e'.repeat(32)}/builds/builds/${buildId}`);
+  assert.equal(calls[0].init.method, 'GET'); assert.equal(calls[0].init.redirect, 'manual');
+  providerReply = () => new Response(null, { status: 403 });
+  assert.equal((await f.update.verify(f.env, f.owner, input)).reason, 'status_access_denied');
+  providerReply = () => Response.json({ success: true, result: { build_uuid: buildId, status: 'stopped', build_outcome: 'success' } });
+  assert.equal((await f.update.verify(f.env, f.owner, input)).status, 'awaiting_verification');
+  providerReply = () => Response.json({ success: true, result: { build_uuid: nextVersion, status: 'stopped', build_outcome: 'fail' } });
+  assert.equal((await f.update.verify(f.env, f.owner, input)).reason, 'build_identity_mismatch');
+  providerReply = async () => {
+    await f.report('building');
+    return Response.json({ success: true, result: { build_uuid: buildId, status: 'stopped', build_outcome: 'fail' } });
+  };
+  assert.deepEqual(f.raw(), raw);
+  assert.equal((await f.view()).revision, input.revision);
+  await assert.rejects(f.update.verify(f.env, f.owner, input), { code: 'SYSTEM_UPDATE_REVISION_MISMATCH' });
+});
+
+test('an explicit promotion rejection survives an administrator retry until the same upload enters promotion again', async t => {
+  const f = fixture(t);
+  const saved = await f.uploaded();
+  const error = 'SYSTEM_UPDATE_PROMOTION_REJECTED';
+  await assert.rejects(f.report('activation_pending', { error }), { code: 'SYSTEM_UPDATE_TRANSITION_INVALID' });
+  await f.report('deploying');
+  await f.report('activation_pending', { error });
+  const rejected = await f.view();
+  assert.equal(rejected.job.error, error);
+
+  const retried = await f.update.retry(f.env, f.owner, { revision: rejected.revision, taskId: rejected.job.taskId });
+  assert.equal(retried.job.taskId, rejected.job.taskId);
+  assert.equal(retried.job.status, 'activation_pending');
+  assert.equal(retried.job.error, error);
+  assert.deepEqual(f.raw().job.receipt, saved);
+
+  await f.report('deploying');
+  assert.equal((await f.view()).job.error, null);
+  assert.deepEqual(f.raw().job.receipt, saved);
+});
+
+test('provider visibility checks use the receipt target and never confirm the application or database phase', async t => {
+  let serving, duplicate = false;
+  const f = fixture(t, { fetchImpl: async (url, init) => {
+    if (url === hook) return Response.json({ success: true, result: { build_uuid: 'synthetic-hook-identity' } });
+    assert.equal(init.method, 'GET');
+    if (url.endsWith('/versions?per_page=100')) {
+      const version = { id: nextVersion, annotations: { 'workers/tag': `system-${f.raw().job.taskId}` } };
+      return Response.json({ success: true, result: { items: duplicate ? [version, version] : [version] } });
+    }
+    assert.ok(url.endsWith('/deployments?per_page=1'));
+    return Response.json({ success: true, result: { deployments: [serving] } });
+  } });
+  const saved = await f.uploaded();
+  await f.report('deploying');
+  f.env.FLARETUNE_UPDATE_STATUS_TOKEN = 'synthetic_provider_status_token';
+  const state = await f.view(), verify = () => f.update.verify(f.env, f.owner, { revision: state.revision, taskId: state.job.taskId });
+  serving = saved.previous;
+  assert.equal((await verify()).status, 'upload_confirmed');
+  serving = { ...saved.previous, id: nextVersion };
+  assert.equal((await verify()).reason, 'deployment_changed');
+  serving = { ...saved.previous, id: nextVersion, versions: [{ version_id: nextVersion, percentage: 100 }] };
+  assert.equal((await verify()).status, 'deployment_confirmed');
+  duplicate = true;
+  assert.equal((await verify()).reason, 'upload_ambiguous');
+  duplicate = false;
+  f.env.FLARETUNE_UPDATE_STATUS_ACCOUNT_ID = '0'.repeat(32);
+  assert.equal((await verify()).reason, 'target_unavailable');
+  assert.equal((await f.view()).job.status, 'deploying');
+  assert.equal(f.raw().job.receipt.migrationCompleted, false);
+});
+
 test('concurrent administrators cannot start two updates', async t => {
   const f = fixture(t); await f.configured(); const v = await f.update.check(f.env, f.owner, { revision: (await f.view()).revision });
   const result = await Promise.allSettled([1, 2].map(() => f.update.start(f.env, f.owner, { revision: v.revision, releaseId: v.latest.id })));

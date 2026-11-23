@@ -12,6 +12,11 @@ test('system-update administrator routes enforce real session, role, CSRF, same 
   assert.equal((await f.api('admin/system-update', 'GET', undefined, member)).status, 403);
   const read = await f.api('admin/system-update'); assert.equal(read.status, 200);
   const state = await read.json(); assert.equal(state.configured, false); assert.equal(typeof state.current.sourceDigest, 'string');
+  const verify = { revision: state.revision, taskId: '24ce29cf-3dfb-4fd5-922b-eca99a506b07' };
+  assert.equal((await f.api('admin/system-update/verify', 'POST', verify, anonymous)).status, 401);
+  assert.equal((await f.api('admin/system-update/verify', 'POST', verify, member)).status, 403);
+  assert.equal((await f.api('admin/system-update/verify', 'POST', verify, f.signed, { 'X-CSRF-Token': '' })).status, 403);
+  assert.equal((await f.api('admin/system-update/verify', 'POST', verify)).status, 409);
   const body = { revision: state.revision, deployHookUrl, buildToken };
   for (const extra of [{ 'X-CSRF-Token': '' }, { Origin: 'https://untrusted.example' }]) {
     assert.equal((await f.api('admin/system-update', 'PUT', body, f.signed, extra)).status, 403);
